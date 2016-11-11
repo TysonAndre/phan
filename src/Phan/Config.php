@@ -175,6 +175,15 @@ class Config
         // types expressed in code.
         'read_type_annotations' => true,
 
+        // If disabled, Phan will not read docblock type
+        // annotation comments for @property.
+        // @property-read and @property-write are treated exactly the
+        // same as @property for now.
+        // Note: read_type_annotations must also be enabled.
+        // TODO: Disable this by default, but enable it for a unit test.
+        // TODO: How do you override specific config in a unit test?
+        'read_magic_property_annotations' => true,
+
         // Set to true in order to ignore issue suppression.
         // This is useful for testing the state of your code, but
         // unlikely to be useful outside of that.

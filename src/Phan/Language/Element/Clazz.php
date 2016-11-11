@@ -605,6 +605,41 @@ class Clazz extends AddressableElement
     }
 
     /**
+     * @param Property[] $magic_property_map mapping from property name to this
+     * @param CodeBase $code_base
+     * @return bool whether or not we defined it.
+     */
+    public function setMagicPropertyMap(
+        array $magic_property_map,
+        CodeBase $code_base,
+        Context $context
+    ) : bool {
+        if (count($magic_property_map) === 0) {
+            return true;  // Vacuously true.
+        }
+        $class_fqsen = $this->getFQSEN();
+        foreach ($magic_property_map as $comment_parameter) {
+            // $flags is the same as the flags for `public` and non-internal?
+            $flags = 0;
+            $property_name = $comment_parameter->getName();
+            $property_fqsen = FullyQualifiedPropertyName::make(
+                $class_fqsen,
+                $property_name
+            );
+            $property = new Property(
+                $context,
+                $property_name,
+                $comment_parameter->getUnionType(),
+                $flags,
+                $property_fqsen
+            );
+
+            $this->addProperty($code_base, $property, new None);
+        }
+        return true;
+    }
+
+    /**
      * @return bool
      */
     public function hasPropertyWithName(

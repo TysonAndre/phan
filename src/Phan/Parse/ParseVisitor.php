@@ -142,6 +142,15 @@ class ParseVisitor extends ScopeVisitor
         // accessible object
         $this->code_base->addClass($class);
 
+        // Depends on code_base for checking existence of __get and __set.
+        // TODO: The check for __get and __set was broken, the methods probably weren't parsed yet?
+        // Figure out a way to get around that.
+        $class->setMagicPropertyMap(
+            $comment->getMagicPropertyMap(),
+            $this->code_base,
+            $this->context
+        );
+
         // Look to see if we have a parent class
         if (!empty($node->children['extends'])) {
             $parent_class_name =

@@ -69,6 +69,12 @@ class Comment
     private $suppress_issue_list = [];
 
     /**
+     * @var CommentParameter[]
+     * A mapping from magic property parameters to types.
+     */
+    private $magic_property_map = [];
+
+    /**
      * A private constructor meant to ingest a parsed comment
      * docblock.
      *
@@ -98,7 +104,8 @@ class Comment
         array $template_type_list,
         Option $inherited_type,
         UnionType $return_union_type,
-        array $suppress_issue_list
+        array $suppress_issue_list,
+        array $magic_property_list
     ) {
         $this->is_deprecated = $is_deprecated;
         $this->variable_list = $variable_list;
@@ -118,6 +125,16 @@ class Comment
                 unset($this->parameter_list[$i]);
             }
         }
+        foreach ($magic_property_list as $property) {
+            $name = $property->getName();
+            if (!empty($name)) {
+                // Add it to the named map
+                // TODO: Detect duplicates, emit warning for duplicates.
+                // TODO(optional): Emit Issues when a property with only property-read is written to
+                // or vice versa.
+                $this->magic_property_map[$name] = $property;
+            }
+        }
     }
 
     /**
@@ -132,7 +149,7 @@ class Comment
 
         if (!Config::get()->read_type_annotations) {
             return new Comment(
-                false, [], [], [], new None, new UnionType(), []
+                false, [], [], [], new None, new UnionType(), [], []
             );
         }
 
@@ -143,6 +160,7 @@ class Comment
         $inherited_type = new None;
         $return_union_type = new UnionType();
         $suppress_issue_list = [];
+        $magic_property_list = [];
 
         $lines = explode("\n", $comment);
 
@@ -176,6 +194,14 @@ class Comment
             } elseif (stripos($line, '@suppress') !== false) {
                 $suppress_issue_list[] =
                     self::suppressIssueFromCommentLine($line);
+            } elseif (strpos($line, '@property') !== false) {
+                // Make sure support for magic properties is enabled.
+                if (Config::get()->read_magic_property_annotations) {
+                    $magic_property = self::magicPropertyFromCommentLine($context, $line);
+                    if ($magic_property !== null) {
+                        $magic_property_list[] = $magic_property;
+                    }
+                }
             }
 
             if (($pos=stripos($line, '@deprecated')) !== false) {
@@ -192,7 +218,8 @@ class Comment
             $template_type_list,
             $inherited_type,
             $return_union_type,
-            $suppress_issue_list
+            $suppress_issue_list,
+            $magic_property_list
         );
     }
 
@@ -279,7 +306,7 @@ class Comment
             );
         }
 
-        return  new CommentParameter('', new UnionType());
+        return new CommentParameter('', new UnionType());
     }
 
     /**
@@ -354,6 +381,51 @@ class Comment
     }
 
     /**
+     * @param Context $context
+     * @param string $line
+     * An individual line of a comment
+     * Currently treats property-read and property-write the same way
+     * because of the rewrites required for read-only properties.
+     *
+     * @return CommentParameter|null
+     * magic property with the union type.
+     */
+    private static function magicPropertyFromCommentLine(
+        Context $context,
+        string $line
+    ) {
+        // Note that the type of a property can be left out (@property $myVar) - This is equivalent to @property mixed $myVar
+        // TODO: properly handle duplicates...
+        // TODO: support read-only/write-only checks elsewhere in the codebase?
+        if (preg_match('/@(property|property-read|property-write)(\s+' . UnionType::union_type_regex . ')?(\s+(\\$\S+))?/', $line, $match)) {
+            $type = trim($match[2] ?? '');
+
+            $property_name =
+                empty($match[23]) ? '' : trim($match[23], '$');
+
+            // If the type looks like a property name, make it an
+            // empty type so that other stuff can match it.
+            $union_type = null;
+            if (0 !== strpos($type, '$')) {
+                $union_type =
+                    UnionType::fromStringInContext(
+                        $type,
+                        $context
+                    );
+            } else {
+                $union_type = new UnionType();
+            }
+
+            return new CommentParameter(
+                $property_name,
+                $union_type
+            );
+        }
+
+        return null;
+    }
+
+    /**
      * @return bool
      * Set to true if the comment contains a 'deprecated'
      * directive.
@@ -412,7 +484,7 @@ class Comment
 
     /**
      * @return string[]
-     * A set of issie names like 'PhanUnreferencedMethod' to suppress
+     * A set of issue names like 'PhanUnreferencedMethod' to suppress
      */
     public function getSuppressIssueList() : array
     {
@@ -447,6 +519,35 @@ class Comment
         }
 
         return $this->parameter_list[$offset];
+    }
+
+    /**
+     * @unused
+     * @return bool
+     * True if we have a magic property with the given name
+     */
+    public function hasMagicPropertyWithName(
+        string $name
+    ) : bool {
+        return isset($this->magic_property_map[$name]);
+    }
+
+    /**
+     * @unused
+     * @return CommentParameter
+     * The magic property with the given name. May or may not have a type.
+     */
+    public function getMagicPropertyWithName(
+        string $name
+    ) : CommentParameter {
+        return $this->magic_property_map[$name];
+    }
+
+    /**
+     * @return CommentParameter[] map from parameter name to parameter
+     */
+    public function getMagicPropertyMap() : array {
+        return $this->magic_property_map;
     }
 
     /**
