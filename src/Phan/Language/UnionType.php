@@ -16,11 +16,12 @@ use Phan\Language\Type\IntType;
 use Phan\Language\Type\MixedType;
 use Phan\Language\Type\NullType;
 use Phan\Language\Type\TemplateType;
-use Phan\Library\Set;
+use Phan\Library\ArraySet;
 use ast\Node;
 
 class UnionType implements \Serializable
 {
+    // TODO: Is this used?
     use \Phan\Memoize;
 
     /**
@@ -33,31 +34,31 @@ class UnionType implements \Serializable
         . '(\|' . Type::type_regex . ')*';
 
     /**
-     * @var Set
+     * @var Type[]
      */
     private $type_set;
 
     /**
      * @param Type[]|\Iterator|null $type_list
+     * @param bool $is_set - Whether or not this is already a set. Only set to true within UnionSet code.
      * An optional list of types represented by this union
      */
-    public function __construct($type_list = null)
+    public function __construct($type_list = null, bool $is_set = false)
     {
-        $this->type_set = new Set($type_list);
+        if ($is_set) {
+            /*
+            assert(is_array($type_list),
+                   'should pass array');
+            assert(ArraySet::is_array_set($type_list),
+                   'Should be an array set');
+             */
+            $this->type_set = $type_list;
+            return;
+        }
+        $this->type_set = ArraySet::from_list($type_list);
     }
 
-    /**
-     * After a clone is called on this object, clone our
-     * deep objects.
-     *
-     * @return null
-     */
-    public function __clone()
-    {
-        $set = new Set();
-        $set->addAll($this->type_set);
-        $this->type_set = $set;
-    }
+    // __clone of $this->type_set would be a no-op due to copy on write semantics.
 
     /**
      * @param string $fully_qualified_string
@@ -77,11 +78,13 @@ class UnionType implements \Serializable
             return new UnionType();
         }
 
-        return new UnionType(
-            array_map(function (string $type_name) {
+        $types_set = self::memoizeStatic('T:' . $fully_qualified_string, function() use($fully_qualified_string) {
+            return ArraySet::from_list(array_map(function (string $type_name) {
                 return Type::fromFullyQualifiedString($type_name);
-            }, explode('|', $fully_qualified_string))
-        );
+            }, explode('|', $fully_qualified_string)));
+        });
+
+        return new UnionType($types_set, true);
     }
 
     /**
@@ -234,8 +237,6 @@ class UnionType implements \Serializable
     public static function internalFunctionSignatureMapForFQSEN(
         $function_fqsen
     ) : array {
-        $context = new Context;
-
         $map = self::internalFunctionSignatureMap();
 
         if ($function_fqsen instanceof FullyQualifiedMethodName) {
@@ -253,6 +254,21 @@ class UnionType implements \Serializable
         $function_name_original = $function_name;
         $alternate_id = 0;
 
+        /**
+         * @param string|null $type_name
+         * @return UnionType|null
+         */
+        $getForGlobalContext = function($type_name) {
+            if (!$type_name) {
+                return null;
+            }
+
+            return clone UnionType::memoizeStatic('internalFn:' . $type_name, function() use($type_name) {
+                $context = new Context;
+                return UnionType::fromStringInContext($type_name, $context, false);
+            });
+        };
+
         $configurations = [];
         while (isset($map[$function_name])) {
 
@@ -265,17 +281,13 @@ class UnionType implements \Serializable
 
             // Figure out the return type
             $return_type_name = array_shift($type_name_struct);
-            $return_type = $return_type_name
-                ? UnionType::fromStringInContext($return_type_name, $context, Type::FROM_TYPE)
-                : null;
+            $return_type = $getForGlobalContext($return_type_name);
 
             $name_type_name_map = $type_name_struct;
             $parameter_name_type_map = [];
 
             foreach ($name_type_name_map as $name => $type_name) {
-                $parameter_name_type_map[$name] = empty($type_name)
-                    ? new UnionType()
-                    : UnionType::fromStringInContext($type_name, $context, Type::FROM_TYPE);
+                $property_name_type_map[$name] = $getForGlobalContext($type_name) ?? new UnionType();
             }
 
             $configurations[] = [
@@ -291,11 +303,11 @@ class UnionType implements \Serializable
     }
 
     /**
-     * @return Set
+     * @return Type[]
      * The set of simple types associated with this
-     * union type.
+     * union type. The key is based on ArraySet::spl_object_id()
      */
-    public function getTypeSet() : Set
+    public function getTypeSet() : array
     {
         return $this->type_set;
     }
@@ -307,7 +319,7 @@ class UnionType implements \Serializable
      */
     public function addType(Type $type)
     {
-        $this->type_set->attach($type);
+        $this->type_set[ArraySet::spl_object_id($type)] = $type;
     }
 
     /**
@@ -317,7 +329,7 @@ class UnionType implements \Serializable
      */
     public function removeType(Type $type)
     {
-        $this->type_set->detach($type);
+        unset($this->type_set[ArraySet::spl_object_id($type)]);
     }
 
     /**
@@ -327,7 +339,7 @@ class UnionType implements \Serializable
      */
     public function hasType(Type $type) : bool
     {
-        return $this->type_set->contains($type);
+        return ArraySet::contains($this->type_set, $type);
     }
 
     /**
@@ -337,9 +349,7 @@ class UnionType implements \Serializable
      */
     public function addUnionType(UnionType $union_type)
     {
-        $this->type_set->addAll(
-            $union_type->getTypeSet()
-        );
+        $this->type_set += $union_type->type_set;
     }
 
     /**
@@ -350,11 +360,21 @@ class UnionType implements \Serializable
      */
     public function hasSelfType() : bool
     {
-        return (false !==
-            $this->type_set->find(function (Type $type) : bool {
-                return $type->isSelfType();
-            })
-        );
+        return ArraySet::exists($this->type_set, function (Type $type) : bool {
+            return $type->isSelfType();
+        });
+    }
+
+    /**
+     * @return bool
+     * True if this union type has any types that are generic
+     * types.
+     */
+    private function hasGenericType() : bool
+    {
+        return ArraySet::exists($this->type_set, function (Type $type) : bool {
+            return $type->hasTemplateParameterTypes();
+        });
     }
 
     /**
@@ -368,7 +388,7 @@ class UnionType implements \Serializable
             return [];
         }
 
-        return array_reduce($this->getTypeSet()->toArray(),
+        return array_reduce($this->type_set,
             function (array $map, Type $type) {
                 return array_merge(
                     $type->getTemplateParameterTypeList(),
@@ -397,7 +417,7 @@ class UnionType implements \Serializable
             return [];
         }
 
-        return array_reduce($this->getTypeSet()->toArray(),
+        return array_reduce($this->type_set,
             function (array $map, Type $type) use ($code_base) {
                 return array_merge(
                     $type->getTemplateParameterTypeMap($code_base),
@@ -422,14 +442,14 @@ class UnionType implements \Serializable
     ) : UnionType {
 
         $concrete_type_list = [];
-        foreach ($this->getTypeSet() as $i => $type) {
+        foreach ($this->type_set as $type) {
             if ($type instanceof TemplateType
                 && isset($template_parameter_type_map[$type->getName()])
             ) {
                 $union_type =
                     $template_parameter_type_map[$type->getName()];
 
-                foreach ($union_type->getTypeSet() as $concrete_type) {
+                foreach ($union_type->type_set as $concrete_type) {
                     $concrete_type_list[] = $concrete_type;
                 }
             } else {
@@ -447,11 +467,9 @@ class UnionType implements \Serializable
      */
     public function hasTemplateType() : bool
     {
-        return (false !==
-            $this->type_set->find(function (Type $type) : bool {
-                return ($type instanceof TemplateType);
-            })
-        );
+        return ArraySet::exists($this->type_set, function (Type $type) : bool {
+            return ($type instanceof TemplateType);
+        });
     }
 
     /**
@@ -461,11 +479,9 @@ class UnionType implements \Serializable
      */
     public function hasStaticType() : bool
     {
-        return (false !==
-            $this->type_set->find(function (Type $type) : bool {
-                return $type->isStaticType();
-            })
-        );
+        return ArraySet::exists($this->type_set, function (Type $type) : bool {
+            return $type->isStaticType();
+        });
     }
 
     /**
@@ -484,7 +500,7 @@ class UnionType implements \Serializable
         }
 
         // Find the static type on the list
-        $static_type = $this->getTypeSet()->find(function (Type $type) : bool {
+        $static_type = ArraySet::find($this->type_set, function(Type $type) : bool {
             return $type->isStaticType();
         });
 
@@ -518,7 +534,7 @@ class UnionType implements \Serializable
             return false;
         }
 
-        return $this->type_set->contains($type);
+        return ArraySet::contains($this->type_set, $type);
     }
 
     /**
@@ -532,11 +548,9 @@ class UnionType implements \Serializable
             return false;
         }
 
-        return (false ===
-            $this->type_set->find(function (Type $type) : bool {
-                return !$type->isNativeType();
-            })
-        );
+        return !ArraySet::exists($this->type_set, function (Type $type) : bool {
+            return !$type->isNativeType();
+        });
     }
 
     /**
@@ -669,7 +683,7 @@ class UnionType implements \Serializable
      */
     public function hasAnyType(array $type_list) : bool
     {
-        return $this->type_set->containsAny($type_list);
+        return ArraySet::containsAny($this->type_set, $type_list);
     }
 
     /**
@@ -691,7 +705,7 @@ class UnionType implements \Serializable
      */
     public function typeCount() : int
     {
-        return $this->type_set->count();
+        return count($this->type_set);
     }
 
     /**
@@ -795,12 +809,14 @@ class UnionType implements \Serializable
         // Check conversion on the cross product of all
         // type combinations and see if any can cast to
         // any.
-        foreach ($this->getTypeSet() as $source_type) {
+        foreach ($this->type_set as $source_type) {
+            // TODO Noop?
             if (empty($source_type)) {
                 continue;
             }
 
-            foreach ($target->getTypeSet() as $target_type) {
+            foreach ($target->type_set as $target_type) {
+                // TODO noop?
                 if (empty($target_type)) {
                     continue;
                 }
@@ -829,11 +845,9 @@ class UnionType implements \Serializable
             return false;
         }
 
-        return (false ===
-            $this->type_set->find(function (Type $type) : bool {
-                return !$type->isScalar();
-            })
-        );
+        return !ArraySet::exists($this->type_set, function (Type $type) : bool {
+            return !$type->isScalar();
+        });
     }
 
     /**
@@ -847,11 +861,9 @@ class UnionType implements \Serializable
             return false;
         }
 
-        return (false ===
-            $this->type_set->find(function (Type $type) : bool {
-                return !$type->isArrayLike();
-            })
-        );
+        return !ArraySet::exists($this->type_set, function (Type $type) : bool {
+            return !$type->isArrayLike();
+        });
     }
 
     /**
@@ -905,11 +917,21 @@ class UnionType implements \Serializable
      */
     public function nonNativeTypes() : UnionType
     {
-        return new UnionType(
-            $this->type_set->filter(function (Type $type) {
-                return !$type->isNativeType();
-            })
-        );
+        return $this->makeFromFilter(function (Type $type) {
+            return !$type->isNativeType();
+        });
+    }
+
+    /**
+     * A memory efficient way to create a UnionType from a filter operation.
+     * If this the filter preserves everything, calls clone() instead.
+     */
+    public function makeFromFilter(\Closure $cb) : UnionType {
+        $newTypeSet = array_filter($this->type_set, $cb);
+        if (count($newTypeSet) === count($this->type_set)) {
+            return clone($this);
+        }
+        return new UnionType($newTypeSet, true);
     }
 
     /**
@@ -983,13 +1005,9 @@ class UnionType implements \Serializable
      */
     public function nonGenericArrayTypes() : UnionType
     {
-        return new UnionType(
-            $this->type_set->filter(
-                function (Type $type) : bool {
-                    return !$type->isGenericArray();
-                }
-            )
-        );
+        return $this->makeFromFilter(function (Type $type) : bool {
+            return !$type->isGenericArray();
+        });
     }
 
     /**
@@ -1023,11 +1041,9 @@ class UnionType implements \Serializable
             return false;
         }
 
-        return (false ===
-            $this->type_set->find(function (Type $type) : bool {
-                return !$type->isGenericArray();
-            })
-        );
+        return !ArraySet::exists($this->type_set, function (Type $type) : bool {
+            return !$type->isGenericArray();
+        });
     }
 
     /**
@@ -1040,11 +1056,9 @@ class UnionType implements \Serializable
             return false;
         }
 
-        return (false !==
-            $this->type_set->find(function (Type $type) : bool {
-                return $type->isGenericArray();
-            })
-        );
+        return ArraySet::exists($this->type_set, function (Type $type) : bool {
+            return $type->isGenericArray();
+        });
     }
 
     /**
@@ -1056,9 +1070,9 @@ class UnionType implements \Serializable
     public function genericArrayElementTypes() : UnionType
     {
         $union_type = new UnionType(
-            $this->type_set->filter(function (Type $type) : bool {
+            ArraySet::map(array_filter($this->type_set, function (Type $type) : bool {
                 return $type->isGenericArray();
-            })->map(function (Type $type) : Type {
+            }), function (Type $type) : Type {
                 return $type->genericArrayElementType();
             })
         );
@@ -1169,7 +1183,7 @@ class UnionType implements \Serializable
      */
     public function unserialize($serialized)
     {
-        $this->type_set = new Set(
+        $this->type_set = ArraySet::from_list(
             array_map(function (string $type_name) {
                 return Type::fromFullyQualifiedString($type_name);
             }, explode('|', $serialized ?? ''))
@@ -1214,6 +1228,7 @@ class UnionType implements \Serializable
         static $map = [];
 
         if (!$map) {
+            echo "Loading internal function sig map\n";
             $map_raw = require(__DIR__.'/Internal/FunctionSignatureMap.php');
             foreach ($map_raw as $key => $value) {
                 $map[strtolower($key)] = $value;

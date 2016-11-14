@@ -28,6 +28,7 @@ class CallableType extends NativeType
         // Avoids picking up changes to CallableType::instance(false) in the case that a result depends on asFQSEN()
         $instance = clone(self::callableInstance());
         $instance->fqsen = $fqsen;
+        $instance->memoizeFlushAll();
         return $instance;
     }
 

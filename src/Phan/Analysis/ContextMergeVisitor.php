@@ -8,7 +8,7 @@ use Phan\Language\Element\Variable;
 use Phan\Language\Scope;
 use Phan\Language\Type\NullType;
 use Phan\Language\UnionType;
-use Phan\Library\Set;
+use Phan\Library\ArraySet;
 use ast\Node;
 
 class ContextMergeVisitor extends KindVisitorImplementation
@@ -246,7 +246,7 @@ class ContextMergeVisitor extends KindVisitorImplementation
                 ));
 
                 // Get the list of types for each version of the variable
-                $type_set_list = array_map(function (Variable $variable) : Set {
+                $type_set_list = array_map(function (Variable $variable) : array {
                     return $variable->getUnionType()->getTypeSet();
                 }, $variable_list);
 
@@ -255,7 +255,7 @@ class ContextMergeVisitor extends KindVisitorImplementation
                 }
 
                 return new UnionType(
-                    Set::unionAll($type_set_list)
+                    ArraySet::unionAll($type_set_list)
                 );
             };
 

@@ -20,10 +20,14 @@ use Phan\Language\Type\StaticType;
 use Phan\Language\Type\StringType;
 use Phan\Language\Type\TemplateType;
 use Phan\Language\Type\VoidType;
+use Phan\Language\UnionType;
+use Phan\Library\ArraySet;
 use Phan\Library\None;
 use Phan\Library\Option;
 use Phan\Library\Some;
 use Phan\Library\Tuple4;
+
+use ast\Node;
 
 class Type
 {
@@ -69,6 +73,16 @@ class Type
      */
     const type_regex =
         self::simple_type_with_template_parameter_list_regex . '(\[\])*';
+
+    const scalar_type_set = [
+        'bool'     => true,
+        'true'     => true,
+        'false'    => true,
+        'float'    => true,
+        'int'      => true,
+        'string'   => true,
+        'null'     => true,
+    ];
 
     /**
      * @var bool[] - For checking if a string is an internal type.
@@ -239,12 +253,7 @@ class Type
         );
 
         assert(
-            '\\' === $namespace[0],
-            "Namespace must be fully qualified"
-        );
-
-        assert(
-            !empty($type_name),
+            '' !== $type_name,
             "Type name cannot be empty"
         );
 
@@ -775,7 +784,13 @@ class Type
      */
     public function asUnionType() : UnionType
     {
-        return new UnionType([$this]);
+        // return new UnionType([$this]);
+        // Memoize the set of types. The constructed UnionType object can be modified later, so it isn't memoized.
+        // TODO: Figure out why this is buggy
+        $types_set = $this->memoize('singleton', (function () {
+            return ArraySet::singleton($this);
+        }));
+        return new UnionType($types_set);
     }
 
     /**

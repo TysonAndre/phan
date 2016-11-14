@@ -3,7 +3,6 @@ namespace Phan;
 
 use ast\Node;
 use ast\Node\Decl;
-use ast\flags;
 
 /**
  * Debug utilities
