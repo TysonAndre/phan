@@ -114,6 +114,15 @@ class Phan implements IgnoredFilesFilterInterface {
             exit(EXIT_SUCCESS);
         }
 
+        if (is_string(Config::get()->dump_signatures_file)) {
+            $contents = json_encode($code_base->exportFunctionAndMethodSet(), JSON_PRETTY_PRINT);
+            if (!file_put_contents(Config::get()->dump_signatures_file)) {
+                printf("Could not save contents to path '%s'\n", Config::get()->dump_signatures_file);
+                exit(EXIT_FAILURE);
+            }
+            exit(EXIT_SUCCESS);
+        }
+
         // With parsing complete, we need to tell the code base to
         // start hydrating any requested elements on their way out.
         // Hydration expands class types, imports parent methods,
