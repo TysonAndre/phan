@@ -397,11 +397,14 @@ class Comment
         // Note that the type of a property can be left out (@property $myVar) - This is equivalent to @property mixed $myVar
         // TODO: properly handle duplicates...
         // TODO: support read-only/write-only checks elsewhere in the codebase?
-        if (preg_match('/@(property|property-read|property-write)(\s+' . UnionType::union_type_regex . ')?(\s+(\\$\S+))?/', $line, $match)) {
-            $type = trim($match[2] ?? '');
+        if (preg_match('/@(property|property-read|property-write)(\s+' . UnionType::union_type_regex . ')?(\s+(\\$\S+))/', $line, $match)) {
+            $type = ltrim($match[2] ?? '');
 
             $property_name =
                 empty($match[23]) ? '' : trim($match[23], '$');
+            if ($property_name === '') {
+                return null;
+            }
 
             // If the type looks like a property name, make it an
             // empty type so that other stuff can match it.
