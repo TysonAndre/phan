@@ -244,6 +244,8 @@ class AssignmentVisitor extends AnalysisVisitor
             if (Variable::isSuperglobalVariableWithName($variable_name)) {
                 return $this->analyzeSuperglobalDim($node, $variable_name);
             }
+            // TODO: Assignment sanity checks.
+            return $this->context;
         }
 
         // Recurse into whatever we're []'ing
