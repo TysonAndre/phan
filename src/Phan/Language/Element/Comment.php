@@ -242,6 +242,7 @@ class Comment
         if (preg_match('/@return\s+(' . UnionType::union_type_regex . '+)/', $line, $match)) {
             $return_union_type_string = $match[1];
         }
+        $return_union_type_string = self::rewritePHPDocType($return_union_type_string);
 
         $return_union_type = UnionType::fromStringInContext(
             $return_union_type_string,
@@ -249,6 +250,17 @@ class Comment
         );
 
         return $return_union_type;
+    }
+
+    private static function rewritePHPDocType(
+        string $original_type
+    ) : string {
+        // TODO: Would need to pass in CodeBase to emit an issue:
+        $type = Config::get()->experimental_invalid_phpdoc_types[strtolower($original_type)] ?? null;
+        if (is_string($type)) {
+            return $type;
+        }
+        return $original_type;
     }
 
     /**
@@ -268,10 +280,14 @@ class Comment
     ) {
         $match = [];
         if (preg_match('/@(param|var)\s+(' . UnionType::union_type_regex . ')(\s+(\\$\S+))?/', $line, $match)) {
-            $type = $match[2];
+            $original_type = $match[2];
 
             $variable_name =
                 empty($match[23]) ? '' : trim($match[23], '$');
+            $type = self::rewritePHPDocType($original_type);
+            if ($type === '' && $type !== $original_type) {
+                return new CommentParameter('', new UnionType());
+            }
 
             // If the type looks like a variable name, make it an
             // empty type so that other stuff can match it. We can't

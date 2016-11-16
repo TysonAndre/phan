@@ -174,6 +174,17 @@ class Config
         // TODO: How do you override specific config in a unit test?
         'read_magic_property_annotations' => true,
 
+        // Note:
+        // Case insensitive type to support custom UnionTypes.
+        // Ignore(or remap) these unionTypes(s) when they show up in a UnionType of @param, @return, @var, @property, etc.
+        // Matches the entire string, not part of the string.
+        //
+        // (They will still show up if they are used outside of doc comments).
+        // (Does not check if classes with these names exist)
+        //
+        // E.g. ['unknown' => '', 'char' => 'string', 'long' => 'int']
+        'experimental_invalid_phpdoc_types' => [ ],
+
         // If a file path is given, the code base will be
         // read from and written to the given location in
         // order to attempt to save some work from being
