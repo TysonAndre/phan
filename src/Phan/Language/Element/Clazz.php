@@ -969,8 +969,6 @@ class Clazz extends AddressableElement
             if (!$newType->canCastToType($method->getUnionType())) {
                 $method->setUnionType($newType);
             }
-
-            $method->setUnionType();
         }
 
         $code_base->addMethod($method);
