@@ -295,8 +295,11 @@ class Comment
                 $variable_name =
                     empty($match[30]) ? '' : trim($match[30], '$');
             }
+            // If the parameter has a type which is labelled as a typo (type maps to ''),
+            // then treat it the same way as a parameter without a type in the doc comment.
+            // Otherwise, continue with the (possibly renamed) type.
             $type = self::rewritePHPDocType($original_type);
-            if ($type === '' && $type !== $original_type) {
+            if ($type !== $original_type && $type === '') {
                 return new CommentParameter('', new UnionType());
             }
 
