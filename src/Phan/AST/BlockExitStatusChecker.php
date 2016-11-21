@@ -35,8 +35,8 @@ class BlockExitStatusChecker {
             $status = $this->_checkInner($node);
         } catch(\Exception $e) {
             // FIXME: Emit issue or log?
-            printf("Caught exception processing node of type %d: %s\n%s", $node->kind, $e->getMessage(), $e->getTraceAsString());
-            var_export($node);
+            // printf("Caught exception processing node of type %d: %s\n%s", $node->kind, $e->getMessage(), $e->getTraceAsString());
+            // var_export($node);
             $status = self::STATUS_PROCEED;
         }
         $this->_exitStatusCache[$node] = $status;
@@ -66,22 +66,50 @@ class BlockExitStatusChecker {
         case \ast\AST_EXIT:
             return self::STATUS_RETURN;
         case \ast\AST_STMT_LIST:
-            return $this->_getStatusOfBlock($node->children);
+            return $this->_getStatusOfBlock($node->children ?? []);
         // Conditional blocks:
-        case \ast\AST_DO_WHILE:
         case \ast\AST_FOR:
         case \ast\AST_FOREACH:
         case \ast\AST_WHILE:
+            // TODO: Check if for/while/foreach block will execute at least once.
+            // (e.g. for ($i = 0; $i < 10; $i++) is guaranteed to work)
+            // For now, assume it's possible they may execute 0 times.
+            return self::STATUS_PROCEED;
         case \ast\AST_IF_ELEM:
+            // A do-while statement and an if branch are executed at least once (or exactly once)
+            // TODO: deduplicate
             $stmts = $node->children['stmts'];
             if (is_null($stmts)) {
                 return self::STATUS_PROCEED;
             }
-            return $this->_getStatusOfBlock($stmts->children) === self::STATUS_RETURN ? self::STATUS_RETURN : self::STATUS_PROCEED;
+            // We can have a single statement in the 'stmts' field when no braces exist?
+            if (!is_object($stmts)) {
+                // echo "Saw non-object for \$stmts\n";
+                // var_export($stmts);
+                return self::STATUS_PROCEED;
+            }
+            $stmtsList = $stmts->kind === \ast\AST_STMT_LIST ? $stmts->children : [$stmts];
+            $status = $this->_getStatusOfBlock($stmtsList ?? []);
+            return in_array($status, [self::STATUS_RETURN, self::STATUS_THROW]) ? $status : self::STATUS_PROCEED;
+        case \ast\AST_DO_WHILE:
+            // A do-while statement and an if branch are executed at least once (or exactly once)
+            $stmts = $node->children['stmts'];
+            if (is_null($stmts)) {
+                return self::STATUS_PROCEED;
+            }
+            $stmtsList = $stmts->kind === \ast\AST_STMT_LIST ? $stmts->children : [$stmts];
+            $status = $this->_getStatusOfBlock($stmtsList ?? []);
+            return in_array($status, [self::STATUS_RETURN, self::STATUS_THROW]) ? $status : self::STATUS_PROCEED;
         case \ast\AST_IF:
             $stmts = $node->children;
             if (count($node->children) === 1 && !self::_is_truthy_literal($stmts[0]->children['cond'])) {
-                return self::STATUS_RETURN;
+                return self::STATUS_PROCEED;
+            }
+            // When there is an `else if` (which isn't a hardcoded true value), assume execution may proceed past the if
+            if (count($node->children) === 2 &&
+                    $stmts[1]->children['cond'] !== null &&
+                    !self::_is_truthy_literal($stmts[1]->children['cond'])) {
+                return self::STATUS_PROCEED;
             }
             // if-else statements, or unconditionals such as if (true)
 
@@ -102,14 +130,26 @@ class BlockExitStatusChecker {
     }
 
     /**
-     * @param \ast\Node $block
+     * @param \ast\Node[] $block
      */
     private function _getStatusOfBlock(array $block) : int {
-        $status = self::STATUS_PROCEED;
         foreach ($block as $child) {
-            $status = max($status, $this->check($child));
+            if ($child === null) {
+                continue;
+            }
+            if (!($child instanceof Node)) {
+                // debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
+                // var_export($child);
+                // var_export($block);
+                continue;
+            }
+            $status = $this->check($child);
+            if ($status !== self::STATUS_PROCEED) {
+                // The statement after this one is unreachable, due to unconditional continue/break/throw/return.
+                return $status;
+            }
         }
-        return $status;
+        return self::STATUS_PROCEED;
     }
 
 }
