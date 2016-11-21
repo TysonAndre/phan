@@ -2,6 +2,7 @@
 namespace Phan;
 
 use Phan\AST\AnalysisVisitor;
+use Phan\AST\BlockExitStatusChecker;
 use Phan\Analysis\ContextMergeVisitor;
 use Phan\Analysis\PostOrderAnalysisVisitor;
 use Phan\Analysis\PreOrderAnalysisVisitor;
@@ -30,6 +31,12 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
     private $depth;
 
     /**
+     * @var BlockExitStatusChecker
+     * Checks if execution continues past the end of a block.
+     */
+    private $block_status_checker;
+
+    /**
      * @param CodeBase $code_base
      * The code base within which we're operating
      *
@@ -52,6 +59,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
         parent::__construct($code_base, $context);
         $this->parent_node = $parent_node;
         $this->depth = $depth;
+        $this->block_status_checker = new BlockExitStatusChecker();
     }
 
     /**
@@ -196,17 +204,28 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
                 $this->code_base, $child_context, $node, $this->depth + 1
             ))($child_node);
 
-            $child_context_list[] = $child_context;
+            // TODO: Actually use weaker statuses, e.g. when analyzing variables effectively limited to a loop,
+            // or if there are no try blocks in the parent scope.
+            $skip = $node->kind === \ast\AST_IF &&
+                $this->block_status_checker->check($child_node) === BlockExitStatusChecker::STATUS_RETURN;
+
+            if (!$skip) {
+                $child_context_list[] = $child_context;
+            }
         }
 
         // For if statements, we need to merge the contexts
         // of all child context into a single scope based
         // on any possible branching structure
-        $context = (new ContextMergeVisitor(
-            $this->code_base,
-            $context,
-            $child_context_list
-        ))($node);
+        // (If they unconditionally return, we (generally) don't need to do this.
+        // TODO: `finally` blocks break this assumption. context may need to track catch blocks.)
+        if (count($child_context_list) > 0) {
+            $context = (new ContextMergeVisitor(
+                $this->code_base,
+                $context,
+                $child_context_list
+            ))($node);
+        }
 
         $context = $this->postOrderAnalyze($context, $node);
 
