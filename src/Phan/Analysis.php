@@ -1,6 +1,7 @@
 <?php declare(strict_types=1);
 namespace Phan;
 
+use Phan\AST\ASTSimplifier;
 use Phan\Analysis\CompositionAnalyzer;
 use Phan\Analysis\DuplicateClassAnalyzer;
 use Phan\Analysis\DuplicateFunctionAnalyzer;
@@ -340,6 +341,20 @@ class Analysis
             );
             return $context;
         }
+
+        try {
+            $newNode = ASTSimplifier::apply_static($node);  // Transform the original AST, leaving the original unmodified.
+            $node = $newNode;  // Analyze the new AST instead.
+        } catch (\Exception $e) {
+            Issue::maybeEmit(
+                $code_base,
+                $context,
+                Issue::SyntaxError,  // Not the right kind of error. I don't think it would throw, anyway.
+                $e->getLine(),
+                $e->getMessage()
+            );
+        }
+
 
         return (new BlockAnalysisVisitor($code_base, $context))($node);
     }
