@@ -42,7 +42,7 @@ class ASTSimplifier {
         case \ast\AST_WHILE:
             return [$this->_applyToStmts($node)];
         case \ast\AST_IF:
-            return $this->_normalizeIfStatment($node);
+            return $this->_normalizeIfStatement($node);
         case \ast\AST_TRY:
             return [$this->_normalizeTryStatement($node)];
         }
@@ -130,8 +130,8 @@ class ASTSimplifier {
                     $newIfElse = clone($stmt);
                     $newIfElse->children[1] = $newElseElem;
                     // We might end up undoing a negation as well, now that there is an else branch.
-                    // Run _normalizeIfStatment again.
-                    $statements = array_merge(array_slice($statements, 0, $i), $this->_normalizeIfStatment($newIfElse));
+                    // Run _normalizeIfStatement again.
+                    $statements = array_merge(array_slice($statements, 0, $i), $this->_normalizeIfStatement($newIfElse));
                     continue;
                 }
             }
@@ -145,7 +145,7 @@ class ASTSimplifier {
     }
 
     // TODO: Need to map a Node to a **LIST** of nodes (to be part of a AST_STMT_LIST).
-    private function _normalizeIfStatment(Node $originalNode) : array {
+    private function _normalizeIfStatement(Node $originalNode) : array {
         $oldNodes = [];
         $nodes = [$originalNode];
         // Repeatedly apply these rules
