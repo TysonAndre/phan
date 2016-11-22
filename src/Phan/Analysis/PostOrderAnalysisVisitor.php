@@ -579,6 +579,13 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         // Figure out what we intend to return
         $method_return_type = $method->getUnionType();
 
+        /*
+        if (!array_key_exists('expr', $node->children)) {
+            var_export($node);
+            var_export($this->context->getFile());
+            exit(1);
+        }
+         */
         // Figure out what is actually being returned
         $expression_type = UnionType::fromNode(
             $this->context,

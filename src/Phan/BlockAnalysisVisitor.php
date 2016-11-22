@@ -206,7 +206,8 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
 
             // TODO: Actually use weaker statuses, e.g. when analyzing variables effectively limited to a loop,
             // or if there are no try blocks in the parent scope.
-            $skip = $node->kind === \ast\AST_IF &&
+            $skip = Config::get()->simplify_ast &&
+                $node->kind === \ast\AST_IF &&
                 $this->block_status_checker->check($child_node) === BlockExitStatusChecker::STATUS_RETURN;
 
             if (!$skip) {

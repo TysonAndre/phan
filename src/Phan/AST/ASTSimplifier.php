@@ -11,13 +11,14 @@ require_once __DIR__ . '/BlockExitStatusChecker.php';
  * The original \ast\Node objects are not modified.
  */
 class ASTSimplifier {
-    /** @var Node */
-    private $_originalAst;
     /** @var BlockExitStatusChecker */
     private $_blockChecker;
+    /** @var string */
+    private $_filename;
 
-    public function __construct() {
-        $this->_blockChecker = new BlockExitStatusChecker();
+    public function __construct(string $filename = 'unknown') {
+        $this->_blockChecker = new BlockExitStatusChecker($filename);
+        $this->_filename = $filename;
     }
 
     private function _apply(Node $node) : array {
@@ -66,6 +67,9 @@ class ASTSimplifier {
     }
 
     private function _applyToStatementList(Node $statementList) : Node {
+        if ($statementList->kind !== \ast\AST_STMT_LIST) {
+            return $statementList;  // TODO: Log
+        }
         //assert($statementList->kind === \ast\AST_STMT_LIST);
         $newChildren = [];
         foreach ($statementList->children as $childNode) {
@@ -86,6 +90,29 @@ class ASTSimplifier {
         return $cloneNode;
     }
 
+    private static function buildStatementList(int $lineno, Node ...$child_nodes) : Node {
+        $stmt_list = new Node();
+        $stmt_list->lineno = $lineno;
+        $stmt_list->kind = \ast\AST_STMT_LIST;
+        $stmt_list->flags = 0;
+        $stmt_list->children = $child_nodes;
+        return $stmt_list;
+    }
+
+    /**
+     * Get a modifiable Node that is a clone of the statement list.
+     */
+    private static function cloneStatementList(Node $stmtList = null) : Node {
+        if (is_null($stmtList)) {
+            return self::buildStatementList(0);
+        }
+        if ($stmtList->kind === \ast\AST_STMT_LIST) {
+            return clone($stmtList);
+        }
+        // $parent->children['stmts'] is a statement, not a statement list.
+        return self::buildStatementList($stmtList->lineno, $stmtList);
+    }
+
     /**
      * @param \ast\Node[] $statements
      */
@@ -100,18 +127,22 @@ class ASTSimplifier {
             }
             if (count($statements) > $i + 1) {
                 $N = count($stmt->children);
-                if ($N === 2 && $this->_blockChecker->check($stmt->children[1]->children['stmts']) !== BlockExitStatusChecker::STATUS_PROCEED) {
+                if ($N === 2 && ($stmt->children[1]->children['stmts'] instanceof Node) && $this->_blockChecker->check($stmt->children[1]->children['stmts']) !== BlockExitStatusChecker::STATUS_PROCEED) {
                     // If the else statement is guaranteed to break/continue/return/throw,
                     // then merge the remaining statements following that into the `if` block.
                     $newIfElem = clone($stmt->children[0]);
-                    $newIfElem->children['stmts']->children = array_merge($newIfElem->children['stmts']->children, array_slice($statements, $i + 1));
+                    $newStmts = self::cloneStatementList($newIfElem->children['stmts']);
+                    $newStmts->children = array_merge($newStmts->children, array_slice($statements, $i + 1));
+                    $newIfElem->children['stmts'] = $newStmts;
                     $newIf = clone($stmt);
                     $newIf->children[0] = $newIfElem;
                     $statements[$i] = $newIf;
                     $statements = array_slice($statements, 0, $i + 1);
                     continue;
                 }
-                if (($N == 1 || $stmt->children[1]->children['cond'] === null) && $this->_blockChecker->check($stmt->children[0]->children['stmts']) !== BlockExitStatusChecker::STATUS_PROCEED) {
+                if (($N == 1 || $stmt->children[1]->children['cond'] === null) &&
+                    $stmt->children[0]->children['stmts'] instanceof Node &&  // Why does php-ast sometime return string.
+                    $this->_blockChecker->check($stmt->children[0]->children['stmts']) !== BlockExitStatusChecker::STATUS_PROCEED) {
                     // If the if statement is guaranteed to break/continue/return/throw,
                     // then merge the remaining statements following that into the `else` block.
                     // Create an `else` block if necessary.
@@ -119,12 +150,12 @@ class ASTSimplifier {
                     if ($N == 1) {
                         $newElseElem = clone($stmt->children[0]);
                         $newElseElem->children['cond'] = null;
-                        $elseStmtList = clone($newElseElem->children['stmts']);
-                        $elseStmtList->children = [];
-                        $newElseElem->children['stmts'] = $elseStmtList;
+                        // Don't clone the original if statement - It might not be a statement list.
+                        $newElseElem->children['stmts'] = self::buildStatementList($stmt->children[0]->lineno);
                     } else {
                         $newElseElem = clone($stmt->children[1]);
-                        $newElseElem->children['stmts'] = clone($newElseElem->children['stmts']);
+                        $newElseElem->children['stmts'] = self::cloneStatementList($newElseElem->children['stmts']);
+                        // TODO: Assert this is a statement list, or
                     }
                     $newElseElem->children['stmts']->children = array_merge($newElseElem->children['stmts']->children, array_slice($statements, $i + 1));
                     $newIfElse = clone($stmt);
@@ -174,6 +205,7 @@ class ASTSimplifier {
                     continue;
                 }
             } else if (count($node->children) === 2) {
+                // TODO: Apply rules such as `elseif` -> `else`
                 if ($ifCond->kind === \ast\AST_UNARY_OP &&
                         $ifCond->flags === \ast\flags\UNARY_BOOL_NOT &&
                         $node->children[1]->children['cond'] === null) {
@@ -200,6 +232,7 @@ class ASTSimplifier {
         $innerNode->children[0] = $innerNodeElem;
         $innerNode->lineno = $innerNodeElem->lineno;
         $innerNodeStmtList = new Node();
+        // TODO: The original may not be a statement list?
         $innerNodeStmtList->kind = \ast\AST_STMT_LIST;
         $innerNodeStmtList->flags = 0;
         $innerNodeStmtList->lineno = $innerNode->lineno;
@@ -277,8 +310,8 @@ class ASTSimplifier {
         return $newNode;
     }
 
-    public static function apply_static(Node $node) : Node {
-        $rewriter = new self();
+    public static function apply_static(Node $node, string $filename = 'unknown') : Node {
+        $rewriter = new self($filename);
         $nodes = $rewriter->_apply($node);
         assert(count($nodes) === 1);
         return $nodes[0];

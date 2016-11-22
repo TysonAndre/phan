@@ -337,17 +337,19 @@ class Analysis
             return $context;
         }
 
-        try {
-            $newNode = ASTSimplifier::apply_static($node);  // Transform the original AST, leaving the original unmodified.
-            $node = $newNode;  // Analyze the new AST instead.
-        } catch (\Exception $e) {
-            Issue::maybeEmit(
-                $code_base,
-                $context,
-                Issue::SyntaxError,  // Not the right kind of error. I don't think it would throw, anyway.
-                $e->getLine(),
-                $e->getMessage()
-            );
+        if (Config::get()->simplify_ast) {
+            try {
+                $newNode = ASTSimplifier::apply_static($node);  // Transform the original AST, leaving the original unmodified.
+                $node = $newNode;  // Analyze the new AST instead.
+            } catch (\Exception $e) {
+                Issue::maybeEmit(
+                    $code_base,
+                    $context,
+                    Issue::SyntaxError,  // Not the right kind of error. I don't think it would throw, anyway.
+                    $e->getLine(),
+                    $e->getMessage()
+                );
+            }
         }
 
 
