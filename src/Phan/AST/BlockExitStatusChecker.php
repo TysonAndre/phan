@@ -19,9 +19,12 @@ class BlockExitStatusChecker {
 
     /** @var \SplObjectStorage */
     private $_exitStatusCache;
+    /** @var string */
+    private $_filename;
 
-    public function __construct() {
+    public function __construct(string $filename = 'unknown') {
         $this->_exitStatusCache = new \SplObjectStorage();
+        $this->_filename = $filename;
     }
 
     public function check(Node $node = null) : int {
@@ -31,14 +34,15 @@ class BlockExitStatusChecker {
         if (isset($this->_exitStatusCache[$node])) {
             return $this->_exitStatusCache[$node];  // Can't use null coalescing operator for SplObjectStorage due to a php bug.
         }
-        try {
-            $status = $this->_checkInner($node);
+        $status = $this->_checkInner($node);
+        /*
         } catch(\Exception $e) {
             // FIXME: Emit issue or log?
             printf("Caught exception processing node of type %d: %s\n%s", $node->kind, $e->getMessage(), $e->getTraceAsString());
             var_export($node);
             $status = self::STATUS_PROCEED;
         }
+         */
         $this->_exitStatusCache[$node] = $status;
         return $status;
     }
@@ -68,20 +72,40 @@ class BlockExitStatusChecker {
         case \ast\AST_STMT_LIST:
             return $this->_getStatusOfBlock($node->children);
         // Conditional blocks:
-        case \ast\AST_DO_WHILE:
         case \ast\AST_FOR:
         case \ast\AST_FOREACH:
         case \ast\AST_WHILE:
+            // TODO: Check if this will be executed at least once.
+            return self::STATUS_PROCEED;
+        case \ast\AST_DO_WHILE:
         case \ast\AST_IF_ELEM:
             $stmts = $node->children['stmts'];
-            if (is_null($stmts)) {
+            if (is_null($stmts) || !($stmts instanceof Node)) {  // TODO: Why does non-Node happen sometimes?
                 return self::STATUS_PROCEED;
             }
-            return $this->_getStatusOfBlock($stmts->children) === self::STATUS_RETURN ? self::STATUS_RETURN : self::STATUS_PROCEED;
+            if ($stmts->kind !== \ast\AST_STMT_LIST) {
+                // Some of the time, it's a single statement instead of a statement list.
+                return self::STATUS_PROCEED;  // TODO: Handle it as an individual statement?
+            }
+            $status = $this->_getStatusOfBlock($stmts->children, $node);
+            if ($node->kind === \ast\AST_DO_WHILE) {
+                // ignore break/continue within a do{}while ($cond);
+                return in_array($status, [self::STATUS_THROW, self::STATUS_RETURN]) ? $status : self::STATUS_PROCEED;
+            }
+            return $status;
         case \ast\AST_IF:
             $stmts = $node->children;
             if (count($node->children) === 1 && !self::_is_truthy_literal($stmts[0]->children['cond'])) {
-                return self::STATUS_RETURN;
+                return self::STATUS_PROCEED;
+            }
+            if (count($node->children) >= 2) {
+                // Can have more than 2 if `elseif` is used.
+                // TODO: Check for unconditional statements before the last one?
+                $lastcond = $stmts[count($stmts) - 1];
+                if ($lastCond !== null && !self::_is_truthy_literal($lastCond)) {
+                    // It's possible none of the branches will match.
+                    return self::STATUS_PROCEED;
+                }
             }
             // if-else statements, or unconditionals such as if (true)
 
@@ -102,14 +126,29 @@ class BlockExitStatusChecker {
     }
 
     /**
-     * @param \ast\Node $block
+     * @param \ast\Node[] $block
      */
     private function _getStatusOfBlock(array $block) : int {
-        $status = self::STATUS_PROCEED;
         foreach ($block as $child) {
-            $status = max($status, $this->check($child));
+            // e.g. can be non-string for statement lists such as `if ($a) { return; }echo "X";2;` (under unknown conditions)
+            if (!($child instanceof Node) && $child !== null) {
+                continue;
+                /*
+                global $currentAnalyzeFile;
+                printf("In %s\n", $this->_filename);
+                var_export($block);
+                var_export($debugVal);
+                debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
+                debug_print_backtrace();
+                exit(1);
+                 */
+            }
+            $status = $this->check($child);
+            if ($status !== self::STATUS_PROCEED) {
+                return $status;
+            }
         }
-        return $status;
+        return self::STATUS_PROCEED;
     }
 
 }
