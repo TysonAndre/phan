@@ -542,7 +542,7 @@ class Clazz extends AddressableElement
      * @param Property $property
      * The property to copy onto this class
      *
-     * @param Option<Type> $type_option
+     * @param Option<Type>|None $type_option
      * A possibly defined type used to define template
      * parameter types when importing the property
      *
@@ -890,7 +890,7 @@ class Clazz extends AddressableElement
      * @param Method $method
      * The method to copy onto this class
      *
-     * @param Option<Type> $type_option
+     * @param Option<Type>|None $type_option
      * A possibly defined type used to define template
      * parameter types when importing the method
      *
@@ -966,7 +966,7 @@ class Clazz extends AddressableElement
             // There's no phpdoc standard for template types of Generators at the moment.
             $newType = UnionType::fromFullyQualifiedString('\\Generator');
             $oldType = $method->getUnionType();
-            if (!$newType->canCastToType($method->getUnionType())) {
+            if (!$newType->canCastToUnionType($method->getUnionType())) {
                 $method->setUnionType($newType);
             }
         }
@@ -1466,7 +1466,7 @@ class Clazz extends AddressableElement
      * @param Clazz $class
      * A class to import from
      *
-     * @param Option<Type> $type_option
+     * @param Option<Type>|None $type_option
      * A possibly defined ancestor type used to define template
      * parameter types when importing ancestor properties and
      * methods
