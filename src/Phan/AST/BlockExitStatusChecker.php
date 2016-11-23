@@ -19,7 +19,7 @@ class BlockExitStatusChecker {
 
     /** @var \SplObjectStorage */
     private $_exitStatusCache;
-    /** @var string */
+    /** @var string - filename, for debugging*/
     private $_filename;
 
     public function __construct(string $filename = 'unknown') {
@@ -38,8 +38,8 @@ class BlockExitStatusChecker {
         /*
         } catch(\Exception $e) {
             // FIXME: Emit issue or log?
-            printf("Caught exception processing node of type %d: %s\n%s", $node->kind, $e->getMessage(), $e->getTraceAsString());
-            var_export($node);
+            // printf("Caught exception processing node of type %d: %s\n%s", $node->kind, $e->getMessage(), $e->getTraceAsString());
+            // var_export($node);
             $status = self::STATUS_PROCEED;
         }
          */
@@ -49,6 +49,7 @@ class BlockExitStatusChecker {
 
     private static function _is_truthy_literal($cond) : bool {
         if ($cond instanceof Node) {
+            // TODO: Could look up constants and inline expressions, but doing that has low value.
             return false;
         }
         // Cast string, int, etc. literal to a bool
@@ -70,24 +71,29 @@ class BlockExitStatusChecker {
         case \ast\AST_EXIT:
             return self::STATUS_RETURN;
         case \ast\AST_STMT_LIST:
-            return $this->_getStatusOfBlock($node->children);
+            return $this->_getStatusOfBlock($node->children ?? []);
         // Conditional blocks:
         case \ast\AST_FOR:
         case \ast\AST_FOREACH:
         case \ast\AST_WHILE:
-            // TODO: Check if this will be executed at least once.
+            // TODO: Check if for/while/foreach block will execute at least once.
+            // (e.g. for ($i = 0; $i < 10; $i++) is guaranteed to work)
+            // For now, assume it's possible they may execute 0 times.
             return self::STATUS_PROCEED;
         case \ast\AST_DO_WHILE:
         case \ast\AST_IF_ELEM:
+            // A do-while statement and an if branch are executed at least once (or exactly once)
+            // TODO: deduplicate
             $stmts = $node->children['stmts'];
-            if (is_null($stmts) || !($stmts instanceof Node)) {  // TODO: Why does non-Node happen sometimes?
+            if (is_null($stmts)) {
                 return self::STATUS_PROCEED;
             }
-            if ($stmts->kind !== \ast\AST_STMT_LIST) {
-                // Some of the time, it's a single statement instead of a statement list.
-                return self::STATUS_PROCEED;  // TODO: Handle it as an individual statement?
+            // We can have a single statement in the 'stmts' field when no braces exist?
+            if (!($stmts instanceof Node)) {
+                return self::STATUS_PROCEED;
             }
-            $status = $this->_getStatusOfBlock($stmts->children, $node);
+            // This may be a statement list (or in rare cases, a statement?)
+            $status = $this->_checkInner($stmts);
             if ($node->kind === \ast\AST_DO_WHILE) {
                 // ignore break/continue within a do{}while ($cond);
                 return in_array($status, [self::STATUS_THROW, self::STATUS_RETURN]) ? $status : self::STATUS_PROCEED;
@@ -101,7 +107,7 @@ class BlockExitStatusChecker {
             if (count($node->children) >= 2) {
                 // Can have more than 2 if `elseif` is used.
                 // TODO: Check for unconditional statements before the last one?
-                $lastcond = $stmts[count($stmts) - 1];
+                $lastCond = $stmts[count($stmts) - 1];
                 if ($lastCond !== null && !self::_is_truthy_literal($lastCond)) {
                     // It's possible none of the branches will match.
                     return self::STATUS_PROCEED;
@@ -130,25 +136,19 @@ class BlockExitStatusChecker {
      */
     private function _getStatusOfBlock(array $block) : int {
         foreach ($block as $child) {
-            // e.g. can be non-string for statement lists such as `if ($a) { return; }echo "X";2;` (under unknown conditions)
-            if (!($child instanceof Node) && $child !== null) {
+            if ($child === null) {
                 continue;
-                /*
-                global $currentAnalyzeFile;
-                printf("In %s\n", $this->_filename);
-                var_export($block);
-                var_export($debugVal);
-                debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
-                debug_print_backtrace();
-                exit(1);
-                 */
+            }
+            // e.g. can be non-Node for statement lists such as `if ($a) { return; }echo "X";2;` (under unknown conditions)
+            if (!($child instanceof Node)) {
+                continue;
             }
             $status = $this->check($child);
             if ($status !== self::STATUS_PROCEED) {
+                // The statement after this one is unreachable, due to unconditional continue/break/throw/return.
                 return $status;
             }
         }
         return self::STATUS_PROCEED;
     }
-
 }
