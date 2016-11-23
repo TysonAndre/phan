@@ -1,6 +1,7 @@
 <?php
 
 class foo {
+
     /**
      * @param string $a
      */
@@ -8,7 +9,7 @@ class foo {
         if (!is_int($a)) {
             return strlen($a);
         }
-        echo strlen($a);
+        echo $a;
         return $a;
     }
 }
