@@ -1,10 +1,8 @@
 <?php declare(strict_types=1);
 namespace Phan\AST;
 
-use Phan\AST\BlockExitStatusChecker;
+use Phan\Analysis\BlockExitStatusChecker;
 use ast\Node;
-
-require_once __DIR__ . '/BlockExitStatusChecker.php';
 
 /**
  * This simplifies a PHP AST into a form which is easier to analyze.
@@ -266,8 +264,9 @@ class ASTSimplifier {
     private function _applyIfChainReduction(Node $node) : Node {
         $children = $node->children;  // Copy of array of Nodes of type IF_ELEM
         if (count($children) <= 2) {
-            return $nodes;
+            return $node;
         }
+        assert(is_array($children));
         while (count($children) > 2) {
             $r = array_pop($children);
             $l = array_pop($children);
