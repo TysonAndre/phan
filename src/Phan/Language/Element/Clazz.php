@@ -903,7 +903,8 @@ class Clazz extends AddressableElement
     ) {
         $method_fqsen = FullyQualifiedMethodName::make(
             $this->getFQSEN(),
-            $method->getName()
+            $method->getName(),
+            $method->getFQSEN()->getAlternateId()
         );
 
         // Don't overwrite overridden methods with

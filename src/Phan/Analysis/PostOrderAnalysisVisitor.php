@@ -834,7 +834,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                         $node->lineno ?? 0,
                         (string)$class->getFQSEN(),
                         $class->getContext()->getFile(),
-                        $class->getContext()->getLineNumberStart()
+                        (string)$class->getContext()->getLineNumberStart()
                     );
                 }
             }
@@ -1011,7 +1011,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                         $node->lineno ?? 0,
                         "{$class->getFQSEN()}::{$method_name}()",
                         $method->getFileRef()->getFile(),
-                        $method->getFileRef()->getLineNumberStart()
+                        (string)$method->getFileRef()->getLineNumberStart()
                     );
                 }
             }
@@ -1092,7 +1092,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 $this->emitIssue(
                     Issue::TypeMissingReturn,
                     $node->lineno ?? 0,
-                    $method->getFQSEN(),
+                    (string)$method->getFQSEN(),
                     (string)$return_type
                 );
             }
@@ -1103,7 +1103,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 $this->emitIssue(
                     Issue::TemplateTypeStaticMethod,
                     $node->lineno ?? 0,
-                    $method->getFQSEN()
+                    (string)$method->getFQSEN()
                 );
             }
         }
@@ -1117,7 +1117,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 $this->emitIssue(
                     Issue::TypeMissingReturn,
                     $node->lineno ?? 0,
-                    $method->getFQSEN(),
+                    (string)$method->getFQSEN(),
                     (string)$return_type
                 );
             }
@@ -1165,7 +1165,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             $this->emitIssue(
                 Issue::TypeMissingReturn,
                 $node->lineno ?? 0,
-                $method->getFQSEN(),
+                (string)$method->getFQSEN(),
                 (string)$return_type
             );
         }
@@ -1245,7 +1245,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 $node->lineno ?? 0,
                 (string)$method->getFQSEN(),
                 $method->getFileRef()->getFile(),
-                $method->getFileRef()->getLineNumberStart()
+                (string)$method->getFileRef()->getLineNumberStart()
             );
         } else if ($method->isProtected()
             && !$method->getDefiningClass($this->code_base)->isTrait()
@@ -1265,7 +1265,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 $node->lineno ?? 0,
                 (string)$method->getFQSEN(),
                 $method->getFileRef()->getFile(),
-                $method->getFileRef()->getLineNumberStart()
+                (string)$method->getFileRef()->getLineNumberStart()
             );
         }
 
