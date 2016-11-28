@@ -801,7 +801,7 @@ return [
 'classkit_method_redefine' => ['bool', 'classname'=>'string', 'methodname'=>'string', 'args'=>'string', 'code'=>'string', 'flags='=>'int'],
 'classkit_method_remove' => ['bool', 'classname'=>'string', 'methodname'=>'string'],
 'classkit_method_rename' => ['bool', 'classname'=>'string', 'methodname'=>'string', 'newname'=>'string'],
-'class_parents' => ['array', 'instance'=>'object', 'autoload='=>'bool'],
+'class_parents' => ['array', 'instance'=>'object|string', 'autoload='=>'bool'],
 'class_uses' => ['array', 'what'=>'object|string', 'autoload='=>'bool'],
 'clearstatcache' => ['', 'clear_realpath_cache='=>'bool', 'filename='=>'string'],
 'cli_get_process_title' => ['string'],
