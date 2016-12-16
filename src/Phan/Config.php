@@ -196,13 +196,6 @@ class Config
         // E.g. ['unknown' => '', 'char' => 'string', 'long' => 'int']
         'experimental_invalid_phpdoc_types' => [ ],
 
-        // If a file path is given, the code base will be
-        // read from and written to the given location in
-        // order to attempt to save some work from being
-        // done. Only changed files will get analyzed if
-        // the file is read
-        'stored_state_file_path' => null,
-
         // Set to true in order to ignore issue suppression.
         // This is useful for testing the state of your code, but
         // unlikely to be useful outside of that.
