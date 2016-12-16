@@ -167,6 +167,7 @@ class Config
         // E.g. rewrites `if (!is_string($foo)) { return; } b($foo);`
         // into `if (is_string($foo)) {b($foo);} else {return;}`
         // This may conflict with 'dead_code_detection'
+        // This option also slows down analysis noticeably.
         'simplify_ast' => false,
 
         // If disabled, Phan will not read docblock type

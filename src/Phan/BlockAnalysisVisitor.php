@@ -222,15 +222,13 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
                 $this->code_base, $child_context, $node, $this->depth + 1
             ))($child_node);
 
-            // TODO: Actually use weaker statuses, e.g. when analyzing variables effectively limited to a loop,
-            // or if there are no try blocks in the parent scope.
-            $skip = Config::get()->simplify_ast &&
-                $node->kind === \ast\AST_IF &&
-                $this->block_status_checker->check($child_node) === BlockExitStatusChecker::STATUS_RETURN;
-
-            if (!$skip) {
-                $child_context_list[] = $child_context;
-            }
+            // TODO(Issue #406): We can improve analysis of `if` blocks by using
+            // a BlockExitStatusChecker to avoid propogating invalid inferences.
+            // However, we need to check for a try block between this line's scope
+            // and the parent function's (or global) scope,
+            // to reduce false positives.
+            // (Variables will be available in `catch` and `finally`)
+            $child_context_list[] = $child_context;
         }
 
         // For if statements, we need to merge the contexts

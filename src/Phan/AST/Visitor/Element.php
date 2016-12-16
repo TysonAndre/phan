@@ -278,7 +278,7 @@ class Element
                 assert(
                     false,
                     "All flags must match. Found "
-                    . Debug::astFlagDescription($this->node->flags ?? 0)
+                    . self::flagDescription($this->node)
                 );
                 break;
         }
@@ -343,7 +343,7 @@ class Element
                 assert(
                     false,
                     "All flags must match. Found "
-                    . Debug::astFlagDescription($this->node->flags ?? 0)
+                    . self::flagDescription($this->node)
                 );
                 break;
         }
@@ -372,7 +372,7 @@ class Element
                 assert(
                     false,
                     "All flags must match. Found "
-                    . Debug::astFlagDescription($this->node->flags ?? 0)
+                    . self::flagDescription($this->node)
                 );
                 break;
         }
@@ -403,7 +403,7 @@ class Element
                 assert(
                     false,
                     "All flags must match. Found "
-                    . Debug::astFlagDescription($this->node->flags ?? 0)
+                    . self::flagDescription($this->node)
                 );
                 break;
         }
@@ -428,7 +428,7 @@ class Element
                 assert(
                     false,
                     "All flags must match. Found "
-                    . Debug::astFlagDescription($this->node->flags ?? 0)
+                    . self::flagDescription($this->node)
                 );
                 break;
         }
@@ -451,7 +451,7 @@ class Element
                 assert(
                     false,
                     "All flags must match. Found "
-                    . Debug::astFlagDescription($this->node->flags ?? 0)
+                    . self::flagDescription($this->node)
                 );
                 break;
         }
@@ -486,7 +486,7 @@ class Element
                 assert(
                     false,
                     "All flags must match. Found "
-                    . Debug::astFlagDescription($this->node->flags ?? 0)
+                    . self::flagDescription($this->node)
                 );
                 break;
         }
@@ -515,7 +515,7 @@ class Element
                 assert(
                     false,
                     "All flags must match. Found "
-                    . Debug::astFlagDescription($this->node->flags ?? 0)
+                    . self::flagDescription($this->node)
                 );
                 break;
         }
@@ -544,7 +544,7 @@ class Element
                 assert(
                     false,
                     "All flags must match. Found "
-                    . Debug::astFlagDescription($this->node->flags ?? 0)
+                    . self::flagDescription($this->node)
                 );
                 break;
         }
@@ -579,7 +579,7 @@ class Element
                 assert(
                     false,
                     "All flags must match. Found "
-                    . Debug::astFlagDescription($this->node->flags ?? 0)
+                    . self::flagDescription($this->node)
                 );
                 break;
         }
@@ -604,7 +604,7 @@ class Element
                 assert(
                     false,
                     "All flags must match. Found "
-                    . Debug::astFlagDescription($this->node->flags ?? 0)
+                    . self::flagDescription($this->node)
                 );
                 break;
         }
@@ -787,9 +787,13 @@ class Element
                 assert(
                     false,
                     "All flags must match. Found "
-                    . Debug::astFlagDescription($this->node->flags ?? 0)
+                    . self::flagDescription($this->node)
                 );
                 break;
         }
+    }
+
+    private static function flagDescription(Node $node) : string {
+        return Debug::astFlagDescription($node->flags ?? 0, $node->kind);
     }
 }
