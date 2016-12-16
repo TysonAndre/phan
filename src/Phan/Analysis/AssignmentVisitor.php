@@ -12,14 +12,11 @@ use Phan\Exception\NodeException;
 use Phan\Exception\UnanalyzableException;
 use Phan\Issue;
 use Phan\Language\Context;
-use Phan\Language\Element\Comment;
 use Phan\Language\Element\Parameter;
 use Phan\Language\Element\Variable;
-use Phan\Language\FQSEN;
 use Phan\Language\FQSEN\FullyQualifiedClassName;
 use Phan\Language\UnionType;
 use ast\Node;
-use ast\Node\Decl;
 
 class AssignmentVisitor extends AnalysisVisitor
 {
@@ -96,6 +93,50 @@ class AssignmentVisitor extends AnalysisVisitor
         );
 
         return $this->visitVar($node);
+    }
+
+    /**
+     * The following is an example of how this'd happen.
+     *
+     * ```php
+     * class C {
+     *     function f() {
+     *         return [ 24 ];
+     *     }
+     * }
+     * (new C)->f()[1] = 42;
+     * ```
+     *
+     * @param Node $node
+     * A node to parse
+     *
+     * @return Context
+     * A new or an unchanged context resulting from
+     * parsing the node
+     */
+    public function visitMethodCall(Node $node) : Context {
+        return $this->context;
+    }
+
+    /**
+     * The following is an example of how this'd happen.
+     *
+     * ```php
+     * function f() {
+     *     return [ 24 ];
+     * }
+     * f()[1] = 42;
+     * ```
+     *
+     * @param Node $node
+     * A node to parse
+     *
+     * @return Context
+     * A new or an unchanged context resulting from
+     * parsing the node
+     */
+    public function visitCall(Node $node) : Context {
+        return $this->context;
     }
 
     /**

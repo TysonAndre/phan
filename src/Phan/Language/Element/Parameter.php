@@ -12,7 +12,6 @@ use Phan\Language\Type\IntType;
 use Phan\Language\Type\StringType;
 use Phan\Language\UnionType;
 use ast\Node;
-use ast\Node\Decl;
 
 class Parameter extends Variable
 {
@@ -22,6 +21,12 @@ class Parameter extends Variable
      * The type of the default value if any
      */
     private $default_value_type = null;
+
+    /**
+     * @var mixed
+     * The value of the default, if one is set
+     */
+    private $default_value = null;
 
     /**
      * @param \phan\Context $context
@@ -74,6 +79,16 @@ class Parameter extends Variable
     }
 
     /**
+     * @return bool
+     * True if this parameter has a type for its
+     * default value
+     */
+    public function hasDefaultValue() : bool
+    {
+        return !empty($this->default_value_type);
+    }
+
+    /**
      * @param UnionType $type
      * The type of the default value for this parameter
      *
@@ -85,16 +100,6 @@ class Parameter extends Variable
     }
 
     /**
-     * @return bool
-     * True if this parameter has a type for its
-     * default value
-     */
-    public function hasDefaultValue() : bool
-    {
-        return !empty($this->default_value_type);
-    }
-
-    /**
      * @return UnionType
      * The type of the default value for this parameter
      * if it exists
@@ -102,6 +107,27 @@ class Parameter extends Variable
     public function getDefaultValueType() : UnionType
     {
         return $this->default_value_type;
+    }
+
+    /**
+     * @param mixed $value
+     * The value of the default for this parameter
+     *
+     * @return void
+     */
+    public function setDefaultValue($value)
+    {
+        $this->default_value = $value;
+    }
+
+    /**
+     * @return mixed
+     * The value of the default for this parameter if one
+     * is defined, otherwise null.
+     */
+    public function getDefaultValue()
+    {
+        return $this->default_value;
     }
 
     /**
@@ -191,6 +217,9 @@ class Parameter extends Variable
                 $parameter->setDefaultValueType(
                     $union_type
                 );
+
+                // Set the actual value of the default
+                $parameter->setDefaultValue($default_node);
             } else {
                 try {
                     // Get the type of the default
@@ -224,6 +253,9 @@ class Parameter extends Variable
 
                 // Set the default value
                 $parameter->setDefaultValueType($union_type);
+
+                // Set the actual value of the default
+                $parameter->setDefaultValue($default_node);
             }
         }
 
@@ -355,8 +387,12 @@ class Parameter extends Variable
             $string .= ' ...';
         }
 
-        if ($this->isOptional()) {
-            $string .= ' = null';
+        if ($this->hasDefaultValue()) {
+            if ($this->getDefaultValue() instanceof \ast\Node) {
+                $string .= ' = null';
+            } else {
+                $string .= ' = ' . (string)$this->getDefaultValue();
+            }
         }
 
         return $string;

@@ -8,7 +8,6 @@ use Phan\Issue;
 use Phan\Language\Context;
 use Phan\Language\Element\FunctionInterface;
 use Phan\Language\Element\Method;
-use Phan\Language\FQSEN;
 use Phan\Language\Type;
 use Phan\Language\Type\ArrayType;
 use Phan\Language\Type\CallableType;
@@ -110,7 +109,7 @@ class ArgumentType
             foreach ($method->alternateGenerator($code_base) as $alternate_method) {
                 $alternate_found = $alternate_found || (
                     $argcount >=
-                    $alternate_method->getNumberOfParameters()
+                    $alternate_method->getNumberOfRequiredParameters()
                 );
             }
 

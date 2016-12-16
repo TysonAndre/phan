@@ -5,19 +5,16 @@ use Phan\AST\AnalysisVisitor;
 use Phan\AST\ContextNode;
 use Phan\CodeBase;
 use Phan\Config;
-use Phan\Debug;
 use Phan\Exception\CodeBaseException;
 use Phan\Exception\IssueException;
 use Phan\Exception\NodeException;
 use Phan\Issue;
 use Phan\Language\Context;
-use Phan\Language\Element\Comment;
 use Phan\Language\Element\Func;
 use Phan\Language\Element\FunctionInterface;
 use Phan\Language\Element\Method;
 use Phan\Language\Element\PassByReferenceVariable;
 use Phan\Language\Element\Variable;
-use Phan\Language\FQSEN;
 use Phan\Language\FQSEN\FullyQualifiedFunctionName;
 use Phan\Language\Type;
 use Phan\Language\Type\ArrayType;
@@ -1258,8 +1255,10 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                         $method->getDefiningClassFQSEN()->asType()
                     )
                 )
+                && $this->context->getClassFQSEN() != $method->getDefiningClassFQSEN()
             )
         ) {
+
             $this->emitIssue(
                 Issue::AccessMethodProtected,
                 $node->lineno ?? 0,

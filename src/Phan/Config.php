@@ -35,6 +35,10 @@ class Config
         // your application should be included in this list.
         'directory_list' => [],
 
+        // List of case-insensitive file extensions supported by Phan.
+        // (e.g. php, html, htm)
+        'analyzed_file_extensions' => ['php'],
+
         // A file list that defines files that will be excluded
         // from parsing and analysis and will not be read at all.
         //
@@ -211,11 +215,6 @@ class Config
         // function and method signatures instead of analyzing files.
         'dump_signatures_file' => null,
 
-        // If true (and if stored_state_file_path is set) we'll
-        // look at the list of files passed in and expand the list
-        // to include files that depend on the given files
-        'expand_file_list' => false,
-
         // Include a progress bar in the output
         'progress_bar' => false,
 
@@ -366,7 +365,7 @@ class Config
         // Even if files are added or removed, or process counts change,
         // relatively few files will move to a different group.
         // (use when the number of files is much larger than the process count)
-        'consistent_hashing_file_order' => true,
+        'consistent_hashing_file_order' => false,
 
         // A list of plugin files to execute
         'plugins' => [

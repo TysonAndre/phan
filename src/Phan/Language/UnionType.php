@@ -10,10 +10,8 @@ use Phan\Issue;
 use Phan\Language\Element\Clazz;
 use Phan\Language\FQSEN\FullyQualifiedFunctionName;
 use Phan\Language\FQSEN\FullyQualifiedMethodName;
-use Phan\Language\Type;
 use Phan\Language\Type\ArrayType;
 use Phan\Language\Type\FloatType;
-use Phan\Language\Type\GenericType;
 use Phan\Language\Type\IntType;
 use Phan\Language\Type\MixedType;
 use Phan\Language\Type\NullType;
@@ -190,6 +188,12 @@ class UnionType implements \Serializable
             $map_raw = require(__DIR__.'/Internal/PropertyMap.php');
             foreach ($map_raw as $key => $value) {
                 $map[strtolower($key)] = $value;
+            }
+
+            // Merge in an empty type for dynamic properties on any
+            // classes listed as supporting them.
+            foreach (require(__DIR__.'/Internal/DynamicPropertyMap.php') as $class_name) {
+                $map[strtolower($class_name)]['*'] = '';
             }
         }
 

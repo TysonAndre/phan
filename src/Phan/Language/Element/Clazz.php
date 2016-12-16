@@ -218,6 +218,14 @@ class Clazz extends AddressableElement
         foreach (UnionType::internalPropertyMapForClassName(
             $clazz->getName()
         ) as $property_name => $property_type_string) {
+
+            // An asterisk indicates that the class supports
+            // dynamic properties
+            if ($property_name === '*') {
+                $clazz->setHasDynamicProperties(true);
+                continue;
+            }
+
             $property_context = $context->withScope(
                 new ClassScope(new GlobalScope, $clazz->getFQSEN())
             );
@@ -776,9 +784,10 @@ class Clazz extends AddressableElement
         }
 
         // Check to see if missing properties are allowed
-        // or we're stdclass
+        // or we're working with a class with dynamic
+        // properties such as stdclass.
         if (Config::get()->allow_missing_properties
-            || $this->getFQSEN() == FullyQualifiedClassName::getStdClassFQSEN()
+            || $this->getHasDynamicProperties($code_base)
         ) {
             $property = new Property(
                 $context,
@@ -1220,6 +1229,40 @@ class Clazz extends AddressableElement
 
     /**
      * @return bool
+     * True if this class calls its parent constructor
+     */
+    public function getHasDynamicProperties(CodeBase $code_base) : bool
+    {
+        return (
+            Flags::bitVectorHasState(
+                $this->getPhanFlags(),
+                Flags::CLASS_HAS_DYNAMIC_PROPERTIES
+            )
+            ||
+            (
+                $this->hasParentType()
+                && $code_base->hasClassWithFQSEN($this->getParentClassFQSEN())
+                && $this->getParentClass($code_base)->getHasDynamicProperties($code_base)
+            )
+        );
+    }
+
+    /**
+     * @return void
+     */
+    public function setHasDynamicProperties(
+        bool $has_dynamic_properties
+    ) {
+        $this->setPhanFlags(Flags::bitVectorWithState(
+            $this->getPhanFlags(),
+            Flags::CLASS_HAS_DYNAMIC_PROPERTIES,
+            $has_dynamic_properties
+        ));
+    }
+
+
+    /**
+     * @return bool
      * True if this is a final class
      */
     public function isFinal() : bool
@@ -1284,8 +1327,8 @@ class Clazz extends AddressableElement
     public function getNonParentAncestorFQSENList(CodeBase $code_base)
     {
         return array_merge(
-            $this->getTraitFQSENList(),
-            $this->getInterfaceFQSENList()
+            $this->getInterfaceFQSENList(),
+            $this->getTraitFQSENList()
         );
     }
 

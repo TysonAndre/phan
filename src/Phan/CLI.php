@@ -6,7 +6,6 @@ use Phan\Output\Filter\CategoryIssueFilter;
 use Phan\Output\Filter\ChainedIssueFilter;
 use Phan\Output\Filter\FileIssueFilter;
 use Phan\Output\Filter\MinimumSeverityFilter;
-use Phan\Output\ParallelConsoleOutput;
 use Phan\Output\PrinterFactory;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -54,7 +53,7 @@ class CLI
         // Parse command line args
         // still available: g,n,t,u,v,w
         $opts = getopt(
-            "f:m:o:c:k:aeqbr:pid:s:3:y:l:xj:zh::",
+            "f:m:o:c:k:aeqbr:pid:3:y:l:xj:zh::",
             [
                 'backward-compatibility-checks',
                 'dead-code-detection',
@@ -74,13 +73,16 @@ class CLI
                 'progress-bar',
                 'project-root-directory:',
                 'quick',
-                'state-file:',
                 'processes:',
                 'config-file:',
                 'signature-compatibility',
                 'markdown-issue-messages',
             ]
         );
+
+        if (array_key_exists('h', $opts ?? []) || array_key_exists('help', $opts ?? [])) {
+            $this->usage();  // --help prints help and calls exit(0)
+        }
 
         // Determine the root directory of the project from which
         // we root all relative paths passed in as args
@@ -108,10 +110,6 @@ class CLI
 
         foreach ($opts ?? [] as $key => $value) {
             switch ($key) {
-                case 'h':
-                case 'help':
-                    $this->usage();
-                    break;
                 case 'r':
                 case 'file-list-only':
                     // Mark it so that we don't load files through
@@ -210,11 +208,6 @@ class CLI
                         Config::get()->exclude_file_list,
                         is_array($value) ? $value : [$value]
                     );
-                    break;
-                case 's':
-                case 'state-file':
-                    // TODO: re-enable eventually
-                    // Config::get()->stored_state_file_path = $value;
                     break;
                 case 'j':
                 case 'processes':
@@ -358,9 +351,7 @@ Usage: {$argv[0]} [options] [files...]
 
  -r, --file-list-only
   A file containing a list of PHP files to be analyzed to the
-  exclusion of any other directories or files passed in. This
-  is useful when running Phan from a stored state file and
-  passing in a small subset of files to be re-analyzed.
+  exclusion of any other directories or files passed in.
 
  -l, --directory <directory>
   A directory that should be parsed for class and
@@ -439,7 +430,7 @@ Usage: {$argv[0]} [options] [files...]
 
  -z, --signature-compatibility
   Analyze signatures for methods that are overrides to ensure
-  compatiiblity with what they're overriding.
+  compatibility with what they're overriding.
 
  -h,--help
   This help information
@@ -461,6 +452,18 @@ EOB;
         $file_list = [];
 
         try {
+            $file_extensions = Config::get()->analyzed_file_extensions;
+
+            if (!is_array($file_extensions) || count($file_extensions) == 0) {
+                throw new \InvalidArgumentException(
+                    'Empty list in config analyzed_file_extensions. Nothing to analyze.'
+                );
+            }
+
+            $extension_regex = implode('|', array_map(function ($extension) {
+                return preg_quote($extension, '/');
+            }, $file_extensions));
+
             $iterator = new \RegexIterator(
                 new \RecursiveIteratorIterator(
                     new \RecursiveDirectoryIterator(
@@ -468,7 +471,7 @@ EOB;
                         \RecursiveDirectoryIterator::FOLLOW_SYMLINKS
                     )
                 ),
-                '/^.+\.php$/i',
+                '/^.+\.(' . $extension_regex . ')$/i',
                 \RecursiveRegexIterator::GET_MATCH
             );
 
