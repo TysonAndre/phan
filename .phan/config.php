@@ -106,8 +106,6 @@ return [
         // 'PhanUndeclaredMethod',
     ],
 
-    'simplify_ast' => true,
-
     // If empty, no filter against issues types will be applied.
     // If non-empty, only issues within the list will be emitted
     // by Phan.
