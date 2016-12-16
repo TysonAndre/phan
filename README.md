@@ -8,6 +8,13 @@ and does not attempt to track values.
 [![Latest Stable Version (upstream)](https://poser.pugx.org/etsy/phan/v/stable)](https://packagist.org/packages/etsy/phan)
 [![License](https://poser.pugx.org/etsy/phan/license)](https://github.com/etsy/phan/blob/master/LICENSE)
 
+# About this fork
+
+This fork adds the ability to read @property annotations, and supports miscellaneous features, such as
+
+- rewriting the AST.
+- Ignoring common mistakes in @return/@property annotations
+
 # Getting Started
 
 The easiest way to use Phan is via Composer.
