@@ -11,11 +11,7 @@ class ASTRewriterTest extends AbstractPhanFileTest {
      * @suppress PhanUndeclaredConstant
      */
     public function getTestFiles() {
-        /** @return string[] - Original file and expected file */
-        return array_map(function(array $values) {
-            assert(count($values[0]) === 1, 'expected only one source file');
-            return [$values[0][0], $values[1]];
-        }, $this->scanSourceFilesDir(AST_TEST_FILE_DIR, AST_EXPECTED_DIR));
+        return $this->scanSourceFilesDir(AST_TEST_FILE_DIR, AST_EXPECTED_DIR);
     }
 
     /**
@@ -29,10 +25,10 @@ class ASTRewriterTest extends AbstractPhanFileTest {
      * @dataProvider getTestFiles
      * @override
      */
-    public function testFiles($test_file_path, $expected_file_path) {
+    public function testFiles($test_file_list, $expected_file_path) {
         // Read the expected output
         $original_src =
-            file_get_contents($expected_file_path);
+            file_get_contents($test_file_list[0]);
         $expected_src =
             file_get_contents($expected_file_path);
         $this->assertNotEquals(false, $original_src);
