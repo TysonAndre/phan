@@ -6,6 +6,8 @@ Phan is a static analyzer for PHP.
 
 # Features
 
+(This fork adds the ability to read @property annotations, and supports integers)
+
 Phan is a static analyzer that looks for common issues and will verify type compatibility
 on various operations when type information is available or can be deduced. Phan does not
 make any serious attempt to understand flow control and narrow types based on conditionals.
