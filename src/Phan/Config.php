@@ -135,6 +135,12 @@ class Config
         // will cut down on false positives.
         'null_casts_as_any_type' => false,
 
+        // Allow null to be cast as any array type and for any
+        // array type to be cast to null. Setting this to false
+        // will cut down on false positives.
+        // If null_casts_as_any_type is true, this has no effect.
+        'null_casts_as_array' => false,
+
         // If enabled, scalars (int, float, bool, string, null)
         // are treated as if they can cast to each other.
         'scalar_implicit_cast' => false,
