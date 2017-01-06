@@ -955,6 +955,10 @@ class Type
             if ($type->isScalar() && $this->isScalar()) {
                 return true;
             }
+        } else if (count(Config::get()->scalar_implicit_partial) > 0) {
+            if ($type->isScalar() && $this->isScalar() && in_array($d, Config::get()->scalar_implicit_partial[$s] ?? [])) {
+                return true;
+            }
         }
 
         if ($s==='int' && $d==='float') {

@@ -135,9 +135,23 @@ class Config
         // will cut down on false positives.
         'null_casts_as_any_type' => false,
 
+        // Allow null to be cast as any array type and for any
+        // array type to be cast to null. Setting this to false
+        // will cut down on false positives.
+        // If null_casts_as_any_type is true, this has no effect.
+        'null_casts_as_array' => false,
+
         // If enabled, scalars (int, float, bool, string, null)
         // are treated as if they can cast to each other.
         'scalar_implicit_cast' => false,
+
+        // If this has entries, scalars (int, float, bool, string, null)
+        // are treated as if they can cast to any element in this nested list of types.
+        // This is not transitive.
+        // if scalar_implicit_cast is true, this setting is ignored.
+        // E.g. a config of ['float' => ['string'], 'int' => ['string']] will
+        // allow casting floats and ints to strings.
+        'scalar_implicit_partial' => [],
 
         // If true, seemingly undeclared variables in the global
         // scope will be ignored. This is useful for projects
