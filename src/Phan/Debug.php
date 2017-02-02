@@ -153,6 +153,7 @@ class Debug
      */
     public static function astFlagDescription(int $flag, int $kind) : string
     {
+        list($exclusive, $combinable) = self::getFlagInfo();
         $flag_names = [];
         if (isset($exclusive[$kind])) {
             $flagInfo = $exclusive[$kind];
