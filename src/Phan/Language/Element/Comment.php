@@ -420,7 +420,7 @@ class Comment
             $type = ltrim($match[2] ?? '');
 
             $property_name =
-                empty($match[23]) ? '' : trim($match[23], '$');
+                empty($match[29]) ? '' : trim($match[29], '$');
             if ($property_name === '') {
                 return null;
             }
