@@ -7,11 +7,11 @@
  * @property $undeclaredTypeVar a magic property that has a property annotation without a type (automatically inferred)
  */
 class MagicPropertiesClass {
-    /** @param string */
+    /** @var string */
     private $_stringVar;
-    /** @param DateTime */
+    /** @var DateTime */
     private $_dateVar;
-    /** @param mixed */
+    /** @var mixed */
     private $_mixedVar;
     private $_undeclaredTypeVar;
 
