@@ -14,6 +14,9 @@ This fork adds the ability to read @property annotations, and supports miscellan
 
 - rewriting the AST.
 - Ignoring common mistakes in @return/@property annotations
+- Even more gradual strengthening of types
+
+see [.phan/config.php](.phan/config.php) and [src/phan/Config.php](src/phan/Config.php) for more details on the new features.
 
 # Getting Started
 
