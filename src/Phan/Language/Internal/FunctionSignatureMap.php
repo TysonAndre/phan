@@ -4999,7 +4999,7 @@ return [
 'Memcached::getByKey' => ['', 'server_key'=>'string', 'key'=>'string', 'flags='=>'int'],
 'Memcached::getDelayed' => ['bool', 'keys'=>'array', 'with_cas='=>'bool', 'value_cb='=>'callable'],
 'Memcached::getDelayedByKey' => ['bool', 'server_key'=>'string', 'keys'=>'array', 'with_cas='=>'bool', 'value_cb='=>'callable'],
-'Memcached::get' => ['', 'key'=>'string', 'cache_cb='=>'callable', 'flags='=>'int'],
+'Memcached::get' => ['', 'key'=>'string', 'cache_cb='=>'callable|null', 'flags='=>'int'],
 'Memcached::getMultiByKey' => ['array', 'server_key'=>'string', 'keys'=>'array', 'flags='=>'int'],
 'Memcached::getMulti' => ['', 'keys'=>'array', 'flags='=>'int'],
 'Memcached::getOption' => ['', 'option'=>'int'],
