@@ -75,6 +75,13 @@ class Comment
     private $magic_property_map = [];
 
     /**
+     * @var Option<Type>
+     * An optional class name defined by a @PhanClosureScope directive.
+     * (overrides the class in which it is analyzed)
+     */
+    private $closure_scope = null;
+
+    /**
      * A private constructor meant to ingest a parsed comment
      * docblock.
      *
@@ -92,10 +99,14 @@ class Comment
      * @param Option<Type> $inherited_type
      * An override on the type of the extended class
      *
-     * @param UnionType $return
+     * @param UnionType $return_union_type
      *
      * @param string[] $suppress_issue_list
      * A list of tags for error type to be suppressed
+     *
+     * @param Option<Type> $closure_scope
+     * For closures: Allows us to document the class of the object
+     * to which a closure will be bound.
      */
     private function __construct(
         bool $is_deprecated,
@@ -105,7 +116,8 @@ class Comment
         Option $inherited_type,
         UnionType $return_union_type,
         array $suppress_issue_list,
-        array $magic_property_list
+        array $magic_property_list,
+        Option $closure_scope
     ) {
         $this->is_deprecated = $is_deprecated;
         $this->variable_list = $variable_list;
@@ -114,6 +126,7 @@ class Comment
         $this->inherited_type = $inherited_type;
         $this->return_union_type = $return_union_type;
         $this->suppress_issue_list = $suppress_issue_list;
+        $this->closure_scope = $closure_scope;
 
         foreach ($this->parameter_list as $i => $parameter) {
             $name = $parameter->getName();
@@ -149,7 +162,7 @@ class Comment
 
         if (!Config::get()->read_type_annotations) {
             return new Comment(
-                false, [], [], [], new None, new UnionType(), [], []
+                false, [], [], [], new None, new UnionType(), [], [], new None
             );
         }
 
@@ -161,6 +174,7 @@ class Comment
         $return_union_type = new UnionType();
         $suppress_issue_list = [];
         $magic_property_list = [];
+        $closure_scope = new None;
 
         $lines = explode("\n", $comment);
 
@@ -202,9 +216,11 @@ class Comment
                         $magic_property_list[] = $magic_property;
                     }
                 }
+            } elseif (stripos($line, '@PhanClosureScope') !== false) {
+                $closure_scope = self::getPhanClosureScopeFromCommentLine($context, $line);
             }
 
-            if (($pos=stripos($line, '@deprecated')) !== false) {
+            if (stripos($line, '@deprecated') !== false) {
                 if (preg_match('/@deprecated\b/', $line, $match)) {
                     $is_deprecated = true;
                 }
@@ -219,7 +235,8 @@ class Comment
             $inherited_type,
             $return_union_type,
             $suppress_issue_list,
-            $magic_property_list
+            $magic_property_list,
+            $closure_scope
         );
     }
 
@@ -449,6 +466,40 @@ class Comment
     }
 
     /**
+     * The context in which the comment line appears
+     *
+     * @param string $line
+     * An individual line of a comment
+     *
+     * @return Option<Type>
+     * A class/interface to use as a context for a closure.
+     * (Phan expects a ClassScope to have exactly one type)
+     */
+    private static function getPhanClosureScopeFromCommentLine(
+        Context $context,
+        string $line
+    ) : Option {
+        $closure_scope_union_type_string = '';
+
+        // https://secure.php.net/manual/en/closure.bindto.php
+        // There wasn't anything in the phpdoc standard to indicate the class to which
+        // a Closure would be bound with bind() or bindTo(), so using a custom tag.
+        //
+        // TODO: Also add a version which forbids using $this in the closure?
+        if (preg_match('/@PhanClosureScope\s+(' . UnionType::union_type_regex . '+)/', $line, $match)) {
+            $closure_scope_union_type_string = $match[1];
+        }
+
+        if ($closure_scope_union_type_string !== '') {
+            return new Some(Type::fromStringInContext(
+                $closure_scope_union_type_string,
+                $context
+            ));
+        }
+        return new None();
+    }
+
+    /**
      * @return bool
      * Set to true if the comment contains a 'deprecated'
      * directive.
@@ -474,7 +525,17 @@ class Comment
      */
     public function hasReturnUnionType() : bool
     {
-        return !empty($this->return_union_type) && !$this->return_union_type->isEmpty();
+        return !$this->return_union_type->isEmpty();
+    }
+
+    /**
+     * @return Option<Type>
+     * An optional Type defined by a (at)PhanClosureScope
+     * directive specifying a single type.
+     */
+    public function getClosureScopeOption() : Option
+    {
+        return $this->closure_scope;
     }
 
     /**
@@ -500,7 +561,7 @@ class Comment
      * @return Option<Type>
      * An optional type declaring what a class extends.
      */
-    public function getInheritedTypeOption()
+    public function getInheritedTypeOption() : Option
     {
         return $this->inherited_type;
     }
