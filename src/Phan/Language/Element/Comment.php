@@ -413,7 +413,8 @@ class Comment
                 $union_type =
                     UnionType::fromStringInContext(
                         $type,
-                        $context
+                        $context,
+                        true
                     );
             } else {
                 $union_type = new UnionType();
