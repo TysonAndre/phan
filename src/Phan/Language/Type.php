@@ -1036,9 +1036,15 @@ class Type
             return true;
         }
 
-        // A nullable type cannot cast to a non-nullable type
-        if ($this->getIsNullable() && !$type->getIsNullable()) {
-            return false;
+        if ($this->getIsNullable()) {
+            if (Config::get()->null_casts_as_any_type) {
+                return true;  // null can cast to any type when this config is set.
+            }
+            // A nullable type cannot cast to a non-nullable type
+            // (when null_casts_as_any_type is false)
+            if (!$type->getIsNullable()) {
+                return false;
+            }
         }
 
         // Get a non-null version of the type we're comparing
