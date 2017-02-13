@@ -98,7 +98,7 @@ class Comment
      * @param string[] $suppress_issue_list
      * A list of tags for error type to be suppressed
      *
-     * @param Option<type> $closure_scope
+     * @param Option<Type> $closure_scope
      * For closures: Allows us to document the class of the object
      * to which a closure will be bound.
      */
@@ -145,7 +145,7 @@ class Comment
 
         if (!Config::get()->read_type_annotations) {
             return new Comment(
-                false, [], [], [], new None, new UnionType(), [], null
+                false, [], [], [], new None, new UnionType(), [], new None
             );
         }
 
@@ -435,7 +435,7 @@ class Comment
     }
 
     /**
-     * @return Option
+     * @return Option<Type>
      * An optional Type defined by a (at)PhanClosureScope
      * directive specifying a single type.
      */
