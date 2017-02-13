@@ -38,6 +38,13 @@ class NullType extends ScalarType
         );
     }
 
+    public function canCastToNonNullableType(Type $type) : bool
+    {
+        // null_casts_as_any_type means that null or nullable can cast to any type?
+        return Config::get()->null_casts_as_any_type
+            || parent::canCastToNonNullableType($type);
+    }
+
     /**
      * @return bool
      * True if this Type can be cast to the given Type
@@ -64,7 +71,8 @@ class NullType extends ScalarType
             if (Config::get()->scalar_implicit_cast) {
                 return true;
             } else if (count(Config::get()->scalar_implicit_partial) > 0) {
-                if ($type->isScalar() && in_array($this->getName(), Config::get()->scalar_implicit_partial[$type->getName()] ?? [])) {
+                // check if $type->getName() is in the list of permitted types $this->getName() can cast to.
+                if ($type->isScalar() && in_array($type->getName(), Config::get()->scalar_implicit_partial[$this->getName()] ?? [])) {
                     return true;
                 }
             }
