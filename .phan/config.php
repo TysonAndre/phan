@@ -31,6 +31,10 @@ return [
     // error message.
     "allow_missing_properties" => false,
 
+    // Allow null to be cast as any array-like type and for any
+    // array-like type to be cast to null. More granular than null_casts_as_any_type.
+    'null_casts_as_array' => false,
+
     // Allow null to be cast as any type and for any
     // type to be cast to null.
     "null_casts_as_any_type" => false,
@@ -38,6 +42,13 @@ return [
     // If enabled, scalars (int, float, bool, string, null)
     // are treated as if they can cast to each other.
     'scalar_implicit_cast' => false,
+
+    // If this has entries, scalars (int, float, bool, string, null)
+    // are allowed to perform the casts listed.
+    // E.g. ['int' => ['float', 'string'], 'float' => ['int'], 'string' => ['int'], 'null' => ['string']]
+    // allows casting null to a string, but not vice versa.
+    // (subset of scalar_implicit_cast)
+    'scalar_implicit_partial' => [],
 
     // If true, seemingly undeclared variables in the global
     // scope will be ignored. This is useful for projects
