@@ -130,6 +130,13 @@ class Config
         // defined.
         'allow_missing_properties' => false,
 
+        // Allow null to be cast as any array-like type and for any
+        // array-like type to be cast to null. Setting this to false
+        // will cut down on false positives.
+        // This is an incremental step in migrating away from null_casts_as_any_type.
+        // If null_casts_as_any_type is true, this has no effect.
+        'null_casts_as_array' => false,
+
         // Allow null to be cast as any type and for any
         // type to be cast to null. Setting this to false
         // will cut down on false positives.
@@ -139,7 +146,7 @@ class Config
         // are treated as if they can cast to each other.
         'scalar_implicit_cast' => false,
 
-        // If enabled, scalars (int, float, bool, string, null)
+        // If this has entries, scalars (int, float, bool, string, null)
         // are treated as if they can cast to any element in this nested list of types.
         // Stricter than scalar_implicit_cast.
         // E.g. ['int' => ['float', 'string'], 'float' => ['int'], 'string' => ['int'], 'null' => ['string']]
