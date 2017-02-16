@@ -1423,6 +1423,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             $ftemp = new \SplFileObject($this->context->getFile());
             $ftemp->seek($node->lineno-1);
             $line = $ftemp->current();
+            assert(is_string($line));
             unset($ftemp);
             if (strpos($line, '{') === false
                 || strpos($line, '}') === false
@@ -1444,6 +1445,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             $ftemp = new \SplFileObject($this->context->getFile());
             $ftemp->seek($node->lineno-1);
             $line = $ftemp->current();
+            assert(is_string($line));
             unset($ftemp);
             if (strpos($line, '{') === false
                 || strpos($line, '}') === false
@@ -1554,7 +1556,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * @param FunctionInterface $method
      * @param Node $node
      *
-     * @return null
+     * @return void
      */
     private function analyzeCallToMethod(
         CodeBase $code_base,
@@ -1909,7 +1911,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * @param string $issue_type
      * A message to emit if it's a no-op
      *
-     * @return null
+     * @return void
      */
     private function analyzeNoOp(Node $node, string $issue_type)
     {
