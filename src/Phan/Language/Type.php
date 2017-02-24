@@ -1042,7 +1042,13 @@ class Type
                 return true;
             } else if (Config::get()->null_casts_as_array && $type->isArrayLike()) {
                 return true;
+            } else if ($type->isScalar() && (
+                    Config::get()->scalar_implicit_cast ||
+                    in_array($type->getName(), Config::get()->scalar_implicit_partial['null'][$type->getName()] ?? []))) {
+                // e.g. allow casting ?string to string if scalar_implicit_cast or 'null' => ['string'] is in scalar_implicit_partial.
+                return true;
             }
+
             if (!$type->getIsNullable()) {
                 return false;
             }
