@@ -56,7 +56,7 @@ class CLI
         // Parse command line args
         // still available: g,n,t,u,v,w
         $opts = getopt(
-            "f:m:o:c:k:aeqbr:pid:3:y:l:xj:zh:::",
+            "f:m:o:c:k:aeqbr:pid:3:y:l:xj:zh::",
             [
                 'backward-compatibility-checks',
                 'dead-code-detection',
