@@ -47,6 +47,10 @@ class Request {
     /** @var string[]|null */
     private $files = null;
 
+    private static $child_pids = [];
+
+    private static $exited_pid_status = [];
+
     /**
      * @param resource $conn
      * @param array $config
@@ -111,7 +115,7 @@ class Request {
     public function filterFilesToAnalyze(array $analyze_file_path_list) : array {
 
         if (is_null($this->files)) {
-            Daemon::debugf("No files to filter in filterFilesToAnalyze\n");
+            Daemon::debugf("No files to filter in filterFilesToAnalyze");
             return $analyze_file_path_list;
         }
 
@@ -129,7 +133,7 @@ class Request {
                 Daemon::debugf("Failed to find requested file '%s' in parsed file list", $file, json_encode($analyze_file_path_list));
             }
         }
-        Daemon::debugf("Returning file set: %s\n", json_encode($filteredFiles));
+        Daemon::debugf("Returning file set: %s", json_encode($filteredFiles));
         return $filteredFiles;
     }
 
@@ -174,7 +178,38 @@ class Request {
             ]);
         }
     }
-    // public Printer createPrinter() - Output lines to the "output" json field, in various formats.
+
+    /**
+     * @param int $signo
+     * @param array|null $status
+     * @param int|null $pid
+     * @return void
+     */
+    public static function childSignalHandler($signo, $status = null, $pid = null) {
+        if ($signo !== SIGCHLD) {
+            return;
+        }
+        if (!$pid) {
+            $pid = pcntl_waitpid(-1, $status, WNOHANG);
+        }
+        Daemon::debugf("Got signal pid=%s", json_encode($pid));
+
+        while ($pid > 0) {
+            if (array_key_exists($pid, self::$child_pids)) {
+                $exit_code = pcntl_wexitstatus($status);
+                if ($exit_code != 0) {
+                    error_log(sprintf("child process %d exited with status %d\n", $pid, $exit_code));
+                } else {
+                    Daemon::debugf("child process %d completed successfully", $pid);
+                }
+                unset(self::$child_pids[$pid]);
+            } else if ($pid > 0) {
+                self::$exited_pid_status[$pid] = $status;
+            }
+            $pid = pcntl_waitpid(-1, $status, WNOHANG);
+        }
+
+    }
 
     /**
      * @param CodeBase $code_base
@@ -183,7 +218,7 @@ class Request {
      * @return Request|null - non-null if this is a worker process with work to do. null if request failed or this is the master.
      */
     public static function accept(CodeBase $code_base, \Closure $file_path_lister, $conn) {
-        Daemon::debugf("Got a connection\n");  // debugging code
+        Daemon::debugf("Got a connection");  // debugging code
         // Efficient for large strings, e.g. long file lists.
         $data = [];
         while (!feof($conn)) {
@@ -251,19 +286,30 @@ class Request {
         self::reloadFilePathListForDaemon($code_base, $file_path_lister);
         $receivedSignal = false;
 
-        // TODO: Parse the new file list **before forking**, not after forking.
-        // TODO: Use http://php.net/manual/en/book.inotify.php if available, watch all directories if available.
-
         $fork_result = pcntl_fork();
         if ($fork_result < 0) {
             error_log("The daemon failed to fork. Going to terminate");
         } else if ($fork_result == 0) {
-            Daemon::debugf("This is the fork\n");
+            Daemon::debugf("This is the fork");
+            self::$child_pids = [];
             // TODO: Re-parse the file list.
             return new self($conn, $request);;
         } else {
+            $pid = $fork_result;
+            $status = self::$exited_pid_status[$pid] ?? null;
+            if (isset($status)) {
+                Daemon::debugf("child process %d already exited", $pid);
+                $this->childSignalHandler(SIGCHLD, $status, $pid);
+                unset(self::$exited_pid_status[$pid]);
+            } else {
+                self::$child_pids[$pid] = true;
+            }
+
+            // TODO: Parse the new file list **before forking**, not after forking.
+            // TODO: Use http://php.net/manual/en/book.inotify.php if available, watch all directories if available.
             // Daemon continues to execute.
-            Daemon::debugf("Created a child pid %d\n", $fork_result);
+            self::$child_pids[] = $fork_result;
+            Daemon::debugf("Created a child pid %d", $fork_result);
         }
         return null;
     }
@@ -285,7 +331,7 @@ class Request {
         }
 
         $changed_or_added_files = $code_base->updateFileList($file_list);
-        Daemon::debugf("Parsing modified files: New files = %s\n", json_encode($changed_or_added_files));
+        Daemon::debugf("Parsing modified files: New files = %s", json_encode($changed_or_added_files));
         if (count($changed_or_added_files) > 0 || $code_base->getParsedFilePathCount() !== $oldCount) {
             // Only clear memoizations if it is determined at least one file to parse was added/removed/modified.
             // - file path count changes if files were deleted or added
@@ -301,10 +347,10 @@ class Request {
 
             // If the file is gone, no need to continue
             if (($real = realpath($file_path)) === false || !file_exists($real)) {
-                Daemon::debugf("file $file_path does not exist\n");
+                Daemon::debugf("file $file_path does not exist");
                 continue;
             }
-            Daemon::debugf("Parsing %s yet again\n", $file_path);
+            Daemon::debugf("Parsing %s yet again", $file_path);
             try {
                 // Parse the file
                 Analysis::parseFile($code_base, $file_path);
@@ -312,6 +358,6 @@ class Request {
                 error_log(sprintf("Analysis::parseFile threw %s for %s: %s\n%s", get_class($throwable), $file_path, $throwable->getMessage(), $throwable->getTraceAsString()));
             }
         }
-        Daemon::debugf("Done parsing modified files\n");
+        Daemon::debugf("Done parsing modified files");
     }
 }

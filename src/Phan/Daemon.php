@@ -35,14 +35,52 @@ class Daemon {
 
         $socket_server = self::createDaemonStreamSocketServer();
         // TODO: Limit the maximum number of active processes to a small number(4?)
-        // TODO: accept SIGCHILD when child terminates, somehow?
-        while ($conn = stream_socket_accept($socket_server, -1)) {
-            $request = Request::accept($code_base, $file_path_lister, $conn);
-            if ($request instanceof Request) {
-                return $request;  // We forked off a worker process successfully, and this is the worker process
+        // TODO: accept SIGCHLD when child terminates, somehow?
+        try {
+            $gotSignal = false;
+            pcntl_signal(SIGCHLD, function(...$args) use(&$gotSignal) {
+                $gotSignal = true;
+                Request::childSignalHandler(...$args);
+            });
+            while (true) {
+                $gotSignal = false;  // reset this.
+                // We get an error from stream_socket_accept. After the RuntimeException is thrown, pcntl_signal is called.
+				$previousErrorHandler = set_error_handler(function ($severity, $message, $file, $line) use (&$previousErrorHandler) {
+                    self::debugf("In new error handler '$message'");
+					if (!preg_match('/stream_socket_accept/i', $message)) {
+						return $previousErrorHandler($severity, $message, $file, $line);
+					}
+                    throw new \RuntimeException("Got signal");
+				});
+
+                $conn = false;
+                try {
+                    $conn = stream_socket_accept($socket_server, -1);
+                } catch(\RuntimeException $e) {
+                    self::debugf("Got signal");
+                    pcntl_signal_dispatch();
+                    self::debugf("done processing signals");
+                    if ($gotSignal) {
+                        continue;  // Ignore notices from stream_socket_accept if it's due to being interrupted by a child process terminating.
+                    }
+                } finally {
+                    restore_error_handler();
+                }
+
+                if (!is_resource($conn)) {
+                    // If we didn't get a connection, and it wasn't due
+                    break;
+                }
+                assert(is_resource($conn));
+                $request = Request::accept($code_base, $file_path_lister, $conn);
+                if ($request instanceof Request) {
+                    return $request;  // We forked off a worker process successfully, and this is the worker process
+                }
             }
+            error_log("Stopped accepting connections");
+        } finally {
+            restore_error_handler();
         }
-        error_log("Stopped accepting connections");
         return null;
     }
 

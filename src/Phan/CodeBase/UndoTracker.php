@@ -56,7 +56,7 @@ class UndoTracker {
      */
     public function setCurrentParsedFile($current_parsed_file) {
         if (is_string($current_parsed_file)) {
-            Daemon::debugf("Recording file modification state for %s\n", $current_parsed_file);
+            Daemon::debugf("Recording file modification state for %s", $current_parsed_file);
             $this->fileModificationState[$current_parsed_file] = self::getFileState($current_parsed_file);
         }
         $this->current_parsed_file = $current_parsed_file;
@@ -85,7 +85,7 @@ class UndoTracker {
      * @return void
      */
     public function recordUnparseableFile(CodeBase $code_base, string $current_parsed_file) {
-        Daemon::debugf("%s was unparseable, had a syntax error\n", $current_parsed_file);
+        Daemon::debugf("%s was unparseable, had a syntax error", $current_parsed_file);
         $this->undoFileChanges($code_base, $current_parsed_file);
         unset($this->fileModificationState[$current_parsed_file]);
     }
@@ -95,7 +95,7 @@ class UndoTracker {
      * @return void
      */
     private function undoFileChanges(CodeBase $code_base, string $path) {
-        Daemon::debugf("Undoing file changes for $path\n");
+        Daemon::debugf("Undoing file changes for $path");
         foreach ($this->undoOperationsForPath[$path] ?? [] as $undo_operation) {
             $undo_operation($code_base);
         }
