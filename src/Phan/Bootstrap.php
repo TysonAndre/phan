@@ -44,13 +44,8 @@ set_exception_handler(function (Throwable $throwable) {
     exit(EXIT_FAILURE);
 });
 
-/**
- * @suppress PhanUnreferencedMethod
- */
-function phan_error_handler($errno, $errstr, $errfile, $errline)
-{
+set_error_handler(function ($errno, $errstr, $errfile, $errline) {
     print "$errfile:$errline [$errno] $errstr\n";
     debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
     exit(EXIT_FAILURE);
-}
-set_error_handler('phan_error_handler');
+});

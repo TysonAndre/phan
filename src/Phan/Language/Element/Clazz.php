@@ -563,6 +563,7 @@ class Clazz extends AddressableElement
         $type_option
     ) {
         // Ignore properties we already have
+        // TODO: warn about private properties in subclass overriding ancestor private property.
         if ($this->hasPropertyWithName($code_base, $property->getName())) {
             return;
         }
@@ -572,6 +573,7 @@ class Clazz extends AddressableElement
             $property->getName()
         );
 
+        // TODO: defer template properties until the analysis phase? They might not be parsed or resolved yet.
         if ($property->getFQSEN() !== $property_fqsen) {
             $property = clone($property);
             $property->setDefiningFQSEN($property->getFQSEN());
