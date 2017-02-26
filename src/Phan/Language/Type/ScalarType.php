@@ -78,4 +78,11 @@ abstract class ScalarType extends NativeType
         return parent::canCastToNonNullableType($type);
     }
 
+    /**
+     *
+     */
+    public function asFQSENString() : string
+    {
+        return $this->name;
+    }
 }
