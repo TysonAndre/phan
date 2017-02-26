@@ -62,9 +62,6 @@ class FileRef implements \Serializable
         return self::getProjectRelativePathForPath($this->file);
     }
 
-    public function a() {
-        self::b();
-    }
     /**
      * @param string $cwd_relative_path (relative or absolute path)
      * @return string
