@@ -34,7 +34,7 @@ class Analysis
      *
      * @return Context
      */
-    public static function parseFile(CodeBase $code_base, string $file_path, bool $suppress_parse_errors = false) : Context
+    public static function parseFile(CodeBase $code_base, string $file_path, bool $suppress_parse_errors = false, string $override_contents = null) : Context
     {
         $code_base->setCurrentParsedFile($file_path);
         $context = (new Context)->withFile($file_path);
@@ -43,10 +43,17 @@ class Analysis
         // before passing it on to the recursive version
         // of this method
         try {
-            $node = \ast\parse_file(
-                Config::projectPath($file_path),
-                Config::get()->ast_version
-            );
+            if (is_string($override_contents)) {
+                $node = \ast\parse_code(
+                    $override_contents,
+                    Config::get()->ast_version
+                );
+            } else {
+                $node = \ast\parse_file(
+                    Config::projectPath($file_path),
+                    Config::get()->ast_version
+                );
+            }
         } catch (\ParseError $parse_error) {
             if ($suppress_parse_errors) {
                 return $context;
@@ -356,7 +363,8 @@ class Analysis
      */
     public static function analyzeFile(
         CodeBase $code_base,
-        string $file_path
+        string $file_path,
+        string $file_contents_override = null
     ) : Context {
         // Set the file on the context
         $context = (new Context)->withFile($file_path);
@@ -365,10 +373,17 @@ class Analysis
         // before passing it on to the recursive version
         // of this method
         try {
-            $node = \ast\parse_file(
-                Config::projectPath($file_path),
-                Config::get()->ast_version
-            );
+            if (is_string($file_contents_override)) {
+                $node = \ast\parse_code(
+                    $file_contents_override,
+                    Config::get()->ast_version
+                );
+            } else {
+                $node = \ast\parse_file(
+                    Config::projectPath($file_path),
+                    Config::get()->ast_version
+                );
+            }
         } catch (\ParseError $parse_error) {
             Issue::maybeEmit(
                 $code_base,

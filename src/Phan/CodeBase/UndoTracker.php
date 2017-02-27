@@ -154,4 +154,19 @@ class UndoTracker {
         }
         return $changed_or_added_file_list;
     }
+
+    /**
+     * @param CodeBase $code_base - code base owning this tracker
+     * @param string[] $new_file_list
+     * @return bool - true if the file existed
+     */
+    public function beforeReplaceFileContents(CodeBase $code_base, string $file_path, string $new_file_contents) {
+        if (!isset($this->fileModificationState[$file_path])) {
+            Daemon::debugf("Tried to replace contents of '$file_path', but that path does not yet exist");
+            return false;
+        }
+        $this->undoFileChanges($code_base, $file_path);
+        unset($this->fileModificationState[$file_path]);
+        return true;
+    }
 }

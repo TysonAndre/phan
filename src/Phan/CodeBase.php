@@ -52,7 +52,7 @@ use Phan\Library\Set;
  * ```
  *
  * This supports undoing some operations in the parse phase,
- * for a background daemon analyzing single files. (Phan\CodeBase\UndoTracker
+ * for a background daemon analyzing single files. (Phan\CodeBase\UndoTracker)
  */
 class CodeBase
 {
@@ -238,6 +238,17 @@ class CodeBase
             return $this->undo_tracker->updateFileList($this, $new_file_list);
         }
         throw new \RuntimeException("Calling updateFileList without undo tracker");
+    }
+
+    /**
+     * @param string[] $new_file_list
+     * @return bool - true if caller should replace contents
+     */
+    public function beforeReplaceFileContents(string $file_name, string $new_file_contents) {
+        if ($this->undo_tracker) {
+            return $this->undo_tracker->beforeReplaceFileContents($this, $file_name, $new_file_contents);
+        }
+        throw new \RuntimeException("Calling replaceFileContents without undo tracker");
     }
 
     /**
