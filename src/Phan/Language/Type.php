@@ -1084,7 +1084,7 @@ class Type
                 return true;
             } else if ($type->isScalar() && (
                     Config::get()->scalar_implicit_cast ||
-                    in_array($type->getName(), Config::get()->scalar_implicit_partial['null'][$type->getName()] ?? []))) {
+                    in_array($type->getName(), Config::get()->scalar_implicit_partial['null'] ?? []))) {
                 // e.g. allow casting ?string to string if scalar_implicit_cast or 'null' => ['string'] is in scalar_implicit_partial.
                 return true;
             }
