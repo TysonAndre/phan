@@ -1,13 +1,12 @@
 <?php declare(strict_types=1);
 namespace Phan\Library;
 
+use Phan\Language\Type;
+
 /**
  * An alternative to Phan\Library\Set.
  * This is useful when sets are small (0 or 1 elements), and frequently cloned.
  * Because of copy on write, cloning the generated arrays is done automatically and efficiently.
- *
- * @template T
- * The type of the objects
  */
 final class ArraySet {
     // This is a collection of utilities. It cannot be instantiated.
@@ -15,7 +14,7 @@ final class ArraySet {
     }
 
     /**
-     * @param T $object
+     * @param Type $object
      * @return int - An integer uniquely identifying (the handle of) $object for the lifetime of $object
      */
     public static function spl_object_id($object) : int
@@ -32,8 +31,8 @@ final class ArraySet {
     }
 
     /**
-     * @param T $object
-     * @return T[]
+     * @param Type $object
+     * @return Type[]
      */
     public static function singleton($object) : array
     {
@@ -43,8 +42,8 @@ final class ArraySet {
     }
 
     /**
-     * @param T[]|\Iterator|null $object_list
-     * @return T[]
+     * @param Type[]|\Iterator|null $object_list
+     * @return Type[]
      */
     public static function from_list($object_list = null) : array
     {
@@ -58,8 +57,8 @@ final class ArraySet {
     }
 
     /**
-     * @param T[] $array
-     * @param \Closure $cb - Closure mapping T to boolean.
+     * @param Type[] $array
+     * @param \Closure $cb - Closure mapping Type to boolean.
      * @return bool
      */
     public static function exists(array $object_set, \Closure $cb) {
@@ -72,9 +71,9 @@ final class ArraySet {
     }
 
     /**
-     * @param T[] $array
+     * @param Type[] $array
      * @param \Closure $cb
-     * @return T|false
+     * @return Type|false
      */
     public static function find(array $array, \Closure $cb) {
         foreach ($array as $e) {
@@ -86,8 +85,8 @@ final class ArraySet {
     }
 
     /**
-     * @param T[] $object_set - Map from object id to T
-     * @param T[] $candidate_type_list - List of T
+     * @param Type[] $object_set - Map from object id to Type
+     * @param Type[] $candidate_type_list - List of Type
      */
     public static function containsAny(array $object_set, array $candidate_type_list) : bool {
         foreach ($candidate_type_list as $type) {
@@ -100,7 +99,7 @@ final class ArraySet {
 
     /**
      * Just use array_filter - array_filter preserves keys.
-     * @param T[] $object_set
+     * @param Type[] $object_set
      * @param \Closure $cb
      */
     public static function filter(array $object_set, \Closure $cb) : array {
@@ -108,9 +107,9 @@ final class ArraySet {
     }
 
     /**
-     * @param T[] $object_set
-     * @param \Closure $cb - Maps T -> T
-     * @return T[] $object_set
+     * @param Type[] $object_set
+     * @param \Closure $cb - Maps Type -> Type
+     * @return Type[] $object_set
      */
     public static function map(array $object_set, \Closure $cb) : array {
         $result = [];
@@ -124,8 +123,8 @@ final class ArraySet {
     }
 
     /**
-     * @param T[] $object_set
-     * @param T $object - object to search for
+     * @param Type[] $object_set
+     * @param Type $object - object to search for
      * @return bool
      */
     public static function contains(array $object_set, $object) : bool {
@@ -133,8 +132,8 @@ final class ArraySet {
     }
 
     /**
-     * @param T[][] $sets
-     * @return T[] - A set of T made for efficient lookup
+     * @param Type[][] $sets
+     * @return Type[] - A set of Type made for efficient lookup
      */
     public static function unionAll(array $sets) {
         if (count($sets) === 1) {
@@ -149,7 +148,7 @@ final class ArraySet {
 
     /**
      * Helper function for assertions.
-     * @param T[] $object_set
+     * @param Type[] $object_set
      * @return bool - Whether or not this is an object set.
      */
     public static function is_array_set(array $object_set) {

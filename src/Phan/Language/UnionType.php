@@ -8,6 +8,7 @@ use Phan\Exception\CodeBaseException;
 use Phan\Exception\IssueException;
 use Phan\Issue;
 use Phan\Language\Element\Clazz;
+use Phan\Language\FQSEN\FullyQualifiedClassName;
 use Phan\Language\FQSEN\FullyQualifiedFunctionName;
 use Phan\Language\FQSEN\FullyQualifiedMethodName;
 use Phan\Language\Type\ArrayType;
@@ -349,7 +350,12 @@ class UnionType implements \Serializable
      */
     public function addUnionType(UnionType $union_type)
     {
-        $this->type_set += $union_type->type_set;
+        if (count($this->type_set) === 0) {
+            // take advantage of array copy-on-write to save a bit of memory
+            $this->type_set = $union_type->type_set;
+        } else {
+            $this->type_set += $union_type->type_set;
+        }
     }
 
     /**
@@ -658,7 +664,7 @@ class UnionType implements \Serializable
         // types.
         $type_set =
             $this->withStaticResolvedInContext($context)
-            ->getTypeSet()->toArray();
+            ->getTypeSet();
 
         // Test to see if every single type in this union
         // type can cast to the given union type.
@@ -878,7 +884,7 @@ class UnionType implements \Serializable
             return false;
         }
 
-        return array_reduce($this->getTypeSet()->toArray(),
+        return array_reduce($this->getTypeSet(),
             function (bool $is_exclusively_array, Type $type) : bool {
                 return (
                     $is_exclusively_array
@@ -899,7 +905,7 @@ class UnionType implements \Serializable
             return false;
         }
 
-        return array_reduce($this->getTypeSet()->toArray(),
+        return array_reduce($this->getTypeSet(),
             function (bool $is_exclusively_array, Type $type) : bool {
                 return (
                     $is_exclusively_array
@@ -965,6 +971,7 @@ class UnionType implements \Serializable
 
             // Get the class FQSEN
             $class_fqsen = $class_type->asFQSEN();
+            assert($class_fqsen instanceof FullyQualifiedClassName);
 
             if ($class_type->isStaticType()) {
                 if (!$context->isInClassScope()) {
@@ -1021,13 +1028,15 @@ class UnionType implements \Serializable
      */
     public function nonArrayTypes() : UnionType
     {
+
         return new UnionType(
-            $this->type_set->filter(
+            array_filter($this->type_set,
                 function (Type $type) : bool {
                     return !$type->isGenericArray()
                         && $type !== ArrayType::instance(false);
                 }
-            )
+            ),
+            true
         );
     }
 
@@ -1106,7 +1115,7 @@ class UnionType implements \Serializable
      */
     public function asMappedUnionType(\Closure $closure) : UnionType
     {
-        return new UnionType($this->type_set->map($closure));
+        return new UnionType(ArraySet::map($this->type_set, $closure), true);
     }
 
     /**
