@@ -154,6 +154,7 @@ final class ArraySet {
     public static function is_array_set(array $object_set) {
         foreach ($object_set as $key => $object) {
             if (!is_object($object) || self::spl_object_id($object) !== $key) {
+                var_export([$key, self::spl_object_id($object), self::spl_object_id($object)]);
                 return false;
             }
         }

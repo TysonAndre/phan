@@ -779,18 +779,38 @@ class Type
     }
 
     /**
+     * @var Type[][] - Maps spl_object_id to an array containing the type for that object id.
+     *                 The object id doesn't change as long as there's one reference to that object (including singletonMap)
+     */
+    protected static $singletonMap = [];
+
+    /**
      * @return UnionType
      * A UnionType representing this and only this type
      */
     public function asUnionType() : UnionType
     {
+        $old_hash = spl_object_hash($this);
+        $object_id = ArraySet::spl_object_id($this);
+        $types_set = self::$singletonMap[$object_id] ?? null;
+        if ($types_set === null) {
+            $types_set = [$object_id => $this];  // same as ArraySet::singleton, but why bother recomputing object id.
+            self::$singletonMap[$object_id] = $types_set;
+        }
+        if ($this instanceof StringType) {
+            printf("Created for stringType %s: %d %s\n", $this, $object_id, $old_hash);
+            debug_zval_dump($this);
+        }
+        // var_export($types_set);
+        if (!ArraySet::is_array_set($types_set)) {
+            printf("What the hell: %s %s %d %s %s %s\n", $this, json_encode($this instanceof StringType), $object_id, $old_hash, spl_object_hash($this), var_export($types_set, true));
+            debug_zval_dump([self::$singletonMap[$object_id], $types_set]);
+            debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
+        }
         // return new UnionType([$this]);
         // Memoize the set of types. The constructed UnionType object can be modified later, so it isn't memoized.
         // TODO: Figure out why this is buggy
-        $types_set = $this->memoize('singleton', (function () {
-            return ArraySet::singleton($this);
-        }));
-        return new UnionType($types_set);
+        return new UnionType($types_set, true);
     }
 
     /**
