@@ -40,18 +40,18 @@ class UnionType implements \Serializable
 
     /**
      * @param Type[]|\Iterator|null $type_list
-     * @param bool $is_set - Whether or not this is already a set. Only set to true within UnionSet code.
+     * @param bool $is_an_array_set - Whether or not this is already a set. Only set to true within UnionSet code.
+     *
      * An optional list of types represented by this union
      */
-    public function __construct($type_list = null, bool $is_set = false)
+    public function __construct($type_list = null, bool $is_an_array_set = false)
     {
-        if ($is_set) {
-            /*
+        if ($is_an_array_set) {
+            // Disable asserts in production
             assert(is_array($type_list),
-                   'should pass array');
+                   'should be an array array');
             assert(ArraySet::is_array_set($type_list),
                    'Should be an array set');
-             */
             $this->type_set = $type_list;
             return;
         }
