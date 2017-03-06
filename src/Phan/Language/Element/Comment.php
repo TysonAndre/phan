@@ -79,7 +79,7 @@ class Comment
      * An optional class name defined by a @PhanClosureScope directive.
      * (overrides the class in which it is analyzed)
      */
-    private $closure_scope = null;
+    private $closure_scope;
 
     /**
      * A private constructor meant to ingest a parsed comment
