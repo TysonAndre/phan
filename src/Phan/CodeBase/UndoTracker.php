@@ -3,6 +3,7 @@ namespace Phan\CodeBase;
 
 use Phan\CodeBase;
 use Phan\Daemon;
+use Phan\Phan;
 
 /**
  *
@@ -86,6 +87,7 @@ class UndoTracker {
      */
     public function recordUnparseableFile(CodeBase $code_base, string $current_parsed_file) {
         Daemon::debugf("%s was unparseable, had a syntax error", $current_parsed_file);
+        Phan::getIssueCollector()->removeIssuesForFiles([$current_parsed_file]);
         $this->undoFileChanges($code_base, $current_parsed_file);
         unset($this->fileModificationState[$current_parsed_file]);
     }
@@ -130,6 +132,7 @@ class UndoTracker {
         foreach ($new_file_list as $path) {
             $new_file_set[$path] = true;
         }
+        $removed_file_list = [];
         $changed_or_added_file_list = [];
         foreach ($new_file_list as $path) {
             if (!isset($this->fileModificationState[$path])) {
@@ -139,11 +142,13 @@ class UndoTracker {
         foreach ($this->fileModificationState as $path => $state) {
             if (!isset($new_file_set[$path])) {
                 $this->undoFileChanges($code_base, $path);
+                $removed_file_list[] = $path;
                 unset($this->fileModificationState[$path]);
                 continue;
             }
             $newState = self::getFileState($path);
             if ($newState !== $state) {
+                $removed_file_list[] = $path;
                 $this->undoFileChanges($code_base, $path);
                 // TODO: This will call stat() twice as much as necessary for the modified files. Not important.
                 unset($this->fileModificationState[$path]);
@@ -151,6 +156,9 @@ class UndoTracker {
                     $changed_or_added_file_list[] = $path;
                 }
             }
+        }
+        if (count($removed_file_list) > 0) {
+            Phan::getIssueCollector()->removeIssuesForFiles($removed_file_list);
         }
         return $changed_or_added_file_list;
     }
@@ -165,6 +173,7 @@ class UndoTracker {
             Daemon::debugf("Tried to replace contents of '$file_path', but that path does not yet exist");
             return false;
         }
+        Phan::getIssueCollector()->removeIssuesForFiles([$file_path]);
         $this->undoFileChanges($code_base, $file_path);
         unset($this->fileModificationState[$file_path]);
         return true;
