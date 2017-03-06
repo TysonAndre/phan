@@ -80,6 +80,7 @@ class CLI
                 'config-file:',
                 'signature-compatibility',
                 'markdown-issue-messages',
+                'disable-plugins',
                 'daemonize-socket:',
                 'daemonize-tcp-port:',
             ]
@@ -228,6 +229,9 @@ class CLI
                     // We handle this flag before parsing options so
                     // that we can get the project root directory to
                     // base other config flags values on
+                    break;
+                case 'disable-plugins':
+                    Config::get()->plugins = [];
                     break;
                 case 's':
                 case 'daemonize-socket':
@@ -470,6 +474,9 @@ Usage: {$argv[0]} [options] [files...]
  -z, --signature-compatibility
   Analyze signatures for methods that are overrides to ensure
   compatibility with what they're overriding.
+
+ --disable-plugins
+  Don't run any plugins. Slightly faster.
 
  --daemonize-socket </path/to/file.sock>
   Unix socket for Phan to listen for requests on, in daemon mode.
