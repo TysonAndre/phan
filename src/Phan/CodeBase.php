@@ -411,6 +411,12 @@ class CodeBase
             }
             $this->name_method_map[$method->getFQSEN()->getNameWithAlternateId()]->attach($method);
         }
+        if ($this->undo_tracker) {
+            // The addClass's recordUndo should remove the class map. Only need to remove it from func_and_method_set
+            $this->undo_tracker->recordUndo(function(CodeBase $inner) use($method) {
+                $inner->func_and_method_set->detach($method);
+            });
+        }
     }
 
     /**
