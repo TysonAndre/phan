@@ -2,6 +2,7 @@
 <?php
 /**
  * Usage: phan_client -l path/to/file.php
+ * Compatible with php 7.0 and php 7.1
  *
  * See plugins/vim/snippet.vim for an example of a use of this program.
  *
@@ -262,19 +263,22 @@ EOB;
 
         // Parse command line args
         $optind = 0;
-        $opts = getopt(
-            "s:p:l:t:f:v",
-            [
-                'daemonize-socket:',
-                'daemonize-tcp-port:',
-                'syntax-check:',
-                'temporary-file-map:',
-                'flycheck-file:',
-                'verbose',
-            ],
-            $optind
-        );
-        if ($optind < count($argv)) {
+        $shortopts = "s:p:l:t:f:v";
+        $longopts = [
+            'daemonize-socket:',
+            'daemonize-tcp-port:',
+            'syntax-check:',
+            'temporary-file-map:',
+            'flycheck-file:',
+            'verbose',
+        ];
+        if (PHP_VERSION_ID >= 70100) {
+            // optind support is only in php 7.1+.
+            $opts = getopt($shortopts, $longopts, $optind);
+        } else {
+            $opts = getopt($shortopts, $longopts);
+        }
+        if (PHP_VERSION_ID >= 70100 && $optind < count($argv)) {
             $this->usage(sprintf("Unexpected parameter %s", json_encode($argv[$optind])));
         }
 
