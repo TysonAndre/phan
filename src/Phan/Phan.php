@@ -240,7 +240,6 @@ class Phan implements IgnoredFilesFilterInterface {
         assert($process_count > 0 && $process_count <= Config::get()->processes,
             "The process count must be between 1 and the given number of processes. After mapping files to cores, $process_count process were set to be used.");
 
-
         CLI::progress('analyze', 0.0);
         // Check to see if we're running as multiple processes
         // or not

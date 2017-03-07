@@ -198,15 +198,14 @@ class Analysis
         $pluginSet = ConfigPluginSet::instance();
         $hasPlugins = $pluginSet->hasPlugins();
         $function_count = count($code_base->getFunctionAndMethodSet());
-        $showProgress = CLI::shouldShowProgress();
-
+        $show_progress = CLI::shouldShowProgress();
         $i = 0;
 
-        if ($showProgress) { CLI::progress('method', 0.0); }
+        if ($show_progress) { CLI::progress('method', 0.0); }
 
         foreach ($code_base->getFunctionAndMethodSet() as $function_or_method)
         {
-            if ($showProgress) { CLI::progress('method', (++$i)/$function_count); }
+            if ($show_progress) { CLI::progress('method', (++$i)/$function_count); }
 
             if ($function_or_method->isInternal()) {
                 continue;

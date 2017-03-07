@@ -164,7 +164,7 @@ class CLI
                                 $value,
                                 implode(',', $factory->getTypes())
                             ),
-                            1
+                            EXIT_FAILURE
                         );
                     }
 
@@ -262,7 +262,7 @@ class CLI
                     Config::get()->markdown_issue_messages = true;
                     break;
                 default:
-                    $this->usage("Unknown option '-$key'", 1);
+                    $this->usage("Unknown option '-$key'", EXIT_FAILURE);
                     break;
             }
         }
@@ -300,7 +300,7 @@ class CLI
 
         foreach ($argv as $arg) {
             if ($arg[0]=='-') {
-                $this->usage("Unknown option '{$arg}'", 1);
+                $this->usage("Unknown option '{$arg}'", EXIT_FAILURE);
             }
         }
 
@@ -491,6 +491,15 @@ EOB;
         exit($exit_code);
     }
 
+    public static function shouldShowProgress() : bool
+    {
+        $config = Config::get();
+        return $config->progress_bar
+            && !$config->dump_ast
+            && !$config->daemonize_tcp_port
+            && !$config->daemonize_socket;
+    }
+
     /**
      * @param string $directory_name
      * The name of a directory to scan for files ending in `.php`.
@@ -542,12 +551,6 @@ EOB;
         return $file_list;
     }
 
-    public static function shouldShowProgress() : bool
-    {
-        $config = Config::get();
-        return $config->progress_bar && !$config->dump_ast && !$config->daemonize_tcp_port && !$config->daemonize_socket;
-    }
-
     /**
      * Update a progress bar on the screen
      *
@@ -591,7 +594,6 @@ EOB;
             fwrite(STDERR, '.');
             return;
         }
-
         $memory = memory_get_usage()/1024/1024;
         $peak = memory_get_peak_usage()/1024/1024;
 
