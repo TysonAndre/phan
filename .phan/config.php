@@ -83,7 +83,7 @@ return [
     // into `if (is_string($foo)) {b($foo);} else {return;}`
     // This may conflict with 'dead_code_detection'
     // This slows down analysis noticeably.
-    "simplify_ast" => true,
+    "simplify_ast" => false,
 
     // Enable or disable support for generic templated
     // class types.

@@ -366,6 +366,9 @@ class ParseVisitor extends ScopeVisitor
      * @return Context
      * A new or an unchanged context resulting from
      * parsing the node
+     *
+     * @suppress PhanUndeclaredProperty - $node->children[0] is \ast\Node, where docComment is undeclared
+     * See https://github.com/nikic/php-ast/issues/52
      */
     public function visitPropDecl(Node $node) : Context
     {
@@ -511,10 +514,11 @@ class ParseVisitor extends ScopeVisitor
                 $this->context
             );
 
+            $lineno = $child_node->lineno ?? 0;
             $constant = new ClassConstant(
                 $this->context
-                    ->withLineNumberStart($child_node->lineno ?? 0)
-                    ->withLineNumberEnd($child_node->endLineno ?? 0),
+                    ->withLineNumberStart($lineno)
+                    ->withLineNumberEnd($lineno),
                 $name,
                 new UnionType(),
                 $node->flags ?? 0,
