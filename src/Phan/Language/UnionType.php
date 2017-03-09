@@ -1185,10 +1185,15 @@ class UnionType implements \Serializable
     {
         // Create a new array containing the string
         // representations of each type
+        $types = $this->getTypeSet()->toArray();
         $type_name_list =
             array_map(function (Type $type) : string {
                 return (string)$type;
-            }, $this->getTypeSet()->toArray());
+            }, $types);
+        if (count(array_unique($type_name_list)) !== count($types)) {
+            printf("Found two types which cast to the same string\n" . implode('|', $type_name_list));
+            debug_zval_dump($types);
+        }
 
         // Sort the types so that we get a stable
         // representation

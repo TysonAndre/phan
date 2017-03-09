@@ -31,6 +31,10 @@ class CallableType extends NativeType
         return $instance;
     }
 
+    public function __clone() {
+        return new static($this->namespace, $this->name, $this->template_parameter_type_list, false);
+    }
+
     /**
      * Override asFQSEN to return the closure's FQSEN
      */

@@ -145,6 +145,8 @@ class Type
      */
     protected $is_nullable = false;
 
+    private static $canonical_object_map = [];
+
     /**
      * @param string $name
      * The name of the type such as 'int' or 'MyClass'
@@ -170,6 +172,15 @@ class Type
         $this->name = $name;
         $this->template_parameter_type_list = $template_parameter_type_list;
         $this->is_nullable = $is_nullable;
+    }
+
+    // Override two magic methods to ensure that Type isn't being cloned accidentally.
+    public function __wakeup() {
+        throw new \Error("Cannot unserialize Type");
+    }
+
+    public function __clone() {
+        throw new \Error("Cannot clone Type");
     }
 
     /**
@@ -254,7 +265,7 @@ class Type
 
         // Make sure we only ever create exactly one
         // object for any unique type
-        $key = ($is_nullable ? '?' : '') . $namespace . '\\' . $type_name;
+        $key = ($is_nullable ? '?' : '') . $namespace . $type_name;
 
         if ($template_parameter_type_list) {
             $key .= '<' . implode(',', array_map(function (UnionType $union_type) {
@@ -264,39 +275,15 @@ class Type
 
         $key = strtolower($key);
 
-        return static::cachedGetInstanceHelper($namespace, $type_name, $template_parameter_type_list, $is_nullable, $key, false);
-    }
-
-    /**
-     * @return static
-     * @see static::__construct
-     */
-    protected static final function cachedGetInstanceHelper(
-        string $namespace,
-        string $name,
-        $template_parameter_type_list,
-        bool $is_nullable,
-        string $key,
-        bool $clear_all_memoize
-    ) : Type {
-        // TODO: Figure out why putting this into a static variable results in test failures.
-        static $canonical_object_map = [];
-        if ($clear_all_memoize) {
-            foreach ($canonical_object_map as $type) {
-                $type->memoizeFlushAll();
-            }
-            return NullType::instance(false);  // dummy
-        }
-        $value = $canonical_object_map[$key] ?? null;
+        $value = self::$canonical_object_map[$key] ?? null;
         if (!$value) {
-            $value =
-                new static(
-                    $namespace,
-                    $name,
-                    $template_parameter_type_list,
-                    $is_nullable
-                );
-            $canonical_object_map[$key] = $value;
+            $value = new static(
+                $namespace,
+                $type_name,
+                $template_parameter_type_list,
+                $is_nullable
+            );
+            self::$canonical_object_map[$key] = $value;
         }
         return $value;
     }
@@ -312,6 +299,9 @@ class Type
      */
     public static function clearAllMemoizations() {
         // Clear anything that has memoized state
+        foreach (self::$canonical_object_map as $type) {
+            $type->memoizeFlushAll();
+        }
         Type::cachedGetInstanceHelper('', '', [], false, '', true);
         TemplateType::cachedGetInstanceHelper('', '', [], false, '', true);
         GenericArrayType::cachedGetInstanceHelper('', '', [], false, '', true);
