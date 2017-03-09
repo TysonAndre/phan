@@ -31,6 +31,7 @@ use Phan\Language\Type\StringType;
 use Phan\Language\Type\StaticType;
 use Phan\Language\Type\VoidType;
 use Phan\Language\UnionType;
+use Phan\Library\ArraySet;
 use ast\Node;
 use ast\Node\Decl;
 
@@ -763,6 +764,9 @@ class UnionTypeVisitor extends AnalysisVisitor
     {
         $union_type = $this->visitClassNode($node->children['class']);
 
+        // TODO: re-use the underlying type set in the common case
+        // Maybe UnionType::fromMap
+
         // For any types that are templates, map them to concrete
         // types based on the parameters passed in.
         return new UnionType(array_map(function (Type $type) use ($node) {
@@ -821,7 +825,7 @@ class UnionTypeVisitor extends AnalysisVisitor
             // Create a new type that assigns concrete
             // types to template type identifiers.
             return Type::fromType($type, $template_type_list);
-        }, $union_type->getTypeSet()->toArray()));
+        }, $union_type->getTypeSet()));
     }
 
     /**
@@ -1372,7 +1376,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                         $union_type = clone($union_type);
 
                         // Find the static type on the list
-                        $static_type = $union_type->getTypeSet()->find(function (Type $type) : bool {
+                        $static_type = ArraySet::find($union_type->getTypeSet(), function (Type $type) : bool {
                             return (
                                 $type->isGenericArray()
                                 && $type->genericArrayElementType()->isStaticType()
@@ -1718,10 +1722,10 @@ class UnionTypeVisitor extends AnalysisVisitor
 
         // Iterate over each viable class type to see if any
         // have the constant we're looking for
-        foreach ($union_type->nonNativeTypes()->getTypeSet()
-        as $class_type) {
+        foreach ($union_type->nonNativeTypes()->getTypeSet() as $class_type) {
             // Get the class FQSEN
             $class_fqsen = $class_type->asFQSEN();
+            assert($class_fqsen instanceof FullyQualifiedClassName, 'Parsing a class node must return a class name fqsen');
 
             // See if the class exists
             if (!$this->code_base->hasClassWithFQSEN($class_fqsen)) {
