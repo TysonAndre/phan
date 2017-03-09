@@ -1215,10 +1215,6 @@ class UnionType implements \Serializable
             array_map(function (Type $type) : string {
                 return (string)$type;
             }, $types);
-        if (count(array_unique($type_name_list)) !== count($types)) {
-            printf("Found two types which cast to the same string\n" . implode('|', $type_name_list));
-            debug_zval_dump($types);
-        }
 
         // Sort the types so that we get a stable
         // representation
@@ -1239,7 +1235,6 @@ class UnionType implements \Serializable
         static $map = [];
 
         if (!$map) {
-            echo "Loading internal function sig map\n";
             $map_raw = require(__DIR__.'/Internal/FunctionSignatureMap.php');
             foreach ($map_raw as $key => $value) {
                 $map[strtolower($key)] = $value;

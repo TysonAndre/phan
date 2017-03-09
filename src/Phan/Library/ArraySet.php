@@ -19,6 +19,7 @@ final class ArraySet {
      */
     public static function spl_object_id($object) : int
     {
+        // return runkit_object_id($object);
         $hash = spl_object_hash($object);
         // Fit this into a php long (32-bit or 64-bit signed int).
         if (PHP_INT_SIZE === 8) {
