@@ -1208,7 +1208,7 @@ class UnionType implements \Serializable
     {
         // Create a new array containing the string
         // representations of each type
-        $types = $this->getTypeSet()->toArray();
+        $types = $this->getTypeSet();
         $type_name_list =
             array_map(function (Type $type) : string {
                 return (string)$type;

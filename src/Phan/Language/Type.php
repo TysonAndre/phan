@@ -190,6 +190,7 @@ class Type
 
     // Override two magic methods to ensure that Type isn't being cloned accidentally.
     public function __wakeup() {
+        debug_print_backtrace();
         throw new \Error("Cannot unserialize Type");
     }
 
@@ -311,9 +312,6 @@ class Type
         foreach (self::$canonical_object_map as $type) {
             $type->memoizeFlushAll();
         }
-        Type::cachedGetInstanceHelper('', '', [], false, '', true);
-        TemplateType::cachedGetInstanceHelper('', '', [], false, '', true);
-        GenericArrayType::cachedGetInstanceHelper('', '', [], false, '', true);
     }
 
 
@@ -782,7 +780,7 @@ class Type
      * @var Type[][] - Maps spl_object_id to an array containing the type for that object id.
      *                 The object id doesn't change as long as there's one reference to that object (including singletonMap)
      */
-    protected static $singletonMap = [];
+    private static $singletonMap = [];
 
     /**
      * @return UnionType
@@ -797,10 +795,12 @@ class Type
             $types_set = [$object_id => $this];  // same as ArraySet::singleton, but why bother recomputing object id.
             self::$singletonMap[$object_id] = $types_set;
         }
+        /*
         if ($this instanceof StringType) {
             printf("Created for stringType %s: %d %s\n", $this, $object_id, $old_hash);
             debug_zval_dump($this);
         }
+         */
         // var_export($types_set);
         if (!ArraySet::is_array_set($types_set)) {
             printf("What the hell: %s %s %d %s %s %s\n", $this, json_encode($this instanceof StringType), $object_id, $old_hash, spl_object_hash($this), var_export($types_set, true));
