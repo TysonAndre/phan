@@ -49,10 +49,12 @@ class UnionType implements \Serializable
     {
         if ($is_an_array_set) {
             // Disable asserts in production
+            /**
             assert(is_array($type_list),
                    'should be an array array');
             assert(ArraySet::is_array_set($type_list),
                    'Should be an array set');
+             */
             $this->type_set = $type_list;
             return;
         }
