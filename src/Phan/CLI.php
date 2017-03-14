@@ -13,6 +13,8 @@ use Symfony\Component\Console\Output\StreamOutput;
 
 class CLI
 {
+    const PHAN_VERSION = '0.9.1-dev';
+
     /**
      * @var OutputInterface
      */
@@ -54,9 +56,9 @@ class CLI
         global $argv;
 
         // Parse command line args
-        // still available: g,n,t,u,v,w
+        // still available: g,n,t,u,w
         $opts = getopt(
-            "f:m:o:c:k:aeqbr:pid:3:y:l:xj:zh::",
+            "f:m:o:c:k:aeqbr:pid:3:y:l:xj:zh:v",
             [
                 'backward-compatibility-checks',
                 'dead-code-detection',
@@ -76,6 +78,7 @@ class CLI
                 'progress-bar',
                 'project-root-directory:',
                 'quick',
+                'version',
                 'processes:',
                 'config-file:',
                 'signature-compatibility',
@@ -83,11 +86,19 @@ class CLI
                 'disable-plugins',
                 'daemonize-socket:',
                 'daemonize-tcp-port:',
+                'extended-help',
             ]
         );
 
+        if (array_key_exists('extended-help', $opts ?? [])) {
+            $this->usage('', EXIT_SUCCESS, true);  // --help prints help and calls exit(0)
+        }
         if (array_key_exists('h', $opts ?? []) || array_key_exists('help', $opts ?? [])) {
             $this->usage();  // --help prints help and calls exit(0)
+        }
+        if (array_key_exists('v', $opts ?? []) || array_key_exists('version', $opts ?? [])) {
+            printf("Phan %s\n", self::PHAN_VERSION);
+            exit(EXIT_SUCCESS);
         }
 
         // Determine the root directory of the project from which
@@ -378,7 +389,7 @@ class CLI
         return $this->file_list;
     }
 
-    private function usage(string $msg = '', int $exit_code = EXIT_SUCCESS)
+    private function usage(string $msg = '', int $exit_code = EXIT_SUCCESS, bool $print_extended_help = false)
     {
         global $argv;
 
@@ -438,13 +449,6 @@ Usage: {$argv[0]} [options] [files...]
  -p, --progress-bar
   Show progress bar
 
- -a, --dump-ast
-  Emit an AST for each file rather than analyze
-
- --dump-signatures-file <filename>
-  Emit JSON serialized signatures to the given file.
-  This uses a method signature format similar to FunctionSignatureMap.php.
-
  -q, --quick
   Quick mode - doesn't recurse into all function calls
 
@@ -484,10 +488,32 @@ Usage: {$argv[0]} [options] [files...]
  --daemonize-tcp-port <1024-65535>
   TCP port for Phan to listen for JSON requests on, in daemon mode. (e.g. 4846)
 
- -h,--help
+ -v, --version
+  Print phan's version number
+
+ -h, --help
   This help information
 
+ --extended-help
+  This help information, plus less commonly used flags
+
 EOB;
+        if ($print_extended_help) {
+            echo <<<EOB
+
+Extended help:
+ -a, --dump-ast
+  Emit an AST for each file rather than analyze.
+
+ --dump-signatures-file <filename>
+  Emit JSON serialized signatures to the given file.
+  This uses a method signature format similar to FunctionSignatureMap.php.
+
+ --markdown-issue-messages
+  Emit issue messages with markdown formatting.
+
+EOB;
+        }
         exit($exit_code);
     }
 

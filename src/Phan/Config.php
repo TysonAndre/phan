@@ -83,7 +83,7 @@ class Config
         // ```php
         // <?php
         // function test($arg):int {
-        // 	return $arg;
+        //     return $arg;
         // }
         // test("abc");
         // ```
@@ -189,6 +189,13 @@ class Config
         // This may conflict with 'dead_code_detection'.
         // This option also slows down analysis noticeably.
         'simplify_ast' => true,
+
+        // If disabled, Phan will not read docblock type
+        // annotation comments for @property.
+        // @property-read and @property-write are treated exactly the
+        // same as @property for now.
+        // Note: read_type_annotations must also be enabled.
+        'read_magic_property_annotations' => true,
 
         // If disabled, Phan will not read docblock type
         // annotation comments (such as for @return, @param,

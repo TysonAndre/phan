@@ -5,6 +5,7 @@ namespace Phan\Language\Element;
 use Phan\Config;
 use Phan\Language\Context;
 use Phan\Language\Element\Comment\Parameter as CommentParameter;
+use Phan\Language\Element\Flags;
 use Phan\Language\Type;
 use Phan\Language\Type\TemplateType;
 use Phan\Language\UnionType;
@@ -18,11 +19,11 @@ class Comment
 {
 
     /**
-     * @var bool
-     * Set to true if the comment contains a 'deprecated'
-     * directive.
+     * @var int - contains a subset of flags to set on elements
+     * Flags::CLASS_FORBID_UNDECLARED_MAGIC_PROPERTIES
+     * Flags::IS_DEPRECATED
      */
-    private $is_deprecated = false;
+    private $comment_flags = 0;
 
     /**
      * @var CommentParameter[]
@@ -82,10 +83,18 @@ class Comment
     private $closure_scope;
 
     /**
+     * @var bool
+     * Set to true if the comment forbids classes from having
+     * undeclared magic properties.
+     */
+    private $forbid_undeclared_dynamic_properties = false;
+
+    /**
      * A private constructor meant to ingest a parsed comment
      * docblock.
      *
-     * @param bool $is_deprecated
+     * @param int $comment_flags
+     * uses Flags::IS_DEPRECATED and Flags::CLASS_FORBID_UNDECLARED_MAGIC_PROPERTIES
      * Set to true if the comment contains a 'deprecated'
      * directive.
      *
@@ -109,7 +118,7 @@ class Comment
      * to which a closure will be bound.
      */
     private function __construct(
-        bool $is_deprecated,
+        int $comment_flags,
         array $variable_list,
         array $parameter_list,
         array $template_type_list,
@@ -119,7 +128,7 @@ class Comment
         array $magic_property_list,
         Option $closure_scope
     ) {
-        $this->is_deprecated = $is_deprecated;
+        $this->comment_flags = $comment_flags;
         $this->variable_list = $variable_list;
         $this->parameter_list = $parameter_list;
         $this->template_type_list = $template_type_list;
@@ -162,11 +171,10 @@ class Comment
 
         if (!Config::get()->read_type_annotations) {
             return new Comment(
-                false, [], [], [], new None, new UnionType(), [], [], new None
+                0, [], [], [], new None, new UnionType(), [], [], new None
             );
         }
 
-        $is_deprecated = false;
         $variable_list = [];
         $parameter_list = [];
         $template_type_list = [];
@@ -175,6 +183,7 @@ class Comment
         $suppress_issue_list = [];
         $magic_property_list = [];
         $closure_scope = new None;
+        $comment_flags = 0;
 
         $lines = explode("\n", $comment);
 
@@ -218,17 +227,19 @@ class Comment
                 }
             } elseif (stripos($line, '@PhanClosureScope') !== false) {
                 $closure_scope = self::getPhanClosureScopeFromCommentLine($context, $line);
+            } elseif (stripos($line, '@phan-forbid-undeclared-magic-properties') !== false) {
+                $comment_flags |= Flags::CLASS_FORBID_UNDECLARED_MAGIC_PROPERTIES;
             }
 
             if (stripos($line, '@deprecated') !== false) {
                 if (preg_match('/@deprecated\b/', $line, $match)) {
-                    $is_deprecated = true;
+                    $comment_flags |= Flags::IS_DEPRECATED;
                 }
             }
         }
 
         return new Comment(
-            $is_deprecated,
+            $comment_flags,
             $variable_list,
             $parameter_list,
             $template_type_list,
@@ -506,7 +517,17 @@ class Comment
      */
     public function isDeprecated() : bool
     {
-        return $this->is_deprecated;
+        return ($this->comment_flags & Flags::IS_DEPRECATED) != 0;
+    }
+
+    /**
+     * @return bool
+     * Set to true if the comment contains a 'phan-forbid-undeclared-magic-properties'
+     * directive.
+     */
+    public function getForbidUndeclaredMagicProperties() : bool
+    {
+        return ($this->comment_flags & Flags::CLASS_FORBID_UNDECLARED_MAGIC_PROPERTIES) != 0;
     }
 
     /**
@@ -644,9 +665,10 @@ class Comment
 
     public function __toString() : string
     {
+        // TODO: add new properties of Comment to this method
         $string = "/**\n";
 
-        if ($this->is_deprecated) {
+        if (($this->comment_flags & Flags::IS_DEPRECATED) != 0) {
             $string  .= " * @deprecated\n";
         }
 
@@ -655,7 +677,7 @@ class Comment
         }
 
         foreach ($this->parameter_list as $parameter) {
-            $string  .= " * @var $parameter\n";
+            $string  .= " * @param $parameter\n";
         }
 
         if ($this->return_union_type) {
