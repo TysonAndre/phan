@@ -195,7 +195,7 @@ class AssignmentVisitor extends AnalysisVisitor
                         $this->code_base,
                         $this->context,
                         $value_node
-                    ))->getProperty($value_node->children['prop']);
+                    ))->getProperty($value_node->children['prop'], false);
 
                     // Set the element type on each element of
                     // the list
@@ -296,7 +296,7 @@ class AssignmentVisitor extends AnalysisVisitor
 
     /**
      * @param Node $node
-     * A node to parse
+     * A node to parse, for an instance property.
      *
      * @return Context
      * A new or an unchanged context resulting from
@@ -346,7 +346,8 @@ class AssignmentVisitor extends AnalysisVisitor
                 $property = $clazz->getPropertyByNameInContext(
                     $this->code_base,
                     $property_name,
-                    $this->context
+                    $this->context,
+                    false
                 );
             } catch (IssueException $exception) {
                 Issue::maybeEmitInstance(
@@ -403,7 +404,7 @@ class AssignmentVisitor extends AnalysisVisitor
                     $this->code_base,
                     $this->context,
                     $node
-                ))->getOrCreateProperty($property_name);
+                ))->getOrCreateProperty($property_name, false);
 
                 $property->getUnionType()->addUnionType(
                     $this->right_type
@@ -435,6 +436,7 @@ class AssignmentVisitor extends AnalysisVisitor
      */
     public function visitStaticProp(Node $node) : Context
     {
+        // TODO: how does this work? What happens when you assign to/from an undeclared static property.
         return $this->visitVar($node);
     }
 
