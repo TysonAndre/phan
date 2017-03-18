@@ -593,7 +593,6 @@ class ContextNode
         // Since we didn't find the property on any of the
         // possible classes, check for classes with dynamic
         // properties
-        // TODO: check that stdClass::\$myprop emits an issue
         if (!$is_static) {
             foreach ($class_list as $i => $class) {
                 if (Config::get()->allow_missing_properties
