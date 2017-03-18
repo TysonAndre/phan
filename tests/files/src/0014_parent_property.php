@@ -11,4 +11,4 @@ class B extends A {
     public $delta = parent::$beta;  // Note: This is not a valid way to fetch a parent instance property. Emit an issue here as well.
     public $epsilon = parent::FOURTY_TWO;
 }
-// TODO: add similar test as above, but for invalid parent properties, to test that the class exists.
+// FIXME: this test should access parent properties within functions. Property declaration defaults expect constant expressions.
