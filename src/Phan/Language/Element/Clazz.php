@@ -574,8 +574,6 @@ class Clazz extends AddressableElement
             // original_property is the one that the class is using.
             // We added $property after that (so it likely in a base class, or a trait's property added after this property was added)
             $overriding_property = $this->getPropertyMap($code_base)[$property_name];;
-            // TODO: also check AccessSignatureMismatch for properties (e.g. private overriding public property)
-            // Must be at least as visible as the parent
             // TODO: implement https://github.com/etsy/phan/issues/615 in another PR, see below comment
             /**
             if ($overriding_property->isStatic() != $property->isStatic()) {
