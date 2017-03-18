@@ -576,6 +576,7 @@ class Clazz extends AddressableElement
             $overriding_property = $this->getPropertyMap($code_base)[$property_name];;
             // TODO: also check AccessSignatureMismatch for properties (e.g. private overriding public property)
             // Must be at least as visible as the parent
+            // TODO: implement https://github.com/etsy/phan/issues/615 in another PR, see below comment
             /**
             if ($overriding_property->isStatic() != $property->isStatic()) {
                 if ($overriding_property->isStatic()) {
