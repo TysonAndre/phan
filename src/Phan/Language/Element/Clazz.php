@@ -569,13 +569,27 @@ class Clazz extends AddressableElement
     ) {
         // Ignore properties we already have
         // TODO: warn about private properties in subclass overriding ancestor private property.
-        if ($this->hasPropertyWithName($code_base, $property->getName())) {
+        $property_name = $property->getName();
+        if ($this->hasPropertyWithName($code_base, $property_name)) {
+            // original_property is the one that the class is using.
+            // We added $property after that (so it likely in a base class, or a trait's property added after this property was added)
+            $overriding_property = $this->getPropertyMap($code_base)[$property_name];;
+            // TODO: implement https://github.com/etsy/phan/issues/615 in another PR, see below comment
+            /**
+            if ($overriding_property->isStatic() != $property->isStatic()) {
+                if ($overriding_property->isStatic()) {
+                    // emit warning about redefining non-static as static $overriding_property
+                } else {
+                    // emit warning about redefining static as
+                }
+            }
+             */
             return;
         }
 
         $property_fqsen = FullyQualifiedPropertyName::make(
             $this->getFQSEN(),
-            $property->getName()
+            $property_name
         );
 
         // TODO: defer template properties until the analysis phase? They might not be parsed or resolved yet.
@@ -696,7 +710,8 @@ class Clazz extends AddressableElement
     public function getPropertyByNameInContext(
         CodeBase $code_base,
         string $name,
-        Context $context
+        Context $context,
+        bool $is_static
     ) : Property {
 
         // Get the FQSEN of the property we're looking for
@@ -716,6 +731,16 @@ class Clazz extends AddressableElement
             $property = $code_base->getPropertyByFQSEN(
                 $property_fqsen
             );
+            if ($is_static && !$property->isStatic()) {
+                // TODO: add additional warning about possible static/non-static confusion?
+                throw new IssueException(
+                    Issue::fromType(Issue::UndeclaredStaticProperty)(
+                        $context->getFile(),
+                        $context->getLineNumberStart(),
+                        [ $name, (string)$this->getFQSEN() ]
+                    )
+                );
+            }
 
             $is_remote_access = (
                 !$context->isInClassScope()
@@ -738,7 +763,7 @@ class Clazz extends AddressableElement
         }
 
         // Check to see if we can use a __get magic method
-        if ($this->hasMethodWithName($code_base, '__get')) {
+        if (!$is_static && $this->hasMethodWithName($code_base, '__get')) {
             $method = $this->getMethodByName($code_base, '__get');
 
             // Make sure the magic method is accessible
@@ -794,13 +819,22 @@ class Clazz extends AddressableElement
                     )
                 );
             }
+            if (!$is_static && $property->isStatic()) {
+                throw new IssueException(
+                    Issue::fromType(Issue::AccessPropertyStaticAsNonStatic)(
+                        $context->getFile(),
+                        $context->getLineNumberStart(),
+                        [ "{$this->getFQSEN()}::\${$property->getName()}" ]
+                    )
+                );
+            }
         }
 
         // Check to see if missing properties are allowed
         // or we're working with a class with dynamic
         // properties such as stdclass.
-        if (Config::get()->allow_missing_properties
-            || $this->getHasDynamicProperties($code_base)
+        if (!$is_static && (Config::get()->allow_missing_properties
+            || $this->getHasDynamicProperties($code_base))
         ) {
             $property = new Property(
                 $context,
@@ -815,6 +849,7 @@ class Clazz extends AddressableElement
             return $property;
         }
 
+        // TODO: should be ->, to be consistent with other uses for instance properties?
         throw new IssueException(
             Issue::fromType(Issue::UndeclaredProperty)(
                 $context->getFile(),
