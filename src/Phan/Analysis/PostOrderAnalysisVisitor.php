@@ -8,6 +8,7 @@ use Phan\Config;
 use Phan\Exception\CodeBaseException;
 use Phan\Exception\IssueException;
 use Phan\Exception\NodeException;
+use Phan\Exception\UnanalyzableException;
 use Phan\Issue;
 use Phan\Language\Context;
 use Phan\Language\Element\Func;
@@ -1925,15 +1926,18 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 $argument
             ))->getOrCreateVariable();
         } else if ($argument->kind == \ast\AST_STATIC_PROP) {
-            // TODO: shouldn't call getOrCreateProperty for a static property. You can't create a static property.
-            $variable = (new ContextNode(
-                $this->code_base,
-                $this->context,
-                $argument
-            ))->getOrCreateProperty(
-                $argument->children['prop'] ?? '',
-                true
-            );
+            try {
+                $variable = (new ContextNode(
+                    $this->code_base,
+                    $this->context,
+                    $argument
+                ))->getOrCreateProperty(
+                    $argument->children['prop'] ?? '',
+                    true
+                );
+            } catch (UnanalyzableException $exception) {
+                // Ignore it. There's nothing we can do. (E.g. the class name for the static property fetch couldn't be determined.
+            }
         }
 
         // If we couldn't find a variable, give up
