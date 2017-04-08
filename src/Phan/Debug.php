@@ -151,7 +151,7 @@ class Debug
      * 'ASSIGN_DIV|TYPE_ARRAY'
      * @see self::formatFlags for a similar function also printing the integer flag value.
      */
-    public static function astFlagDescription(int $flag, int $kind) : string
+    public static function astFlagDescription(int $flags, int $kind) : string
     {
         list($exclusive, $combinable) = self::getFlagInfo();
         $flag_names = [];
@@ -226,6 +226,8 @@ class Debug
     /**
      * Dumps abstract syntax tree
      * Source: https://github.com/nikic/php-ast/blob/master/util.php
+     * @suppress PhanUndeclaredProperty - some \ast\Node instances have docComment (prop decls),
+     * and others are the \ast\Node\Decl subclass.
      */
     public static function astDump($ast, int $options = 0) : string {
         if ($ast instanceof \ast\Node) {

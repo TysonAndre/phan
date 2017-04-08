@@ -72,6 +72,8 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
 
         $alternate_id = 0;
 
+        $clazz = null;
+
         // Hunt for the alternate of this class defined
         // in this file
         do {
