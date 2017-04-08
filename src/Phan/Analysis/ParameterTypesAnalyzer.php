@@ -94,7 +94,7 @@ class ParameterTypesAnalyzer
         // $method->analyzeOverride($code_base);
 
         // Make sure we're actually overriding something
-        // TODO: check that signatures of magic methods are valid, if not done already (e.g. __get expects one param, most can't define return types, etc.)?
+        // TODO(in another PR): check that signatures of magic methods are valid, if not done already (e.g. __get expects one param, most can't define return types, etc.)?
         if (!$method->getIsOverride()) {
             return;
         }
@@ -334,6 +334,10 @@ class ParameterTypesAnalyzer
      * Keeping that around(e.g. to check that string[] is compatible with string[])
      * and also checking the **real**(non-phpdoc) types.
      *
+     * @param $code_base
+     * @param $method - The overriding method
+     * @param $o_method - The overridden method. E.g. if a subclass overrid a base class implementation, then $o_method would be from the base class.
+     * @param $o_class the overridden class
      * @return void
      */
     private static function analyzeOverrideRealSignature(
@@ -385,6 +389,12 @@ class ParameterTypesAnalyzer
                     break;
                 }
 
+                // Changing variadic to/from non-variadic is not ok?
+                if ($parameter->isVariadic() != $o_parameter->isVariadic()) {
+                    $signatures_match = false;
+                    break;
+                }
+
                 // Either 0 or both of the params must have types for the signatures to be compatible.
                 $o_parameter_union_type = $o_parameter->getUnionType();
                 $parameter_union_type = $parameter->getUnionType();
@@ -395,9 +405,10 @@ class ParameterTypesAnalyzer
 
                 // If both have types, make sure they are identical.
                 // Non-nullable param types can be substituted with the nullable equivalents.
+                // E.g. A::foo(?int $x) can override BaseClass::foo(int $x)
                 if (!$parameter_union_type->isEmpty()) {
                     if (!$o_parameter_union_type->isEqualTo($parameter_union_type) &&
-                        !($parameter_union_type->containsNullable() && !$o_parameter_union_type->isEqualTo($parameter_union_type->nonNullableClone()))
+                        !($parameter_union_type->containsNullable() && $o_parameter_union_type->isEqualTo($parameter_union_type->nonNullableClone()))
                     ) {
                         // There is one exception to this in php 7.1 - the pseudo-type "iterable" can replace ArrayAccess/array in a subclass
                         // TODO: Traversable and array work, but Iterator doesn't. Check for those specific cases?
@@ -447,7 +458,7 @@ class ParameterTypesAnalyzer
                     Issue::ParamSignatureRealMismatch,
                     $method->getFileRef()->getLineNumberStart(),
                     $method->toRealSignatureString(),
-                    $o_method->toRealSignatureString(),  // TODO: instead of __toString(), a version for the real signature.
+                    $o_method->toRealSignatureString(),
                     $o_method->getFileRef()->getFile(),
                     $o_method->getFileRef()->getLineNumberStart()
                 );

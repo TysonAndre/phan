@@ -38,7 +38,7 @@ class UnionType implements \Serializable
     private $type_set;
 
     /**
-     * @param Type[]|\Iterator $type_list
+     * @param Type[]|\Iterator|null $type_list
      * An optional list of types represented by this union
      */
     public function __construct($type_list = null)
@@ -267,17 +267,17 @@ class UnionType implements \Serializable
                 : null;
 
             $name_type_name_map = $type_name_struct;
-            $property_name_type_map = [];
+            $parameter_name_type_map = [];
 
             foreach ($name_type_name_map as $name => $type_name) {
-                $property_name_type_map[$name] = empty($type_name)
+                $parameter_name_type_map[$name] = empty($type_name)
                     ? new UnionType()
                     : UnionType::fromStringInContext($type_name, $context, false);
             }
 
             $configurations[] = [
                 'return_type' => $return_type,
-                'property_name_type_map' => $property_name_type_map,
+                'parameter_name_type_map' => $parameter_name_type_map,
             ];
 
             $function_name =
@@ -572,6 +572,20 @@ class UnionType implements \Serializable
             }
 
             $result->addType($type->withIsNullable(false));
+        }
+        return $result;
+    }
+
+    public function nullableClone() : UnionType
+    {
+        $result = new UnionType();
+        foreach ($this->getTypeSet() as $type) {
+            if ($type->getIsNullable()) {
+                $result->addType($type);
+                continue;
+            }
+
+            $result->addType($type->withIsNullable(true));
         }
         return $result;
     }
