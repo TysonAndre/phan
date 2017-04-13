@@ -277,7 +277,7 @@ class ParameterTypesAnalyzer
         }
 
         if (!$signatures_match) {
-            if ($o_method->isInternal()) {
+            if ($o_method->isPHPInternal()) {
                 Issue::maybeEmit(
                     $code_base,
                     $method->getContext(),
@@ -304,7 +304,7 @@ class ParameterTypesAnalyzer
         if ($o_method->isProtected() && $method->isPrivate()
             || $o_method->isPublic() && !$method->isPublic()
         ) {
-            if ($o_method->isInternal()) {
+            if ($o_method->isPHPInternal()) {
                 Issue::maybeEmit(
                     $code_base,
                     $method->getContext(),
@@ -442,7 +442,7 @@ class ParameterTypesAnalyzer
         }
 
         if (!$signatures_match) {
-            if ($o_method->isInternal()) {
+            if ($o_method->isPHPInternal()) {
                 Issue::maybeEmit(
                     $code_base,
                     $method->getContext(),

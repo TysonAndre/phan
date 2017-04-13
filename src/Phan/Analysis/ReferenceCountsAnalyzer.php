@@ -143,14 +143,14 @@ class ReferenceCountsAnalyzer
      *
      * @return void
      */
-    public static function analyzeElementReferenceCounts(
+    private static function analyzeElementReferenceCounts(
         CodeBase $code_base,
         AddressableElement $element,
         string $issue_type
     ) {
 
         // Don't worry about internal elements
-        if ($element->isInternal()) {
+        if ($element->isPHPInternal()) {
             return;
         }
 

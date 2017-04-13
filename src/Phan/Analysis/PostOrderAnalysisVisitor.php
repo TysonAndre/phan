@@ -1927,6 +1927,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             ))->getOrCreateVariable();
         } else if ($argument->kind == \ast\AST_STATIC_PROP) {
             try {
+                // TODO: shouldn't call getOrCreateProperty for a static property. You can't create a static property.
                 $variable = (new ContextNode(
                     $this->code_base,
                     $this->context,

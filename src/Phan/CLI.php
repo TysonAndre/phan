@@ -61,9 +61,10 @@ class CLI
         // Parse command line args
         // still available: g,n,t,u,w
         $opts = getopt(
-            "f:m:o:c:k:aeqbr:pid:3:y:l:xj:zh:v",
+            "f:m:o:c:k:aeqbr:pid:3:y:l:xj:zhv",
             [
                 'backward-compatibility-checks',
+                'color',
                 'dead-code-detection',
                 'directory:',
                 'dump-ast',
@@ -275,6 +276,9 @@ class CLI
                 case 'markdown-issue-messages':
                     Config::get()->markdown_issue_messages = true;
                     break;
+                case 'color':
+                    Config::get()->color_issue_messages = true;
+                    break;
                 default:
                     $this->usage("Unknown option '-$key'", EXIT_FAILURE);
                     break;
@@ -449,6 +453,9 @@ Usage: {$argv[0]} [options] [files...]
  -o, --output <filename>
   Output filename
 
+ --color
+  Add colors to the outputted issues. Tested for Unix, recommended for only the default --output-mode ('text')
+
  -p, --progress-bar
   Show progress bar
 
@@ -550,6 +557,7 @@ EOB;
                 );
             }
 
+            $exclude_file_regex = Config::get()->exclude_file_regex;
             $iterator = new \CallbackFilterIterator(
                 new \RecursiveIteratorIterator(
                     new \RecursiveDirectoryIterator(
@@ -557,7 +565,7 @@ EOB;
                         \RecursiveDirectoryIterator::FOLLOW_SYMLINKS
                     )
                 ),
-                function(\SplFileInfo $file_info) use ($file_extensions) {
+                function(\SplFileInfo $file_info) use ($file_extensions, $exclude_file_regex) {
                     if (!in_array($file_info->getExtension(), $file_extensions, true)) {
                         return false;
                     }
@@ -565,6 +573,10 @@ EOB;
                     if (!$file_info->isFile() || !$file_info->isReadable()) {
                         $file_path = $file_info->getRealPath();
                         error_log("Unable to read file {$file_path}");
+                        return false;
+                    }
+
+                    if ($exclude_file_regex && preg_match($exclude_file_regex,$file_info->getBasename())) {
                         return false;
                     }
 

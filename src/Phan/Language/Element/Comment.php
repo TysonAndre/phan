@@ -267,6 +267,12 @@ class Comment
                     $comment_flags |= Flags::IS_DEPRECATED;
                 }
             }
+
+            if (stripos($line, '@internal') !== false) {
+                if (preg_match('/@internal\b/', $line, $match)) {
+                    $comment_flags |= Flags::IS_NS_INTERNAL;
+                }
+            }
         }
 
         return new Comment(
@@ -654,6 +660,16 @@ class Comment
     public function isDeprecated() : bool
     {
         return ($this->comment_flags & Flags::IS_DEPRECATED) != 0;
+    }
+
+    /**
+     * @return bool
+     * Set to true if the comment contains an 'internal'
+     * directive.
+     */
+    public function isNSInternal() : bool
+    {
+        return ($this->comment_flags & Flags::IS_NS_INTERNAL) != 0;
     }
 
     /**

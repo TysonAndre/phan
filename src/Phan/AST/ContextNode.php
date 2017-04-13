@@ -474,6 +474,10 @@ class ContextNode
      * @param string|Node $property_name
      * The name of the property we're looking up
      *
+     * @param bool $is_static
+     * True if we're looking for a static property,
+     * false if we're looking for an instance property.
+     *
      * @return Property
      * A variable in scope or a new variable
      *
@@ -587,6 +591,25 @@ class ContextNode
                 );
             }
 
+            if ($property->isNSInternal($this->code_base)
+                && !$property->isNSInternalAccessFromContext(
+                    $this->code_base,
+                    $this->context
+                )
+            ) {
+                throw new IssueException(
+                    Issue::fromType(Issue::AccessPropertyInternal)(
+                        $this->context->getFile(),
+                        $this->node->lineno ?? 0,
+                        [
+                            (string)$property->getFQSEN(),
+                            $property->getFileRef()->getFile(),
+                            $property->getFileRef()->getLineNumberStart(),
+                        ]
+                    )
+                );
+            }
+
             return $property;
         }
 
@@ -663,6 +686,10 @@ class ContextNode
      * @throws NodeException
      * An exception is thrown if we can't understand the node
      *
+     * @throws UnanalyzableException
+     * An exception is thrown if we can't find the given
+     * class
+     *
      * @throws CodeBaseExtension
      * An exception is thrown if we can't find the given
      * class
@@ -670,6 +697,9 @@ class ContextNode
      * @throws TypeException
      * An exception may be thrown if the only viable candidate
      * is a non-class type.
+     *
+     * @throws IssueException
+     * An exception is thrown if $is_static, but the property doesn't exist.
      */
     public function getOrCreateProperty(
         string $property_name,
@@ -679,14 +709,20 @@ class ContextNode
         try {
             return $this->getProperty($property_name, $is_static);
         } catch (IssueException $exception) {
-            // Ignore it, because we'll create our own property
-            // (for instance properties)
             if ($is_static) {
                 throw $exception;
             }
+            // TODO: log types of IssueException that aren't for undeclared properties?
+            // (in another PR)
+
+            // For instance properties, ignore it,
+            // because we'll create our own property
         } catch (UnanalyzableException $exception) {
-            // Ignore it, because we'll create our own
-            // property
+            if ($is_static) {
+                throw $exception;
+            }
+            // For instance properties, ignore it,
+            // because we'll create our own property
         }
 
         assert(
@@ -799,7 +835,28 @@ class ContextNode
             }
         }
 
-        return $this->code_base->getGlobalConstantByFQSEN($fqsen);
+        $constant = $this->code_base->getGlobalConstantByFQSEN($fqsen);
+
+        if ($constant->isNSInternal($this->code_base)
+            && !$constant->isNSInternalAccessFromContext(
+                $this->code_base,
+                $this->context
+            )
+        ) {
+            throw new IssueException(
+                Issue::fromType(Issue::AccessConstantInternal)(
+                    $this->context->getFile(),
+                    $this->node->lineno ?? 0,
+                    [
+                        (string)$constant->getFQSEN(),
+                        $constant->getFileRef()->getFile(),
+                        $constant->getFileRef()->getLineNumberStart(),
+                    ]
+                )
+            );
+        }
+
+        return $constant;
     }
 
     /**
@@ -865,11 +922,32 @@ class ContextNode
                 continue;
             }
 
-            return $class->getConstantByNameInContext(
+            $constant = $class->getConstantByNameInContext(
                 $this->code_base,
                 $constant_name,
                 $this->context
             );
+
+            if ($constant->isNSInternal($this->code_base)
+                && !$constant->isNSInternalAccessFromContext(
+                    $this->code_base,
+                    $this->context
+                )
+            ) {
+                throw new IssueException(
+                    Issue::fromType(Issue::AccessClassConstantInternal)(
+                        $this->context->getFile(),
+                        $this->node->lineno ?? 0,
+                        [
+                            (string)$constant->getFQSEN(),
+                            $constant->getFileRef()->getFile(),
+                            $constant->getFileRef()->getLineNumberStart(),
+                        ]
+                    )
+                );
+            }
+
+            return $constant;
         }
 
         // If no class is found, we'll emit the error elsewhere

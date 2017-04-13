@@ -140,6 +140,7 @@ class ParseVisitor extends ScopeVisitor
         }
 
         $class->setIsDeprecated($comment->isDeprecated());
+        $class->setIsNSInternal($comment->isNSInternal());
 
         $class->setSuppressIssueList(
             $comment->getSuppressIssueList()
@@ -487,6 +488,7 @@ class ParseVisitor extends ScopeVisitor
             }
 
             $property->setIsDeprecated($comment->isDeprecated());
+            $property->setIsNSInternal($comment->isNSInternal());
 
             // Wait until after we've added the (at)var type
             // before setting the future so that calling
@@ -523,6 +525,12 @@ class ParseVisitor extends ScopeVisitor
                 $this->context
             );
 
+            // Get a comment on the declaration
+            $comment = Comment::fromStringInContext(
+                $child_node->docComment ?? '',
+                $this->context
+            );
+
             $constant = new ClassConstant(
                 $this->context
                     ->withLineNumberStart($child_node->lineno ?? 0)
@@ -532,6 +540,9 @@ class ParseVisitor extends ScopeVisitor
                 $node->flags ?? 0,
                 $fqsen
             );
+
+            $constant->setIsDeprecated($comment->isDeprecated());
+            $constant->setIsNSInternal($comment->isNSInternal());
 
             $constant->setFutureUnionType(
                 new FutureUnionType(
@@ -567,7 +578,8 @@ class ParseVisitor extends ScopeVisitor
                 $child_node,
                 $child_node->children['name'],
                 $child_node->children['value'],
-                $child_node->flags ?? 0
+                $child_node->flags ?? 0,
+                $child_node->docComment ?? ''
             );
         }
 
@@ -661,7 +673,8 @@ class ParseVisitor extends ScopeVisitor
                     $node,
                     $args->children[0],
                     $args->children[1] ?? null,
-                    0
+                    0,
+                    ''
                 );
             }
         }
@@ -824,10 +837,18 @@ class ParseVisitor extends ScopeVisitor
      * @param int $flags
      * Any flags on the definition of the constant
      *
+     * @param string $comment_string
+     * A possibly empty comment string on the declaration
+     *
      * @return void
      */
-    private function addConstant(Node $node, string $name, $value, int $flags = 0)
-    {
+    private function addConstant(
+        Node $node,
+        string $name,
+        $value,
+        int $flags = 0,
+        string $comment_string
+    ) {
         // Give it a fully-qualified name
         $fqsen = FullyQualifiedGlobalConstantName::fromStringInContext(
             $name,
@@ -844,6 +865,12 @@ class ParseVisitor extends ScopeVisitor
             $fqsen
         );
 
+        // Get a comment on the declaration
+        $comment = Comment::fromStringInContext(
+            $comment_string,
+            $this->context
+        );
+
         $constant->setFutureUnionType(
             new FutureUnionType(
                 $this->code_base,
@@ -851,6 +878,9 @@ class ParseVisitor extends ScopeVisitor
                 $value
             )
         );
+
+        $constant->setIsDeprecated($comment->isDeprecated());
+        $constant->setIsNSInternal($comment->isNSInternal());
 
         $this->code_base->addGlobalConstant(
             $constant
