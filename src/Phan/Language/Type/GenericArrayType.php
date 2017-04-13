@@ -103,4 +103,19 @@ class GenericArrayType extends ArrayType
 
         return $string;
     }
+
+    /**
+     * @param bool $is_nullable
+     * Set to true if the type should be nullable, else pass
+     * false
+     *
+     * @return Type
+     * A new type that is a copy of this type but with the
+     * given nullability value.
+     */
+    public function withIsNullable(bool $is_nullable) : Type
+    {
+        // FIXME: fully implement fixes for https://github.com/etsy/phan/issues/665
+        return $this;
+    }
 }
