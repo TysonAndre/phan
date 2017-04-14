@@ -6,7 +6,7 @@ use Phan\Daemon\Request;
 /**
  * an analyzing daemon, to be used by IDEs.
  * Accepts requests (Currently only JSON blobs) over a unix socket or TCP sockets.
- * TODO: HTTP support
+ * TODO: HTTP support, or open language protocol support
  */
 class Daemon {
     /**

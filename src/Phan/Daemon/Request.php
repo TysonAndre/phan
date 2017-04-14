@@ -195,7 +195,7 @@ class Request {
      * @param array|null $status
      * @param int|null $pid
      * @return void
-     * @suppress PhanTypeMismatchArgumentInternal - Bad phpdoc - status is really an array
+     * @suppress PhanTypeMismatchArgumentInternal - bad function signature map - status is really an array
      */
     public static function childSignalHandler($signo, $status = null, $pid = null) {
         if ($signo !== SIGCHLD) {
