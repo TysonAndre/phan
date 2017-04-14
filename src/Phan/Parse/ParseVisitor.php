@@ -379,6 +379,8 @@ class ParseVisitor extends ScopeVisitor
      * @return Context
      * A new or an unchanged context resulting from
      * parsing the node
+     *
+     * @suppress PhanUndeclaredProperty
      */
     public function visitPropDecl(Node $node) : Context
     {
@@ -512,6 +514,8 @@ class ParseVisitor extends ScopeVisitor
      * @return Context
      * A new or an unchanged context resulting from
      * parsing the node
+     *
+     * @suppress PhanUndeclaredProperty
      */
     public function visitClassConstDecl(Node $node) : Context
     {
@@ -570,6 +574,8 @@ class ParseVisitor extends ScopeVisitor
      * @return Context
      * A new or an unchanged context resulting from
      * parsing the node
+     *
+     * @suppress PhanUndeclaredProperty
      */
     public function visitConstDecl(Node $node) : Context
     {
