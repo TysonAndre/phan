@@ -202,8 +202,8 @@ class Analysis
      */
     public static function analyzeFunctions(CodeBase $code_base, array $file_filter = null)
     {
-        $pluginSet = ConfigPluginSet::instance();
-        $hasPlugins = $pluginSet->hasPlugins();
+        $plugin_set = ConfigPluginSet::instance();
+        $has_plugins = $plugin_set->hasPlugins();
         $function_count = count($code_base->getFunctionAndMethodSet());
         $show_progress = CLI::shouldShowProgress();
         $i = 0;
@@ -236,13 +236,13 @@ class Analysis
             // Assumes that the given plugins will emit an issue in the same file as the function/method,
             // which isn't necessarily the case.
             // 0.06
-            if ($hasPlugins) {
+            if ($has_plugins) {
                 if ($function_or_method instanceof Func) {
-                    $pluginSet->analyzeFunction(
+                    $plugin_set->analyzeFunction(
                         $code_base, $function_or_method
                     );
                 } else if ($function_or_method instanceof Method) {
-                    $pluginSet->analyzeMethod(
+                    $plugin_set->analyzeMethod(
                         $code_base, $function_or_method
                     );
                 }
@@ -264,7 +264,7 @@ class Analysis
             $old_classes = $classes;
             $classes = [];
             foreach ($old_classes as $class) {
-                if (!$class->isInternal() && isset($path_filter[$class->getContext()->getFile()])) {
+                if (!$class->isPHPInternal() && isset($path_filter[$class->getContext()->getFile()])) {
                     $classes[] = $class;
                 }
             }
