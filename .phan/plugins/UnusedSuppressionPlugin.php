@@ -43,7 +43,8 @@ class UnusedSuppressionPlugin extends PluginImplementation {
                     $code_base,
                     $element->getContext(),
                     'UnusedSuppression',
-                    "Element {$element->getFQSEN()} suppresses issue $issue_type but does not use it"
+                    "Element {FUNCTIONLIKE} suppresses issue {ISSUETYPE} but does not use it",
+                    [(string)$element->getFQSEN(), $issue_type]
                 );
             }
         }

@@ -96,7 +96,8 @@ class DemoPlugin extends PluginImplementation {
                 $code_base,
                 $class->getContext(),
                 'DemoPluginClassName',
-                "Class {$class->getFQSEN()} cannot be called `Class`"
+                "Class {CLASS} cannot be called `Class`"
+                [(string)$class->getFQSEN()]
             );
         }
     }
@@ -121,7 +122,8 @@ class DemoPlugin extends PluginImplementation {
                 $code_base,
                 $method->getContext(),
                 'DemoPluginMethodName',
-                "Method {$method->getFQSEN()} cannot be called `function`"
+                "Method {METHOD} cannot be called `function`",
+                [(string)$method->getFQSEN()]
             );
         }
     }
@@ -146,7 +148,8 @@ class DemoPlugin extends PluginImplementation {
                 $code_base,
                 $function->getContext(),
                 'DemoPluginFunctionName',
-                "Function {$function->getFQSEN()} cannot be called `function`"
+                "Function {FUNCTION} cannot be called `function`",
+                [(string)$function->getFQSEN()]
             );
         }
     }
