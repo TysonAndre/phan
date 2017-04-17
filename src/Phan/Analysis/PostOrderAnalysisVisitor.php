@@ -594,6 +594,10 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             $node->children['expr']
         );
 
+        if (null === $node->children['expr']) {
+            $expression_type = VoidType::instance(false)->asUnionType();
+        }
+
         if ($expression_type->hasStaticType()) {
             $expression_type =
                 $expression_type->withStaticResolvedInContext(
@@ -647,10 +651,8 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             $method->getUnionType()->addUnionType($expression_type);
         }
 
-        // Mark the method as returning something
-        $method->setHasReturn(
-            isset($node->children['expr'])
-        );
+        // Mark the method as returning something (even if void)
+        $method->setHasReturn(true);
 
         return $this->context;
     }
