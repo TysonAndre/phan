@@ -197,7 +197,7 @@ class Config
         // into `if (is_string($foo)) {b($foo);} else {return;}`
         // This may conflict with 'dead_code_detection'.
         // This option also slows down analysis noticeably.
-        'simplify_ast' => true,
+        'simplify_ast' => false,
 
         // If disabled, Phan will not read docblock type
         // annotation comments for @property.
