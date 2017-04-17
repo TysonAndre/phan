@@ -592,7 +592,7 @@ EOB;
 
                     // Compare exclude_file_regex against the relative path within the project
                     // (E.g. src/foo.php)
-                    if ($exclude_file_regex && !self::isPathExcludedByRegex($exclude_file_regex, $file_info->getPathname())) {
+                    if ($exclude_file_regex && self::isPathExcludedByRegex($exclude_file_regex, $file_info->getPathname())) {
                         return false;
                     }
 
