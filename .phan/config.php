@@ -236,6 +236,7 @@ return [
         'tests/Phan',
         'vendor/phpunit/phpunit/src',
         'vendor/symfony/console',
+        '.phan/plugins',
         '.phan/stubs',
     ],
 
