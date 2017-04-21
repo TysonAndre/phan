@@ -25,7 +25,7 @@ class ASTRewriterTest extends AbstractPhanFileTest {
      * @dataProvider getTestFiles
      * @override
      */
-    public function testFiles($test_file_list, $expected_file_path) {
+    public function testFiles($test_file_list, $expected_file_path, $config_file_path = null) {
         // Read the expected output
         $original_src =
             file_get_contents($test_file_list[0]);
