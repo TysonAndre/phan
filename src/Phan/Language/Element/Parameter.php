@@ -2,6 +2,7 @@
 namespace Phan\Language\Element;
 
 use Phan\CodeBase;
+use Phan\Config;
 use Phan\Exception\IssueException;
 use Phan\Issue;
 use Phan\Language\Context;
@@ -225,7 +226,7 @@ class Parameter extends Variable
 
         $parameter = new Parameter(
             new Context(),
-            $reflection_parameter->getName(),
+            $reflection_parameter->getName() ?? "arg",
             UnionType::fromReflectionType($reflection_parameter->getType()),
             $flags
         );

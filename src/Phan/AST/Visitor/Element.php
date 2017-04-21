@@ -134,9 +134,9 @@ class Element
      */
     public function acceptKindVisitor(KindVisitor $visitor)
     {
-        $fnName = self::VISIT_LOOKUP_TABLE[$this->node->kind] ?? null;
-        if (is_string($fnName)) {
-            return $visitor->{$fnName}($this->node);
+        $fn_name = self::VISIT_LOOKUP_TABLE[$this->node->kind] ?? null;
+        if (is_string($fn_name)) {
+            return $visitor->{$fn_name}($this->node);
         } else {
             Debug::printNode($this->node);
             assert(false, 'All node kinds must match');
