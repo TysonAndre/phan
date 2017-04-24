@@ -1058,6 +1058,10 @@ class UnionType implements \Serializable
         // Same for mixed
         if ($this->hasType(ArrayType::instance(false))
             || $this->hasType(MixedType::instance(false))
+            || (
+                Config::get()->null_casts_as_any_type
+                && $this->hasType(ArrayType::instance(true))
+            )
         ) {
             $union_type->addType(MixedType::instance(false));
         }
