@@ -1785,6 +1785,10 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             return clone($parameter);
         }, $method->getParameterList());
 
+        if (count($original_parameter_list) === 0) {
+            return;  // No point in recursing if there's no changed parameters.
+        }
+
         // always resolve all arguments outside of quick mode to detect undefined variables, other problems in call arguments.
         // Fixes https://github.com/etsy/phan/issues/583
         $argument_types = [];
@@ -1844,7 +1848,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         // Now that we know something about the parameters used
         // to call the method, we can reanalyze the method with
         // the types of the parameter
-        $method->analyze($method->getContext(), $code_base);
+        $method->analyzeWithNewParams($method->getContext(), $code_base);
 
         // Reset to the original parameter list and scope after
         // having tested the parameters with the types passed in
