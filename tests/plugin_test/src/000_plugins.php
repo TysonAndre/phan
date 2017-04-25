@@ -76,3 +76,13 @@ $c = new FooTest();
 
 // Dead code detection should detect this
 function testUnreferencedFunction() {}
+
+/**
+ * Test that this doesn't create an uncaught CodeBaseException for dead code detection
+ */
+function accessUndefinedPropertyTest() {
+    $c = new SimpleXMLElement('<widget>a</widget>');
+    return $c->widget ?? null;
+}
+
+accessUndefinedPropertyTest();
