@@ -8,4 +8,6 @@ src/000_plugins.php:40 PhanPluginNonBoolInLogicalArith Non bool value in logical
 src/000_plugins.php:47 PhanPluginNumericalComparison non numerical values compared by the operators '==' or '!=='
 src/000_plugins.php:49 PhanPluginNumericalComparison numerical values compared by the operators '===' or '!=='
 src/000_plugins.php:55 UnusedSuppression Element \testUnusedSuppressionPlugin suppresses issue PhanParamTooFew but does not use it
-src/000_plugins.php:61 PhanUnreferencedMethod Possibly zero references to method \testUnreferencedFunction
+src/000_plugins.php:62 PhanUnreferencedMethod Possibly zero references to method \FooTest::unused_static_method
+src/000_plugins.php:68 PhanUnreferencedMethod Possibly zero references to method \FooSubclassTest::unused_static_method_in_subclass
+src/000_plugins.php:78 PhanUnreferencedMethod Possibly zero references to method \testUnreferencedFunction

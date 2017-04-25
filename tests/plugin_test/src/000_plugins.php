@@ -57,5 +57,22 @@ function testUnusedSuppressionPlugin() {
 }
 testUnusedSuppressionPlugin();
 
+class FooTest {
+    // Dead code detection should detect this
+    public static function unused_static_method() {
+    }
+}
+
+class FooSubclassTest extends FooTest {
+    // Dead code detection should detect this, but shouldn't warn twice about unused_static_method
+    public static function unused_static_method_in_subclass() {
+        self::used_method(self::class);
+    }
+
+    public static function used_method(string $class) {}
+}
+
+$c = new FooTest();
+
 // Dead code detection should detect this
 function testUnreferencedFunction() {}
