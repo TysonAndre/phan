@@ -782,8 +782,6 @@ class Clazz extends AddressableElement
             );
             if ($is_static && !$property->isStatic()) {
                 // TODO: add additional warning about possible static/non-static confusion?
-                echo "\nUndeclaredStaticProperty $property_name\n";
-                debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
                 throw new IssueException(
                     Issue::fromType(Issue::UndeclaredStaticProperty)(
                         $context->getFile(),
