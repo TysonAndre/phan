@@ -86,3 +86,15 @@ function accessUndefinedPropertyTest() {
 }
 
 accessUndefinedPropertyTest();
+
+class SubclassBaseTest {
+    public function foo() {}
+}
+class SubclassSubclassTest extends SubclassBaseTest{
+}
+
+function f() {
+    $s = new SubclassSubclassTest();
+    $s->foo();
+}
+f();
