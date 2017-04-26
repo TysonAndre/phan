@@ -10,11 +10,12 @@ and does not attempt to track values.
 
 # About this fork
 
-This fork adds the ability to read @property annotations, and supports miscellaneous features, such as
+This fork supports miscellaneous features which haven't been merged to etsy/phan yet, such as
 
 - rewriting the AST.
-- Ignoring common mistakes in @return/@property annotations
-- Even more gradual strengthening of types
+- Ignoring common mistakes in @return/@param annotations
+- Even more gradual strengthening of types (Granular scalar type casting, allowing casting null to/from arrays/scalars but not to/from objects)
+- Daemon mode improvements
 
 see [.phan/config.php](.phan/config.php) and [src/phan/Config.php](src/phan/Config.php) for more details on the new features.
 
