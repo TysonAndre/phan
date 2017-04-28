@@ -46,8 +46,11 @@ set_exception_handler(function (Throwable $throwable) {
  */
 function phan_error_handler($errno, $errstr, $errfile, $errline)
 {
-    error_log("$errfile:$errline [$errno] $errstr\n");
-
+    // The transphpiler is suppressing notices, e.g. with @$array['key']
+    if (error_reporting() == 0) {
+        return;
+    }
+    print "$errfile:$errline [$errno] $errstr\n";
     ob_start();
     debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
     error_log(ob_get_clean());
