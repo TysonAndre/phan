@@ -991,8 +991,9 @@ class Clazz extends AddressableElement
         );
 
         if (!$code_base->hasClassConstantWithFQSEN($constant_fqsen)) {
+            $issue_creator = Issue::fromType(Issue::UndeclaredClassConstant);
             throw new IssueException(
-                Issue::fromType(Issue::UndeclaredClassConstant)(
+                $issue_creator(
                     $context->getFile(),
                     $context->getLineNumberStart(),
                     [
@@ -1031,8 +1032,9 @@ class Clazz extends AddressableElement
         // If we have the constant, but its inaccessible, emit
         // an issue
         if (!$is_local_access && $constant->isPrivate()) {
+            $issue_creator = Issue::fromType(Issue::AccessClassConstantPrivate);
             throw new IssueException(
-                Issue::fromType(Issue::AccessClassConstantPrivate)(
+                $issue_creator(
                     $context->getFile(),
                     $context->getLineNumberStart(),
                     [
@@ -1043,8 +1045,9 @@ class Clazz extends AddressableElement
                 )
             );
         } else if (!$is_local_or_remote_access && $constant->isProtected()) {
+            $issue_creator = Issue::fromType(Issue::AccessClassConstantProtected);
             throw new IssueException(
-                Issue::fromType(Issue::AccessClassConstantProtected)(
+                $issue_creator(
                     $context->getFile(),
                     $context->getLineNumberStart(),
                     [
