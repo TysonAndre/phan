@@ -1,4 +1,4 @@
-<?php declare(strict_types=1);
+<?php
 namespace Phan\Debug;
 
 readline_completion_function(function($input) {

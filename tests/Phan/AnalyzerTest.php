@@ -1,4 +1,4 @@
-<?php declare(strict_types=1);
+<?php
 
 namespace Phan\Tests;
 
@@ -117,7 +117,7 @@ class AnalyzerTest extends BaseTest {
      */
     private function contextForCode(
         string $code_stub
-    ) : Context {
+    ) {
 
         return
             Analysis::parseNodeInContext(

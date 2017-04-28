@@ -1,4 +1,4 @@
-<?php declare(strict_types=1);
+<?php
 
 namespace Phan\Tests\Language;
 
@@ -68,16 +68,18 @@ class ContextTest extends BaseTest {
 
         $context = new Context;
 
-        $context = (new ParseVisitor(
+        $context_visitor = new ParseVisitor(
             $this->code_base, $context
-        ))($class_node);
+        );
+        $context = $context_visitor($class_node);
 
         $stmt_list_node = $class_node->children['stmts'];
         $method_node = $stmt_list_node->children[0];
 
-        $context = (new ParseVisitor(
+        $context_visitor = new ParseVisitor(
             $this->code_base, $context
-        ))($method_node);
+        );
+        $context = $context_visitor($method_node);
 
         $this->assertSame('\C::f', (string)$context->getScope()->getFQSEN());
     }

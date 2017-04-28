@@ -1,4 +1,4 @@
-<?php declare(strict_types=1);
+<?php
 
 namespace Phan\Tests\Language;
 
@@ -139,7 +139,7 @@ class UnionTypeTest extends BaseTest {
      * the first statement in the statement list in the given
      * code.
      */
-    private function typeStringFromCode(string $code) : string {
+    private function typeStringFromCode($code) {
         return UnionType::fromNode(
             $this->context,
             $this->code_base,
