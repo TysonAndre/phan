@@ -228,7 +228,8 @@ class ContextNode
                 return isset($v1) ? $v1 : $v2;
             }, @$this->node->children['expr'], @$this->node->children['class'])))->getClassList();
         } catch (CodeBaseException $exception) {
-            throw new IssueException(Issue::fromType(Issue::UndeclaredClassMethod)($this->context->getFile(), call_user_func(function ($v1, $v2) {
+            $issue_creator = Issue::fromType(Issue::UndeclaredClassMethod);
+            throw new IssueException($issue_creator($this->context->getFile(), call_user_func(function ($v1, $v2) {
                 return isset($v1) ? $v1 : $v2;
             }, @$this->node->lineno, @0), [$method_name, (string) $exception->getFQSEN()]));
         }
@@ -240,7 +241,8 @@ class ContextNode
                 return isset($v1) ? $v1 : $v2;
             }, @$this->node->children['expr'], @$this->node->children['class']));
             if (!$union_type->isEmpty() && $union_type->isNativeType() && !$union_type->hasAnyType([MixedType::instance(false), ObjectType::instance(false), StringType::instance(false)]) && !(Config::get()->null_casts_as_any_type && $union_type->hasType(NullType::instance(false)))) {
-                throw new IssueException(Issue::fromType(Issue::NonClassMethodCall)($this->context->getFile(), call_user_func(function ($v1, $v2) {
+                $issue_creator = Issue::fromType(Issue::NonClassMethodCall);
+                throw new IssueException($issue_creator($this->context->getFile(), call_user_func(function ($v1, $v2) {
                     return isset($v1) ? $v1 : $v2;
                 }, @$this->node->lineno, @0), [$method_name, (string) $union_type]));
             }
@@ -276,11 +278,13 @@ class ContextNode
         // Figure out an FQSEN for the method we couldn't find
         $method_fqsen = FullyQualifiedMethodName::make($class_list[0]->getFQSEN(), $method_name);
         if ($is_static) {
-            throw new IssueException(Issue::fromType(Issue::UndeclaredStaticMethod)($this->context->getFile(), call_user_func(function ($v1, $v2) {
+            $issue_creator = Issue::fromType(Issue::UndeclaredStaticMethod);
+            throw new IssueException($issue_creator($this->context->getFile(), call_user_func(function ($v1, $v2) {
                 return isset($v1) ? $v1 : $v2;
             }, @$this->node->lineno, @0), [(string) $method_fqsen]));
         }
-        throw new IssueException(Issue::fromType(Issue::UndeclaredMethod)($this->context->getFile(), call_user_func(function ($v1, $v2) {
+        $issue_creator = Issue::fromType(Issue::UndeclaredMethod);
+        throw new IssueException($issue_creator($this->context->getFile(), call_user_func(function ($v1, $v2) {
             return isset($v1) ? $v1 : $v2;
         }, @$this->node->lineno, @0), [(string) $method_fqsen]));
     }
@@ -321,7 +325,8 @@ class ContextNode
         assert($this->node instanceof \ast\Node, '$this->node must be a node');
         // Make sure the method we're calling actually exists
         if (!$this->code_base->hasFunctionWithFQSEN($function_fqsen)) {
-            throw new IssueException(Issue::fromType(Issue::UndeclaredFunction)($this->context->getFile(), call_user_func(function ($v1, $v2) {
+            $issue_creator = Issue::fromType(Issue::UndeclaredFunction);
+            throw new IssueException($issue_creator($this->context->getFile(), call_user_func(function ($v1, $v2) {
                 return isset($v1) ? $v1 : $v2;
             }, @$this->node->lineno, @0), ["{$function_fqsen}()"]));
         }
@@ -352,7 +357,8 @@ class ContextNode
         }
         // Check to see if the variable exists in this scope
         if (!$this->context->getScope()->hasVariableWithName($variable_name)) {
-            throw new IssueException(Issue::fromType(Issue::UndeclaredVariable)($this->context->getFile(), call_user_func(function ($v1, $v2) {
+            $issue_creator = Issue::fromType(Issue::UndeclaredVariable);
+            throw new IssueException($issue_creator($this->context->getFile(), call_user_func(function ($v1, $v2) {
                 return isset($v1) ? $v1 : $v2;
             }, @$this->node->lineno, @0), [$variable_name]));
         }
@@ -436,11 +442,13 @@ class ContextNode
             }, @$this->node->children['expr'], @$this->node->children['class'])))->getClassList(true);
         } catch (CodeBaseException $exception) {
             if ($is_static) {
-                throw new IssueException(Issue::fromType(Issue::UndeclaredStaticProperty)($this->context->getFile(), call_user_func(function ($v1, $v2) {
+                $issue_creator = Issue::fromType(Issue::UndeclaredStaticProperty);
+                throw new IssueException($issue_creator($this->context->getFile(), call_user_func(function ($v1, $v2) {
                     return isset($v1) ? $v1 : $v2;
                 }, @$this->node->lineno, @0), [$property_name, (string) $exception->getFQSEN()]));
             } else {
-                throw new IssueException(Issue::fromType(Issue::UndeclaredProperty)($this->context->getFile(), call_user_func(function ($v1, $v2) {
+                $issue_creator = Issue::fromType(Issue::UndeclaredProperty);
+                throw new IssueException($issue_creator($this->context->getFile(), call_user_func(function ($v1, $v2) {
                     return isset($v1) ? $v1 : $v2;
                 }, @$this->node->lineno, @0), ["{$exception->getFQSEN()}->{$property_name}"]));
             }
@@ -461,12 +469,12 @@ class ContextNode
             }
             $property = $class->getPropertyByNameInContext($this->code_base, $property_name, $this->context, $is_static);
             if ($property->isDeprecated()) {
-                throw new IssueException(Issue::fromType(Issue::DeprecatedProperty)($this->context->getFile(), call_user_func(function ($v1, $v2) {
+                throw new IssueException(Issue::fromTypeAndInvoke(Issue::DeprecatedProperty, $this->context->getFile(), call_user_func(function ($v1, $v2) {
                     return isset($v1) ? $v1 : $v2;
                 }, @$this->node->lineno, @0), [(string) $property->getFQSEN(), $property->getFileRef()->getFile(), $property->getFileRef()->getLineNumberStart()]));
             }
             if ($property->isNSInternal($this->code_base) && !$property->isNSInternalAccessFromContext($this->code_base, $this->context)) {
-                throw new IssueException(Issue::fromType(Issue::AccessPropertyInternal)($this->context->getFile(), call_user_func(function ($v1, $v2) {
+                throw new IssueException(Issue::fromTypeAndInvoke(Issue::AccessPropertyInternal, $this->context->getFile(), call_user_func(function ($v1, $v2) {
                     return isset($v1) ? $v1 : $v2;
                 }, @$this->node->lineno, @0), [(string) $property->getFQSEN(), $property->getFileRef()->getFile(), $property->getFileRef()->getLineNumberStart()]));
             }
@@ -493,7 +501,7 @@ class ContextNode
         /*
         $std_class_fqsen =
             FullyQualifiedClassName::getStdClassFQSEN();
-        
+
         // If missing properties are cool, create it on
         // the first class we found
         if (!$is_static && ($class_fqsen && ($class_fqsen === $std_class_fqsen))
@@ -513,11 +521,11 @@ class ContextNode
         // If the class isn't found, we'll get the message elsewhere
         if ($class_fqsen) {
             if ($is_static) {
-                throw new IssueException(Issue::fromType(Issue::UndeclaredStaticProperty)($this->context->getFile(), call_user_func(function ($v1, $v2) {
+                throw new IssueException(Issue::fromTypeAndInvoke(Issue::UndeclaredStaticProperty, $this->context->getFile(), call_user_func(function ($v1, $v2) {
                     return isset($v1) ? $v1 : $v2;
                 }, @$this->node->lineno, @0), [$property_name, (string) $class_fqsen]));
             } else {
-                throw new IssueException(Issue::fromType(Issue::UndeclaredProperty)($this->context->getFile(), call_user_func(function ($v1, $v2) {
+                throw new IssueException(Issue::fromTypeAndInvoke(Issue::UndeclaredProperty, $this->context->getFile(), call_user_func(function ($v1, $v2) {
                     return isset($v1) ? $v1 : $v2;
                 }, @$this->node->lineno, @0), ["{$class_fqsen}->{$property_name}"]));
             }
@@ -581,7 +589,7 @@ class ContextNode
                 return isset($v1) ? $v1 : $v2;
             }, @$this->node->children['expr'], @null)))->getClassList();
         } catch (CodeBaseException $exception) {
-            throw new IssueException(Issue::fromType(Issue::UndeclaredClassReference)($this->context->getFile(), call_user_func(function ($v1, $v2) {
+            throw new IssueException(Issue::fromTypeAndInvoke(Issue::UndeclaredClassReference, $this->context->getFile(), call_user_func(function ($v1, $v2) {
                 return isset($v1) ? $v1 : $v2;
             }, @$this->node->lineno, @0), [$exception->getFQSEN()]));
         }
@@ -627,14 +635,14 @@ class ContextNode
         if (!$this->code_base->hasGlobalConstantWithFQSEN($fqsen)) {
             $fqsen = FullyQualifiedGlobalConstantName::fromFullyQualifiedString($constant_name);
             if (!$this->code_base->hasGlobalConstantWithFQSEN($fqsen)) {
-                throw new IssueException(Issue::fromType(Issue::UndeclaredConstant)($this->context->getFile(), call_user_func(function ($v1, $v2) {
+                throw new IssueException(Issue::fromTypeAndInvoke(Issue::UndeclaredConstant, $this->context->getFile(), call_user_func(function ($v1, $v2) {
                     return isset($v1) ? $v1 : $v2;
                 }, @$this->node->lineno, @0), [$fqsen]));
             }
         }
         $constant = $this->code_base->getGlobalConstantByFQSEN($fqsen);
         if ($constant->isNSInternal($this->code_base) && !$constant->isNSInternalAccessFromContext($this->code_base, $this->context)) {
-            throw new IssueException(Issue::fromType(Issue::AccessConstantInternal)($this->context->getFile(), call_user_func(function ($v1, $v2) {
+            throw new IssueException(Issue::fromTypeAndInvoke(Issue::AccessConstantInternal, $this->context->getFile(), call_user_func(function ($v1, $v2) {
                 return isset($v1) ? $v1 : $v2;
             }, @$this->node->lineno, @0), [(string) $constant->getFQSEN(), $constant->getFileRef()->getFile(), $constant->getFileRef()->getLineNumberStart()]));
         }
@@ -673,7 +681,7 @@ class ContextNode
         try {
             $class_list = (new ContextNode($this->code_base, $this->context, $this->node->children['class']))->getClassList();
         } catch (CodeBaseException $exception) {
-            throw new IssueException(Issue::fromType(Issue::UndeclaredClassConstant)($this->context->getFile(), call_user_func(function ($v1, $v2) {
+            throw new IssueException(Issue::fromTypeAndInvoke(Issue::UndeclaredClassConstant, $this->context->getFile(), call_user_func(function ($v1, $v2) {
                 return isset($v1) ? $v1 : $v2;
             }, @$this->node->lineno, @0), [$constant_name, $exception->getFQSEN()]));
         }
@@ -685,7 +693,7 @@ class ContextNode
             }
             $constant = $class->getConstantByNameInContext($this->code_base, $constant_name, $this->context);
             if ($constant->isNSInternal($this->code_base) && !$constant->isNSInternalAccessFromContext($this->code_base, $this->context)) {
-                throw new IssueException(Issue::fromType(Issue::AccessClassConstantInternal)($this->context->getFile(), call_user_func(function ($v1, $v2) {
+                throw new IssueException(Issue::fromTypeAndInvoke(Issue::AccessClassConstantInternal, $this->context->getFile(), call_user_func(function ($v1, $v2) {
                     return isset($v1) ? $v1 : $v2;
                 }, @$this->node->lineno, @0), [(string) $constant->getFQSEN(), $constant->getFileRef()->getFile(), $constant->getFileRef()->getLineNumberStart()]));
             }
@@ -697,7 +705,7 @@ class ContextNode
         }
         // If no class is found, we'll emit the error elsewhere
         if ($class_fqsen) {
-            throw new IssueException(Issue::fromType(Issue::UndeclaredConstant)($this->context->getFile(), call_user_func(function ($v1, $v2) {
+            throw new IssueException(Issue::fromTypeAndInvoke(Issue::UndeclaredConstant, $this->context->getFile(), call_user_func(function ($v1, $v2) {
                 return isset($v1) ? $v1 : $v2;
             }, @$this->node->lineno, @0), ["{$class_fqsen}::{$constant_name}"]));
         }

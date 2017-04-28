@@ -15,7 +15,7 @@ final class CheckstylePrinter implements BufferedPrinterInterface
     /** @var string[][] */
     private $files = [];
     /** @param IssueInstance $instance */
-    public function print(IssueInstance $instance)
+    public function print_(IssueInstance $instance)
     {
         if (empty($this->files[$instance->getFile()])) {
             $this->files[$instance->getFile()] = [];

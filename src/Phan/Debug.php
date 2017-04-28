@@ -52,7 +52,7 @@ class Debug
      *
      * @suppress PhanUnreferencedMethod
      */
-    public static function print($message, $indent = 0)
+    public static function print_($message, $indent = 0)
     {
         if (!is_string($message)) {
             throw new \InvalidArgumentException("Argument \$message passed to print() must be of the type string, " . (gettype($message) == "object" ? get_class($message) : gettype($message)) . " given");

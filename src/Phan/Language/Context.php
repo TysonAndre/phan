@@ -481,9 +481,12 @@ class Context extends FileRef
         }
         $has_suppress_issue = $this->getElementInScope($code_base)->hasSuppressIssue($issue_name);
         // Increment the suppression use count
+        // FIXME: Does this work properly in php7? That wasn't a reference, it was a value
+        /**
         if ($has_suppress_issue) {
             ++$this->getElementInScope($code_base)->getSuppressIssueList()[$issue_name];
         }
+         */
         $ret5902c6f4b02cb = $has_suppress_issue;
         if (!is_bool($ret5902c6f4b02cb)) {
             throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f4b02cb) . " given");

@@ -647,7 +647,7 @@ class Clazz extends AddressableElement
             $property = $code_base->getPropertyByFQSEN($property_fqsen);
             if ($is_static && !$property->isStatic()) {
                 // TODO: add additional warning about possible static/non-static confusion?
-                throw new IssueException(Issue::fromType(Issue::UndeclaredStaticProperty)($context->getFile(), $context->getLineNumberStart(), [$name, (string) $this->getFQSEN()]));
+                throw new IssueException(Issue::fromTypeAndInvoke(Issue::UndeclaredStaticProperty, $context->getFile(), $context->getLineNumberStart(), [$name, (string) $this->getFQSEN()]));
             }
             $is_remote_access = !$context->isInClassScope() || !$context->getClassInScope($code_base)->getUnionType()->canCastToExpandedUnionType($this->getUnionType(), $code_base);
             $is_property_accessible = !$is_remote_access || $property->isPublic();
@@ -665,10 +665,10 @@ class Clazz extends AddressableElement
             $method = $this->getMethodByName($code_base, '__get');
             // Make sure the magic method is accessible
             if ($method->isPrivate()) {
-                throw new IssueException(Issue::fromType(Issue::AccessPropertyPrivate)($context->getFile(), $context->getLineNumberStart(), [(string) $property_fqsen]));
+                throw new IssueException(Issue::fromTypeAndInvoke(Issue::AccessPropertyPrivate, $context->getFile(), $context->getLineNumberStart(), [(string) $property_fqsen]));
             } else {
                 if ($method->isProtected()) {
-                    throw new IssueException(Issue::fromType(Issue::AccessPropertyProtected)($context->getFile(), $context->getLineNumberStart(), [(string) $property_fqsen]));
+                    throw new IssueException(Issue::fromTypeAndInvoke(Issue::AccessPropertyProtected, $context->getFile(), $context->getLineNumberStart(), [(string) $property_fqsen]));
                 }
             }
             $property = new Property($context, $name, $method->getUnionType(), 0, $property_fqsen);
@@ -683,13 +683,13 @@ class Clazz extends AddressableElement
                 // If we have a property, but its inaccessible, emit
                 // an issue
                 if ($property->isPrivate()) {
-                    throw new IssueException(Issue::fromType(Issue::AccessPropertyPrivate)($context->getFile(), $context->getLineNumberStart(), ["{$this->getFQSEN()}::\${$property->getName()}"]));
+                    throw new IssueException(Issue::fromTypeAndInvoke(Issue::AccessPropertyPrivate, $context->getFile(), $context->getLineNumberStart(), ["{$this->getFQSEN()}::\${$property->getName()}"]));
                 }
                 if ($property->isProtected()) {
-                    throw new IssueException(Issue::fromType(Issue::AccessPropertyProtected)($context->getFile(), $context->getLineNumberStart(), ["{$this->getFQSEN()}::\${$property->getName()}"]));
+                    throw new IssueException(Issue::fromTypeAndInvoke(Issue::AccessPropertyProtected, $context->getFile(), $context->getLineNumberStart(), ["{$this->getFQSEN()}::\${$property->getName()}"]));
                 }
                 if (!$is_static && $property->isStatic()) {
-                    throw new IssueException(Issue::fromType(Issue::AccessPropertyStaticAsNonStatic)($context->getFile(), $context->getLineNumberStart(), ["{$this->getFQSEN()}::\${$property->getName()}"]));
+                    throw new IssueException(Issue::fromTypeAndInvoke(Issue::AccessPropertyStaticAsNonStatic, $context->getFile(), $context->getLineNumberStart(), ["{$this->getFQSEN()}::\${$property->getName()}"]));
                 }
             }
         }
@@ -706,7 +706,7 @@ class Clazz extends AddressableElement
             return $ret5902c6f508097;
         }
         // TODO: should be ->, to be consistent with other uses for instance properties?
-        throw new IssueException(Issue::fromType(Issue::UndeclaredProperty)($context->getFile(), $context->getLineNumberStart(), ["{$this->getFQSEN()}::\${$name}}"]));
+        throw new IssueException(Issue::fromTypeAndInvoke(Issue::UndeclaredProperty, $context->getFile(), $context->getLineNumberStart(), ["{$this->getFQSEN()}::\${$name}}"]));
     }
     /**
      * @return Property[]
@@ -778,8 +778,7 @@ class Clazz extends AddressableElement
         }
         $constant_fqsen = FullyQualifiedClassConstantName::make($this->getFQSEN(), $name);
         if (!$code_base->hasClassConstantWithFQSEN($constant_fqsen)) {
-            $issue_creator = Issue::fromType(Issue::UndeclaredClassConstant);
-            throw new IssueException($issue_creator($context->getFile(), $context->getLineNumberStart(), [(string) $constant_fqsen, (string) $this->getFQSEN()]));
+            throw new IssueException(Issue::fromTypeAndInvoke(Issue::UndeclaredClassConstant, $context->getFile(), $context->getLineNumberStart(), [(string) $constant_fqsen, (string) $this->getFQSEN()]));
         }
         $constant = $code_base->getClassConstantByFQSEN($constant_fqsen);
         // Are we within a class referring to the class
@@ -791,12 +790,10 @@ class Clazz extends AddressableElement
         // If we have the constant, but its inaccessible, emit
         // an issue
         if (!$is_local_access && $constant->isPrivate()) {
-            $issue_creator = Issue::fromType(Issue::AccessClassConstantPrivate);
-            throw new IssueException($issue_creator($context->getFile(), $context->getLineNumberStart(), [(string) $constant_fqsen, $constant->getContext()->getFile(), $constant->getContext()->getLineNumberStart()]));
+            throw new IssueException(Issue::fromTypeAndInvoke(Issue::AccessClassConstantPrivate, $context->getFile(), $context->getLineNumberStart(), [(string) $constant_fqsen, $constant->getContext()->getFile(), $constant->getContext()->getLineNumberStart()]));
         } else {
             if (!$is_local_or_remote_access && $constant->isProtected()) {
-                $issue_creator = Issue::fromType(Issue::AccessClassConstantProtected);
-                throw new IssueException($issue_creator($context->getFile(), $context->getLineNumberStart(), [(string) $constant_fqsen, $constant->getContext()->getFile(), $constant->getContext()->getLineNumberStart()]));
+                throw new IssueException(Issue::fromTypeAndInvoke(Issue::AccessClassConstantProtected, $context->getFile(), $context->getLineNumberStart(), [(string) $constant_fqsen, $constant->getContext()->getFile(), $constant->getContext()->getLineNumberStart()]));
             }
         }
         $ret5902c6f50a16a = $constant;

@@ -416,6 +416,18 @@ class Issue
         }
         return $ret5902c6f4984e2;
     }
+
+    /**
+     * @param string $type
+     * @param string $file
+     * @param int $line
+     * @param string[] $template_parameters
+     */
+    public static function fromTypeAndInvoke($type, $file, $line, array $template_parameters = []) {
+        $issue_creator = Issue::fromType($type);
+        return $issue_creator($file, $line, $template_parameters);
+    }
+
     /**
      * @param string $type
      * The type of the issue

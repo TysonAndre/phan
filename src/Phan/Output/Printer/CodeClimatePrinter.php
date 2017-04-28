@@ -19,7 +19,7 @@ final class CodeClimatePrinter implements BufferedPrinterInterface
     /** @var array */
     private $messages = [];
     /** @param IssueInstance $instance */
-    public function print(IssueInstance $instance)
+    public function print_(IssueInstance $instance)
     {
         $this->messages[] = ['type' => 'issue', 'check_name' => $instance->getIssue()->getType(), 'description' => $instance->getMessage(), 'categories' => ['Bug Risk'], 'severity' => self::mapSeverity($instance->getIssue()->getSeverity()), 'location' => ['path' => preg_replace('/^\\/code\\//', '', $instance->getFile()), 'lines' => ['begin' => $instance->getLine(), 'end' => $instance->getLine()]]];
     }

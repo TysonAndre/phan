@@ -115,7 +115,8 @@ trait Analyzable
         }
         self::$recursion_depth++;
         try {
-            $ret5902c6f18219c = (new BlockAnalysisVisitor($code_base, clone $context))($this->getNode());
+            $visitor = new BlockAnalysisVisitor($code_base, clone $context);
+            $ret5902c6f18219c = $visitor($this->getNode());
             if (!$ret5902c6f18219c instanceof Context) {
                 throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f18219c) == "object" ? get_class($ret5902c6f18219c) : gettype($ret5902c6f18219c)) . " given");
             }

@@ -16,7 +16,7 @@ final class JSONPrinter implements BufferedPrinterInterface
     /** @var array */
     private $messages = [];
     /** @param IssueInstance $instance */
-    public function print(IssueInstance $instance)
+    public function print_(IssueInstance $instance)
     {
         $this->messages[] = ['type' => 'issue', 'check_name' => $instance->getIssue()->getType(), 'description' => Issue::getNameForCategory($instance->getIssue()->getCategory()) . ' ' . $instance->getIssue()->getType() . ' ' . $instance->getMessage(), 'severity' => $instance->getIssue()->getSeverity(), 'location' => ['path' => preg_replace('/^\\/code\\//', '', $instance->getFile()), 'lines' => ['begin' => $instance->getLine(), 'end' => $instance->getLine()]]];
     }

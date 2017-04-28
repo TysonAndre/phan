@@ -14,7 +14,7 @@ final class PylintPrinter implements IssuePrinterInterface
     /** @var OutputInterface */
     private $output;
     /** @param IssueInstance $instance */
-    public function print(IssueInstance $instance)
+    public function print_(IssueInstance $instance)
     {
         $message = sprintf("%s: %s", $instance->getIssue()->getType(), $instance->getMessage());
         $line = sprintf("%s:%d: [%s] %s", $instance->getFile(), $instance->getLine(), self::get_severity_code($instance), $message);

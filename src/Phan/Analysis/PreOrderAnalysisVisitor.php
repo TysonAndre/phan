@@ -527,7 +527,8 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
         // Get the type just to make sure everything
         // is defined.
         $expression_type = UnionType::fromNode($this->context, $this->code_base, $node->children['cond']);
-        $ret5902c6f299016 = (new ConditionVisitor($this->code_base, $this->context))($node->children['cond']);
+        $visitor = new ConditionVisitor($this->code_base, $this->context);
+        $ret5902c6f299016 = $visitor($node->children['cond']);
         if (!$ret5902c6f299016 instanceof Context) {
             throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f299016) == "object" ? get_class($ret5902c6f299016) : gettype($ret5902c6f299016)) . " given");
         }
@@ -551,7 +552,8 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
             }
             return $ret5902c6f2994b0;
         }
-        $ret5902c6f299813 = (new ConditionVisitor($this->code_base, $this->context))($node->children['args']->children[0]);
+        $visitor = new ConditionVisitor($this->code_base, $this->context);
+        $ret5902c6f299813 = $visitor($node->children['args']->children[0]);
         if (!$ret5902c6f299813 instanceof Context) {
             throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f299813) == "object" ? get_class($ret5902c6f299813) : gettype($ret5902c6f299813)) . " given");
         }

@@ -95,7 +95,8 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         // Handle the assignment based on the type of the
         // right side of the equation and the kind of item
         // on the left
-        $context = (new AssignmentVisitor($this->code_base, $this->context, $node, $right_type))($node->children['var']);
+        $visitor = new AssignmentVisitor($this->code_base, $this->context, $node, $right_type);
+        $context = $visitor($node->children['var']);
         // Analyze the assignment for compatibility with some
         // breaking changes betweeen PHP5 and PHP7.
         (new ContextNode($this->code_base, $this->context, $node->children['var']))->analyzeBackwardCompatibility();
@@ -1306,7 +1307,8 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 continue;
             }
             if (Config::get()->dead_code_detection) {
-                (new ArgumentVisitor($this->code_base, $this->context))($argument);
+                $visitor = new ArgumentVisitor($this->code_base, $this->context);
+                $visitor($argument);
             }
             // If the parameter is pass-by-reference and we're
             // passing a variable in, see if we should pass

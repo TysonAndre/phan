@@ -10,7 +10,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 interface IssuePrinterInterface
 {
     /** @param IssueInstance $instance */
-    public function print(IssueInstance $instance);
+    public function print_(IssueInstance $instance);
     /**
      * @param OutputInterface $output
      */

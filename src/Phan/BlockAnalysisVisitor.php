@@ -100,7 +100,8 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         // with anything we learn and get a new context
         // indicating the state of the world within the
         // given node
-        $context = (new PreOrderAnalysisVisitor($this->code_base, $context))($node);
+        $visitor = new PreOrderAnalysisVisitor($this->code_base, $context);
+        $context = $visitor($node);
         // Let any configured plugins do a pre-order
         // analysis of the node.
         ConfigPluginSet::instance()->preAnalyzeNode($this->code_base, $context, $node);
@@ -121,7 +122,8 @@ class BlockAnalysisVisitor extends AnalysisVisitor
             }
             // Step into each child node and get an
             // updated context for the node
-            $context = (new BlockAnalysisVisitor($this->code_base, $context, $node, $this->depth + 1))($child_node);
+            $child_node_visitor = new BlockAnalysisVisitor($this->code_base, $context, $node, $this->depth + 1);
+            $context = $child_node_visitor($child_node);
         }
         $context = $this->postOrderAnalyze($context, $node);
         $ret5902c6f388668 = $context;
@@ -189,13 +191,15 @@ class BlockAnalysisVisitor extends AnalysisVisitor
             }, @$child_node->lineno, @0));
             // Step into each child node and get an
             // updated context for the node
-            $child_context = (new BlockAnalysisVisitor($this->code_base, $child_context, $node, $this->depth + 1))($child_node);
+            $child_node_visitor = new BlockAnalysisVisitor($this->code_base, $child_context, $node, $this->depth + 1);
+            $child_context = $child_node_visitor($child_node);
             $child_context_list[] = $child_context;
         }
         // For if statements, we need to merge the contexts
         // of all child context into a single scope based
         // on any possible branching structure
-        $context = (new ContextMergeVisitor($this->code_base, $context, $child_context_list))($node);
+        $context_visitor = new ContextMergeVisitor($this->code_base, $context, $child_context_list);
+        $context = $context_visitor($node);
         $context = $this->postOrderAnalyze($context, $node);
         $ret5902c6f388d85 = $context;
         if (!$ret5902c6f388d85 instanceof Context) {
@@ -220,15 +224,17 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         assert(!empty($context), 'Context cannot be null');
         $condition_node = $node->children['cond'];
         if ($condition_node && $condition_node instanceof Node) {
-            $context = (new BlockAnalysisVisitor($this->code_base, $context->withLineNumberStart(call_user_func(function ($v1, $v2) {
+            $context_visitor = new BlockAnalysisVisitor($this->code_base, $context->withLineNumberStart(call_user_func(function ($v1, $v2) {
                 return isset($v1) ? $v1 : $v2;
-            }, @$condition_node->lineno, @0)), $node, $this->depth + 1))($condition_node);
+            }, @$condition_node->lineno, @0)), $node, $this->depth + 1);
+            $context = $context_visitor($condition_node);
         }
         if ($stmts_node = $node->children['stmts']) {
             if ($stmts_node instanceof Node) {
-                $context = (new BlockAnalysisVisitor($this->code_base, $context->withScope(new BranchScope($context->getScope()))->withLineNumberStart(call_user_func(function ($v1, $v2) {
+                $context_visitor = new BlockAnalysisVisitor($this->code_base, $context->withScope(new BranchScope($context->getScope()))->withLineNumberStart(call_user_func(function ($v1, $v2) {
                     return isset($v1) ? $v1 : $v2;
-                }, @$stmts_node->lineno, @0)), $node, $this->depth + 1))($stmts_node);
+                }, @$stmts_node->lineno, @0)), $node, $this->depth + 1);
+                $context = $context_visitor($stmts_node);
             }
         }
         // Now that we know all about our context (like what
@@ -297,13 +303,15 @@ class BlockAnalysisVisitor extends AnalysisVisitor
             }
             // Step into each child node and get an
             // updated context for the node
-            $child_context = (new BlockAnalysisVisitor($this->code_base, $child_context, $node, $this->depth + 1))($child_node);
+            $child_context_visitor = new BlockAnalysisVisitor($this->code_base, $child_context, $node, $this->depth + 1);
+            $child_context = $child_context_visitor($child_node);
             $child_context_list[] = $child_context;
         }
         // For if statements, we need to merge the contexts
         // of all child context into a single scope based
         // on any possible branching structure
-        $context = (new ContextMergeVisitor($this->code_base, $context, $child_context_list))($node);
+        $context_visitor = new ContextMergeVisitor($this->code_base, $context, $child_context_list);
+        $context = $context_visitor($node);
         $context = $this->postOrderAnalyze($context, $node);
         $ret5902c6f389b9e = $this->context;
         if (!$ret5902c6f389b9e instanceof Context) {
@@ -391,9 +399,11 @@ class BlockAnalysisVisitor extends AnalysisVisitor
             // Step into each child node and get an
             // updated context for the node
             // (e.g. there may be assignments such as '($x = foo()) ? $a : $b)
-            $context = (new BlockAnalysisVisitor($this->code_base, $context, $node, $this->depth + 1))($cond_node);
+            $context_visitor = new BlockAnalysisVisitor($this->code_base, $context, $node, $this->depth + 1);
+            $context = $context_visitor($cond_node);
             // TODO: false_context once there is a NegatedConditionVisitor
-            $true_context = (new ConditionVisitor($this->code_base, $this->context))($cond_node);
+            $context_visitor = new ConditionVisitor($this->code_base, $this->context);
+            $true_context = $context_visitor($cond_node);
         } else {
             $true_context = $context;
         }
@@ -402,18 +412,21 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         // $cond_node is the (already processed) value for truthy.
         if ($true_node instanceof Node) {
             if ($this->should_visit_everything || Analysis::shouldVisit($true_node)) {
-                $child_context = (new BlockAnalysisVisitor($this->code_base, $true_context, $node, $this->depth + 1))($true_node);
+                $child_context_visitor = new BlockAnalysisVisitor($this->code_base, $true_context, $node, $this->depth + 1);
+                $child_context = $child_context_visitor($true_node);
                 $child_context_list[] = $child_context;
             }
         }
         if ($false_node instanceof Node) {
             if ($this->should_visit_everything || Analysis::shouldVisit($false_node)) {
-                $child_context = (new BlockAnalysisVisitor($this->code_base, $context, $node, $this->depth + 1))($false_node);
+                $child_context_visitor = new BlockAnalysisVisitor($this->code_base, $context, $node, $this->depth + 1);
+                $child_context = $child_context_visitor($false_node);
                 $child_context_list[] = $child_context;
             }
         }
         if (count($child_context_list) >= 1) {
-            $context = (new ContextMergeVisitor($this->code_base, $context, $child_context_list))($node);
+            $child_context_visitor = new ContextMergeVisitor($this->code_base, $context, $child_context_list);
+            $context = $child_context_visitor($node);
         }
         $context = $this->postOrderAnalyze($context, $node);
         $ret5902c6f38af1d = $context;
@@ -505,7 +518,8 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         // with anything we learn and get a new context
         // indicating the state of the world within the
         // given node
-        $context = (new PreOrderAnalysisVisitor($this->code_base, $context))($node);
+        $context_visitor = new PreOrderAnalysisVisitor($this->code_base, $context);
+        $context = $context_visitor($node);
         // Let any configured plugins do a pre-order
         // analysis of the node.
         ConfigPluginSet::instance()->preAnalyzeNode($this->code_base, $context, $node);
@@ -533,9 +547,10 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         // Now that we know all about our context (like what
         // 'self' means), we can analyze statements like
         // assignments and method calls.
-        $context = (new PostOrderAnalysisVisitor($this->code_base, $context->withLineNumberStart(call_user_func(function ($v1, $v2) {
+        $context_visitor = new PostOrderAnalysisVisitor($this->code_base, $context->withLineNumberStart(call_user_func(function ($v1, $v2) {
             return isset($v1) ? $v1 : $v2;
-        }, @$node->lineno, @0)), $this->parent_node))($node);
+        }, @$node->lineno, @0)), $this->parent_node);
+        $context = $context_visitor($node);
         // let any configured plugins analyze the node
         ConfigPluginSet::instance()->analyzeNode($this->code_base, $context, $node, $this->parent_node);
         $ret5902c6f38c3c9 = $context;

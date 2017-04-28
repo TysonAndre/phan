@@ -19,7 +19,7 @@ final class PlainTextPrinter implements IssuePrinterInterface
      * @param IssueInstance $instance
      * @return void
      */
-    public function print(IssueInstance $instance)
+    public function print_(IssueInstance $instance)
     {
         $file = $instance->getFile();
         $line = $instance->getLine();

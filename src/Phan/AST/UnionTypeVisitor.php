@@ -111,7 +111,8 @@ class UnionTypeVisitor extends AnalysisVisitor
         }
         if ($should_catch_issue_exception) {
             try {
-                $ret5902c6f30d9c0 = (new self($code_base, $context, $should_catch_issue_exception))($node);
+                $visitor = new self($code_base, $context, $should_catch_issue_exception);
+                $ret5902c6f30d9c0 = $visitor($node);
                 if (!$ret5902c6f30d9c0 instanceof UnionType) {
                     throw new \InvalidArgumentException("Argument returned must be of the type UnionType, " . (gettype($ret5902c6f30d9c0) == "object" ? get_class($ret5902c6f30d9c0) : gettype($ret5902c6f30d9c0)) . " given");
                 }
@@ -125,7 +126,8 @@ class UnionTypeVisitor extends AnalysisVisitor
                 return $ret5902c6f30dd06;
             }
         }
-        $ret5902c6f30e022 = (new self($code_base, $context, $should_catch_issue_exception))($node);
+        $visitor = new self($code_base, $context, $should_catch_issue_exception);
+        $ret5902c6f30e022 = $visitor($node);
         if (!$ret5902c6f30e022 instanceof UnionType) {
             throw new \InvalidArgumentException("Argument returned must be of the type UnionType, " . (gettype($ret5902c6f30e022) == "object" ? get_class($ret5902c6f30e022) : gettype($ret5902c6f30e022)) . " given");
         }
@@ -625,7 +627,8 @@ class UnionTypeVisitor extends AnalysisVisitor
         // TODO: emit no-op if $cond_node is a literal, such as `if (2)`
         // - Also note that some things such as `true` and `false` are \ast\AST_NAME nodes.
         if ($cond_node instanceof Node) {
-            $true_context = (new ConditionVisitor($this->code_base, $this->context))($cond_node);
+            $true_visitor = new ConditionVisitor($this->code_base, $this->context);
+            $true_context = $true_visitor($cond_node);
         } else {
             $true_context = $this->context;
         }
@@ -711,7 +714,8 @@ class UnionTypeVisitor extends AnalysisVisitor
      */
     public function visitBinaryOp(Node $node)
     {
-        $ret5902c6f315b7d = (new BinaryOperatorFlagVisitor($this->code_base, $this->context))($node);
+        $visitor = new BinaryOperatorFlagVisitor($this->code_base, $this->context);
+        $ret5902c6f315b7d = $visitor($node);
         if (!$ret5902c6f315b7d instanceof UnionType) {
             throw new \InvalidArgumentException("Argument returned must be of the type UnionType, " . (gettype($ret5902c6f315b7d) == "object" ? get_class($ret5902c6f315b7d) : gettype($ret5902c6f315b7d)) . " given");
         }
@@ -1044,7 +1048,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                 return $ret5902c6f31af05;
             }
             if (!Config::get()->ignore_undeclared_variables_in_global_scope || !$this->context->isInGlobalScope()) {
-                throw new IssueException(Issue::fromType(Issue::UndeclaredVariable)($this->context->getFile(), call_user_func(function ($v1, $v2) {
+                throw new IssueException(Issue::fromTypeAndInvoke(Issue::UndeclaredVariable, $this->context->getFile(), call_user_func(function ($v1, $v2) {
                     return isset($v1) ? $v1 : $v2;
                 }, @$node->lineno, @0), [$variable_name]));
             }
@@ -1642,24 +1646,24 @@ class UnionTypeVisitor extends AnalysisVisitor
         $class_name = $node->children['name'];
         if ('parent' === $class_name) {
             if (!$context->isInClassScope()) {
-                throw new IssueException(Issue::fromType(Issue::ContextNotObject)($context->getFile(), call_user_func(function ($v1, $v2) {
+                throw new IssueException(Issue::fromTypeAndInvoke(Issue::ContextNotObject, $context->getFile(), call_user_func(function ($v1, $v2) {
                     return isset($v1) ? $v1 : $v2;
                 }, @$node->lineno, @0), [$class_name]));
             }
             $class = $context->getClassInScope($code_base);
             if ($class->isTrait()) {
-                throw new IssueException(Issue::fromType(Issue::TraitParentReference)($context->getFile(), call_user_func(function ($v1, $v2) {
+                throw new IssueException(Issue::fromTypeAndInvoke(Issue::TraitParentReference, $context->getFile(), call_user_func(function ($v1, $v2) {
                     return isset($v1) ? $v1 : $v2;
                 }, @$node->lineno, @0), [(string) $context->getClassFQSEN()]));
             }
             if (!$class->hasParentType()) {
-                throw new IssueException(Issue::fromType(Issue::ParentlessClass)($context->getFile(), call_user_func(function ($v1, $v2) {
+                throw new IssueException(Issue::fromTypeAndInvoke(Issue::ParentlessClass, $context->getFile(), call_user_func(function ($v1, $v2) {
                     return isset($v1) ? $v1 : $v2;
                 }, @$node->lineno, @0), [(string) $context->getClassFQSEN()]));
             }
             $parent_class_fqsen = $class->getParentClassFQSEN();
             if (!$code_base->hasClassWithFQSEN($parent_class_fqsen)) {
-                throw new IssueException(Issue::fromType(Issue::UndeclaredClass)($context->getFile(), call_user_func(function ($v1, $v2) {
+                throw new IssueException(Issue::fromTypeAndInvoke(Issue::UndeclaredClass, $context->getFile(), call_user_func(function ($v1, $v2) {
                     return isset($v1) ? $v1 : $v2;
                 }, @$node->lineno, @0), [(string) $parent_class_fqsen]));
             } else {
@@ -1707,7 +1711,7 @@ class UnionTypeVisitor extends AnalysisVisitor
             $class_fqsen = $class_type->asFQSEN();
             // See if the class exists
             if (!$this->code_base->hasClassWithFQSEN($class_fqsen)) {
-                throw new IssueException(Issue::fromType(Issue::UndeclaredClassReference)($this->context->getFile(), call_user_func(function ($v1, $v2) {
+                throw new IssueException(Issue::fromTypeAndInvoke(Issue::UndeclaredClassReference, $this->context->getFile(), call_user_func(function ($v1, $v2) {
                     return isset($v1) ? $v1 : $v2;
                 }, @$node->lineno, @0), [(string) $class_fqsen]));
             }

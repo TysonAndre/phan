@@ -18,7 +18,7 @@ final class CSVPrinter implements BufferedPrinterInterface
     /** @var array */
     private $messages = [];
     /** @param IssueInstance $instance */
-    public function print(IssueInstance $instance)
+    public function print_(IssueInstance $instance)
     {
         fputcsv($this->stream, [$instance->getFile(), $instance->getLine(), $instance->getIssue()->getSeverity(), $instance->getIssue()->getSeverityName(), Issue::getNameForCategory($instance->getIssue()->getCategory()), $instance->getIssue()->getType(), $instance->getMessage()]);
     }

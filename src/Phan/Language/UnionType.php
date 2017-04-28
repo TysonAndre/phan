@@ -1040,7 +1040,7 @@ class UnionType implements \Serializable
             $class_fqsen = $class_type->asFQSEN();
             if ($class_type->isStaticType()) {
                 if (!$context->isInClassScope()) {
-                    throw new IssueException(Issue::fromType(Issue::ContextNotObject)($context->getFile(), $context->getLineNumberStart(), [(string) $class_type]));
+                    throw new IssueException(Issue::fromTypeAndInvoke(Issue::ContextNotObject, $context->getFile(), $context->getLineNumberStart(), [(string) $class_type]));
                 }
                 (yield $context->getClassInScope($code_base));
             } else {

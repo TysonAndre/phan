@@ -142,9 +142,10 @@ class Analysis
         // with anything we learn and get a new context
         // indicating the state of the world within the
         // given node
-        $context = (new ParseVisitor($code_base, $context->withLineNumberStart(call_user_func(function ($v1, $v2) {
+        $visitor = new ParseVisitor($code_base, $context->withLineNumberStart(call_user_func(function ($v1, $v2) {
             return isset($v1) ? $v1 : $v2;
-        }, @$node->lineno, @0))))($node);
+        }, @$node->lineno, @0)));
+        $context = $visitor($node);
         assert(!empty($context), 'Context cannot be null');
         // Recurse into each child node
         $child_context = $context;
@@ -372,7 +373,8 @@ class Analysis
             }
             return $ret5902c6f24fdcb;
         }
-        $ret5902c6f2500f1 = (new BlockAnalysisVisitor($code_base, $context))($node);
+        $visitor = new BlockAnalysisVisitor($code_base, $context);
+        $ret5902c6f2500f1 = $visitor($node);
         if (!$ret5902c6f2500f1 instanceof Context) {
             throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f2500f1) == "object" ? get_class($ret5902c6f2500f1) : gettype($ret5902c6f2500f1)) . " given");
         }

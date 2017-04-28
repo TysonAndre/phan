@@ -230,7 +230,8 @@ class AssignmentVisitor extends AnalysisVisitor
             }
         }
         // Recurse into whatever we're []'ing
-        $context = (new AssignmentVisitor($this->code_base, $this->context, $node, $right_type, true))($node->children['expr']);
+        $visitor = new AssignmentVisitor($this->code_base, $this->context, $node, $right_type, true);
+        $context = $visitor($node->children['expr']);
         $ret5902c6f1b2d56 = $context;
         if (!$ret5902c6f1b2d56 instanceof Context) {
             throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f1b2d56) == "object" ? get_class($ret5902c6f1b2d56) : gettype($ret5902c6f1b2d56)) . " given");
