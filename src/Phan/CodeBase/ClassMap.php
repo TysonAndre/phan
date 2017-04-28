@@ -1,10 +1,13 @@
 <?php
+
+/*
+ * This code has been transpiled via TransPHPile. For more information, visit https://github.com/jaytaph/transphpile
+ */
 namespace Phan\CodeBase;
 
 use Phan\Language\Element\ClassConstant;
 use Phan\Language\Element\Method;
 use Phan\Language\Element\Property;
-
 /**
  * Maps for elements associated with an individual class
  */
@@ -15,42 +18,34 @@ class ClassMap
      * A map from name to ClassCosntant
      */
     private $class_constant_map = [];
-
     /**
      * @var Property[]
      * A map from name to Property
      */
     private $property_map = [];
-
     /**
      * @var Method[]
      * A map from name to Method
      */
     private $method_map = [];
-
     /**
      * @return void
      */
     public function addClassConstant(ClassConstant $constant)
     {
-        $this->class_constant_map[
-            $constant->getFQSEN()->getNameWithAlternateId()
-        ] = $constant;
+        $this->class_constant_map[$constant->getFQSEN()->getNameWithAlternateId()] = $constant;
     }
-
     /**
      * @return bool
      */
-    public function hasClassConstantWithName(string $name)
+    public function hasClassConstantWithName($name)
     {
         return !empty($this->class_constant_map[$name]);
     }
-
-    public function getClassConstantByName(string $name)
+    public function getClassConstantByName($name)
     {
         return $this->class_constant_map[$name];
     }
-
     /**
      * @return ClassConstant[]
      */
@@ -58,33 +53,27 @@ class ClassMap
     {
         return $this->class_constant_map;
     }
-
     /**
      * @return void
      */
     public function addProperty(Property $property)
     {
-        $this->property_map[
-            $property->getFQSEN()->getNameWithAlternateId()
-        ] = $property;
+        $this->property_map[$property->getFQSEN()->getNameWithAlternateId()] = $property;
     }
-
     /**
      * @return bool
      */
-    public function hasPropertyWithName(string $name)
+    public function hasPropertyWithName($name)
     {
         return !empty($this->property_map[$name]);
     }
-
     /**
      * @return Property
      */
-    public function getPropertyByName(string $name)
+    public function getPropertyByName($name)
     {
         return $this->property_map[$name];
     }
-
     /**
      * @return Property[]
      */
@@ -92,17 +81,13 @@ class ClassMap
     {
         return $this->property_map;
     }
-
     /**
      * @return void
      */
     public function addMethod(Method $method)
     {
-        $this->method_map[strtolower(
-            $method->getFQSEN()->getNameWithAlternateId()
-        )] = $method;
+        $this->method_map[strtolower($method->getFQSEN()->getNameWithAlternateId())] = $method;
     }
-
     /**
      * @param string $name
      * @return bool
@@ -111,7 +96,6 @@ class ClassMap
     {
         return !empty($this->method_map[strtolower($name)]);
     }
-
     /**
      * @param string $name
      * @return Method
@@ -120,7 +104,6 @@ class ClassMap
     {
         return $this->method_map[strtolower($name)];
     }
-
     /**
      * @return Method[]
      */
@@ -128,5 +111,4 @@ class ClassMap
     {
         return $this->method_map;
     }
-
 }

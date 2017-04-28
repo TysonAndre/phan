@@ -1,4 +1,8 @@
-<?php declare(strict_types=1);
+<?php
+
+/*
+ * This code has been transpiled via TransPHPile. For more information, visit https://github.com/jaytaph/transphpile
+ */
 namespace Phan;
 
 use Phan\Analysis\DuplicateFunctionAnalyzer;
@@ -10,7 +14,6 @@ use Phan\Language\Element\Method;
 use Phan\Parse\ParseVisitor;
 use Phan\Plugin\ConfigPluginSet;
 use ast\Node;
-
 /**
  * This class is the entry point into the static analyzer.
  */
@@ -31,61 +34,59 @@ class Analysis
      *
      * @return Context
      */
-    public static function parseFile(CodeBase $code_base, string $file_path, bool $suppress_parse_errors = false) : Context
+    public static function parseFile(CodeBase $code_base, $file_path, $suppress_parse_errors = false)
     {
+        if (!is_string($file_path)) {
+            throw new \InvalidArgumentException("Argument \$file_path passed to parseFile() must be of the type string, " . (gettype($file_path) == "object" ? get_class($file_path) : gettype($file_path)) . " given");
+        }
+        if (!is_bool($suppress_parse_errors)) {
+            throw new \InvalidArgumentException("Argument \$suppress_parse_errors passed to parseFile() must be of the type bool, " . (gettype($suppress_parse_errors) == "object" ? get_class($suppress_parse_errors) : gettype($suppress_parse_errors)) . " given");
+        }
         $code_base->setCurrentParsedFile($file_path);
-        $context = (new Context)->withFile($file_path);
-
+        $context = (new Context())->withFile($file_path);
         // Convert the file to an Abstract Syntax Tree
         // before passing it on to the recursive version
         // of this method
         try {
-            $node = \ast\parse_file(
-                Config::projectPath($file_path),
-                Config::get()->ast_version
-            );
+            $node = \ast\parse_file(Config::projectPath($file_path), Config::get()->ast_version);
         } catch (\ParseError $parse_error) {
             if ($suppress_parse_errors) {
-                return $context;
+                $ret5902c6f24c850 = $context;
+                if (!$ret5902c6f24c850 instanceof Context) {
+                    throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f24c850) == "object" ? get_class($ret5902c6f24c850) : gettype($ret5902c6f24c850)) . " given");
+                }
+                return $ret5902c6f24c850;
             }
-            Issue::maybeEmit(
-                $code_base,
-                $context,
-                Issue::SyntaxError,
-                $parse_error->getLine(),
-                $parse_error->getMessage()
-            );
-
-            return $context;
+            Issue::maybeEmit($code_base, $context, Issue::SyntaxError, $parse_error->getLine(), $parse_error->getMessage());
+            $ret5902c6f24ccca = $context;
+            if (!$ret5902c6f24ccca instanceof Context) {
+                throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f24ccca) == "object" ? get_class($ret5902c6f24ccca) : gettype($ret5902c6f24ccca)) . " given");
+            }
+            return $ret5902c6f24ccca;
         }
-
         if (Config::get()->dump_ast) {
-            echo $file_path . "\n"
-                . str_repeat("\u{00AF}", strlen($file_path))
-                . "\n";
+            echo $file_path . "\n" . str_repeat("¯", strlen($file_path)) . "\n";
             Debug::printNode($node);
-            return $context;
+            $ret5902c6f24d064 = $context;
+            if (!$ret5902c6f24d064 instanceof Context) {
+                throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f24d064) == "object" ? get_class($ret5902c6f24d064) : gettype($ret5902c6f24d064)) . " given");
+            }
+            return $ret5902c6f24d064;
         }
-
         if (empty($node)) {
-            Issue::maybeEmit(
-                $code_base,
-                $context,
-                Issue::EmptyFile,
-                0,
-                $file_path
-            );
-
-            return $context;
+            Issue::maybeEmit($code_base, $context, Issue::EmptyFile, 0, $file_path);
+            $ret5902c6f24d3aa = $context;
+            if (!$ret5902c6f24d3aa instanceof Context) {
+                throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f24d3aa) == "object" ? get_class($ret5902c6f24d3aa) : gettype($ret5902c6f24d3aa)) . " given");
+            }
+            return $ret5902c6f24d3aa;
         }
-
-        return self::parseNodeInContext(
-            $code_base,
-            $context,
-            $node
-        );
+        $ret5902c6f24d6ab = self::parseNodeInContext($code_base, $context, $node);
+        if (!$ret5902c6f24d6ab instanceof Context) {
+            throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f24d6ab) == "object" ? get_class($ret5902c6f24d6ab) : gettype($ret5902c6f24d6ab)) . " given");
+        }
+        return $ret5902c6f24d6ab;
     }
-
     /**
      * Parse the given node in the given context populating
      * the code base within the context as a side effect. The
@@ -105,78 +106,75 @@ class Analysis
      * @return Context
      * The context from within the node is returned
      */
-    public static function parseNodeInContext(CodeBase $code_base, Context $context, Node $node) : Context
+    public static function parseNodeInContext(CodeBase $code_base, Context $context, Node $node)
     {
-        return self::parseNodeInContextInner($code_base, $context, $node, self::shouldVisitEverything());
+        $ret5902c6f24ded4 = self::parseNodeInContextInner($code_base, $context, $node, self::shouldVisitEverything());
+        if (!$ret5902c6f24ded4 instanceof Context) {
+            throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f24ded4) == "object" ? get_class($ret5902c6f24ded4) : gettype($ret5902c6f24ded4)) . " given");
+        }
+        return $ret5902c6f24ded4;
     }
-
     /**
      * @return bool - Whether or not every AST should be visited, according to the current config.
      */
-    public static function shouldVisitEverything() : bool {
+    public static function shouldVisitEverything()
+    {
         $config = Config::get();
-        return $config->dead_code_detection || $config->should_visit_all_nodes;
+        $ret5902c6f24e1ed = $config->dead_code_detection || $config->should_visit_all_nodes;
+        if (!is_bool($ret5902c6f24e1ed)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f24e1ed) . " given");
+        }
+        return $ret5902c6f24e1ed;
     }
-
     /**
      * @see self::parseNodeInContext
      *
      * @param bool $shouldVisitEverything - Whether or not all AST nodes should be parsed.
      */
-    private static function parseNodeInContextInner(CodeBase $code_base, Context $context, Node $node, bool $should_visit_everything) {
+    private static function parseNodeInContextInner(CodeBase $code_base, Context $context, Node $node, $should_visit_everything)
+    {
+        if (!is_bool($should_visit_everything)) {
+            throw new \InvalidArgumentException("Argument \$should_visit_everything passed to parseNodeInContextInner() must be of the type bool, " . (gettype($should_visit_everything) == "object" ? get_class($should_visit_everything) : gettype($should_visit_everything)) . " given");
+        }
         // Save a reference to the outer context
         $outer_context = $context;
-
         // Visit the given node populating the code base
         // with anything we learn and get a new context
         // indicating the state of the world within the
         // given node
-        $context = (new ParseVisitor(
-            $code_base,
-            $context->withLineNumberStart($node->lineno ?? 0)
-        ))($node);
-
+        $context = (new ParseVisitor($code_base, $context->withLineNumberStart(call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$node->lineno, @0))))($node);
         assert(!empty($context), 'Context cannot be null');
-
         // Recurse into each child node
         $child_context = $context;
-        foreach ($node->children ?? [] as $child_node) {
-
+        foreach (call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$node->children, @[]) as $child_node) {
             // Skip any non Node children.
-            if (!($child_node instanceof Node)) {
+            if (!$child_node instanceof Node) {
                 continue;
             }
-
             if (!($should_visit_everything || self::shouldVisitNode($child_node))) {
-                $child_context->withLineNumberStart(
-                    $child_node->lineno ?? 0
-                );
+                $child_context->withLineNumberStart(call_user_func(function ($v1, $v2) {
+                    return isset($v1) ? $v1 : $v2;
+                }, @$child_node->lineno, @0));
                 continue;
             }
-
             // Step into each child node and get an
             // updated context for the node
             $child_context = self::parseNodeInContextInner($code_base, $child_context, $child_node, $should_visit_everything);
-
             assert(!empty($child_context), 'Context cannot be null');
         }
-
         // For closed context elements (that have an inner scope)
         // return the outer context instead of their inner context
         // after we finish parsing their children.
-        if (in_array($node->kind, [
-            \ast\AST_CLASS,
-            \ast\AST_METHOD,
-            \ast\AST_FUNC_DECL,
-            \ast\AST_CLOSURE,
-        ])) {
+        if (in_array($node->kind, [\ast\AST_CLASS, \ast\AST_METHOD, \ast\AST_FUNC_DECL, \ast\AST_CLOSURE])) {
             return $outer_context;
         }
-
         // Pass the context back up to our parent
         return $context;
     }
-
     /**
      * Take a pass over all functions verifying various
      * states.
@@ -190,30 +188,24 @@ class Analysis
         $function_count = count($code_base->getFunctionAndMethodSet());
         $show_progress = CLI::shouldShowProgress();
         $i = 0;
-
-        if ($show_progress) { CLI::progress('method', 0.0); }
-
-        foreach ($code_base->getFunctionAndMethodSet() as $function_or_method)
-        {
-            if ($show_progress) { CLI::progress('method', (++$i)/$function_count); }
-
+        if ($show_progress) {
+            CLI::progress('method', 0.0);
+        }
+        foreach ($code_base->getFunctionAndMethodSet() as $function_or_method) {
+            if ($show_progress) {
+                CLI::progress('method', ++$i / $function_count);
+            }
             if ($function_or_method->isPHPInternal()) {
                 continue;
             }
-
             // If there is an array limiting the set of files, skip this file if it's not in the list,
             if (is_array($file_filter) && !isset($file_filter[$function_or_method->getContext()->getFile()])) {
                 continue;
             }
-            DuplicateFunctionAnalyzer::analyzeDuplicateFunction(
-                $code_base, $function_or_method
-            );
-
+            DuplicateFunctionAnalyzer::analyzeDuplicateFunction($code_base, $function_or_method);
             // This is the most time consuming step.
             // Can probably apply this to other functions, but this was the slowest.
-            ParameterTypesAnalyzer::analyzeParameterTypes(
-                $code_base, $function_or_method
-            );
+            ParameterTypesAnalyzer::analyzeParameterTypes($code_base, $function_or_method);
             // Let any plugins analyze the methods or functions
             // XXX: Add a way to run plugins on all functions/methods, this was limited for speed.
             // Assumes that the given plugins will emit an issue in the same file as the function/method,
@@ -221,18 +213,15 @@ class Analysis
             // 0.06
             if ($has_plugins) {
                 if ($function_or_method instanceof Func) {
-                    $plugin_set->analyzeFunction(
-                        $code_base, $function_or_method
-                    );
-                } else if ($function_or_method instanceof Method) {
-                    $plugin_set->analyzeMethod(
-                        $code_base, $function_or_method
-                    );
+                    $plugin_set->analyzeFunction($code_base, $function_or_method);
+                } else {
+                    if ($function_or_method instanceof Method) {
+                        $plugin_set->analyzeMethod($code_base, $function_or_method);
+                    }
                 }
             }
         }
     }
-
     /**
      * Take a pass over all classes/traits/interfaces
      * verifying various states.
@@ -256,7 +245,6 @@ class Analysis
             $class->analyze($code_base);
         }
     }
-
     /**
      * Take a look at all globally accessible elements and see if
      * we can find any dead code that is never referenced
@@ -272,10 +260,8 @@ class Analysis
         if (!Config::get()->dead_code_detection) {
             return;
         }
-
         ReferenceCountsAnalyzer::analyzeReferenceCounts($code_base);
     }
-
     /**
      * Possible Premature Optimization. We can trim a bunch of
      * calls to nodes that we'll never analyze during parsing,
@@ -299,13 +285,13 @@ class Analysis
         }
         return self::shouldVisitNode($node);
     }
-
     /**
      * @return bool - true if a node should be visited unconditionally, no matter what the value of the Config is.
      *                Assumes the caller already checked the value of self::shouldVisitEverything()
      * @see self::shouldVisit
      */
-    public static function shouldVisitNode(Node $node) : bool {
+    public static function shouldVisitNode(Node $node)
+    {
         switch ($node->kind) {
             case \ast\AST_ARRAY_ELEM:
             case \ast\AST_ASSIGN_OP:
@@ -333,12 +319,18 @@ class Analysis
             case \ast\AST_UNARY_OP:
             case \ast\AST_UNSET:
             case \ast\AST_YIELD:
-                return false;
+                $ret5902c6f24f42e = false;
+                if (!is_bool($ret5902c6f24f42e)) {
+                    throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f24f42e) . " given");
+                }
+                return $ret5902c6f24f42e;
         }
-
-        return true;
+        $ret5902c6f24f694 = true;
+        if (!is_bool($ret5902c6f24f694)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f24f694) . " given");
+        }
+        return $ret5902c6f24f694;
     }
-
     /**
      * Once we know what the universe looks like we
      * can scan for more complicated issues.
@@ -351,44 +343,39 @@ class Analysis
      *
      * @return Context
      */
-    public static function analyzeFile(
-        CodeBase $code_base,
-        string $file_path
-    ) : Context {
+    public static function analyzeFile(CodeBase $code_base, $file_path)
+    {
+        if (!is_string($file_path)) {
+            throw new \InvalidArgumentException("Argument \$file_path passed to analyzeFile() must be of the type string, " . (gettype($file_path) == "object" ? get_class($file_path) : gettype($file_path)) . " given");
+        }
         // Set the file on the context
-        $context = (new Context)->withFile($file_path);
-
+        $context = (new Context())->withFile($file_path);
         // Convert the file to an Abstract Syntax Tree
         // before passing it on to the recursive version
         // of this method
         try {
-            $node = \ast\parse_file(
-                Config::projectPath($file_path),
-                Config::get()->ast_version
-            );
+            $node = \ast\parse_file(Config::projectPath($file_path), Config::get()->ast_version);
         } catch (\ParseError $parse_error) {
-            Issue::maybeEmit(
-                $code_base,
-                $context,
-                Issue::SyntaxError,
-                $parse_error->getLine(),
-                $parse_error->getMessage()
-            );
-            return $context;
+            Issue::maybeEmit($code_base, $context, Issue::SyntaxError, $parse_error->getLine(), $parse_error->getMessage());
+            $ret5902c6f24fa67 = $context;
+            if (!$ret5902c6f24fa67 instanceof Context) {
+                throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f24fa67) == "object" ? get_class($ret5902c6f24fa67) : gettype($ret5902c6f24fa67)) . " given");
+            }
+            return $ret5902c6f24fa67;
         }
-
         // Ensure we have some content
         if (empty($node)) {
-            Issue::maybeEmit(
-                $code_base,
-                $context,
-                Issue::EmptyFile,
-                0,
-                $file_path
-            );
-            return $context;
+            Issue::maybeEmit($code_base, $context, Issue::EmptyFile, 0, $file_path);
+            $ret5902c6f24fdcb = $context;
+            if (!$ret5902c6f24fdcb instanceof Context) {
+                throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f24fdcb) == "object" ? get_class($ret5902c6f24fdcb) : gettype($ret5902c6f24fdcb)) . " given");
+            }
+            return $ret5902c6f24fdcb;
         }
-
-        return (new BlockAnalysisVisitor($code_base, $context))($node);
+        $ret5902c6f2500f1 = (new BlockAnalysisVisitor($code_base, $context))($node);
+        if (!$ret5902c6f2500f1 instanceof Context) {
+            throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f2500f1) == "object" ? get_class($ret5902c6f2500f1) : gettype($ret5902c6f2500f1)) . " given");
+        }
+        return $ret5902c6f2500f1;
     }
 }

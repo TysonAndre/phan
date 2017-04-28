@@ -1,6 +1,9 @@
-<?php declare(strict_types=1);
-namespace Phan\Exception;
+<?php
 
+/*
+ * This code has been transpiled via TransPHPile. For more information, visit https://github.com/jaytaph/transphpile
+ */
+namespace Phan\Exception;
 
 class UnanalyzableException extends NodeException
 {

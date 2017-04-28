@@ -1,15 +1,15 @@
-<?php declare(strict_types=1);
+<?php
+
+/*
+ * This code has been transpiled via TransPHPile. For more information, visit https://github.com/jaytaph/transphpile
+ */
 namespace Phan\Language\Element;
 
 use Phan\Language\FutureUnionType;
-
-interface ConstantInterface {
-
+interface ConstantInterface
+{
     /**
      * @return void
      */
-    public function setFutureUnionType(
-        FutureUnionType $future_union_type
-    );
-
+    public function setFutureUnionType(FutureUnionType $future_union_type);
 }

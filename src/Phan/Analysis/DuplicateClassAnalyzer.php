@@ -1,11 +1,14 @@
-<?php declare(strict_types=1);
+<?php
+
+/*
+ * This code has been transpiled via TransPHPile. For more information, visit https://github.com/jaytaph/transphpile
+ */
 namespace Phan\Analysis;
 
 use Phan\CodeBase;
 use Phan\Issue;
 use Phan\Language\Element\Clazz;
 use Phan\Language\FQSEN;
-
 class DuplicateClassAnalyzer
 {
     /**
@@ -13,59 +16,30 @@ class DuplicateClassAnalyzer
      *
      * @return void
      */
-    public static function analyzeDuplicateClass(
-        CodeBase $code_base,
-        Clazz $clazz
-    ) {
+    public static function analyzeDuplicateClass(CodeBase $code_base, Clazz $clazz)
+    {
         // Determine if its a duplicate by looking to see if
         // the FQSEN is suffixed with an alternate ID.
-
         if (!$clazz->getFQSEN()->isAlternate()) {
             return;
         }
-
         $original_fqsen = $clazz->getFQSEN()->getCanonicalFQSEN();
-
         if (!$code_base->hasClassWithFQSEN($original_fqsen)) {
             // If there's a missing class we'll catch that
             // elsewhere
             return;
         }
-
         // Get the original class
         $original_class = $code_base->getClassByFQSEN($original_fqsen);
-
         // Check to see if the original definition was from
         // an internal class
         if ($original_class->isPHPInternal()) {
-            Issue::maybeEmit(
-                $code_base,
-                $clazz->getContext(),
-                Issue::RedefineClassInternal,
-                $clazz->getFileRef()->getLineNumberStart(),
-                (string)$clazz,
-                $clazz->getFileRef()->getFile(),
-                $clazz->getFileRef()->getLineNumberStart(),
-                (string)$original_class
-            );
-
-        // Otherwise, print the coordinates of the original
-        // definition
+            Issue::maybeEmit($code_base, $clazz->getContext(), Issue::RedefineClassInternal, $clazz->getFileRef()->getLineNumberStart(), (string) $clazz, $clazz->getFileRef()->getFile(), $clazz->getFileRef()->getLineNumberStart(), (string) $original_class);
+            // Otherwise, print the coordinates of the original
+            // definition
         } else {
-            Issue::maybeEmit(
-                $code_base,
-                $clazz->getContext(),
-                Issue::RedefineClass,
-                $clazz->getFileRef()->getLineNumberStart(),
-                (string)$clazz,
-                $clazz->getFileRef()->getFile(),
-                $clazz->getFileRef()->getLineNumberStart(),
-                (string)$original_class,
-                $original_class->getFileRef()->getFile(),
-                $original_class->getFileRef()->getLineNumberStart()
-            );
+            Issue::maybeEmit($code_base, $clazz->getContext(), Issue::RedefineClass, $clazz->getFileRef()->getLineNumberStart(), (string) $clazz, $clazz->getFileRef()->getFile(), $clazz->getFileRef()->getLineNumberStart(), (string) $original_class, $original_class->getFileRef()->getFile(), $original_class->getFileRef()->getLineNumberStart());
         }
-
         return;
     }
 }

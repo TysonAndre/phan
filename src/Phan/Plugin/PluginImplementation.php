@@ -1,4 +1,8 @@
-<?php declare(strict_types=1);
+<?php
+
+/*
+ * This code has been transpiled via TransPHPile. For more information, visit https://github.com/jaytaph/transphpile
+ */
 namespace Phan\Plugin;
 
 use Phan\CodeBase;
@@ -8,7 +12,6 @@ use Phan\Language\Element\Func;
 use Phan\Language\Element\Method;
 use Phan\Plugin;
 use ast\Node;
-
 /**
  * Plugins can be defined in the config and will have
  * their hooks called at appropriate times during analysis
@@ -19,7 +22,8 @@ use ast\Node;
  *
  * @suppress PhanUnreferencedClass
  */
-class PluginImplementation extends Plugin {
+class PluginImplementation extends Plugin
+{
     /**
      * Do a first-pass analysis of a node before Phan
      * does its full analysis. This hook allows you to
@@ -39,13 +43,9 @@ class PluginImplementation extends Plugin {
      *
      * @return void
      */
-    public function preAnalyzeNode(
-        CodeBase $code_base,
-        Context $context,
-        Node $node
-    ) {
+    public function preAnalyzeNode(CodeBase $code_base, Context $context, Node $node)
+    {
     }
-
     /**
      * @param CodeBase $code_base
      * The code base in which the node exists
@@ -63,14 +63,9 @@ class PluginImplementation extends Plugin {
      *
      * @return void
      */
-    public function analyzeNode(
-        CodeBase $code_base,
-        Context $context,
-        Node $node,
-        Node $parent_node = null
-    ) {
+    public function analyzeNode(CodeBase $code_base, Context $context, Node $node, Node $parent_node = null)
+    {
     }
-
     /**
      * @param CodeBase $code_base
      * The code base in which the class exists
@@ -80,12 +75,9 @@ class PluginImplementation extends Plugin {
      *
      * @return void
      */
-    public function analyzeClass(
-        CodeBase $code_base,
-        Clazz $class
-    ) {
+    public function analyzeClass(CodeBase $code_base, Clazz $class)
+    {
     }
-
     /**
      * @param CodeBase $code_base
      * The code base in which the method exists
@@ -95,12 +87,9 @@ class PluginImplementation extends Plugin {
      *
      * @return void
      */
-    public function analyzeMethod(
-        CodeBase $code_base,
-        Method $method
-    ) {
+    public function analyzeMethod(CodeBase $code_base, Method $method)
+    {
     }
-
     /**
      * @param CodeBase $code_base
      * The code base in which the function exists
@@ -110,9 +99,7 @@ class PluginImplementation extends Plugin {
      *
      * @return void
      */
-    public function analyzeFunction(
-        CodeBase $code_base,
-        Func $function
-    ) {
+    public function analyzeFunction(CodeBase $code_base, Func $function)
+    {
     }
 }

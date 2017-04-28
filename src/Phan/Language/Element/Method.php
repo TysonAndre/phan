@@ -1,4 +1,8 @@
-<?php declare(strict_types=1);
+<?php
+
+/*
+ * This code has been transpiled via TransPHPile. For more information, visit https://github.com/jaytaph/transphpile
+ */
 namespace Phan\Language\Element;
 
 use Phan\CodeBase;
@@ -16,14 +20,12 @@ use Phan\Language\Type\NullType;
 use Phan\Language\UnionType;
 use ast\Node;
 use ast\Node\Decl;
-
 class Method extends ClassElement implements FunctionInterface
 {
     use \Phan\Analysis\Analyzable;
     use \Phan\Memoize;
     use FunctionTrait;
     use ClosedScopeElement;
-
     /**
      * @param Context $context
      * The context in which the structural element lives
@@ -44,133 +46,113 @@ class Method extends ClassElement implements FunctionInterface
      * @param FullyQualifiedMethodName $fqsen
      * A fully qualified name for the element
      */
-    public function __construct(
-        Context $context,
-        string $name,
-        UnionType $type,
-        int $flags,
-        FullyQualifiedMethodName $fqsen
-    ) {
-        parent::__construct(
-            $context,
-            $name,
-            $type,
-            $flags,
-            $fqsen
-        );
-
+    public function __construct(Context $context, $name, UnionType $type, $flags, FullyQualifiedMethodName $fqsen)
+    {
+        if (!is_string($name)) {
+            throw new \InvalidArgumentException("Argument \$name passed to __construct() must be of the type string, " . (gettype($name) == "object" ? get_class($name) : gettype($name)) . " given");
+        }
+        if (!is_int($flags)) {
+            throw new \InvalidArgumentException("Argument \$flags passed to __construct() must be of the type int, " . (gettype($flags) == "object" ? get_class($flags) : gettype($flags)) . " given");
+        }
+        parent::__construct($context, $name, $type, $flags, $fqsen);
         // Presume that this is the original definition
         // of this method, and let it be overwritten
         // if it isn't.
         $this->setDefiningFQSEN($fqsen);
-
-        $this->setInternalScope(new FunctionLikeScope(
-            $context->getScope(), $fqsen
-        ));
+        $this->setInternalScope(new FunctionLikeScope($context->getScope(), $fqsen));
     }
-
-
     /**
      * @return bool
      * True if this is an abstract method
      */
-    public function isAbstract() : bool {
-        return Flags::bitVectorHasState(
-            $this->getFlags(),
-            \ast\flags\MODIFIER_ABSTRACT
-        );
+    public function isAbstract()
+    {
+        $ret5902c6f5cbede = Flags::bitVectorHasState($this->getFlags(), \ast\flags\MODIFIER_ABSTRACT);
+        if (!is_bool($ret5902c6f5cbede)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f5cbede) . " given");
+        }
+        return $ret5902c6f5cbede;
     }
-
     /**
      * @return bool
      * True if this method returns reference
      */
-    public function returnsRef() : bool {
-        return Flags::bitVectorHasState(
-            $this->getFlags(),
-            \ast\flags\RETURNS_REF
-        );
+    public function returnsRef()
+    {
+        $ret5902c6f5cc16f = Flags::bitVectorHasState($this->getFlags(), \ast\flags\RETURNS_REF);
+        if (!is_bool($ret5902c6f5cc16f)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f5cc16f) . " given");
+        }
+        return $ret5902c6f5cc16f;
     }
-
     /**
      * @return bool
      * True if this is a magic method
      */
-    public function getIsMagic() : bool {
-        return in_array($this->getName(), [
-            '__call',
-            '__callStatic',
-            '__clone',
-            '__construct',
-            '__debugInfo',
-            '__destruct',
-            '__get',
-            '__invoke',
-            '__isset',
-            '__set',
-            '__set_state',
-            '__sleep',
-            '__toString',
-            '__unset',
-            '__wakeup',
-        ]);
+    public function getIsMagic()
+    {
+        $ret5902c6f5cc4fc = in_array($this->getName(), ['__call', '__callStatic', '__clone', '__construct', '__debugInfo', '__destruct', '__get', '__invoke', '__isset', '__set', '__set_state', '__sleep', '__toString', '__unset', '__wakeup']);
+        if (!is_bool($ret5902c6f5cc4fc)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f5cc4fc) . " given");
+        }
+        return $ret5902c6f5cc4fc;
     }
-
     /**
      * @return bool
      * True if this is the magic `__call` method
      */
-    public function getIsMagicCall() : bool {
-        return ($this->getName() === '__call');
+    public function getIsMagicCall()
+    {
+        $ret5902c6f5cc764 = $this->getName() === '__call';
+        if (!is_bool($ret5902c6f5cc764)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f5cc764) . " given");
+        }
+        return $ret5902c6f5cc764;
     }
-
     /**
      * @return bool
      * True if this is the magic `__callStatic` method
      */
-    public function getIsMagicCallStatic() : bool {
-        return ($this->getName() === '__callStatic');
+    public function getIsMagicCallStatic()
+    {
+        $ret5902c6f5cc9d0 = $this->getName() === '__callStatic';
+        if (!is_bool($ret5902c6f5cc9d0)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f5cc9d0) . " given");
+        }
+        return $ret5902c6f5cc9d0;
     }
-
     /**
      * @return bool
      * True if this is the magic `__get` method
      */
-    public function getIsMagicGet() : bool {
-        return ($this->getName() === '__get');
+    public function getIsMagicGet()
+    {
+        $ret5902c6f5ccc82 = $this->getName() === '__get';
+        if (!is_bool($ret5902c6f5ccc82)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f5ccc82) . " given");
+        }
+        return $ret5902c6f5ccc82;
     }
-
     /**
      * @return bool
      * True if this is the magic `__set` method
      */
-    public function getIsMagicSet() : bool {
-        return ($this->getName() === '__set');
+    public function getIsMagicSet()
+    {
+        $ret5902c6f5ccee7 = $this->getName() === '__set';
+        if (!is_bool($ret5902c6f5ccee7)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f5ccee7) . " given");
+        }
+        return $ret5902c6f5ccee7;
     }
-
     /**
      * @return Method
      * A default constructor for the given class
      */
-    public static function defaultConstructorForClassInContext(
-        Clazz $clazz,
-        Context $context,
-        CodeBase $code_base
-    ) : Method {
-
-        $method_fqsen = FullyQualifiedMethodName::make(
-            $clazz->getFQSEN(),
-            '__construct'
-        );
-
-        $method = new Method(
-            $context,
-            '__construct',
-            $clazz->getUnionType(),
-            0,
-            $method_fqsen
-        );
-
+    public static function defaultConstructorForClassInContext(Clazz $clazz, Context $context, CodeBase $code_base)
+    {
+        $method_fqsen = FullyQualifiedMethodName::make($clazz->getFQSEN(), '__construct');
+        $method = new Method($context, '__construct', $clazz->getUnionType(), 0, $method_fqsen);
         if ($clazz->hasMethodWithName($code_base, $clazz->getName())) {
             $old_style_constructor = $clazz->getMethodByName($code_base, $clazz->getName());
             $parameter_list = $old_style_constructor->getParameterList();
@@ -179,10 +161,12 @@ class Method extends ClassElement implements FunctionInterface
             $method->setNumberOfRequiredParameters($old_style_constructor->getNumberOfRequiredParameters());
             $method->setNumberOfOptionalParameters($old_style_constructor->getNumberOfOptionalParameters());
         }
-
-        return $method;
+        $ret5902c6f5cd37e = $method;
+        if (!$ret5902c6f5cd37e instanceof Method) {
+            throw new \InvalidArgumentException("Argument returned must be of the type Method, " . (gettype($ret5902c6f5cd37e) == "object" ? get_class($ret5902c6f5cd37e) : gettype($ret5902c6f5cd37e)) . " given");
+        }
+        return $ret5902c6f5cd37e;
     }
-
     /**
      * @param Context $context
      * The context in which the node appears
@@ -196,102 +180,76 @@ class Method extends ClassElement implements FunctionInterface
      * A Method representing the AST node in the
      * given context
      */
-    public static function fromNode(
-        Context $context,
-        CodeBase $code_base,
-        Decl $node,
-        FullyQualifiedMethodName $fqsen
-    ) : Method {
-
+    public static function fromNode(Context $context, CodeBase $code_base, Decl $node, FullyQualifiedMethodName $fqsen)
+    {
         // Create the skeleton method object from what
         // we know so far
-        $method = new Method(
-            $context,
-            (string)$node->name,
-            new UnionType(),
-            $node->flags ?? 0,
-            $fqsen
-        );
-
+        $method = new Method($context, (string) $node->name, new UnionType(), call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$node->flags, @0), $fqsen);
         // Parse the comment above the method to get
         // extra meta information about the method.
-        $comment = Comment::fromStringInContext(
-            $node->docComment ?? '',
-            $context
-        );
-
+        $comment = Comment::fromStringInContext(call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$node->docComment, @''), $context);
         // @var Parameter[]
         // The list of parameters specified on the
         // method
-        $parameter_list =
-            Parameter::listFromNode(
-                $context,
-                $code_base,
-                $node->children['params']
-            );
-
+        $parameter_list = Parameter::listFromNode($context, $code_base, $node->children['params']);
         // Add each parameter to the scope of the function
         foreach ($parameter_list as $parameter) {
-            $method->getInternalScope()->addVariable(
-                $parameter
-            );
+            $method->getInternalScope()->addVariable($parameter);
         }
-
         // If the method is Analyzable, set the node so that
         // we can come back to it whenever we like and
         // rescan it
         $method->setNode($node);
-
         // Set the parameter list on the method
         $method->setParameterList($parameter_list);
         // Keep an copy of the original parameter list, to check for fatal errors later on.
         $method->setRealParameterList($parameter_list);
-
-        $method->setNumberOfRequiredParameters(array_reduce(
-            $parameter_list,
-            function (int $carry, Parameter $parameter) : int {
-                return ($carry + ($parameter->isRequired() ? 1 : 0));
-            }, 0)
-        );
-
-        $method->setNumberOfOptionalParameters(array_reduce(
-            $parameter_list, function (int $carry, Parameter $parameter) : int {
-                return ($carry + ($parameter->isOptional() ? 1 : 0));
-            }, 0)
-        );
-
+        $method->setNumberOfRequiredParameters(array_reduce($parameter_list, function ($carry, Parameter $parameter) {
+            if (!is_int($carry)) {
+                throw new \InvalidArgumentException("Argument \$carry passed to () must be of the type int, " . (gettype($carry) == "object" ? get_class($carry) : gettype($carry)) . " given");
+            }
+            $ret5902c6f5cda27 = $carry + ($parameter->isRequired() ? 1 : 0);
+            if (!is_int($ret5902c6f5cda27)) {
+                throw new \InvalidArgumentException("Argument returned must be of the type int, " . gettype($ret5902c6f5cda27) . " given");
+            }
+            return $ret5902c6f5cda27;
+        }, 0));
+        $method->setNumberOfOptionalParameters(array_reduce($parameter_list, function ($carry, Parameter $parameter) {
+            if (!is_int($carry)) {
+                throw new \InvalidArgumentException("Argument \$carry passed to () must be of the type int, " . (gettype($carry) == "object" ? get_class($carry) : gettype($carry)) . " given");
+            }
+            $ret5902c6f5cdfea = $carry + ($parameter->isOptional() ? 1 : 0);
+            if (!is_int($ret5902c6f5cdfea)) {
+                throw new \InvalidArgumentException("Argument returned must be of the type int, " . gettype($ret5902c6f5cdfea) . " given");
+            }
+            return $ret5902c6f5cdfea;
+        }, 0));
         // Check to see if the comment specifies that the
         // method is deprecated
         $method->setIsDeprecated($comment->isDeprecated());
-
         // Set whether or not the element is internal to
         // the namespace.
         $method->setIsNSInternal($comment->isNSInternal());
-
         $method->setSuppressIssueList($comment->getSuppressIssueList());
-
         if ($method->getIsMagicCall() || $method->getIsMagicCallStatic()) {
             $method->setNumberOfOptionalParameters(999);
             $method->setNumberOfRequiredParameters(0);
         }
-
         // Add the syntax-level return type to the method's union type
         // if it exists
-        $return_union_type = new UnionType;
-        if($node->children['returnType'] !== null) {
-            $return_union_type = UnionType::fromNode(
-                $context,
-                $code_base,
-                $node->children['returnType']
-            );
+        $return_union_type = new UnionType();
+        if ($node->children['returnType'] !== null) {
+            $return_union_type = UnionType::fromNode($context, $code_base, $node->children['returnType']);
             $method->getUnionType()->addUnionType($return_union_type);
         }
         $method->setRealReturnType($return_union_type);
-
         // If available, add in the doc-block annotated return type
         // for the method.
         if ($comment->hasReturnUnionType()) {
-
             $comment_return_union_type = $comment->getReturnType();
             if ($comment_return_union_type->hasSelfType()) {
                 // We can't actually figure out 'static' at this
@@ -302,94 +260,80 @@ class Method extends ClassElement implements FunctionInterface
                     //       or $this in the type because I'm guessing
                     //       it doesn't really matter. Apologies if it
                     //       ends up being an issue.
-                    $comment_return_union_type->addUnionType(
-                        $context->getClassFQSEN()->asUnionType()
-                    );
+                    $comment_return_union_type->addUnionType($context->getClassFQSEN()->asUnionType());
                 }
             }
-
             if (Config::get()->check_docblock_signature_return_type_match) {
                 // Make sure that the commented type is a narrowed
                 // or equivalent form of the syntax-level declared
                 // return type.
-                if (!$comment_return_union_type->isExclusivelyNarrowedFormOrEquivalentTo(
-                        $return_union_type,
-                        $context,
-                        $code_base
-                    )
-                ) {
-                    Issue::maybeEmit(
-                        $code_base,
-                        $context,
-                        Issue::TypeMismatchDeclaredReturn,
-                        $node->lineno ?? 0,
-                        $comment_return_union_type->__toString(),
-                        $return_union_type->__toString()
-                    );
+                if (!$comment_return_union_type->isExclusivelyNarrowedFormOrEquivalentTo($return_union_type, $context, $code_base)) {
+                    Issue::maybeEmit($code_base, $context, Issue::TypeMismatchDeclaredReturn, call_user_func(function ($v1, $v2) {
+                        return isset($v1) ? $v1 : $v2;
+                    }, @$node->lineno, @0), $comment_return_union_type->__toString(), $return_union_type->__toString());
                 }
             }
-
             $method->getUnionType()->addUnionType($comment_return_union_type);
         }
-
         // Add params to local scope for user functions
         FunctionTrait::addParamsToScopeOfFunctionOrMethod($context, $code_base, $node, $method, $comment);
-
-        return $method;
+        $ret5902c6f5ce949 = $method;
+        if (!$ret5902c6f5ce949 instanceof Method) {
+            throw new \InvalidArgumentException("Argument returned must be of the type Method, " . (gettype($ret5902c6f5ce949) == "object" ? get_class($ret5902c6f5ce949) : gettype($ret5902c6f5ce949)) . " given");
+        }
+        return $ret5902c6f5ce949;
     }
-
     /**
      * @param Context $context
      *
      * @return UnionType
      * The type of this method in its given context.
      */
-    public function getUnionType() : UnionType
+    public function getUnionType()
     {
         $union_type = parent::getUnionType();
-
         // If the type is 'static', add this context's class
         // to the return type
         if ($union_type->hasStaticType()) {
-            $union_type = clone($union_type);
-            $union_type->addType(
-                $this->getFQSEN()->getFullyQualifiedClassName()->asType()
-            );
+            $union_type = clone $union_type;
+            $union_type->addType($this->getFQSEN()->getFullyQualifiedClassName()->asType());
         }
-
         // If the type is a generic array of 'static', add
         // a generic array of this context's class to the return type
         if ($union_type->genericArrayElementTypes()->hasStaticType()) {
-            $union_type = clone($union_type);
-            $union_type->addType(
-                $this->getFQSEN()->getFullyQualifiedClassName()->asType()->asGenericArrayType()
-            );
+            $union_type = clone $union_type;
+            $union_type->addType($this->getFQSEN()->getFullyQualifiedClassName()->asType()->asGenericArrayType());
         }
-
-        return $union_type;
+        $ret5902c6f5ced7d = $union_type;
+        if (!$ret5902c6f5ced7d instanceof UnionType) {
+            throw new \InvalidArgumentException("Argument returned must be of the type UnionType, " . (gettype($ret5902c6f5ced7d) == "object" ? get_class($ret5902c6f5ced7d) : gettype($ret5902c6f5ced7d)) . " given");
+        }
+        return $ret5902c6f5ced7d;
     }
-
     /**
      * @return FullyQualifiedMethodName
      */
-    public function getFQSEN() : FullyQualifiedMethodName {
-        return $this->fqsen;
+    public function getFQSEN()
+    {
+        $ret5902c6f5cf065 = $this->fqsen;
+        if (!$ret5902c6f5cf065 instanceof FullyQualifiedMethodName) {
+            throw new \InvalidArgumentException("Argument returned must be of the type FullyQualifiedMethodName, " . (gettype($ret5902c6f5cf065) == "object" ? get_class($ret5902c6f5cf065) : gettype($ret5902c6f5cf065)) . " given");
+        }
+        return $ret5902c6f5cf065;
     }
-
     /**
      * @return \Generator
      * The set of all alternates to this method
      */
-    public function alternateGenerator(CodeBase $code_base) : \Generator {
+    public function alternateGenerator(CodeBase $code_base)
+    {
         $alternate_id = 0;
         $fqsen = $this->getFQSEN();
-
         while ($code_base->hasMethodWithFQSEN($fqsen)) {
-            yield $code_base->getMethodByFQSEN($fqsen);
+            (yield $code_base->getMethodByFQSEN($fqsen));
             $fqsen = $fqsen->withAlternateId(++$alternate_id);
         }
     }
-
     /**
      * @param CodeBase $code_base
      * The code base with which to look for classes
@@ -397,78 +341,70 @@ class Method extends ClassElement implements FunctionInterface
      * @return Method
      * The Method that this Method is overriding
      */
-    public function getOverriddenMethod(
-        CodeBase $code_base
-    ) : Method {
+    public function getOverriddenMethod(CodeBase $code_base)
+    {
         // Get the class that defines this method
         $class = $this->getClass($code_base);
-
         // Get the list of ancestors of that class
-        $ancestor_class_list = $class->getAncestorClassList(
-            $code_base
-        );
-
+        $ancestor_class_list = $class->getAncestorClassList($code_base);
         // Hunt for any ancestor class that defines a method with
         // the same name as this one
         foreach ($ancestor_class_list as $ancestor_class) {
             if ($ancestor_class->hasMethodWithName($code_base, $this->getName())) {
-                return $ancestor_class->getMethodByName(
-                    $code_base,
-                    $this->getName()
-                );
+                $ret5902c6f5cf538 = $ancestor_class->getMethodByName($code_base, $this->getName());
+                if (!$ret5902c6f5cf538 instanceof Method) {
+                    throw new \InvalidArgumentException("Argument returned must be of the type Method, " . (gettype($ret5902c6f5cf538) == "object" ? get_class($ret5902c6f5cf538) : gettype($ret5902c6f5cf538)) . " given");
+                }
+                return $ret5902c6f5cf538;
             }
         }
-
         // Throw an exception if this method doesn't override
         // anything
-        throw new CodeBaseException(
-            $this->getFQSEN(),
-            "Method $this with FQSEN {$this->getFQSEN()} does not override another method"
-        );
+        throw new CodeBaseException($this->getFQSEN(), "Method {$this} with FQSEN {$this->getFQSEN()} does not override another method");
     }
-
     /**
      * @return string
      * A string representation of this method signature
      */
-    public function __toString() : string {
+    public function __toString()
+    {
         $string = '';
-
         $string .= 'function ';
         if ($this->returnsRef()) {
             $string .= '&';
         }
         $string .= $this->getName();
-
         $string .= '(' . implode(', ', $this->getParameterList()) . ')';
-
         if (!$this->getUnionType()->isEmpty()) {
-            $string .= ' : ' . (string)$this->getUnionType();
+            $string .= ' : ' . (string) $this->getUnionType();
         }
-
-        return $string;
+        $ret5902c6f5cfa16 = $string;
+        if (!is_string($ret5902c6f5cfa16)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type string, " . gettype($ret5902c6f5cfa16) . " given");
+        }
+        return $ret5902c6f5cfa16;
     }
-
     /**
      * @return string
      * A string representation of this method signature
      * (Based on real types only, instead of phpdoc+real types)
      */
-    public function toRealSignatureString() : string {
+    public function toRealSignatureString()
+    {
         $string = '';
-
         $string .= 'function ';
         if ($this->returnsRef()) {
             $string .= '&';
         }
         $string .= $this->getName();
-
         $string .= '(' . implode(', ', $this->getRealParameterList()) . ')';
-
         if (!$this->getRealReturnType()->isEmpty()) {
-            $string .= ' : ' . (string)$this->getRealReturnType();
+            $string .= ' : ' . (string) $this->getRealReturnType();
         }
-
-        return $string;
+        $ret5902c6f5cfdc8 = $string;
+        if (!is_string($ret5902c6f5cfdc8)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type string, " . gettype($ret5902c6f5cfdc8) . " given");
+        }
+        return $ret5902c6f5cfdc8;
     }
 }

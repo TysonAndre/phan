@@ -1,19 +1,21 @@
-<?php declare(strict_types=1);
+<?php
+
+/*
+ * This code has been transpiled via TransPHPile. For more information, visit https://github.com/jaytaph/transphpile
+ */
 namespace Phan\Language\Element;
 
 use Phan\Language\Scope\ClosedScope;
-
 /**
  * A trait for closed scope elements (classes, functions, methods,
  * closures).
  */
-trait ClosedScopeElement {
-
+trait ClosedScopeElement
+{
     /**
      * @var ClosedScope
      */
     private $internal_scope;
-
     /**
      * @return void
      */
@@ -21,14 +23,16 @@ trait ClosedScopeElement {
     {
         $this->internal_scope = $internal_scope;
     }
-
     /**
      * @return ClosedScope
      * The internal scope of this closed scope element
      */
-    public function getInternalScope() : ClosedScope
+    public function getInternalScope()
     {
-        return $this->internal_scope;
+        $ret5902c6f51fa3f = $this->internal_scope;
+        if (!$ret5902c6f51fa3f instanceof ClosedScope) {
+            throw new \InvalidArgumentException("Argument returned must be of the type ClosedScope, " . (gettype($ret5902c6f51fa3f) == "object" ? get_class($ret5902c6f51fa3f) : gettype($ret5902c6f51fa3f)) . " given");
+        }
+        return $ret5902c6f51fa3f;
     }
-
 }

@@ -1,4 +1,8 @@
-<?php declare(strict_types=1);
+<?php
+
+/*
+ * This code has been transpiled via TransPHPile. For more information, visit https://github.com/jaytaph/transphpile
+ */
 namespace Phan\Language\Element;
 
 use Phan\Analysis\CompositionAnalyzer;
@@ -27,32 +31,27 @@ use Phan\Library\None;
 use Phan\Library\Option;
 use Phan\Library\Some;
 use Phan\Plugin\ConfigPluginSet;
-
 class Clazz extends AddressableElement
 {
     use \Phan\Memoize;
     use ClosedScopeElement;
-
     /**
      * @var Type|null
      * The type of the parent of this class if it extends
      * anything, else null.
      */
     private $parent_type = null;
-
     /**
      * @var \Phan\Language\FQSEN[]
      * A possibly empty list of interfaces implemented
      * by this class
      */
     private $interface_fqsen_list = [];
-
     /**
      * @var \Phan\Language\FQSEN[]
      * A possibly empty list of traits used by this class
      */
     private $trait_fqsen_list = [];
-
     /**
      * @param Context $context
      * The context in which the structural element lives
@@ -77,34 +76,20 @@ class Clazz extends AddressableElement
      * @param FullyQualifiedClassName[] $interface_fqsen_list
      * @param FullyQualifiedClassName[] $trait_fqsen_list
      */
-    public function __construct(
-        Context $context,
-        string $name,
-        UnionType $type,
-        int $flags,
-        FullyQualifiedClassName $fqsen,
-        Type $parent_type = null,
-        array $interface_fqsen_list = [],
-        array $trait_fqsen_list = []
-    ) {
-        parent::__construct(
-            $context,
-            $name,
-            $type,
-            $flags,
-            $fqsen
-        );
-
+    public function __construct(Context $context, $name, UnionType $type, $flags, FullyQualifiedClassName $fqsen, Type $parent_type = null, array $interface_fqsen_list = [], array $trait_fqsen_list = [])
+    {
+        if (!is_string($name)) {
+            throw new \InvalidArgumentException("Argument \$name passed to __construct() must be of the type string, " . (gettype($name) == "object" ? get_class($name) : gettype($name)) . " given");
+        }
+        if (!is_int($flags)) {
+            throw new \InvalidArgumentException("Argument \$flags passed to __construct() must be of the type int, " . (gettype($flags) == "object" ? get_class($flags) : gettype($flags)) . " given");
+        }
+        parent::__construct($context, $name, $type, $flags, $fqsen);
         $this->parent_type = $parent_type;
         $this->interface_fqsen_list = $interface_fqsen_list;
         $this->trait_fqsen_list = $trait_fqsen_list;
-
-        $this->setInternalScope(new ClassScope(
-            $context->getScope(),
-            $fqsen
-        ));
+        $this->setInternalScope(new ClassScope($context->getScope(), $fqsen));
     }
-
     /**
      * @param CodeBase $code_base
      * A reference to the entire code base in which this
@@ -118,16 +103,17 @@ class Clazz extends AddressableElement
      * A Class structural element representing the given named
      * builtin.
      */
-    public static function fromClassName(
-        CodeBase $code_base,
-        string $class_name
-    ) : Clazz {
-        return self::fromReflectionClass(
-            $code_base,
-            new \ReflectionClass($class_name)
-        );
+    public static function fromClassName(CodeBase $code_base, $class_name)
+    {
+        if (!is_string($class_name)) {
+            throw new \InvalidArgumentException("Argument \$class_name passed to fromClassName() must be of the type string, " . (gettype($class_name) == "object" ? get_class($class_name) : gettype($class_name)) . " given");
+        }
+        $ret5902c6f500c9c = self::fromReflectionClass($code_base, new \ReflectionClass($class_name));
+        if (!$ret5902c6f500c9c instanceof Clazz) {
+            throw new \InvalidArgumentException("Argument returned must be of the type Clazz, " . (gettype($ret5902c6f500c9c) == "object" ? get_class($ret5902c6f500c9c) : gettype($ret5902c6f500c9c)) . " given");
+        }
+        return $ret5902c6f500c9c;
     }
-
     /**
      * @param CodeBase $code_base
      * A reference to the entire code base in which this
@@ -140,10 +126,8 @@ class Clazz extends AddressableElement
      * A Class structural element representing the given named
      * builtin.
      */
-    public static function fromReflectionClass(
-        CodeBase $code_base,
-        \ReflectionClass $class
-    ) : Clazz {
+    public static function fromReflectionClass(CodeBase $code_base, \ReflectionClass $class)
+    {
         // Build a set of flags based on the constitution
         // of the built-in class
         $flags = 0;
@@ -157,162 +141,70 @@ class Clazz extends AddressableElement
         if ($class->isAbstract()) {
             $flags |= \ast\flags\CLASS_ABSTRACT;
         }
-
-        $context = new Context;
-
-        $class_fqsen = FullyQualifiedClassName::fromStringInContext(
-            $class->getName(),
-            $context
-        );
-
+        $context = new Context();
+        $class_fqsen = FullyQualifiedClassName::fromStringInContext($class->getName(), $context);
         // Build a base class element
-        $clazz = new Clazz(
-            $context,
-            $class->getName(),
-            UnionType::fromStringInContext($class->getName(), $context, false),
-            $flags,
-            $class_fqsen
-        );
-
+        $clazz = new Clazz($context, $class->getName(), UnionType::fromStringInContext($class->getName(), $context, false), $flags, $class_fqsen);
         // If this class has a parent class, add it to the
         // class info
-        if (($parent_class = $class->getParentClass())) {
-
-            $parent_class_fqsen =
-                FullyQualifiedClassName::fromFullyQualifiedString(
-                    '\\' . $parent_class->getName()
-                );
-
+        if ($parent_class = $class->getParentClass()) {
+            $parent_class_fqsen = FullyQualifiedClassName::fromFullyQualifiedString('\\' . $parent_class->getName());
             $parent_type = $parent_class_fqsen->asType();
-
             $clazz->setParentType($parent_type);
         }
-
         // Note: If there are multiple calls to Clazz->addProperty(),
         // the UnionType from the first one will be used, subsequent calls to addProperty()
         // will have no effect.
         // As a result, we set the types from phan's documented internal property types first,
         // preferring them over the default values (which may be null, etc.).
-        foreach (UnionType::internalPropertyMapForClassName(
-            $clazz->getName()
-        ) as $property_name => $property_type_string) {
-
+        foreach (UnionType::internalPropertyMapForClassName($clazz->getName()) as $property_name => $property_type_string) {
             // An asterisk indicates that the class supports
             // dynamic properties
             if ($property_name === '*') {
                 $clazz->setHasDynamicProperties(true);
                 continue;
             }
-
-            $property_context = $context->withScope(
-                new ClassScope(new GlobalScope, $clazz->getFQSEN())
-            );
-
-            $property_type =
-                UnionType::fromStringInContext(
-                    $property_type_string,
-                    new Context,
-                    false
-                );
-
-            $property_fqsen = FullyQualifiedPropertyName::make(
-                $clazz->getFQSEN(),
-                $property_name
-            );
-
-            $property = new Property(
-                $property_context,
-                $property_name,
-                $property_type,
-                0,
-                $property_fqsen
-            );
-
-            $clazz->addProperty($code_base, $property, new None);
+            $property_context = $context->withScope(new ClassScope(new GlobalScope(), $clazz->getFQSEN()));
+            $property_type = UnionType::fromStringInContext($property_type_string, new Context(), false);
+            $property_fqsen = FullyQualifiedPropertyName::make($clazz->getFQSEN(), $property_name);
+            $property = new Property($property_context, $property_name, $property_type, 0, $property_fqsen);
+            $clazz->addProperty($code_base, $property, new None());
         }
-
         // n.b.: public properties on internal classes don't get
         //       listed via reflection until they're set unless
         //       they have a default value. Therefore, we don't
         //       bother iterating over `$class->getProperties()`
         //       `$class->getStaticProperties()`.
-
         foreach ($class->getDefaultProperties() as $name => $value) {
-            $property_context = $context->withScope(
-                new ClassScope(new GlobalScope, $clazz->getFQSEN())
-            );
-
-            $property_fqsen = FullyQualifiedPropertyName::make(
-                $clazz->getFQSEN(),
-                $name
-            );
-
-            $property = new Property(
-                $property_context,
-                $name,
-                Type::fromObject($value)->asUnionType(),
-                0,
-                $property_fqsen
-            );
-
-            $clazz->addProperty($code_base, $property, new None);
+            $property_context = $context->withScope(new ClassScope(new GlobalScope(), $clazz->getFQSEN()));
+            $property_fqsen = FullyQualifiedPropertyName::make($clazz->getFQSEN(), $name);
+            $property = new Property($property_context, $name, Type::fromObject($value)->asUnionType(), 0, $property_fqsen);
+            $clazz->addProperty($code_base, $property, new None());
         }
-
         foreach ($class->getInterfaceNames() as $name) {
-            $clazz->addInterfaceClassFQSEN(
-                FullyQualifiedClassName::fromFullyQualifiedString(
-                    '\\' . $name
-                )
-            );
+            $clazz->addInterfaceClassFQSEN(FullyQualifiedClassName::fromFullyQualifiedString('\\' . $name));
         }
-
         foreach ($class->getTraitNames() as $name) {
-            $clazz->addTraitFQSEN(
-                FullyQualifiedClassName::fromFullyQualifiedString(
-                    '\\' . $name
-                )
-            );
+            $clazz->addTraitFQSEN(FullyQualifiedClassName::fromFullyQualifiedString('\\' . $name));
         }
-
         foreach ($class->getConstants() as $name => $value) {
-            $constant_fqsen = FullyQualifiedClassConstantName::make(
-                $clazz->getFQSEN(),
-                $name
-            );
-
-            $constant = new ClassConstant(
-                $context,
-                $name,
-                Type::fromObject($value)->asUnionType(),
-                0,
-                $constant_fqsen
-            );
-
+            $constant_fqsen = FullyQualifiedClassConstantName::make($clazz->getFQSEN(), $name);
+            $constant = new ClassConstant($context, $name, Type::fromObject($value)->asUnionType(), 0, $constant_fqsen);
             $clazz->addConstant($code_base, $constant);
         }
-
         foreach ($class->getMethods() as $reflection_method) {
-
-            $method_context = $context->withScope(
-                new ClassScope(new GlobalScope, $clazz->getFQSEN())
-            );
-
-            $method_list =
-                FunctionFactory::methodListFromReflectionClassAndMethod(
-                    $method_context,
-                    $code_base,
-                    $class,
-                    $reflection_method
-                );
-
+            $method_context = $context->withScope(new ClassScope(new GlobalScope(), $clazz->getFQSEN()));
+            $method_list = FunctionFactory::methodListFromReflectionClassAndMethod($method_context, $code_base, $class, $reflection_method);
             foreach ($method_list as $method) {
-                $clazz->addMethod($code_base, $method, new None);
+                $clazz->addMethod($code_base, $method, new None());
             }
         }
-
-        return $clazz;
+        $ret5902c6f501d2f = $clazz;
+        if (!$ret5902c6f501d2f instanceof Clazz) {
+            throw new \InvalidArgumentException("Argument returned must be of the type Clazz, " . (gettype($ret5902c6f501d2f) == "object" ? get_class($ret5902c6f501d2f) : gettype($ret5902c6f501d2f)) . " given");
+        }
+        return $ret5902c6f501d2f;
     }
-
     /**
      * @param Type|null $parent_type
      * The type of the parent (extended) class of this class.
@@ -322,13 +214,10 @@ class Clazz extends AddressableElement
     public function setParentType(Type $parent_type = null)
     {
         if ($this->getInternalScope()->hasAnyTemplateType()) {
-
             // Get a reference to the local list of templated
             // types. We'll use this to map templated types on the
             // parent to locally templated types.
-            $template_type_map =
-                $this->getInternalScope()->getTemplateTypeMap();
-
+            $template_type_map = $this->getInternalScope()->getTemplateTypeMap();
             // Figure out if the given parent type contains any template
             // types.
             $contains_templated_type = false;
@@ -340,41 +229,43 @@ class Clazz extends AddressableElement
                     }
                 }
             }
-
             // If necessary, map the template parameter type list through the
             // local list of templated types.
             if ($contains_templated_type) {
-                $parent_type = Type::fromType(
-                    $parent_type,
-                    array_map(function (UnionType $union_type) use ($template_type_map) : UnionType {
-                        return new UnionType(
-                            array_map(function (Type $type) use ($template_type_map) : Type {
-                                return $template_type_map[$type->getName()] ?? $type;
-                            }, $union_type->getTypeSet()->toArray())
-                        );
-                    }, $parent_type->getTemplateParameterTypeList())
-                );
+                $parent_type = Type::fromType($parent_type, array_map(function (UnionType $union_type) use($template_type_map) {
+                    $ret5902c6f50258d = new UnionType(array_map(function (Type $type) use($template_type_map) {
+                        $ret5902c6f50229a = call_user_func(function ($v1, $v2) {
+                            return isset($v1) ? $v1 : $v2;
+                        }, @$template_type_map[$type->getName()], @$type);
+                        if (!$ret5902c6f50229a instanceof Type) {
+                            throw new \InvalidArgumentException("Argument returned must be of the type Type, " . (gettype($ret5902c6f50229a) == "object" ? get_class($ret5902c6f50229a) : gettype($ret5902c6f50229a)) . " given");
+                        }
+                        return $ret5902c6f50229a;
+                    }, $union_type->getTypeSet()->toArray()));
+                    if (!$ret5902c6f50258d instanceof UnionType) {
+                        throw new \InvalidArgumentException("Argument returned must be of the type UnionType, " . (gettype($ret5902c6f50258d) == "object" ? get_class($ret5902c6f50258d) : gettype($ret5902c6f50258d)) . " given");
+                    }
+                    return $ret5902c6f50258d;
+                }, $parent_type->getTemplateParameterTypeList()));
             }
         }
-
         $this->parent_type = $parent_type;
-
         // Add the parent to the union type of this
         // class
-        $this->getUnionType()->addUnionType(
-            $parent_type->asUnionType()
-        );
+        $this->getUnionType()->addUnionType($parent_type->asUnionType());
     }
-
     /**
      * @return bool
      * True if this class has a parent class
      */
-    public function hasParentType() : bool
+    public function hasParentType()
     {
-        return !empty($this->parent_type);
+        $ret5902c6f502929 = !empty($this->parent_type);
+        if (!is_bool($ret5902c6f502929)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f502929) . " given");
+        }
+        return $ret5902c6f502929;
     }
-
     /**
      * @return Option<Type>
      * If a parent type is defined, get Some<Type>, else None.
@@ -384,10 +275,8 @@ class Clazz extends AddressableElement
         if ($this->hasParentType()) {
             return new Some($this->parent_type);
         }
-
-        return new None;
+        return new None();
     }
-
     /**
      * @return FullyQualifiedClassName
      * The parent class of this class if one exists
@@ -395,17 +284,18 @@ class Clazz extends AddressableElement
      * @throws \Exception
      * An exception is thrown if this class has no parent
      */
-    public function getParentClassFQSEN() : FullyQualifiedClassName
+    public function getParentClassFQSEN()
     {
         $parent_type_option = $this->getParentTypeOption();
-
         if (!$parent_type_option->isDefined()) {
-            throw new \Exception("Class $this has no parent");
+            throw new \Exception("Class {$this} has no parent");
         }
-
-        return $parent_type_option->get()->asFQSEN();
+        $ret5902c6f502c95 = $parent_type_option->get()->asFQSEN();
+        if (!$ret5902c6f502c95 instanceof FullyQualifiedClassName) {
+            throw new \InvalidArgumentException("Argument returned must be of the type FullyQualifiedClassName, " . (gettype($ret5902c6f502c95) == "object" ? get_class($ret5902c6f502c95) : gettype($ret5902c6f502c95)) . " given");
+        }
+        return $ret5902c6f502c95;
     }
-
     /**
      * @return Clazz
      * The parent class of this class if defined
@@ -413,46 +303,51 @@ class Clazz extends AddressableElement
      * @throws \Exception
      * An exception is thrown if this class has no parent
      */
-    public function getParentClass(CodeBase $code_base) : Clazz
+    public function getParentClass(CodeBase $code_base)
     {
         $parent_type_option = $this->getParentTypeOption();
-
         if (!$parent_type_option->isDefined()) {
-            throw new \Exception("Class $this has no parent");
+            throw new \Exception("Class {$this} has no parent");
         }
-
         $parent_fqsen = $parent_type_option->get()->asFQSEN();
         assert($parent_fqsen instanceof FullyQualifiedClassName);
-
-        return $code_base->getClassByFQSEN(
-            $parent_fqsen
-        );
+        $ret5902c6f503099 = $code_base->getClassByFQSEN($parent_fqsen);
+        if (!$ret5902c6f503099 instanceof Clazz) {
+            throw new \InvalidArgumentException("Argument returned must be of the type Clazz, " . (gettype($ret5902c6f503099) == "object" ? get_class($ret5902c6f503099) : gettype($ret5902c6f503099)) . " given");
+        }
+        return $ret5902c6f503099;
     }
-
-    public function isSubclassOf(CodeBase $code_base, Clazz $other) : bool
+    public function isSubclassOf(CodeBase $code_base, Clazz $other)
     {
         if (!$this->hasParentType()) {
-            return false;
+            $ret5902c6f5033a9 = false;
+            if (!is_bool($ret5902c6f5033a9)) {
+                throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f5033a9) . " given");
+            }
+            return $ret5902c6f5033a9;
         }
-
-        if (!$code_base->hasClassWithFQSEN(
-            $this->getParentClassFQSEN()
-        )) {
-            // Let this emit an issue elsewhere for the
-            // parent not existing
-            return false;
+        if (!$code_base->hasClassWithFQSEN($this->getParentClassFQSEN())) {
+            $ret5902c6f503623 = false;
+            if (!is_bool($ret5902c6f503623)) {
+                throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f503623) . " given");
+            }
+            return $ret5902c6f503623;
         }
-
         // Get the parent class
         $parent = $this->getParentClass($code_base);
-
         if ($parent === $other) {
-            return true;
+            $ret5902c6f5038e8 = true;
+            if (!is_bool($ret5902c6f5038e8)) {
+                throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f5038e8) . " given");
+            }
+            return $ret5902c6f5038e8;
         }
-
-        return $parent->isSubclassOf($code_base, $other);
+        $ret5902c6f503b52 = $parent->isSubclassOf($code_base, $other);
+        if (!is_bool($ret5902c6f503b52)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f503b52) . " given");
+        }
+        return $ret5902c6f503b52;
     }
-
     /**
      * @param CodeBase $code_base
      * The entire code base from which we'll find ancestor
@@ -461,31 +356,38 @@ class Clazz extends AddressableElement
      * @return int
      * This class's depth in the class hierarchy
      */
-    public function getHierarchyDepth(CodeBase $code_base) : int
+    public function getHierarchyDepth(CodeBase $code_base)
     {
         if (!$this->hasParentType()) {
-            return 0;
+            $ret5902c6f503dd1 = 0;
+            if (!is_int($ret5902c6f503dd1)) {
+                throw new \InvalidArgumentException("Argument returned must be of the type int, " . gettype($ret5902c6f503dd1) . " given");
+            }
+            return $ret5902c6f503dd1;
         }
-
-        if (!$code_base->hasClassWithFQSEN(
-            $this->getParentClassFQSEN()
-        )) {
-            // Let this emit an issue elsewhere for the
-            // parent not existing
-            return 0;
+        if (!$code_base->hasClassWithFQSEN($this->getParentClassFQSEN())) {
+            $ret5902c6f504044 = 0;
+            if (!is_int($ret5902c6f504044)) {
+                throw new \InvalidArgumentException("Argument returned must be of the type int, " . gettype($ret5902c6f504044) . " given");
+            }
+            return $ret5902c6f504044;
         }
-
         // Get the parent class
         $parent = $this->getParentClass($code_base);
-
         // Prevent infinite loops
         if ($parent == $this) {
-            return 0;
+            $ret5902c6f5042cb = 0;
+            if (!is_int($ret5902c6f5042cb)) {
+                throw new \InvalidArgumentException("Argument returned must be of the type int, " . gettype($ret5902c6f5042cb) . " given");
+            }
+            return $ret5902c6f5042cb;
         }
-
-        return (1 + $parent->getHierarchyDepth($code_base));
+        $ret5902c6f504534 = 1 + $parent->getHierarchyDepth($code_base);
+        if (!is_int($ret5902c6f504534)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type int, " . gettype($ret5902c6f504534) . " given");
+        }
+        return $ret5902c6f504534;
     }
-
     /**
      * @param CodeBase $code_base
      * The entire code base from which we'll find ancestor
@@ -494,32 +396,38 @@ class Clazz extends AddressableElement
      * @return FullyQualifiedClassName
      * The FQSEN of the root class on this class's hiearchy
      */
-    public function getHierarchyRootFQSEN(
-        CodeBase $code_base
-    ) : FullyQualifiedClassName {
+    public function getHierarchyRootFQSEN(CodeBase $code_base)
+    {
         if (!$this->hasParentType()) {
-            return $this->getFQSEN();
+            $ret5902c6f5047b5 = $this->getFQSEN();
+            if (!$ret5902c6f5047b5 instanceof FullyQualifiedClassName) {
+                throw new \InvalidArgumentException("Argument returned must be of the type FullyQualifiedClassName, " . (gettype($ret5902c6f5047b5) == "object" ? get_class($ret5902c6f5047b5) : gettype($ret5902c6f5047b5)) . " given");
+            }
+            return $ret5902c6f5047b5;
         }
-
-        if (!$code_base->hasClassWithFQSEN(
-            $this->getParentClassFQSEN()
-        )) {
-            // Let this emit an issue elsewhere for the
-            // parent not existing
-            return $this->getFQSEN();
+        if (!$code_base->hasClassWithFQSEN($this->getParentClassFQSEN())) {
+            $ret5902c6f504abc = $this->getFQSEN();
+            if (!$ret5902c6f504abc instanceof FullyQualifiedClassName) {
+                throw new \InvalidArgumentException("Argument returned must be of the type FullyQualifiedClassName, " . (gettype($ret5902c6f504abc) == "object" ? get_class($ret5902c6f504abc) : gettype($ret5902c6f504abc)) . " given");
+            }
+            return $ret5902c6f504abc;
         }
-
         // Get the parent class
         $parent = $this->getParentClass($code_base);
-
         // Prevent infinite loops
         if ($parent == $this) {
-            return $this->getFQSEN();
+            $ret5902c6f504dcb = $this->getFQSEN();
+            if (!$ret5902c6f504dcb instanceof FullyQualifiedClassName) {
+                throw new \InvalidArgumentException("Argument returned must be of the type FullyQualifiedClassName, " . (gettype($ret5902c6f504dcb) == "object" ? get_class($ret5902c6f504dcb) : gettype($ret5902c6f504dcb)) . " given");
+            }
+            return $ret5902c6f504dcb;
         }
-
-        return $parent->getHierarchyRootFQSEN($code_base);
+        $ret5902c6f505098 = $parent->getHierarchyRootFQSEN($code_base);
+        if (!$ret5902c6f505098 instanceof FullyQualifiedClassName) {
+            throw new \InvalidArgumentException("Argument returned must be of the type FullyQualifiedClassName, " . (gettype($ret5902c6f505098) == "object" ? get_class($ret5902c6f505098) : gettype($ret5902c6f505098)) . " given");
+        }
+        return $ret5902c6f505098;
     }
-
     /**
      * @param FQSEN $fqsen
      * Add the given FQSEN to the list of implemented
@@ -530,23 +438,22 @@ class Clazz extends AddressableElement
     public function addInterfaceClassFQSEN(FQSEN $fqsen)
     {
         $this->interface_fqsen_list[] = $fqsen;
-
         // Add the interface to the union type of this
         // class
-        $this->getUnionType()->addUnionType(
-            UnionType::fromFullyQualifiedString((string)$fqsen)
-        );
+        $this->getUnionType()->addUnionType(UnionType::fromFullyQualifiedString((string) $fqsen));
     }
-
     /**
      * @return FQSEN[]
      * Get the list of interfaces implemented by this class
      */
-    public function getInterfaceFQSENList() : array
+    public function getInterfaceFQSENList()
     {
-        return $this->interface_fqsen_list;
+        $ret5902c6f505412 = $this->interface_fqsen_list;
+        if (!is_array($ret5902c6f505412)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type array, " . gettype($ret5902c6f505412) . " given");
+        }
+        return $ret5902c6f505412;
     }
-
     /**
      * Add a property to this class
      *
@@ -562,11 +469,8 @@ class Clazz extends AddressableElement
      *
      * @return void
      */
-    public function addProperty(
-        CodeBase $code_base,
-        Property $property,
-        $type_option
-    ) {
+    public function addProperty(CodeBase $code_base, Property $property, $type_option)
+    {
         // Ignore properties we already have
         // TODO: warn about private properties in subclass overriding ancestor private property.
         $property_name = $property->getName();
@@ -576,67 +480,48 @@ class Clazz extends AddressableElement
             // $overriding_property = $this->getPropertyMap($code_base)[$property_name];;
             // TODO: implement https://github.com/etsy/phan/issues/615 in another PR, see below comment
             /**
-            if ($overriding_property->isStatic() != $property->isStatic()) {
-                if ($overriding_property->isStatic()) {
-                    // emit warning about redefining non-static as static $overriding_property
-                } else {
-                    // emit warning about redefining static as
-                }
-            }
-             */
+                        if ($overriding_property->isStatic() != $property->isStatic()) {
+               if ($overriding_property->isStatic()) {
+                   // emit warning about redefining non-static as static $overriding_property
+               } else {
+                   // emit warning about redefining static as
+               }
+                        }
+            */
             return;
         }
-
-        $property_fqsen = FullyQualifiedPropertyName::make(
-            $this->getFQSEN(),
-            $property_name
-        );
-
+        $property_fqsen = FullyQualifiedPropertyName::make($this->getFQSEN(), $property_name);
         // TODO: defer template properties until the analysis phase? They might not be parsed or resolved yet.
         if ($property->getFQSEN() !== $property_fqsen) {
-            $property = clone($property);
+            $property = clone $property;
             $property->setDefiningFQSEN($property->getFQSEN());
             $property->setFQSEN($property_fqsen);
-
             try {
                 // If we have a parent type defined, map the property's
                 // type through it
-                if ($type_option->isDefined()
-                    && $property->getUnionType()->hasTemplateType()
-                ) {
-                    $property->setUnionType(
-                        $property->getUnionType()->withTemplateParameterTypeMap(
-                            $type_option->get()->getTemplateParameterTypeMap(
-                                $code_base
-                            )
-                        )
-                    );
+                if ($type_option->isDefined() && $property->getUnionType()->hasTemplateType()) {
+                    $property->setUnionType($property->getUnionType()->withTemplateParameterTypeMap($type_option->get()->getTemplateParameterTypeMap($code_base)));
                 }
             } catch (IssueException $exception) {
-                Issue::maybeEmitInstance(
-                    $code_base,
-                    $property->getContext(),
-                    $exception->getIssueInstance()
-                );
+                Issue::maybeEmitInstance($code_base, $property->getContext(), $exception->getIssueInstance());
             }
-
         }
-
         $code_base->addProperty($property);
     }
-
     /**
      * @param \Phan\Language\Element\Comment\Parameter[] $magic_property_map mapping from property name to this
      * @param CodeBase $code_base
      * @return bool whether or not we defined it.
      */
-    public function setMagicPropertyMap(
-        array $magic_property_map,
-        CodeBase $code_base,
-        Context $context
-    ) : bool {
+    public function setMagicPropertyMap(array $magic_property_map, CodeBase $code_base, Context $context)
+    {
         if (count($magic_property_map) === 0) {
-            return true;  // Vacuously true.
+            $ret5902c6f5059db = true;
+            if (!is_bool($ret5902c6f5059db)) {
+                throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f5059db) . " given");
+            }
+            return $ret5902c6f5059db;
+            // Vacuously true.
         }
         $class_fqsen = $this->getFQSEN();
         foreach ($magic_property_map as $comment_parameter) {
@@ -644,35 +529,30 @@ class Clazz extends AddressableElement
             // Or \ast\flags\MODIFIER_PUBLIC.
             $flags = 0;
             $property_name = $comment_parameter->getName();
-            $property_fqsen = FullyQualifiedPropertyName::make(
-                $class_fqsen,
-                $property_name
-            );
-            $property = new Property(
-                $context,
-                $property_name,
-                $comment_parameter->getUnionType(),
-                $flags,
-                $property_fqsen
-            );
-
-            $this->addProperty($code_base, $property, new None);
+            $property_fqsen = FullyQualifiedPropertyName::make($class_fqsen, $property_name);
+            $property = new Property($context, $property_name, $comment_parameter->getUnionType(), $flags, $property_fqsen);
+            $this->addProperty($code_base, $property, new None());
         }
-        return true;
+        $ret5902c6f505db9 = true;
+        if (!is_bool($ret5902c6f505db9)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f505db9) . " given");
+        }
+        return $ret5902c6f505db9;
     }
-
     /**
      * @param \Phan\Language\Element\Comment\Method[] $magic_method_map mapping from method name to this.
      * @param CodeBase $code_base
      * @return bool whether or not we defined it.
      */
-    public function setMagicMethodMap(
-        array $magic_method_map,
-        CodeBase $code_base,
-        Context $context
-    ) : bool {
+    public function setMagicMethodMap(array $magic_method_map, CodeBase $code_base, Context $context)
+    {
         if (count($magic_method_map) === 0) {
-            return true;  // Vacuously true.
+            $ret5902c6f506082 = true;
+            if (!is_bool($ret5902c6f506082)) {
+                throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f506082) . " given");
+            }
+            return $ret5902c6f506082;
+            // Vacuously true.
         }
         $class_fqsen = $this->getFQSEN();
         foreach ($magic_method_map as $comment_method) {
@@ -687,56 +567,48 @@ class Clazz extends AddressableElement
                 // No point, and this would hurt inference accuracy.
                 continue;
             }
-            $method_fqsen = FullyQualifiedMethodName::make(
-                $class_fqsen,
-                $method_name
-            );
-            $method = new Method(
-                $context,
-                $method_name,
-                $comment_method->getUnionType(),
-                $flags,
-                $method_fqsen
-            );
-            $real_parameter_list = array_map(function(\Phan\Language\Element\Comment\Parameter $parameter) use ($context) : Parameter {
-                return $parameter->asRealParameter($context);
+            $method_fqsen = FullyQualifiedMethodName::make($class_fqsen, $method_name);
+            $method = new Method($context, $method_name, $comment_method->getUnionType(), $flags, $method_fqsen);
+            $real_parameter_list = array_map(function (\Phan\Language\Element\Comment\Parameter $parameter) use($context) {
+                $ret5902c6f5064ff = $parameter->asRealParameter($context);
+                if (!$ret5902c6f5064ff instanceof Parameter) {
+                    throw new \InvalidArgumentException("Argument returned must be of the type Parameter, " . (gettype($ret5902c6f5064ff) == "object" ? get_class($ret5902c6f5064ff) : gettype($ret5902c6f5064ff)) . " given");
+                }
+                return $ret5902c6f5064ff;
             }, $comment_method->getParameterList());
             $method->setParameterList($real_parameter_list);
             $method->setNumberOfRequiredParameters($comment_method->getNumberOfRequiredParameters());
             $method->setNumberOfOptionalParameters($comment_method->getNumberOfOptionalParameters());
-
-            $this->addMethod($code_base, $method, new None);
+            $this->addMethod($code_base, $method, new None());
         }
-        return true;
+        $ret5902c6f5068eb = true;
+        if (!is_bool($ret5902c6f5068eb)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f5068eb) . " given");
+        }
+        return $ret5902c6f5068eb;
     }
-
     /**
      * @return bool
      */
-    public function hasPropertyWithName(
-        CodeBase $code_base,
-        string $name
-    ) : bool {
-        return $code_base->hasPropertyWithFQSEN(
-            FullyQualifiedPropertyName::make(
-                $this->getFQSEN(),
-                $name
-            )
-        );
+    public function hasPropertyWithName(CodeBase $code_base, $name)
+    {
+        if (!is_string($name)) {
+            throw new \InvalidArgumentException("Argument \$name passed to hasPropertyWithName() must be of the type string, " . (gettype($name) == "object" ? get_class($name) : gettype($name)) . " given");
+        }
+        $ret5902c6f506ba8 = $code_base->hasPropertyWithFQSEN(FullyQualifiedPropertyName::make($this->getFQSEN(), $name));
+        if (!is_bool($ret5902c6f506ba8)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f506ba8) . " given");
+        }
+        return $ret5902c6f506ba8;
     }
-
     /**
      * @return Property[]
      * The list of properties defined on this class
      */
-    public function getPropertyList(
-        CodeBase $code_base
-    ) {
-        return $code_base->getPropertyMapByFullyQualifiedClassName(
-            $this->getFQSEN()
-        );
+    public function getPropertyList(CodeBase $code_base)
+    {
+        return $code_base->getPropertyMapByFullyQualifiedClassName($this->getFQSEN());
     }
-
     /**
      * @param CodeBase $code_base
      * A reference to the entire code base in which the
@@ -756,210 +628,130 @@ class Clazz extends AddressableElement
      * have access to the given property from the given
      * context
      */
-    public function getPropertyByNameInContext(
-        CodeBase $code_base,
-        string $name,
-        Context $context,
-        bool $is_static
-    ) : Property {
-
+    public function getPropertyByNameInContext(CodeBase $code_base, $name, Context $context, $is_static)
+    {
+        if (!is_string($name)) {
+            throw new \InvalidArgumentException("Argument \$name passed to getPropertyByNameInContext() must be of the type string, " . (gettype($name) == "object" ? get_class($name) : gettype($name)) . " given");
+        }
+        if (!is_bool($is_static)) {
+            throw new \InvalidArgumentException("Argument \$is_static passed to getPropertyByNameInContext() must be of the type bool, " . (gettype($is_static) == "object" ? get_class($is_static) : gettype($is_static)) . " given");
+        }
         // Get the FQSEN of the property we're looking for
-        $property_fqsen = FullyQualifiedPropertyName::make(
-            $this->getFQSEN(), $name
-        );
-
+        $property_fqsen = FullyQualifiedPropertyName::make($this->getFQSEN(), $name);
         $property = null;
-
         // Figure out if we have the property
-        $has_property =
-            $code_base->hasPropertyWithFQSEN($property_fqsen);
-
+        $has_property = $code_base->hasPropertyWithFQSEN($property_fqsen);
         // Figure out if the property is accessible
         $is_property_accessible = false;
         if ($has_property) {
-            $property = $code_base->getPropertyByFQSEN(
-                $property_fqsen
-            );
+            $property = $code_base->getPropertyByFQSEN($property_fqsen);
             if ($is_static && !$property->isStatic()) {
                 // TODO: add additional warning about possible static/non-static confusion?
-                throw new IssueException(
-                    Issue::fromType(Issue::UndeclaredStaticProperty)(
-                        $context->getFile(),
-                        $context->getLineNumberStart(),
-                        [ $name, (string)$this->getFQSEN() ]
-                    )
-                );
+                throw new IssueException(Issue::fromType(Issue::UndeclaredStaticProperty)($context->getFile(), $context->getLineNumberStart(), [$name, (string) $this->getFQSEN()]));
             }
-
-            $is_remote_access = (
-                !$context->isInClassScope()
-                || !$context->getClassInScope($code_base)
-                    ->getUnionType()->canCastToExpandedUnionType(
-                        $this->getUnionType(),
-                        $code_base
-                    )
-            );
-
-            $is_property_accessible = (
-                !$is_remote_access
-                || $property->isPublic()
-            );
+            $is_remote_access = !$context->isInClassScope() || !$context->getClassInScope($code_base)->getUnionType()->canCastToExpandedUnionType($this->getUnionType(), $code_base);
+            $is_property_accessible = !$is_remote_access || $property->isPublic();
         }
-
         // If the property exists and is accessible, return it
         if ($is_property_accessible) {
-            return $property;
+            $ret5902c6f5073e0 = $property;
+            if (!$ret5902c6f5073e0 instanceof Property) {
+                throw new \InvalidArgumentException("Argument returned must be of the type Property, " . (gettype($ret5902c6f5073e0) == "object" ? get_class($ret5902c6f5073e0) : gettype($ret5902c6f5073e0)) . " given");
+            }
+            return $ret5902c6f5073e0;
         }
-
         // Check to see if we can use a __get magic method
         if (!$is_static && $this->hasMethodWithName($code_base, '__get')) {
             $method = $this->getMethodByName($code_base, '__get');
-
             // Make sure the magic method is accessible
             if ($method->isPrivate()) {
-                throw new IssueException(
-                    Issue::fromType(Issue::AccessPropertyPrivate)(
-                        $context->getFile(),
-                        $context->getLineNumberStart(),
-                        [ (string)$property_fqsen ]
-                    )
-                );
-            } else if ($method->isProtected()) {
-                throw new IssueException(
-                    Issue::fromType(Issue::AccessPropertyProtected)(
-                        $context->getFile(),
-                        $context->getLineNumberStart(),
-                        [ (string)$property_fqsen ]
-                    )
-                );
+                throw new IssueException(Issue::fromType(Issue::AccessPropertyPrivate)($context->getFile(), $context->getLineNumberStart(), [(string) $property_fqsen]));
+            } else {
+                if ($method->isProtected()) {
+                    throw new IssueException(Issue::fromType(Issue::AccessPropertyProtected)($context->getFile(), $context->getLineNumberStart(), [(string) $property_fqsen]));
+                }
             }
-
-            $property = new Property(
-                $context,
-                $name,
-                $method->getUnionType(),
-                0,
-                $property_fqsen
-            );
-
-            $this->addProperty($code_base, $property, new None);
-
-            return $property;
-
-        } else if ($has_property) {
-
-            // If we have a property, but its inaccessible, emit
-            // an issue
-            if ($property->isPrivate()) {
-                throw new IssueException(
-                    Issue::fromType(Issue::AccessPropertyPrivate)(
-                        $context->getFile(),
-                        $context->getLineNumberStart(),
-                        [ "{$this->getFQSEN()}::\${$property->getName()}" ]
-                    )
-                );
+            $property = new Property($context, $name, $method->getUnionType(), 0, $property_fqsen);
+            $this->addProperty($code_base, $property, new None());
+            $ret5902c6f5079ad = $property;
+            if (!$ret5902c6f5079ad instanceof Property) {
+                throw new \InvalidArgumentException("Argument returned must be of the type Property, " . (gettype($ret5902c6f5079ad) == "object" ? get_class($ret5902c6f5079ad) : gettype($ret5902c6f5079ad)) . " given");
             }
-            if ($property->isProtected()) {
-                throw new IssueException(
-                    Issue::fromType(Issue::AccessPropertyProtected)(
-                        $context->getFile(),
-                        $context->getLineNumberStart(),
-                        [ "{$this->getFQSEN()}::\${$property->getName()}" ]
-                    )
-                );
-            }
-            if (!$is_static && $property->isStatic()) {
-                throw new IssueException(
-                    Issue::fromType(Issue::AccessPropertyStaticAsNonStatic)(
-                        $context->getFile(),
-                        $context->getLineNumberStart(),
-                        [ "{$this->getFQSEN()}::\${$property->getName()}" ]
-                    )
-                );
+            return $ret5902c6f5079ad;
+        } else {
+            if ($has_property) {
+                // If we have a property, but its inaccessible, emit
+                // an issue
+                if ($property->isPrivate()) {
+                    throw new IssueException(Issue::fromType(Issue::AccessPropertyPrivate)($context->getFile(), $context->getLineNumberStart(), ["{$this->getFQSEN()}::\${$property->getName()}"]));
+                }
+                if ($property->isProtected()) {
+                    throw new IssueException(Issue::fromType(Issue::AccessPropertyProtected)($context->getFile(), $context->getLineNumberStart(), ["{$this->getFQSEN()}::\${$property->getName()}"]));
+                }
+                if (!$is_static && $property->isStatic()) {
+                    throw new IssueException(Issue::fromType(Issue::AccessPropertyStaticAsNonStatic)($context->getFile(), $context->getLineNumberStart(), ["{$this->getFQSEN()}::\${$property->getName()}"]));
+                }
             }
         }
-
         // Check to see if missing properties are allowed
         // or we're working with a class with dynamic
         // properties such as stdclass.
-        if (!$is_static && (Config::get()->allow_missing_properties
-            || $this->getHasDynamicProperties($code_base))
-        ) {
-            $property = new Property(
-                $context,
-                $name,
-                new UnionType(),
-                0,
-                $property_fqsen
-            );
-
-            $this->addProperty($code_base, $property, new None);
-
-            return $property;
+        if (!$is_static && (Config::get()->allow_missing_properties || $this->getHasDynamicProperties($code_base))) {
+            $property = new Property($context, $name, new UnionType(), 0, $property_fqsen);
+            $this->addProperty($code_base, $property, new None());
+            $ret5902c6f508097 = $property;
+            if (!$ret5902c6f508097 instanceof Property) {
+                throw new \InvalidArgumentException("Argument returned must be of the type Property, " . (gettype($ret5902c6f508097) == "object" ? get_class($ret5902c6f508097) : gettype($ret5902c6f508097)) . " given");
+            }
+            return $ret5902c6f508097;
         }
-
         // TODO: should be ->, to be consistent with other uses for instance properties?
-        throw new IssueException(
-            Issue::fromType(Issue::UndeclaredProperty)(
-                $context->getFile(),
-                $context->getLineNumberStart(),
-                [ "{$this->getFQSEN()}::\$$name}" ]
-            )
-        );
+        throw new IssueException(Issue::fromType(Issue::UndeclaredProperty)($context->getFile(), $context->getLineNumberStart(), ["{$this->getFQSEN()}::\${$name}}"]));
     }
-
     /**
      * @return Property[]
      * The list of properties on this class
      */
-    public function getPropertyMap(CodeBase $code_base) : array
+    public function getPropertyMap(CodeBase $code_base)
     {
-        return $code_base->getPropertyMapByFullyQualifiedClassName(
-            $this->getFQSEN()
-        );
+        $ret5902c6f508909 = $code_base->getPropertyMapByFullyQualifiedClassName($this->getFQSEN());
+        if (!is_array($ret5902c6f508909)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type array, " . gettype($ret5902c6f508909) . " given");
+        }
+        return $ret5902c6f508909;
     }
-
     /**
      * Add a class constant
      *
      * @return null;
      */
-    public function addConstant(
-        CodeBase $code_base,
-        ClassConstant $constant
-    ) {
-        $constant_fqsen = FullyQualifiedClassConstantName::make(
-            $this->getFQSEN(),
-            $constant->getName()
-        );
-
+    public function addConstant(CodeBase $code_base, ClassConstant $constant)
+    {
+        $constant_fqsen = FullyQualifiedClassConstantName::make($this->getFQSEN(), $constant->getName());
         // Update the FQSEN if its not associated with this
         // class yet
         if ($constant->getFQSEN() !== $constant_fqsen) {
-            $constant = clone($constant);
+            $constant = clone $constant;
             $constant->setFQSEN($constant_fqsen);
         }
-
         $code_base->addClassConstant($constant);
     }
-
     /**
      * @return bool
      * True if a constant with the given name is defined
      * on this class.
      */
-    public function hasConstantWithName(
-        CodeBase $code_base,
-        string $name
-    ) : bool {
-        return $code_base->hasClassConstantWithFQSEN(
-            FullyQualifiedClassConstantName::make(
-                $this->getFQSEN(),
-                $name
-            )
-        );
+    public function hasConstantWithName(CodeBase $code_base, $name)
+    {
+        if (!is_string($name)) {
+            throw new \InvalidArgumentException("Argument \$name passed to hasConstantWithName() must be of the type string, " . (gettype($name) == "object" ? get_class($name) : gettype($name)) . " given");
+        }
+        $ret5902c6f508ce9 = $code_base->hasClassConstantWithFQSEN(FullyQualifiedClassConstantName::make($this->getFQSEN(), $name));
+        if (!is_bool($ret5902c6f508ce9)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f508ce9) . " given");
+        }
+        return $ret5902c6f508ce9;
     }
-
     /**
      * @param CodeBase $code_base
      * A reference to the entire code base in which the
@@ -979,100 +771,52 @@ class Clazz extends AddressableElement
      * have access to the given property from the given
      * context
      */
-    public function getConstantByNameInContext(
-        CodeBase $code_base,
-        string $name,
-        Context $context
-    ) : ClassConstant {
-
-        $constant_fqsen = FullyQualifiedClassConstantName::make(
-            $this->getFQSEN(),
-            $name
-        );
-
+    public function getConstantByNameInContext(CodeBase $code_base, $name, Context $context)
+    {
+        if (!is_string($name)) {
+            throw new \InvalidArgumentException("Argument \$name passed to getConstantByNameInContext() must be of the type string, " . (gettype($name) == "object" ? get_class($name) : gettype($name)) . " given");
+        }
+        $constant_fqsen = FullyQualifiedClassConstantName::make($this->getFQSEN(), $name);
         if (!$code_base->hasClassConstantWithFQSEN($constant_fqsen)) {
             $issue_creator = Issue::fromType(Issue::UndeclaredClassConstant);
-            throw new IssueException(
-                $issue_creator(
-                    $context->getFile(),
-                    $context->getLineNumberStart(),
-                    [
-                        (string)$constant_fqsen,
-                        (string)$this->getFQSEN()
-                    ]
-                )
-            );
+            throw new IssueException($issue_creator($context->getFile(), $context->getLineNumberStart(), [(string) $constant_fqsen, (string) $this->getFQSEN()]));
         }
-
-        $constant = $code_base->getClassConstantByFQSEN(
-            $constant_fqsen
-        );
-
+        $constant = $code_base->getClassConstantByFQSEN($constant_fqsen);
         // Are we within a class referring to the class
         // itself?
-        $is_local_access = (
-            $context->isInClassScope()
-            && $context->getClassInScope($code_base) === $constant->getClass($code_base)
-        );
-
+        $is_local_access = $context->isInClassScope() && $context->getClassInScope($code_base) === $constant->getClass($code_base);
         // Are we within a class or an extending sub-class
         // referring to the class?
-        $is_local_or_remote_access = (
-            $is_local_access
-            || (
-                $context->isInClassScope()
-                && $context->getClassInScope($code_base)
-                ->getUnionType()->canCastToExpandedUnionType(
-                    $this->getUnionType(),
-                    $code_base
-                )
-            )
-        );
-
+        $is_local_or_remote_access = $is_local_access || $context->isInClassScope() && $context->getClassInScope($code_base)->getUnionType()->canCastToExpandedUnionType($this->getUnionType(), $code_base);
         // If we have the constant, but its inaccessible, emit
         // an issue
         if (!$is_local_access && $constant->isPrivate()) {
             $issue_creator = Issue::fromType(Issue::AccessClassConstantPrivate);
-            throw new IssueException(
-                $issue_creator(
-                    $context->getFile(),
-                    $context->getLineNumberStart(),
-                    [
-                        (string)$constant_fqsen,
-                        $constant->getContext()->getFile(),
-                        $constant->getContext()->getLineNumberStart()
-                    ]
-                )
-            );
-        } else if (!$is_local_or_remote_access && $constant->isProtected()) {
-            $issue_creator = Issue::fromType(Issue::AccessClassConstantProtected);
-            throw new IssueException(
-                $issue_creator(
-                    $context->getFile(),
-                    $context->getLineNumberStart(),
-                    [
-                        (string)$constant_fqsen,
-                        $constant->getContext()->getFile(),
-                        $constant->getContext()->getLineNumberStart()
-                    ]
-                )
-            );
+            throw new IssueException($issue_creator($context->getFile(), $context->getLineNumberStart(), [(string) $constant_fqsen, $constant->getContext()->getFile(), $constant->getContext()->getLineNumberStart()]));
+        } else {
+            if (!$is_local_or_remote_access && $constant->isProtected()) {
+                $issue_creator = Issue::fromType(Issue::AccessClassConstantProtected);
+                throw new IssueException($issue_creator($context->getFile(), $context->getLineNumberStart(), [(string) $constant_fqsen, $constant->getContext()->getFile(), $constant->getContext()->getLineNumberStart()]));
+            }
         }
-
-        return $constant;
+        $ret5902c6f50a16a = $constant;
+        if (!$ret5902c6f50a16a instanceof ClassConstant) {
+            throw new \InvalidArgumentException("Argument returned must be of the type ClassConstant, " . (gettype($ret5902c6f50a16a) == "object" ? get_class($ret5902c6f50a16a) : gettype($ret5902c6f50a16a)) . " given");
+        }
+        return $ret5902c6f50a16a;
     }
-
     /**
      * @return ClassConstant[]
      * The constants associated with this class
      */
-    public function getConstantMap(CodeBase $code_base) : array
+    public function getConstantMap(CodeBase $code_base)
     {
-        return $code_base->getClassConstantMapByFullyQualifiedClassName(
-            $this->getFQSEN()
-        );
+        $ret5902c6f50a748 = $code_base->getClassConstantMapByFullyQualifiedClassName($this->getFQSEN());
+        if (!is_array($ret5902c6f50a748)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type array, " . gettype($ret5902c6f50a748) . " given");
+        }
+        return $ret5902c6f50a748;
     }
-
     /**
      * Add a method to this class
      *
@@ -1088,71 +832,46 @@ class Clazz extends AddressableElement
      *
      * @return void
      */
-    public function addMethod(
-        CodeBase $code_base,
-        Method $method,
-        $type_option
-    ) {
-        $method_fqsen = FullyQualifiedMethodName::make(
-            $this->getFQSEN(),
-            $method->getName(),
-            $method->getFQSEN()->getAlternateId()
-        );
-
+    public function addMethod(CodeBase $code_base, Method $method, $type_option)
+    {
+        $method_fqsen = FullyQualifiedMethodName::make($this->getFQSEN(), $method->getName(), $method->getFQSEN()->getAlternateId());
         // Don't overwrite overridden methods with
         // parent methods
         if ($code_base->hasMethodWithFQSEN($method_fqsen)) {
-
             // Note that we're overriding something
-            $existing_method =
-                $code_base->getMethodByFQSEN($method_fqsen);
+            $existing_method = $code_base->getMethodByFQSEN($method_fqsen);
             $existing_method->setIsOverride(true);
-
             // Don't add the method
             return;
         }
-
         if ($method->getFQSEN() !== $method_fqsen) {
-            $method = clone($method);
+            $method = clone $method;
             $method->setDefiningFQSEN($method->getFQSEN());
             $method->setFQSEN($method_fqsen);
-
             // If we have a parent type defined, map the method's
             // return type and parameter types through it
             if ($type_option->isDefined()) {
-
                 // Map the method's return type
                 if ($method->getUnionType()->hasTemplateType()) {
-                    $method->setUnionType(
-                        $method->getUnionType()->withTemplateParameterTypeMap(
-                            $type_option->get()->getTemplateParameterTypeMap(
-                                $code_base
-                            )
-                        )
-                    );
+                    $method->setUnionType($method->getUnionType()->withTemplateParameterTypeMap($type_option->get()->getTemplateParameterTypeMap($code_base)));
                 }
-
                 // Map each method parameter
-                $method->setParameterList(
-                    array_map(function (Parameter $parameter) use ($type_option, $code_base) : Parameter {
-
-                        if (!$parameter->getUnionType()->hasTemplateType()) {
-                            return $parameter;
+                $method->setParameterList(array_map(function (Parameter $parameter) use($type_option, $code_base) {
+                    if (!$parameter->getUnionType()->hasTemplateType()) {
+                        $ret5902c6f50ac92 = $parameter;
+                        if (!$ret5902c6f50ac92 instanceof Parameter) {
+                            throw new \InvalidArgumentException("Argument returned must be of the type Parameter, " . (gettype($ret5902c6f50ac92) == "object" ? get_class($ret5902c6f50ac92) : gettype($ret5902c6f50ac92)) . " given");
                         }
-
-                        $mapped_parameter = clone($parameter);
-
-                        $mapped_parameter->setUnionType(
-                            $mapped_parameter->getUnionType()->withTemplateParameterTypeMap(
-                                $type_option->get()->getTemplateParameterTypeMap(
-                                    $code_base
-                                )
-                            )
-                        );
-
-                        return $mapped_parameter;
-                    }, $method->getParameterList())
-                );
+                        return $ret5902c6f50ac92;
+                    }
+                    $mapped_parameter = clone $parameter;
+                    $mapped_parameter->setUnionType($mapped_parameter->getUnionType()->withTemplateParameterTypeMap($type_option->get()->getTemplateParameterTypeMap($code_base)));
+                    $ret5902c6f50aff6 = $mapped_parameter;
+                    if (!$ret5902c6f50aff6 instanceof Parameter) {
+                        throw new \InvalidArgumentException("Argument returned must be of the type Parameter, " . (gettype($ret5902c6f50aff6) == "object" ? get_class($ret5902c6f50aff6) : gettype($ret5902c6f50aff6)) . " given");
+                    }
+                    return $ret5902c6f50aff6;
+                }, $method->getParameterList()));
             }
         }
         if ($method->getHasYield()) {
@@ -1163,96 +882,90 @@ class Clazz extends AddressableElement
                 $method->setUnionType($newType);
             }
         }
-
         $code_base->addMethod($method);
     }
-
     /**
      * @return bool
      * True if this class has a method with the given name
      */
-    public function hasMethodWithName(
-        CodeBase $code_base,
-        string $name
-    ) : bool {
+    public function hasMethodWithName(CodeBase $code_base, $name)
+    {
+        if (!is_string($name)) {
+            throw new \InvalidArgumentException("Argument \$name passed to hasMethodWithName() must be of the type string, " . (gettype($name) == "object" ? get_class($name) : gettype($name)) . " given");
+        }
         // All classes have a constructor even if it hasn't
         // been declared yet
         if ('__construct' === strtolower($name)) {
-            return true;
+            $ret5902c6f50b44c = true;
+            if (!is_bool($ret5902c6f50b44c)) {
+                throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f50b44c) . " given");
+            }
+            return $ret5902c6f50b44c;
         }
-
-        $method_fqsen = FullyQualifiedMethodName::make(
-            $this->getFQSEN(),
-            $name
-        );
-
-        return $code_base->hasMethodWithFQSEN($method_fqsen);
+        $method_fqsen = FullyQualifiedMethodName::make($this->getFQSEN(), $name);
+        $ret5902c6f50b73e = $code_base->hasMethodWithFQSEN($method_fqsen);
+        if (!is_bool($ret5902c6f50b73e)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f50b73e) . " given");
+        }
+        return $ret5902c6f50b73e;
     }
-
     /**
      * @return Method
      * The method with the given name
      */
-    public function getMethodByName(
-        CodeBase $code_base,
-        string $name
-    ) : Method {
-        return $this->getMethodByNameInContext(
-            $code_base,
-            $name,
-            $this->getContext()
-        );
+    public function getMethodByName(CodeBase $code_base, $name)
+    {
+        if (!is_string($name)) {
+            throw new \InvalidArgumentException("Argument \$name passed to getMethodByName() must be of the type string, " . (gettype($name) == "object" ? get_class($name) : gettype($name)) . " given");
+        }
+        $ret5902c6f50bdcc = $this->getMethodByNameInContext($code_base, $name, $this->getContext());
+        if (!$ret5902c6f50bdcc instanceof Method) {
+            throw new \InvalidArgumentException("Argument returned must be of the type Method, " . (gettype($ret5902c6f50bdcc) == "object" ? get_class($ret5902c6f50bdcc) : gettype($ret5902c6f50bdcc)) . " given");
+        }
+        return $ret5902c6f50bdcc;
     }
-
     /**
      * @return Method
      * The method with the given name
      */
-    public function getMethodByNameInContext(
-        CodeBase $code_base,
-        string $name,
-        Context $context
-    ) : Method {
-
-        $method_fqsen = FullyQualifiedMethodName::make(
-            $this->getFQSEN(),
-            $name
-        );
-
+    public function getMethodByNameInContext(CodeBase $code_base, $name, Context $context)
+    {
+        if (!is_string($name)) {
+            throw new \InvalidArgumentException("Argument \$name passed to getMethodByNameInContext() must be of the type string, " . (gettype($name) == "object" ? get_class($name) : gettype($name)) . " given");
+        }
+        $method_fqsen = FullyQualifiedMethodName::make($this->getFQSEN(), $name);
         if (!$code_base->hasMethodWithFQSEN($method_fqsen)) {
             if ('__construct' === $name) {
                 // Create a default constructor if its requested
                 // but doesn't exist yet
-                $default_constructor =
-                    Method::defaultConstructorForClassInContext(
-                        $this, $context, $code_base
-                    );
-
+                $default_constructor = Method::defaultConstructorForClassInContext($this, $context, $code_base);
                 $this->addMethod($code_base, $default_constructor, $this->getParentTypeOption());
-
-                return $default_constructor;
+                $ret5902c6f50c58b = $default_constructor;
+                if (!$ret5902c6f50c58b instanceof Method) {
+                    throw new \InvalidArgumentException("Argument returned must be of the type Method, " . (gettype($ret5902c6f50c58b) == "object" ? get_class($ret5902c6f50c58b) : gettype($ret5902c6f50c58b)) . " given");
+                }
+                return $ret5902c6f50c58b;
             }
-
-            throw new CodeBaseException(
-                $method_fqsen,
-                "Method with name $name does not exist for class {$this->getFQSEN()}."
-            );
+            throw new CodeBaseException($method_fqsen, "Method with name {$name} does not exist for class {$this->getFQSEN()}.");
         }
-
-        return $code_base->getMethodByFQSEN($method_fqsen);
+        $ret5902c6f50c8f4 = $code_base->getMethodByFQSEN($method_fqsen);
+        if (!$ret5902c6f50c8f4 instanceof Method) {
+            throw new \InvalidArgumentException("Argument returned must be of the type Method, " . (gettype($ret5902c6f50c8f4) == "object" ? get_class($ret5902c6f50c8f4) : gettype($ret5902c6f50c8f4)) . " given");
+        }
+        return $ret5902c6f50c8f4;
     }
-
     /**
      * @return Method[]
      * A list of methods on this class
      */
-    public function getMethodMap(CodeBase $code_base) : array
+    public function getMethodMap(CodeBase $code_base)
     {
-        return $code_base->getMethodMapByFullyQualifiedClassName(
-            $this->getFQSEN()
-        );
+        $ret5902c6f50ce2f = $code_base->getMethodMapByFullyQualifiedClassName($this->getFQSEN());
+        if (!is_array($ret5902c6f50ce2f)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type array, " . gettype($ret5902c6f50ce2f) . " given");
+        }
+        return $ret5902c6f50ce2f;
     }
-
     /**
      * @param CodeBase $code_base
      * The entire code base from which we'll find ancestor
@@ -1261,11 +974,14 @@ class Clazz extends AddressableElement
      * @return bool
      * True if this class has a magic '__call' method
      */
-    public function hasCallMethod(CodeBase $code_base) : bool
+    public function hasCallMethod(CodeBase $code_base)
     {
-        return $this->hasMethodWithName($code_base, '__call');
+        $ret5902c6f50d0cd = $this->hasMethodWithName($code_base, '__call');
+        if (!is_bool($ret5902c6f50d0cd)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f50d0cd) . " given");
+        }
+        return $ret5902c6f50d0cd;
     }
-
     /**
      * @param CodeBase $code_base
      * The entire code base from which we'll find ancestor
@@ -1277,10 +993,8 @@ class Clazz extends AddressableElement
      */
     public function allowsCallingUndeclaredInstanceMethod(CodeBase $code_base)
     {
-        return $this->hasCallMethod($code_base) &&
-            !$this->getForbidUndeclaredMagicMethods($code_base);
+        return $this->hasCallMethod($code_base) && !$this->getForbidUndeclaredMagicMethods($code_base);
     }
-
     /**
      * @param CodeBase $code_base
      * The entire code base from which we'll find ancestor
@@ -1289,10 +1003,10 @@ class Clazz extends AddressableElement
      * @return Method
      * The magic `__call` method
      */
-    public function getCallMethod(CodeBase $code_base) {
+    public function getCallMethod(CodeBase $code_base)
+    {
         return $this->getMethodByName($code_base, '__call');
     }
-
     /**
      * @param CodeBase $code_base
      * The entire code base from which we'll find ancestor
@@ -1301,11 +1015,14 @@ class Clazz extends AddressableElement
      * @return bool
      * True if this class has a magic '__callStatic' method
      */
-    public function hasCallStaticMethod(CodeBase $code_base) : bool
+    public function hasCallStaticMethod(CodeBase $code_base)
     {
-        return $this->hasMethodWithName($code_base, '__callStatic');
+        $ret5902c6f50d455 = $this->hasMethodWithName($code_base, '__callStatic');
+        if (!is_bool($ret5902c6f50d455)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f50d455) . " given");
+        }
+        return $ret5902c6f50d455;
     }
-
     /**
      * @param CodeBase $code_base
      * The entire code base from which we'll find ancestor
@@ -1317,10 +1034,8 @@ class Clazz extends AddressableElement
      */
     public function allowsCallingUndeclaredStaticMethod(CodeBase $code_base)
     {
-        return $this->hasCallStaticMethod($code_base) &&
-            !$this->getForbidUndeclaredMagicMethods($code_base);
+        return $this->hasCallStaticMethod($code_base) && !$this->getForbidUndeclaredMagicMethods($code_base);
     }
-
     /**
      * @param CodeBase $code_base
      * The entire code base from which we'll find ancestor
@@ -1329,10 +1044,10 @@ class Clazz extends AddressableElement
      * @return Method
      * The magic `__callStatic` method
      */
-    public function getCallStaticMethod(CodeBase $code_base) {
+    public function getCallStaticMethod(CodeBase $code_base)
+    {
         return $this->getMethodByName($code_base, '__callStatic');
     }
-
     /**
      * @param CodeBase $code_base
      * The entire code base from which we'll find ancestor
@@ -1344,12 +1059,8 @@ class Clazz extends AddressableElement
      */
     public function hasCallOrCallStaticMethod(CodeBase $code_base)
     {
-        return (
-            $this->hasCallMethod($code_base)
-            || $this->hasCallStaticMethod($code_base)
-        );
+        return $this->hasCallMethod($code_base) || $this->hasCallStaticMethod($code_base);
     }
-
     /**
      * @param CodeBase $code_base
      * The entire code base from which we'll find ancestor
@@ -1358,11 +1069,14 @@ class Clazz extends AddressableElement
      * @return bool
      * True if this class has a magic '__get' method
      */
-    public function hasGetMethod(CodeBase $code_base) : bool
+    public function hasGetMethod(CodeBase $code_base)
     {
-        return $this->hasMethodWithName($code_base, '__get');
+        $ret5902c6f50d861 = $this->hasMethodWithName($code_base, '__get');
+        if (!is_bool($ret5902c6f50d861)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f50d861) . " given");
+        }
+        return $ret5902c6f50d861;
     }
-
     /**
      * @param CodeBase $code_base
      * The entire code base from which we'll find ancestor
@@ -1371,11 +1085,14 @@ class Clazz extends AddressableElement
      * @return bool
      * True if this class has a magic '__set' method
      */
-    public function hasSetMethod(CodeBase $code_base) : bool
+    public function hasSetMethod(CodeBase $code_base)
     {
-        return $this->hasMethodWithName($code_base, '__set');
+        $ret5902c6f50db4a = $this->hasMethodWithName($code_base, '__set');
+        if (!is_bool($ret5902c6f50db4a)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f50db4a) . " given");
+        }
+        return $ret5902c6f50db4a;
     }
-
     /**
      * @param CodeBase $code_base
      * The entire code base from which we'll find ancestor
@@ -1387,221 +1104,184 @@ class Clazz extends AddressableElement
      */
     public function hasGetOrSetMethod(CodeBase $code_base)
     {
-        return (
-            $this->hasGetMethod($code_base)
-            || $this->hasSetMethod($code_base)
-        );
+        return $this->hasGetMethod($code_base) || $this->hasSetMethod($code_base);
     }
-
     /**
      * @return void
      */
     public function addTraitFQSEN(FQSEN $fqsen)
     {
         $this->trait_fqsen_list[] = $fqsen;
-
         // Add the trait to the union type of this class
-        $this->getUnionType()->addUnionType(
-            UnionType::fromFullyQualifiedString((string)$fqsen)
-        );
+        $this->getUnionType()->addUnionType(UnionType::fromFullyQualifiedString((string) $fqsen));
     }
-
     /**
      * @return FQSEN[]
      * A list of FQSEN's for included traits
      */
-    public function getTraitFQSENList() : array
+    public function getTraitFQSENList()
     {
-        return $this->trait_fqsen_list;
+        $ret5902c6f50dec0 = $this->trait_fqsen_list;
+        if (!is_array($ret5902c6f50dec0)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type array, " . gettype($ret5902c6f50dec0) . " given");
+        }
+        return $ret5902c6f50dec0;
     }
-
     /**
      * @return bool
      * True if this class calls its parent constructor
      */
-    public function getIsParentConstructorCalled() : bool
+    public function getIsParentConstructorCalled()
     {
-        return Flags::bitVectorHasState(
-            $this->getPhanFlags(),
-            Flags::IS_PARENT_CONSTRUCTOR_CALLED
-        );
+        $ret5902c6f50e152 = Flags::bitVectorHasState($this->getPhanFlags(), Flags::IS_PARENT_CONSTRUCTOR_CALLED);
+        if (!is_bool($ret5902c6f50e152)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f50e152) . " given");
+        }
+        return $ret5902c6f50e152;
     }
-
     /**
      * @return void
      */
-    public function setIsParentConstructorCalled(
-        bool $is_parent_constructor_called
-    ) {
-        $this->setPhanFlags(Flags::bitVectorWithState(
-            $this->getPhanFlags(),
-            Flags::IS_PARENT_CONSTRUCTOR_CALLED,
-            $is_parent_constructor_called
-        ));
+    public function setIsParentConstructorCalled($is_parent_constructor_called)
+    {
+        if (!is_bool($is_parent_constructor_called)) {
+            throw new \InvalidArgumentException("Argument \$is_parent_constructor_called passed to setIsParentConstructorCalled() must be of the type bool, " . (gettype($is_parent_constructor_called) == "object" ? get_class($is_parent_constructor_called) : gettype($is_parent_constructor_called)) . " given");
+        }
+        $this->setPhanFlags(Flags::bitVectorWithState($this->getPhanFlags(), Flags::IS_PARENT_CONSTRUCTOR_CALLED, $is_parent_constructor_called));
     }
-
     /**
      * Forbid undeclared magic properties
      * @param bool $forbid - set to true to forbid.
      * @return void
      */
-    public function getForbidUndeclaredMagicProperties(CodeBase $code_base) : bool {
-        return (
-            Flags::bitVectorHasState(
-                $this->getPhanFlags(),
-                Flags::CLASS_FORBID_UNDECLARED_MAGIC_PROPERTIES
-            )
-            ||
-            (
-                $this->hasParentType()
-                && $code_base->hasClassWithFQSEN($this->getParentClassFQSEN())
-                && $this->getParentClass($code_base)->getForbidUndeclaredMagicProperties($code_base)
-            )
-        );
+    public function getForbidUndeclaredMagicProperties(CodeBase $code_base)
+    {
+        $ret5902c6f50e7e8 = Flags::bitVectorHasState($this->getPhanFlags(), Flags::CLASS_FORBID_UNDECLARED_MAGIC_PROPERTIES) || $this->hasParentType() && $code_base->hasClassWithFQSEN($this->getParentClassFQSEN()) && $this->getParentClass($code_base)->getForbidUndeclaredMagicProperties($code_base);
+        if (!is_bool($ret5902c6f50e7e8)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f50e7e8) . " given");
+        }
+        return $ret5902c6f50e7e8;
     }
-
     /**
      * Set whether undeclared magic properties are forbidden
      * (properties accessed through __get or __set, with no (at)property annotation on parent class)
      * @param bool $forbid - set to true to forbid.
      * @return void
      */
-    public function setForbidUndeclaredMagicProperties(
-        bool $forbid_undeclared_dynamic_properties
-    ) {
-        $this->setPhanFlags(Flags::bitVectorWithState(
-            $this->getPhanFlags(),
-            Flags::CLASS_FORBID_UNDECLARED_MAGIC_PROPERTIES,
-            $forbid_undeclared_dynamic_properties
-        ));
+    public function setForbidUndeclaredMagicProperties($forbid_undeclared_dynamic_properties)
+    {
+        if (!is_bool($forbid_undeclared_dynamic_properties)) {
+            throw new \InvalidArgumentException("Argument \$forbid_undeclared_dynamic_properties passed to setForbidUndeclaredMagicProperties() must be of the type bool, " . (gettype($forbid_undeclared_dynamic_properties) == "object" ? get_class($forbid_undeclared_dynamic_properties) : gettype($forbid_undeclared_dynamic_properties)) . " given");
+        }
+        $this->setPhanFlags(Flags::bitVectorWithState($this->getPhanFlags(), Flags::CLASS_FORBID_UNDECLARED_MAGIC_PROPERTIES, $forbid_undeclared_dynamic_properties));
     }
-
     /**
      * Forbid undeclared magic methods
      * @param bool $forbid - set to true to forbid.
      * @return void
      */
-    public function getForbidUndeclaredMagicMethods(CodeBase $code_base) : bool {
-        return (
-            Flags::bitVectorHasState(
-                $this->getPhanFlags(),
-                Flags::CLASS_FORBID_UNDECLARED_MAGIC_METHODS
-            )
-            ||
-            (
-                $this->hasParentType()
-                && $code_base->hasClassWithFQSEN($this->getParentClassFQSEN())
-                && $this->getParentClass($code_base)->getForbidUndeclaredMagicMethods($code_base)
-            )
-        );
+    public function getForbidUndeclaredMagicMethods(CodeBase $code_base)
+    {
+        $ret5902c6f50ee04 = Flags::bitVectorHasState($this->getPhanFlags(), Flags::CLASS_FORBID_UNDECLARED_MAGIC_METHODS) || $this->hasParentType() && $code_base->hasClassWithFQSEN($this->getParentClassFQSEN()) && $this->getParentClass($code_base)->getForbidUndeclaredMagicMethods($code_base);
+        if (!is_bool($ret5902c6f50ee04)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f50ee04) . " given");
+        }
+        return $ret5902c6f50ee04;
     }
-
     /**
      * Set whether undeclared magic methods are forbidden
      * (methods accessed through __call or __callStatic, with no (at)method annotation on class)
      * @param bool $forbid - set to true to forbid.
      * @return void
      */
-    public function setForbidUndeclaredMagicMethods(
-        bool $forbid_undeclared_magic_methods
-    ) {
-        $this->setPhanFlags(Flags::bitVectorWithState(
-            $this->getPhanFlags(),
-            Flags::CLASS_FORBID_UNDECLARED_MAGIC_METHODS,
-            $forbid_undeclared_magic_methods
-        ));
+    public function setForbidUndeclaredMagicMethods($forbid_undeclared_magic_methods)
+    {
+        if (!is_bool($forbid_undeclared_magic_methods)) {
+            throw new \InvalidArgumentException("Argument \$forbid_undeclared_magic_methods passed to setForbidUndeclaredMagicMethods() must be of the type bool, " . (gettype($forbid_undeclared_magic_methods) == "object" ? get_class($forbid_undeclared_magic_methods) : gettype($forbid_undeclared_magic_methods)) . " given");
+        }
+        $this->setPhanFlags(Flags::bitVectorWithState($this->getPhanFlags(), Flags::CLASS_FORBID_UNDECLARED_MAGIC_METHODS, $forbid_undeclared_magic_methods));
     }
-
     /**
      * @return bool
      * True if this class has dynamic properties. (e.g. stdClass)
      */
-    public function getHasDynamicProperties(CodeBase $code_base) : bool
+    public function getHasDynamicProperties(CodeBase $code_base)
     {
-        return (
-            Flags::bitVectorHasState(
-                $this->getPhanFlags(),
-                Flags::CLASS_HAS_DYNAMIC_PROPERTIES
-            )
-            ||
-            (
-                $this->hasParentType()
-                && $code_base->hasClassWithFQSEN($this->getParentClassFQSEN())
-                && $this->getParentClass($code_base)->getHasDynamicProperties($code_base)
-            )
-        );
+        $ret5902c6f50f475 = Flags::bitVectorHasState($this->getPhanFlags(), Flags::CLASS_HAS_DYNAMIC_PROPERTIES) || $this->hasParentType() && $code_base->hasClassWithFQSEN($this->getParentClassFQSEN()) && $this->getParentClass($code_base)->getHasDynamicProperties($code_base);
+        if (!is_bool($ret5902c6f50f475)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f50f475) . " given");
+        }
+        return $ret5902c6f50f475;
     }
-
     /**
      * @return void
      */
-    public function setHasDynamicProperties(
-        bool $has_dynamic_properties
-    ) {
-        $this->setPhanFlags(Flags::bitVectorWithState(
-            $this->getPhanFlags(),
-            Flags::CLASS_HAS_DYNAMIC_PROPERTIES,
-            $has_dynamic_properties
-        ));
+    public function setHasDynamicProperties($has_dynamic_properties)
+    {
+        if (!is_bool($has_dynamic_properties)) {
+            throw new \InvalidArgumentException("Argument \$has_dynamic_properties passed to setHasDynamicProperties() must be of the type bool, " . (gettype($has_dynamic_properties) == "object" ? get_class($has_dynamic_properties) : gettype($has_dynamic_properties)) . " given");
+        }
+        $this->setPhanFlags(Flags::bitVectorWithState($this->getPhanFlags(), Flags::CLASS_HAS_DYNAMIC_PROPERTIES, $has_dynamic_properties));
     }
-
-
     /**
      * @return bool
      * True if this is a final class
      */
-    public function isFinal() : bool
+    public function isFinal()
     {
-        return Flags::bitVectorHasState(
-            $this->getFlags(),
-            \ast\flags\CLASS_FINAL
-        );
+        $ret5902c6f50f9eb = Flags::bitVectorHasState($this->getFlags(), \ast\flags\CLASS_FINAL);
+        if (!is_bool($ret5902c6f50f9eb)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f50f9eb) . " given");
+        }
+        return $ret5902c6f50f9eb;
     }
-
     /**
      * @return bool
      * True if this is an abstract class
      */
-    public function isAbstract() : bool
+    public function isAbstract()
     {
-        return Flags::bitVectorHasState(
-            $this->getFlags(),
-            \ast\flags\CLASS_ABSTRACT
-        );
+        $ret5902c6f50fc7c = Flags::bitVectorHasState($this->getFlags(), \ast\flags\CLASS_ABSTRACT);
+        if (!is_bool($ret5902c6f50fc7c)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f50fc7c) . " given");
+        }
+        return $ret5902c6f50fc7c;
     }
-
     /**
      * @return bool
      * True if this is an interface
      */
-    public function isInterface() : bool
+    public function isInterface()
     {
-        return Flags::bitVectorHasState(
-            $this->getFlags(),
-            \ast\flags\CLASS_INTERFACE
-        );
+        $ret5902c6f50ff45 = Flags::bitVectorHasState($this->getFlags(), \ast\flags\CLASS_INTERFACE);
+        if (!is_bool($ret5902c6f50ff45)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f50ff45) . " given");
+        }
+        return $ret5902c6f50ff45;
     }
-
     /**
      * @return bool
      * True if this class is a trait
      */
-    public function isTrait() : bool
+    public function isTrait()
     {
-        return Flags::bitVectorHasState(
-            $this->getFlags(),
-            \ast\flags\CLASS_TRAIT
-        );
+        $ret5902c6f5101d0 = Flags::bitVectorHasState($this->getFlags(), \ast\flags\CLASS_TRAIT);
+        if (!is_bool($ret5902c6f5101d0)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f5101d0) . " given");
+        }
+        return $ret5902c6f5101d0;
     }
-
     /**
      * @return FullyQualifiedClassName
      */
-    public function getFQSEN() : FullyQualifiedClassName
+    public function getFQSEN()
     {
-        return $this->fqsen;
+        $ret5902c6f510469 = $this->fqsen;
+        if (!$ret5902c6f510469 instanceof FullyQualifiedClassName) {
+            throw new \InvalidArgumentException("Argument returned must be of the type FullyQualifiedClassName, " . (gettype($ret5902c6f510469) == "object" ? get_class($ret5902c6f510469) : gettype($ret5902c6f510469)) . " given");
+        }
+        return $ret5902c6f510469;
     }
-
     /**
      * @param CodeBase $code_base
      * The entire code base from which we'll find ancestor
@@ -1611,26 +1291,19 @@ class Clazz extends AddressableElement
      */
     public function getNonParentAncestorFQSENList(CodeBase $code_base)
     {
-        return array_merge(
-            $this->getInterfaceFQSENList(),
-            $this->getTraitFQSENList()
-        );
+        return array_merge($this->getInterfaceFQSENList(), $this->getTraitFQSENList());
     }
-
     /**
      * @return FullyQualifiedClassName[]
      */
     public function getAncestorFQSENList(CodeBase $code_base)
     {
         $ancestor_list = $this->getNonParentAncestorFQSENList($code_base);
-
         if ($this->hasParentType()) {
             $ancestor_list[] = $this->getParentClassFQSEN();
         }
-
         return $ancestor_list;
     }
-
     /**
      * @param CodeBase $code_base
      * The entire code base from which we'll find ancestor
@@ -1642,19 +1315,20 @@ class Clazz extends AddressableElement
      *
      * @return Clazz[]
      */
-    private function getClassListFromFQSENList(
-        CodeBase $code_base,
-        array $fqsen_list
-    ) : array {
+    private function getClassListFromFQSENList(CodeBase $code_base, array $fqsen_list)
+    {
         $class_list = [];
         foreach ($fqsen_list as $fqsen) {
             if ($code_base->hasClassWithFQSEN($fqsen)) {
                 $class_list[] = $code_base->getClassByFQSEN($fqsen);
             }
         }
-        return $class_list;
+        $ret5902c6f510912 = $class_list;
+        if (!is_array($ret5902c6f510912)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type array, " . gettype($ret5902c6f510912) . " given");
+        }
+        return $ret5902c6f510912;
     }
-
     /**
      * @param CodeBase $code_base
      * The entire code base from which we'll find ancestor
@@ -1664,12 +1338,8 @@ class Clazz extends AddressableElement
      */
     public function getAncestorClassList(CodeBase $code_base)
     {
-        return $this->getClassListFromFQSENList(
-            $code_base,
-            $this->getAncestorFQSENList($code_base)
-        );
+        return $this->getClassListFromFQSENList($code_base, $this->getAncestorFQSENList($code_base));
     }
-
     /**
      * @return FullyQualifiedClassName[]
      * The set of FQSENs representing extended classes and traits
@@ -1679,14 +1349,11 @@ class Clazz extends AddressableElement
     public function getOverridableAncestorFQSENList(CodeBase $code_base)
     {
         $ancestor_list = $this->getTraitFQSENList();
-
         if ($this->hasParentType()) {
             $ancestor_list[] = $this->getParentClassFQSEN();
         }
-
         return $ancestor_list;
     }
-
     /**
      * @param CodeBase $code_base
      * The entire code base from which we'll find ancestor
@@ -1696,12 +1363,8 @@ class Clazz extends AddressableElement
      */
     public function getOverridableAncestorClassList(CodeBase $code_base)
     {
-        return $this->getClassListFromFQSENList(
-            $code_base,
-            $this->getOverridableAncestorFQSENList($code_base)
-        );
+        return $this->getClassListFromFQSENList($code_base, $this->getOverridableAncestorFQSENList($code_base));
     }
-
     /**
      * Add properties, constants and methods from all
      * ancestors (parents, traits, ...) to this class
@@ -1717,23 +1380,16 @@ class Clazz extends AddressableElement
         if (!$this->isFirstExecution(__METHOD__)) {
             return;
         }
-
         foreach ($this->getNonParentAncestorFQSENList($code_base) as $fqsen) {
             if (!$code_base->hasClassWithFQSEN($fqsen)) {
                 continue;
             }
-
             $ancestor = $code_base->getClassByFQSEN($fqsen);
-
-            $this->importAncestorClass(
-                $code_base, $ancestor, new None
-            );
+            $this->importAncestorClass($code_base, $ancestor, new None());
         }
-
         // Copy information from the parent(s)
         $this->importParentClass($code_base);
     }
-
     /*
      * Add properties, constants and methods from the
      * parent of this class
@@ -1749,42 +1405,24 @@ class Clazz extends AddressableElement
         if (!$this->isFirstExecution(__METHOD__)) {
             return;
         }
-
         if (!$this->hasParentType()) {
             return;
         }
-
         if ($this->getParentClassFQSEN() == $this->getFQSEN()) {
             return;
         }
-
         // Let the parent class finder worry about this
-        if (!$code_base->hasClassWithFQSEN(
-            $this->getParentClassFQSEN()
-        )) {
+        if (!$code_base->hasClassWithFQSEN($this->getParentClassFQSEN())) {
             return;
         }
-
-        assert(
-            $code_base->hasClassWithFQSEN($this->getParentClassFQSEN()),
-            "Clazz should already have been proven to exist."
-        );
-
+        assert($code_base->hasClassWithFQSEN($this->getParentClassFQSEN()), "Clazz should already have been proven to exist.");
         // Get the parent class
         $parent = $this->getParentClass($code_base);
-
         $parent->addReference($this->getContext());
-
         // Tell the parent to import its own parents first
-
         // Import elements from the parent
-        $this->importAncestorClass(
-            $code_base,
-            $parent,
-            $this->getParentTypeOption()
-        );
+        $this->importAncestorClass($code_base, $parent, $this->getParentTypeOption());
     }
-
     /**
      * Add properties, constants and methods from the given
      * class to this.
@@ -1802,112 +1440,92 @@ class Clazz extends AddressableElement
      *
      * @return void
      */
-    public function importAncestorClass(
-        CodeBase $code_base,
-        Clazz $class,
-        $type_option
-    ) {
-        if (!$this->isFirstExecution(
-            __METHOD__ . ':' . (string)$class->getFQSEN()
-        )) {
+    public function importAncestorClass(CodeBase $code_base, Clazz $class, $type_option)
+    {
+        if (!$this->isFirstExecution(__METHOD__ . ':' . (string) $class->getFQSEN())) {
             return;
         }
-
         $class->addReference($this->getContext());
-
         // Make sure that the class imports its parents first
         $class->hydrate($code_base);
-
         // Copy properties
         foreach ($class->getPropertyMap($code_base) as $property) {
-            $this->addProperty(
-                $code_base,
-                $property,
-                $type_option
-            );
+            $this->addProperty($code_base, $property, $type_option);
         }
-
         // Copy constants
         foreach ($class->getConstantMap($code_base) as $constant) {
             $this->addConstant($code_base, $constant);
         }
-
         // Copy methods
         foreach ($class->getMethodMap($code_base) as $method) {
-            $this->addMethod(
-                $code_base,
-                $method,
-                $type_option
-            );
+            $this->addMethod($code_base, $method, $type_option);
         }
     }
-
     /**
      * @return int
      * The number of references to this typed structural element
      */
-    public function getReferenceCount(
-        CodeBase $code_base
-    ) : int {
+    public function getReferenceCount(CodeBase $code_base)
+    {
         $count = parent::getReferenceCount($code_base);
-
         // A function that maps a list of elements to the
         // total reference count for all elements
-        $list_count = function (array $list) use ($code_base) {
-            return array_reduce($list, function (
-                int $count,
-                AddressableElement $element
-            ) use ($code_base) {
-                return (
-                    $count
-                    + $element->getReferenceCount($code_base)
-                );
+        $list_count = function (array $list) use($code_base) {
+            return array_reduce($list, function ($count, AddressableElement $element) use($code_base) {
+                if (!is_int($count)) {
+                    throw new \InvalidArgumentException("Argument \$count passed to () must be of the type int, " . (gettype($count) == "object" ? get_class($count) : gettype($count)) . " given");
+                }
+                return $count + $element->getReferenceCount($code_base);
             }, 0);
         };
-
         // Sum up counts for all dependent elements
         $count += $list_count($this->getPropertyList($code_base));
         $count += $list_count($this->getMethodMap($code_base));
         $count += $list_count($this->getConstantMap($code_base));
-
-        return $count;
+        $ret5902c6f51180d = $count;
+        if (!is_int($ret5902c6f51180d)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type int, " . gettype($ret5902c6f51180d) . " given");
+        }
+        return $ret5902c6f51180d;
     }
-
     /**
      * @return bool
      * True if this class contains generic types
      */
-    public function isGeneric() : bool
+    public function isGeneric()
     {
-        return $this->getInternalScope()->hasAnyTemplateType();
+        $ret5902c6f511a6b = $this->getInternalScope()->hasAnyTemplateType();
+        if (!is_bool($ret5902c6f511a6b)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f511a6b) . " given");
+        }
+        return $ret5902c6f511a6b;
     }
-
     /**
      * @return TemplateType[]
      * The set of all template types parameterizing this generic
      * class
      */
-    public function getTemplateTypeMap() : array
+    public function getTemplateTypeMap()
     {
-        return $this->getInternalScope()->getTemplateTypeMap();
+        $ret5902c6f511cc9 = $this->getInternalScope()->getTemplateTypeMap();
+        if (!is_array($ret5902c6f511cc9)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type array, " . gettype($ret5902c6f511cc9) . " given");
+        }
+        return $ret5902c6f511cc9;
     }
-
     /**
      * @return string
      * A string describing this class
      */
-    public function __toString() : string
+    public function __toString()
     {
         $string = '';
-
         if ($this->isFinal()) {
             $string .= 'final ';
         }
-
         if ($this->isAbstract()) {
             $string .= 'abstract ';
         }
-
         if ($this->isInterface()) {
             $string .= 'Interface ';
         } elseif ($this->isTrait()) {
@@ -1915,12 +1533,13 @@ class Clazz extends AddressableElement
         } else {
             $string .= 'Class ';
         }
-
-        $string .= (string)$this->getFQSEN()->getCanonicalFQSEN();
-
-        return $string;
+        $string .= (string) $this->getFQSEN()->getCanonicalFQSEN();
+        $ret5902c6f512052 = $string;
+        if (!is_string($ret5902c6f512052)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type string, " . gettype($ret5902c6f512052) . " given");
+        }
+        return $ret5902c6f512052;
     }
-
     /**
      * This method must be called before analysis
      * begins.
@@ -1931,40 +1550,16 @@ class Clazz extends AddressableElement
     {
         foreach ($this->getAncestorFQSENList($code_base) as $fqsen) {
             if ($code_base->hasClassWithFQSEN($fqsen)) {
-                $code_base->getClassByFQSEN(
-                    $fqsen
-                )->hydrate($code_base);
+                $code_base->getClassByFQSEN($fqsen)->hydrate($code_base);
             }
         }
-
         // Create the 'class' constant
-        $this->addConstant($code_base,
-            new ClassConstant(
-                $this->getContext(),
-                'class',
-                StringType::instance(false)->asUnionType(),
-                0,
-                FullyQualifiedClassConstantName::make(
-                    $this->getFQSEN(),
-                    'class'
-                )
-            )
-        );
-
+        $this->addConstant($code_base, new ClassConstant($this->getContext(), 'class', StringType::instance(false)->asUnionType(), 0, FullyQualifiedClassConstantName::make($this->getFQSEN(), 'class')));
         // Add variable '$this' to the scope
-        $this->getInternalScope()->addVariable(
-            new Variable(
-                $this->getContext(),
-                'this',
-                $this->getUnionType(),
-                0
-            )
-        );
-
+        $this->getInternalScope()->addVariable(new Variable($this->getContext(), 'this', $this->getUnionType(), 0));
         // Load parent methods, properties, constants
         $this->importAncestorClasses($code_base);
     }
-
     /**
      * This method should be called after hydration
      *
@@ -1975,34 +1570,15 @@ class Clazz extends AddressableElement
         if ($this->isPHPInternal()) {
             return;
         }
-
         // Make sure the parent classes exist
-        ClassInheritanceAnalyzer::analyzeClassInheritance(
-            $code_base, $this
-        );
-
-        DuplicateClassAnalyzer::analyzeDuplicateClass(
-            $code_base, $this
-        );
-
-        ParentConstructorCalledAnalyzer::analyzeParentConstructorCalled(
-            $code_base, $this
-        );
-
-        PropertyTypesAnalyzer::analyzePropertyTypes(
-            $code_base, $this
-        );
-
+        ClassInheritanceAnalyzer::analyzeClassInheritance($code_base, $this);
+        DuplicateClassAnalyzer::analyzeDuplicateClass($code_base, $this);
+        ParentConstructorCalledAnalyzer::analyzeParentConstructorCalled($code_base, $this);
+        PropertyTypesAnalyzer::analyzePropertyTypes($code_base, $this);
         // Analyze this class to make sure that we don't have conflicting
         // types between similar inherited methods.
-        CompositionAnalyzer::analyzeComposition(
-            $code_base, $this
-        );
-
+        CompositionAnalyzer::analyzeComposition($code_base, $this);
         // Let any configured plugins analyze the class
-        ConfigPluginSet::instance()->analyzeClass(
-            $code_base, $this
-        );
-
+        ConfigPluginSet::instance()->analyzeClass($code_base, $this);
     }
 }

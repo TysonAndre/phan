@@ -1,10 +1,13 @@
-<?php declare(strict_types=1);
+<?php
+
+/*
+ * This code has been transpiled via TransPHPile. For more information, visit https://github.com/jaytaph/transphpile
+ */
 namespace Phan\Language\Element;
 
 use Phan\CodeBase;
 use Phan\Language\FQSEN;
 use Phan\Language\FileRef;
-
 interface AddressableElementInterface extends TypedElementInterface
 {
     /**
@@ -13,7 +16,6 @@ interface AddressableElementInterface extends TypedElementInterface
      * structural element
      */
     public function getFQSEN();
-
     /**
      * @param FQSEN $fqsen
      * A fully qualified structural element name to set on
@@ -22,25 +24,21 @@ interface AddressableElementInterface extends TypedElementInterface
      * @return void
      */
     public function setFQSEN(FQSEN $fqsen);
-
     /**
      * @return bool
      * True if this is a public property
      */
-    public function isPublic() : bool;
-
+    public function isPublic();
     /**
      * @return bool
      * True if this is a protected property
      */
-    public function isProtected() : bool;
-
+    public function isProtected();
     /**
      * @return bool
      * True if this is a private property
      */
-    public function isPrivate() : bool;
-
+    public function isPrivate();
     /**
      * @param FileRef $file_ref
      * A reference to a location in which this typed structural
@@ -49,13 +47,11 @@ interface AddressableElementInterface extends TypedElementInterface
      * @return void
      */
     public function addReference(FileRef $file_ref);
-
     /**
      * @return FileRef[]
      * A list of references to this typed structural element.
      */
-    public function getReferenceList() : array;
-
+    public function getReferenceList();
     /**
      * @param CodeBase $code_base
      * Some elements may need access to the code base to
@@ -64,8 +60,5 @@ interface AddressableElementInterface extends TypedElementInterface
      * @return int
      * The number of references to this typed structural element
      */
-    public function getReferenceCount(
-        CodeBase $code_base
-    ) : int;
-
+    public function getReferenceCount(CodeBase $code_base);
 }

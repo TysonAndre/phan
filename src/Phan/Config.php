@@ -1,4 +1,8 @@
-<?php declare(strict_types=1);
+<?php
+
+/*
+ * This code has been transpiled via TransPHPile. For more information, visit https://github.com/jaytaph/transphpile
+ */
 namespace Phan;
 
 /**
@@ -8,396 +12,37 @@ namespace Phan;
  */
 class Config
 {
-
     /**
      * @var string|null
      * The root directory of the project. This is used to
      * store canonical path names and find project resources
      */
     private $project_root_directory = null;
-
     /**
      * Configuration options
      */
-    private $configuration = [
-
-        // A list of individual files to include in analysis
-        // with a path relative to the root directory of the
-        // project
-        'file_list' => [],
-
-        // A list of directories that should be parsed for class and
-        // method information. After excluding the directories
-        // defined in exclude_analysis_directory_list, the remaining
-        // files will be statically analyzed for errors.
-        //
-        // Thus, both first-party and third-party code being used by
-        // your application should be included in this list.
-        'directory_list' => [],
-
-        // List of case-insensitive file extensions supported by Phan.
-        // (e.g. php, html, htm)
-        'analyzed_file_extensions' => ['php'],
-
-        // A regular expression to filter out files with matching filenames.
-        // (e.g. '/Test\.php$/')
-        'exclude_file_regex' => '',
-
-        // A file list that defines files that will be excluded
-        // from parsing and analysis and will not be read at all.
-        //
-        // This is useful for excluding hopelessly unanalyzable
-        // files that can't be removed for whatever reason.
-        'exclude_file_list' => [],
-
-        // A directory list that defines files that will be excluded
-        // from static analysis, but whose class and method
-        // information should be included.
-        //
-        // Generally, you'll want to include the directories for
-        // third-party code (such as "vendor/") in this list.
-        //
-        // n.b.: If you'd like to parse but not analyze 3rd
-        //       party code, directories containing that code
-        //       should be added to the `directory_list` as
-        //       to `excluce_analysis_directory_list`.
-        'exclude_analysis_directory_list' => [],
-
-        // Backwards Compatibility Checking. This is slow
-        // and expensive, but you should consider running
-        // it before upgrading your version of PHP to a
-        // new version that has backward compatibility
-        // breaks.
-        'backward_compatibility_checks' => true,
-
-        // A set of fully qualified class-names for which
-        // a call to parent::__construct() is required.
-        'parent_constructor_required' => [],
-
-        // Run a quick version of checks that takes less
-        // time at the cost of not running as thorough
-        // an analysis. You should consider setting this
-        // to true only when you wish you had more issues
-        // to fix in your code base.
-        //
-        // In quick-mode the scanner doesn't rescan a function
-        // or a method's code block every time a call is seen.
-        // This means that the problem here won't be detected:
-        //
-        // ```php
-        // <?php
-        // function test($arg):int {
-        //     return $arg;
-        // }
-        // test("abc");
-        // ```
-        //
-        // This would normally generate:
-        //
-        // ```sh
-        // test.php:3 TypeError return string but `test()` is declared to return int
-        // ```
-        //
-        // The initial scan of the function's code block has no
-        // type information for `$arg`. It isn't until we see
-        // the call and rescan test()'s code block that we can
-        // detect that it is actually returning the passed in
-        // `string` instead of an `int` as declared.
-        'quick_mode' => false,
-
-        // By default, Phan will analyze all node types.
-        // If this config is set to false, Phan will do a
-        // shallower pass of the AST tree which will save
-        // time but may find fewer issues.
-        //
-        // See \Phan\Analysis::shouldVisit for the set of skipped
-        // nodes.
-        'should_visit_all_nodes' => true,
-
-        // If enabled, check all methods that override a
-        // parent method to make sure its signature is
-        // compatible with the parent's. This check
-        // can add quite a bit of time to the analysis.
-        'analyze_signature_compatibility' => true,
-
-        // The minimum severity level to report on. This can be
-        // set to Issue::SEVERITY_LOW, Issue::SEVERITY_NORMAL or
-        // Issue::SEVERITY_CRITICAL. Setting it to only
-        // critical issues is a good place to start on a big
-        // sloppy mature code base.
-        'minimum_severity' => 0,
-
-        // If true, missing properties will be created when
-        // they are first seen. If false, we'll report an
-        // error message if there is an attempt to write
-        // to a class property that wasn't explicitly
-        // defined.
-        'allow_missing_properties' => false,
-
-        // Allow null to be cast as any type and for any
-        // type to be cast to null. Setting this to false
-        // will cut down on false positives.
-        'null_casts_as_any_type' => false,
-
-        // If enabled, scalars (int, float, bool, string, null)
-        // are treated as if they can cast to each other.
-        'scalar_implicit_cast' => false,
-
-        // If true, seemingly undeclared variables in the global
-        // scope will be ignored. This is useful for projects
-        // with complicated cross-file globals that you have no
-        // hope of fixing.
-        'ignore_undeclared_variables_in_global_scope' => false,
-
-        // If true, check to make sure the return type declared
-        // in the doc-block (if any) matches the return type
-        // declared in the method signature. This process is
-        // slow.
-        'check_docblock_signature_return_type_match' => false,
-
-        // Set to true in order to attempt to detect dead
-        // (unreferenced) code. Keep in mind that the
-        // results will only be a guess given that classes,
-        // properties, constants and methods can be referenced
-        // as variables (like `$class->$property` or
-        // `$class->$method()`) in ways that we're unable
-        // to make sense of.
-        'dead_code_detection' => false,
-
-        // If true, the dead code detection rig will
-        // prefer false negatives (not report dead code) to
-        // false positives (report dead code that is not
-        // actually dead) which is to say that the graph of
-        // references will create too many edges rather than
-        // too few edges when guesses have to be made about
-        // what references what.
-        'dead_code_detection_prefer_false_negative' => true,
-
-        // If disabled, Phan will not read docblock type
-        // annotation comments for @property.
-        // @property-read and @property-write are treated exactly the
-        // same as @property for now.
-        // Note: read_type_annotations must also be enabled.
-        'read_magic_property_annotations' => true,
-
-        // If disabled, Phan will not read docblock type
-        // annotation comments for @method.
-        // Note: read_type_annotations must also be enabled.
-        'read_magic_method_annotations' => true,
-
-        // If disabled, Phan will not read docblock type
-        // annotation comments (such as for @return, @param,
-        // @var, @suppress, @deprecated) and only rely on
-        // types expressed in code.
-        'read_type_annotations' => true,
-
-        // Set to true in order to ignore issue suppression.
-        // This is useful for testing the state of your code, but
-        // unlikely to be useful outside of that.
-        'disable_suppression' => false,
-
-        // If set to true, we'll dump the AST instead of
-        // analyzing files
-        'dump_ast' => false,
-
-        // If set to a string, we'll dump the fully qualified lowercase
-        // function and method signatures instead of analyzing files.
-        'dump_signatures_file' => null,
-
-        // Include a progress bar in the output
-        'progress_bar' => false,
-
-        // The probability of actually emitting any progress
-        // bar update. Setting this to something very low
-        // is good for reducing network IO and filling up
-        // your terminal's buffer when running phan on a
-        // remote host.
-        'progress_bar_sample_rate' => 0.005,
-
-        // The number of processes to fork off during the analysis
-        // phase.
-        'processes' => 1,
-
-        // The vesion of the AST (defined in php-ast)
-        // we're using
-        'ast_version' => 35,
-
-        // Set to true to emit profiling data on how long various
-        // parts of Phan took to run. You likely don't care to do
-        // this.
-        'profiler_enabled' => false,
-
-        // Add any issue types (such as 'PhanUndeclaredMethod')
-        // to this black-list to inhibit them from being reported.
-        'suppress_issue_types' => [
-            // 'PhanUndeclaredMethod',
-        ],
-
-        // If empty, no filter against issues types will be applied.
-        // If this white-list is non-empty, only issues within the list
-        // will be emitted by Phan.
-        'whitelist_issue_types' => [
-            // 'PhanAccessMethodPrivate',
-            // 'PhanAccessMethodProtected',
-            // 'PhanAccessNonStaticToStatic',
-            // 'PhanAccessPropertyPrivate',
-            // 'PhanAccessPropertyProtected',
-            // 'PhanAccessSignatureMismatch',
-            // 'PhanAccessSignatureMismatchInternal',
-            // 'PhanAccessStaticToNonStatic',
-            // 'PhanCompatibleExpressionPHP7',
-            // 'PhanCompatiblePHP7',
-            // 'PhanContextNotObject',
-            // 'PhanDeprecatedClass',
-            // 'PhanDeprecatedInterface',
-            // 'PhanDeprecatedTrait',
-            // 'PhanDeprecatedFunction',
-            // 'PhanDeprecatedProperty',
-            // 'PhanEmptyFile',
-            // 'PhanNonClassMethodCall',
-            // 'PhanNoopArray',
-            // 'PhanNoopClosure',
-            // 'PhanNoopConstant',
-            // 'PhanNoopProperty',
-            // 'PhanNoopVariable',
-            // 'PhanParamRedefined',
-            // 'PhanParamReqAfterOpt',
-            // 'PhanParamSignatureMismatch',
-            // 'PhanParamSignatureMismatchInternal',
-            // 'PhanParamSpecial1',
-            // 'PhanParamSpecial2',
-            // 'PhanParamSpecial3',
-            // 'PhanParamSpecial4',
-            // 'PhanParamTooFew',
-            // 'PhanParamTooFewInternal',
-            // 'PhanParamTooMany',
-            // 'PhanParamTooManyInternal',
-            // 'PhanParamTypeMismatch',
-            // 'PhanParentlessClass',
-            // 'PhanRedefineClass',
-            // 'PhanRedefineClassInternal',
-            // 'PhanRedefineFunction',
-            // 'PhanRedefineFunctionInternal',
-            // 'PhanStaticCallToNonStatic',
-            // 'PhanSyntaxError',
-            // 'PhanTraitParentReference',
-            // 'PhanTypeArrayOperator',
-            // 'PhanTypeArraySuspicious',
-            // 'PhanTypeComparisonFromArray',
-            // 'PhanTypeComparisonToArray',
-            // 'PhanTypeConversionFromArray',
-            // 'PhanTypeInstantiateAbstract',
-            // 'PhanTypeInstantiateInterface',
-            // 'PhanTypeInvalidLeftOperand',
-            // 'PhanTypeInvalidRightOperand',
-            // 'PhanTypeMismatchArgument',
-            // 'PhanTypeMismatchArgumentInternal',
-            // 'PhanTypeMismatchDefault',
-            // 'PhanTypeMismatchForeach',
-            // 'PhanTypeMismatchProperty',
-            // 'PhanTypeMismatchReturn',
-            // 'PhanTypeMissingReturn',
-            // 'PhanTypeNonVarPassByRef',
-            // 'PhanTypeParentConstructorCalled',
-            // 'PhanTypeVoidAssignment',
-            // 'PhanUnanalyzable',
-            // 'PhanUndeclaredClass',
-            // 'PhanUndeclaredClassCatch',
-            // 'PhanUndeclaredClassConstant',
-            // 'PhanUndeclaredClassInstanceof',
-            // 'PhanUndeclaredClassMethod',
-            // 'PhanUndeclaredClassReference',
-            // 'PhanUndeclaredConstant',
-            // 'PhanUndeclaredExtendedClass',
-            // 'PhanUndeclaredFunction',
-            // 'PhanUndeclaredInterface',
-            // 'PhanUndeclaredMethod',
-            // 'PhanUndeclaredProperty',
-            // 'PhanUndeclaredStaticMethod',
-            // 'PhanUndeclaredStaticProperty',
-            // 'PhanUndeclaredTrait',
-            // 'PhanUndeclaredTypeParameter',
-            // 'PhanUndeclaredTypeProperty',
-            // 'PhanUndeclaredVariable',
-            // 'PhanUnreferencedClass',
-            // 'PhanUnreferencedConstant',
-            // 'PhanUnreferencedMethod',
-            // 'PhanUnreferencedProperty',
-            // 'PhanVariableUseClause',
-        ],
-
-        // Override if runkit.superglobal ini directive is used.
-        // A custom list of additional superglobals and their types, for projects using runkit.
-        // (Corresponding keys are declared in runkit.superglobal ini directive)
-        // global_type_map should be set for entries.
-        // E.g ['_FOO'];
-        'runkit_superglobals' => [],
-
-        // Override to hardcode existence and types of (non-builtin) globals in the global scope.
-        // Class names must be prefixed with '\\'.
-        // (E.g. ['_FOO' => '\\FooClass', 'page' => '\\PageClass', 'userId' => 'int'])
-        'globals_type_map' => [],
-
-        // Emit issue messages with markdown formatting
-        'markdown_issue_messages' => false,
-
-        // Emit colorized issue messages.
-        // NOTE: it is strongly recommended to enable this via the --color CLI flag instead,
-        // since this is incompatible with most output formatters.
-        'color_issue_messages' => false,
-
-        // Allow overriding color scheme in .phan/config.php for printing issues, for individual types.
-        // See the keys of Phan\Output\Colorizing::styles for valid color names,
-        // and the keys of Phan\Output\Colorizing::default_color_for_template for valid color names.
-        // E.g. to change the color for the file(of an issue instance) to red, set this to ['FILE' => 'red']
-        // E.g. to use the terminal's default color for the line(of an issue instance), set this to ['LINE' => 'none']
-        'color_scheme' => [],
-
-        // Enable or disable support for generic templated
-        // class types.
-        'generic_types_enabled' => true,
-
-        // Assign files to be analyzed on random processes
-        // in random order. You very likely don't want to
-        // set this to true. This is meant for debugging
-        // and fuzz testing purposes only.
-        'randomize_file_order' => false,
-
-        // Setting this to true makes the process assignment for file analysis
-        // as predictable as possible, using consistent hashing.
-        // Even if files are added or removed, or process counts change,
-        // relatively few files will move to a different group.
-        // (use when the number of files is much larger than the process count)
-        'consistent_hashing_file_order' => false,
-
-        // Path to a unix socket for a daemon to listen to files to analyze. Use command line option instead.
-        'daemonize_socket' => false,
-
-        // TCP port(from 1024 to 65535) for a daemon to listen to files to analyze. Use command line option instead.
-        'daemonize_tcp_port' => false,
-
-        // A list of plugin files to execute
-        'plugins' => [
-        ],
-    ];
-
+    private $configuration = ['file_list' => [], 'directory_list' => [], 'analyzed_file_extensions' => ['php'], 'exclude_file_regex' => '', 'exclude_file_list' => [], 'exclude_analysis_directory_list' => [], 'backward_compatibility_checks' => true, 'parent_constructor_required' => [], 'quick_mode' => false, 'should_visit_all_nodes' => true, 'analyze_signature_compatibility' => true, 'minimum_severity' => 0, 'allow_missing_properties' => false, 'null_casts_as_any_type' => false, 'scalar_implicit_cast' => false, 'ignore_undeclared_variables_in_global_scope' => false, 'check_docblock_signature_return_type_match' => false, 'dead_code_detection' => false, 'dead_code_detection_prefer_false_negative' => true, 'read_magic_property_annotations' => true, 'read_magic_method_annotations' => true, 'read_type_annotations' => true, 'disable_suppression' => false, 'dump_ast' => false, 'dump_signatures_file' => null, 'progress_bar' => false, 'progress_bar_sample_rate' => 0.005, 'processes' => 1, 'ast_version' => 35, 'profiler_enabled' => false, 'suppress_issue_types' => [], 'whitelist_issue_types' => [], 'runkit_superglobals' => [], 'globals_type_map' => [], 'markdown_issue_messages' => false, 'color_issue_messages' => false, 'color_scheme' => [], 'generic_types_enabled' => true, 'randomize_file_order' => false, 'consistent_hashing_file_order' => false, 'daemonize_socket' => false, 'daemonize_tcp_port' => false, 'plugins' => []];
     /**
      * Disallow the constructor to force a singleton
      */
     private function __construct()
     {
     }
-
     /**
      * @return string
      * Get the root directory of the project that we're
      * scanning
      */
-    public function getProjectRootDirectory() : string
+    public function getProjectRootDirectory()
     {
-        return $this->project_root_directory ?? getcwd();
+        $ret5902c6f3e7156 = call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$this->project_root_directory, @getcwd());
+        if (!is_string($ret5902c6f3e7156)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type string, " . gettype($ret5902c6f3e7156) . " given");
+        }
+        return $ret5902c6f3e7156;
     }
-
     /**
      * @param string $project_root_directory
      * Set the root directory of the project that we're
@@ -405,64 +50,76 @@ class Config
      *
      * @return void
      */
-    public function setProjectRootDirectory(
-        string $project_root_directory
-    ) {
+    public function setProjectRootDirectory($project_root_directory)
+    {
+        if (!is_string($project_root_directory)) {
+            throw new \InvalidArgumentException("Argument \$project_root_directory passed to setProjectRootDirectory() must be of the type string, " . (gettype($project_root_directory) == "object" ? get_class($project_root_directory) : gettype($project_root_directory)) . " given");
+        }
         $this->project_root_directory = $project_root_directory;
     }
-
     /**
      * @return Config
      * Get a Configuration singleton
      */
-    public static function get() : Config
+    public static function get()
     {
         static $instance;
-
         if ($instance) {
-            return $instance;
+            $ret5902c6f3e77d1 = $instance;
+            if (!$ret5902c6f3e77d1 instanceof Config) {
+                throw new \InvalidArgumentException("Argument returned must be of the type Config, " . (gettype($ret5902c6f3e77d1) == "object" ? get_class($ret5902c6f3e77d1) : gettype($ret5902c6f3e77d1)) . " given");
+            }
+            return $ret5902c6f3e77d1;
         }
-
         $instance = new Config();
-        return $instance;
+        $ret5902c6f3e7aff = $instance;
+        if (!$ret5902c6f3e7aff instanceof Config) {
+            throw new \InvalidArgumentException("Argument returned must be of the type Config, " . (gettype($ret5902c6f3e7aff) == "object" ? get_class($ret5902c6f3e7aff) : gettype($ret5902c6f3e7aff)) . " given");
+        }
+        return $ret5902c6f3e7aff;
     }
-
     /**
      * @return array
      * A map of configuration keys and their values
      */
-    public function toArray() : array
+    public function toArray()
     {
-        return $this->configuration;
+        $ret5902c6f3e7dd5 = $this->configuration;
+        if (!is_array($ret5902c6f3e7dd5)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type array, " . gettype($ret5902c6f3e7dd5) . " given");
+        }
+        return $ret5902c6f3e7dd5;
     }
-
     /** @return mixed */
-    public function __get(string $name)
+    public function __get($name)
     {
+        if (!is_string($name)) {
+            throw new \InvalidArgumentException("Argument \$name passed to __get() must be of the type string, " . (gettype($name) == "object" ? get_class($name) : gettype($name)) . " given");
+        }
         return $this->configuration[$name];
     }
-
-    public function __set(string $name, $value)
+    public function __set($name, $value)
     {
+        if (!is_string($name)) {
+            throw new \InvalidArgumentException("Argument \$name passed to __set() must be of the type string, " . (gettype($name) == "object" ? get_class($name) : gettype($name)) . " given");
+        }
         $this->configuration[$name] = $value;
     }
-
     /**
      * @return string
      * The relative path appended to the project root directory.
      *
      * @suppress PhanUnreferencedMethod
      */
-    public static function projectPath(string $relative_path)
+    public static function projectPath($relative_path)
     {
+        if (!is_string($relative_path)) {
+            throw new \InvalidArgumentException("Argument \$relative_path passed to projectPath() must be of the type string, " . (gettype($relative_path) == "object" ? get_class($relative_path) : gettype($relative_path)) . " given");
+        }
         // Make sure its actually relative
         if (DIRECTORY_SEPARATOR == substr($relative_path, 0, 1)) {
             return $relative_path;
         }
-
-        return implode(DIRECTORY_SEPARATOR, [
-            Config::get()->getProjectRootDirectory(),
-            $relative_path
-        ]);
+        return implode(DIRECTORY_SEPARATOR, [Config::get()->getProjectRootDirectory(), $relative_path]);
     }
 }

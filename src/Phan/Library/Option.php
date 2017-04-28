@@ -1,4 +1,8 @@
-<?php declare(strict_types=1);
+<?php
+
+/*
+ * This code has been transpiled via TransPHPile. For more information, visit https://github.com/jaytaph/transphpile
+ */
 namespace Phan\Library;
 
 /**
@@ -11,15 +15,13 @@ abstract class Option
      * @param T $else
      * @return T
      */
-    abstract public function getOrElse($else);
-
+    public abstract function getOrElse($else);
     /**
      * @return bool
      */
-    abstract public function isDefined() : bool;
-
+    public abstract function isDefined();
     /**
      * @return T
      */
-    abstract public function get();
+    public abstract function get();
 }

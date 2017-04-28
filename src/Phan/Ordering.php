@@ -1,15 +1,17 @@
-<?php declare(strict_types=1);
+<?php
+
+/*
+ * This code has been transpiled via TransPHPile. For more information, visit https://github.com/jaytaph/transphpile
+ */
 namespace Phan;
 
 use Phan\Library\Hasher;
 use Phan\Library\Hasher\Consistent;
 use Phan\Library\Hasher\Sequential;
-
 class Ordering
 {
     /** @var CodeBase */
     private $code_base;
-
     /**
      * @param CodeBase $code_base
      * The entire code base used to choose a file
@@ -19,7 +21,6 @@ class Ordering
     {
         $this->code_base = $code_base;
     }
-
     /**
      * @param int $process_count
      * The number of processes we'd like to divide work up
@@ -34,14 +35,12 @@ class Ordering
      * A map from process_id to a list of files to be analyzed
      * on that process in stable ordering.
      */
-    public function orderForProcessCount(
-        int $process_count,
-        array $analysis_file_list
-    ) : array {
-
-        assert($process_count > 0,
-            "The process count must be greater than zero.");
-
+    public function orderForProcessCount($process_count, array $analysis_file_list)
+    {
+        if (!is_int($process_count)) {
+            throw new \InvalidArgumentException("Argument \$process_count passed to orderForProcessCount() must be of the type int, " . (gettype($process_count) == "object" ? get_class($process_count) : gettype($process_count)) . " given");
+        }
+        assert($process_count > 0, "The process count must be greater than zero.");
         if (Config::get()->randomize_file_order) {
             $random_proc_file_map = [];
             $i = 0;
@@ -49,9 +48,12 @@ class Ordering
             foreach ($analysis_file_list as $i => $file) {
                 $random_proc_file_map[$i++ % $process_count][] = $file;
             }
-            return $random_proc_file_map;
+            $ret5902c6fdefecb = $random_proc_file_map;
+            if (!is_array($ret5902c6fdefecb)) {
+                throw new \InvalidArgumentException("Argument returned must be of the type array, " . gettype($ret5902c6fdefecb) . " given");
+            }
+            return $ret5902c6fdefecb;
         }
-
         // Construct a Hasher implementation based on config.
         if (Config::get()->consistent_hashing_file_order) {
             sort($analysis_file_list, SORT_STRING);
@@ -59,30 +61,23 @@ class Ordering
         } else {
             $hasher = new Sequential($process_count);
         }
-
         // Create a Set from the file list
         $analysis_file_map = [];
         foreach ($analysis_file_list as $i => $file) {
             $analysis_file_map[$file] = true;
         }
-
         // A map from the root of an object hierarchy to all
         // elements within that hierarchy
         $root_fqsen_list = [];
-
         $file_names_for_classes = [];
-
         // Iterate over each class extracting files
         foreach ($this->code_base->getClassMap() as $fqsen => $class) {
-
             // We won't be analyzing internal stuff
             if ($class->isPHPInternal()) {
                 continue;
             }
-
             // Get the name of the file associated with the class
             $file_name = $class->getContext()->getFile();
-
             // Ignore any files that are not to be analyzed
             if (!isset($analysis_file_map[$file_name])) {
                 continue;
@@ -90,66 +85,59 @@ class Ordering
             unset($analysis_file_map[$file_name]);
             $file_names_for_classes[$file_name] = $class;
         }
-
         if (Config::get()->consistent_hashing_file_order) {
             ksort($file_names_for_classes, SORT_STRING);
         }
-
         foreach ($file_names_for_classes as $file_name => $class) {
             // Get the class's depth in its object hierarchy and
             // the FQSEN of the object at the root of its hierarchy
             $hierarchy_depth = $class->getHierarchyDepth($this->code_base);
             $hierarchy_root = $class->getHierarchyRootFQSEN($this->code_base);
-
             // Create a bucket for this root if it doesn't exist
-            if (empty($root_fqsen_list[(string)$hierarchy_root])) {
-                $root_fqsen_list[(string)$hierarchy_root] = [];
+            if (empty($root_fqsen_list[(string) $hierarchy_root])) {
+                $root_fqsen_list[(string) $hierarchy_root] = [];
             }
-
             // Append this {file,depth} pair to the hierarchy
             // root
-            $root_fqsen_list[(string)$hierarchy_root][] = [
-                'file'  => $file_name,
-                'depth' => $hierarchy_depth,
-            ];
+            $root_fqsen_list[(string) $hierarchy_root][] = ['file' => $file_name, 'depth' => $hierarchy_depth];
         }
-
         // Create a map from processor_id to the list of files
         // to be analyzed on that processor
         $processor_file_list_map = [];
-
         // Sort the set of files with a given root by their
         // depth in the hierarchy
         foreach ($root_fqsen_list as $root_fqsen => $list) {
             // Sort first by depth, and break ties by file name lexicographically
             // (usort is not a stable sort).
-            usort($list, function(array $a, array $b) {
-                return ($a['depth'] <=> $b['depth']) ?:
-                       strcmp($a['file'], $b['file']);
+            usort($list, function (array $a, array $b) {
+                return call_user_func(function ($v1, $v2) {
+                    if ($v1 == $v2) {
+                        return 0;
+                    }
+                    return $v1 > $v2 ? 1 : -1;
+                }, $a['depth'], $b['depth']) ?: strcmp($a['file'], $b['file']);
             });
-
             // Choose which process this file list will be
             // run on
-            $process_id = $hasher->getGroup((string)$root_fqsen);
-
+            $process_id = $hasher->getGroup((string) $root_fqsen);
             // Append each file to this process list
             foreach ($list as $item) {
                 $processor_file_list_map[$process_id][] = $item['file'];
             }
-
         }
-
         // Distribute any remaining files without classes evenly
         // between the processes
         $hasher->reset();
         foreach (array_keys($analysis_file_map) as $file) {
             // Choose which process this file list will be
             // run on
-            $process_id = $hasher->getGroup((string)$file);
-
+            $process_id = $hasher->getGroup((string) $file);
             $processor_file_list_map[$process_id][] = $file;
         }
-
-        return $processor_file_list_map;
+        $ret5902c6fdf08d7 = $processor_file_list_map;
+        if (!is_array($ret5902c6fdf08d7)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type array, " . gettype($ret5902c6fdf08d7) . " given");
+        }
+        return $ret5902c6fdf08d7;
     }
 }

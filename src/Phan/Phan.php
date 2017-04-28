@@ -1,4 +1,8 @@
-<?php declare(strict_types=1);
+<?php
+
+/*
+ * This code has been transpiled via TransPHPile. For more information, visit https://github.com/jaytaph/transphpile
+ */
 namespace Phan;
 
 use Phan\Daemon\Request;
@@ -7,33 +11,32 @@ use Phan\Output\Collector\BufferingCollector;
 use Phan\Output\IgnoredFilesFilterInterface;
 use Phan\Output\IssueCollectorInterface;
 use Phan\Output\IssuePrinterInterface;
-
-class Phan implements IgnoredFilesFilterInterface {
-
+class Phan implements IgnoredFilesFilterInterface
+{
     /** @var IssuePrinterInterface */
     public static $printer;
-
     /** @var IssueCollectorInterface */
     private static $issueCollector;
-
     /**
      * @return IssueCollectorInterface
      */
-    public static function getIssueCollector() : IssueCollectorInterface {
-        return self::$issueCollector;
+    public static function getIssueCollector()
+    {
+        $ret5902c6feec109 = self::$issueCollector;
+        if (!$ret5902c6feec109 instanceof IssueCollectorInterface) {
+            throw new \InvalidArgumentException("Argument returned must be of the type IssueCollectorInterface, " . (gettype($ret5902c6feec109) == "object" ? get_class($ret5902c6feec109) : gettype($ret5902c6feec109)) . " given");
+        }
+        return $ret5902c6feec109;
     }
-
     /**
      * @param IssueCollectorInterface $issueCollector
      *
      * @return void
      */
-    public static function setIssueCollector(
-        IssueCollectorInterface $issueCollector
-    ) {
+    public static function setIssueCollector(IssueCollectorInterface $issueCollector)
+    {
         self::$issueCollector = $issueCollector;
     }
-
     /**
      * Take an array of serialized issues, deserialize them and then add
      * them to the issue collector.
@@ -47,13 +50,11 @@ class Phan implements IgnoredFilesFilterInterface {
             if (empty($issues)) {
                 continue;
             }
-
             foreach ($issues as $issue) {
                 $collector->collectIssue($issue);
             }
         }
     }
-
     /**
      * Analyze the given set of files and emit any issues
      * found to STDOUT.
@@ -72,30 +73,23 @@ class Phan implements IgnoredFilesFilterInterface {
      *
      * @see \Phan\CodeBase
      */
-    public static function analyzeFileList(
-        CodeBase $code_base,
-        \Closure $file_path_lister
-    ) : bool {
+    public static function analyzeFileList(CodeBase $code_base, \Closure $file_path_lister)
+    {
         $is_daemon_request = Config::get()->daemonize_socket || Config::get()->daemonize_tcp_port;
         if ($is_daemon_request) {
             $code_base->enableUndoTracking();
         }
-
         $file_path_list = $file_path_lister();
-
         $file_count = count($file_path_list);
-
         // We'll construct a set of files that we'll
         // want to run an analysis on
         $analyze_file_path_list = [];
-
         if (Config::get()->consistent_hashing_file_order) {
             // Parse the files in lexicographic order.
             // If there are duplicate class/function definitions,
             // this ensures they are added to the maps in the same order.
             sort($file_path_list, SORT_STRING);
         }
-
         // This first pass parses code and populates the
         // global state we'll need for doing a second
         // analysis after.
@@ -104,11 +98,9 @@ class Phan implements IgnoredFilesFilterInterface {
         foreach ($file_path_list as $i => $file_path) {
             $code_base->setCurrentParsedFile($file_path);
             CLI::progress('parse', ($i + 1) / $file_count);
-
             // Kick out anything we read from the former version
             // of this file
             $code_base->flushDependenciesForFile($file_path);
-
             // If the file is gone, no need to continue
             if (($real = realpath($file_path)) === false || !file_exists($real)) {
                 continue;
@@ -116,35 +108,30 @@ class Phan implements IgnoredFilesFilterInterface {
             try {
                 // Parse the file
                 Analysis::parseFile($code_base, $file_path);
-
                 // Save this to the set of files to analyze
                 $analyze_file_path_list[] = $file_path;
-
-
             } catch (\Throwable $throwable) {
                 error_log($file_path . ' ' . $throwable->getMessage() . "\n");
                 $code_base->recordUnparseableFile($file_path);
             }
         }
         $code_base->setCurrentParsedFile(null);
-
         // Don't continue on to analysis if the user has
         // chosen to just dump the AST
         if (Config::get()->dump_ast) {
             exit(EXIT_SUCCESS);
         }
-
         if (is_string(Config::get()->dump_signatures_file)) {
             exit(self::dumpSignaturesToFile($code_base, Config::get()->dump_signatures_file));
         }
-
         $request = null;
         if ($is_daemon_request) {
             assert($code_base->isUndoTrackingEnabled());
             // Garbage collecting cycles doesn't help or hurt much here. Thought it would change something..
             // TODO: check for conflicts with other config options - incompatible with dump_ast, dump_signatures_file, output-file, etc.
             // incompatible with dead_code_detection
-            $request = Daemon::run($code_base, $file_path_lister);  // This will fork and fall through every time a request to re-analyze the file set comes in. The daemon should be periodically restarted?
+            $request = Daemon::run($code_base, $file_path_lister);
+            // This will fork and fall through every time a request to re-analyze the file set comes in. The daemon should be periodically restarted?
             if (!$request) {
                 // TODO: Add a way to cleanly shut down.
                 error_log("Finished serving requests, exiting");
@@ -152,20 +139,18 @@ class Phan implements IgnoredFilesFilterInterface {
             }
             assert($request instanceof Request);
             self::$printer = $request->getPrinter();
-
             // This is the list of all of the parsed files
             // (Also includes files which don't declare classes/functions/constants)
             $analyze_file_path_list = $request->filterFilesToAnalyze($code_base->getParsedFilePathList());
-            if (count($analyze_file_path_list) === 0)  {
-                $request->respondWithNoFilesToAnalyze();  // respond and exit.
+            if (count($analyze_file_path_list) === 0) {
+                $request->respondWithNoFilesToAnalyze();
+                // respond and exit.
             }
             // Stop tracking undo operations, now that the parse phase is done.
             $code_base->disableUndoTracking();
         }
-
         global $start_time;
         $start_time = microtime(true);
-
         // With parsing complete, we need to tell the code base to
         // start hydrating any requested elements on their way out.
         // Hydration expands class types, imports parent methods,
@@ -177,119 +162,92 @@ class Phan implements IgnoredFilesFilterInterface {
         // actually need. When running as multiple processes this
         // lets us only need to do hydrate a subset of classes.
         $code_base->setShouldHydrateRequestedElements(true);
-
-
         $path_filter = isset($request) ? array_flip($analyze_file_path_list) : null;
         // Take a pass over all functions verifying
         // various states now that we have the whole
         // state in memory
         Analysis::analyzeClasses($code_base, $path_filter);
-
         // Take a pass over all functions verifying
         // various states now that we have the whole
         // state in memory
         Analysis::analyzeFunctions($code_base, $path_filter);
-
         // Filter out any files that are to be excluded from
         // analysis
-        $analyze_file_path_list = array_filter(
-            $analyze_file_path_list,
-            function($file_path) {
-                return !self::isExcludedAnalysisFile($file_path);
-            }
-        );
-        if ($request instanceof Request && count($analyze_file_path_list) === 0)  {
+        $analyze_file_path_list = array_filter($analyze_file_path_list, function ($file_path) {
+            return !self::isExcludedAnalysisFile($file_path);
+        });
+        if ($request instanceof Request && count($analyze_file_path_list) === 0) {
             $request->respondWithNoFilesToAnalyze();
             exit(0);
         }
-
         // Get the count of all files we're going to analyze
         $file_count = count($analyze_file_path_list);
-
         // Prevent an ugly failure if we have no files to
         // analyze.
         if (0 == $file_count) {
-            return false;
+            $ret5902c6feecf05 = false;
+            if (!is_bool($ret5902c6feecf05)) {
+                throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6feecf05) . " given");
+            }
+            return $ret5902c6feecf05;
         }
-
         // Get a map from process_id to the set of files that
         // the given process should analyze in a stable order
-        $process_file_list_map =
-            (new Ordering($code_base))->orderForProcessCount(
-                Config::get()->processes,
-                $analyze_file_path_list
-            );
-
+        $process_file_list_map = (new Ordering($code_base))->orderForProcessCount(Config::get()->processes, $analyze_file_path_list);
         // This worker takes a file and analyzes it
-        $analysis_worker = function($i, $file_path)
-            use ($file_count, $code_base) {
-                CLI::progress('analyze', ($i + 1) / $file_count);
-                Analysis::analyzeFile($code_base, $file_path);
-            };
-
+        $analysis_worker = function ($i, $file_path) use($file_count, $code_base) {
+            CLI::progress('analyze', ($i + 1) / $file_count);
+            Analysis::analyzeFile($code_base, $file_path);
+        };
         // Determine how many processes we're running on. This may be
         // less than the provided number if the files are bunched up
         // excessively.
         $process_count = count($process_file_list_map);
-
-        assert($process_count > 0 && $process_count <= Config::get()->processes,
-            "The process count must be between 1 and the given number of processes. After mapping files to cores, $process_count process were set to be used.");
-
+        assert($process_count > 0 && $process_count <= Config::get()->processes, "The process count must be between 1 and the given number of processes. After mapping files to cores, {$process_count} process were set to be used.");
         CLI::progress('analyze', 0.0);
         // Check to see if we're running as multiple processes
         // or not
         if ($process_count > 1) {
-
             // Run analysis one file at a time, splitting the set of
             // files up among a given number of child processes.
-            $pool = new ForkPool(
-                $process_file_list_map,
-                function () {
-                    // Remove any issues that were collected prior to forking
-                    // to prevent duplicate issues in the output.
-                    self::getIssueCollector()->reset();
-                },
-                $analysis_worker,
-                function () {
-                    // Return the collected issues to be serialized.
-                    return self::getIssueCollector()->getCollectedIssues();
-                }
-            );
-
+            $pool = new ForkPool($process_file_list_map, function () {
+                // Remove any issues that were collected prior to forking
+                // to prevent duplicate issues in the output.
+                self::getIssueCollector()->reset();
+            }, $analysis_worker, function () {
+                // Return the collected issues to be serialized.
+                return self::getIssueCollector()->getCollectedIssues();
+            });
             // Wait for all tasks to complete and collect the results.
             self::collectSerializedResults($pool->wait());
-
         } else {
             // Get the task data from the 0th processor
             $analyze_file_path_list = array_values($process_file_list_map)[0];
-
             // If we're not running as multiple processes, just iterate
             // over the file list and analyze them
             foreach ($analyze_file_path_list as $i => $file_path) {
                 $analysis_worker($i, $file_path);
             }
-
             // Scan through all globally accessible elements
             // in the code base and emit errors for dead
             // code.
             Analysis::analyzeDeadCode($code_base);
         }
-
         // Get a count of the number of issues that were found
-        $issue_count = count((self::$issueCollector)->getCollectedIssues());
-        $is_issue_found =
-            0 !== $issue_count;
-
+        $issue_count = count(self::$issueCollector->getCollectedIssues());
+        $is_issue_found = 0 !== $issue_count;
         // Collect all issues, blocking
         self::display();
         if ($request instanceof Request) {
             $request->respondWithIssues($issue_count);
             exit(0);
         }
-
-        return $is_issue_found;
+        $ret5902c6feed624 = $is_issue_found;
+        if (!is_bool($ret5902c6feed624)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6feed624) . " given");
+        }
+        return $ret5902c6feed624;
     }
-
     /**
      * @param CodeBase $code_base
      * A code base needs to be passed in because we require
@@ -307,108 +265,119 @@ class Phan implements IgnoredFilesFilterInterface {
      * TODO: This is no longer referenced, was removed while sqlite3 was temporarily removed.
      *       It would help in daemon mode if this was re-enabled
      */
-    public static function expandedFileList(
-        CodeBase $code_base,
-        array $file_path_list
-    ) : array {
-
+    public static function expandedFileList(CodeBase $code_base, array $file_path_list)
+    {
         $file_count = count($file_path_list);
-
         // We'll construct a set of files that we'll
         // want to run an analysis on
         $dependency_file_path_list = [];
-
-        CLI::progress('dependencies', 0.0);  // trigger UI update of 0%
+        CLI::progress('dependencies', 0.0);
+        // trigger UI update of 0%
         foreach ($file_path_list as $i => $file_path) {
             CLI::progress('dependencies', ($i + 1) / $file_count);
-
             // Add the file itself to the list
             $dependency_file_path_list[] = $file_path;
-
             // Add any files that depend on this file
-            $dependency_file_path_list = array_merge(
-                $dependency_file_path_list,
-                $code_base->dependencyListForFile($file_path)
-            );
+            $dependency_file_path_list = array_merge($dependency_file_path_list, $code_base->dependencyListForFile($file_path));
         }
-
-        return array_unique($dependency_file_path_list);
+        $ret5902c6feeda31 = array_unique($dependency_file_path_list);
+        if (!is_array($ret5902c6feeda31)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type array, " . gettype($ret5902c6feeda31) . " given");
+        }
+        return $ret5902c6feeda31;
     }
-
     /**
      * @return bool
      * True if this file is a member of a third party directory as
      * configured via the CLI flag '-3 [paths]'.
      */
-    private static function isExcludedAnalysisFile(
-        string $file_path
-    ) : bool {
+    private static function isExcludedAnalysisFile($file_path)
+    {
+        if (!is_string($file_path)) {
+            throw new \InvalidArgumentException("Argument \$file_path passed to isExcludedAnalysisFile() must be of the type string, " . (gettype($file_path) == "object" ? get_class($file_path) : gettype($file_path)) . " given");
+        }
         // TODO: add an alternative of a whitelist of files.
         // Incompatible with exclude_analysis_directory_list
         $file_path = str_replace('\\', '/', $file_path);
-        foreach (Config::get()->exclude_analysis_directory_list
-                 as $directory
-        ) {
-            if (0 === strpos($file_path, $directory)
-                || 0 === strpos($file_path, "./$directory")) {
-                return true;
+        foreach (Config::get()->exclude_analysis_directory_list as $directory) {
+            if (0 === strpos($file_path, $directory) || 0 === strpos($file_path, "./{$directory}")) {
+                $ret5902c6feeddc1 = true;
+                if (!is_bool($ret5902c6feeddc1)) {
+                    throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6feeddc1) . " given");
+                }
+                return $ret5902c6feeddc1;
             }
         }
-
-        return false;
+        $ret5902c6feee053 = false;
+        if (!is_bool($ret5902c6feee053)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6feee053) . " given");
+        }
+        return $ret5902c6feee053;
     }
-
     /**
      * Emit all collected issues
      *
      * @return void
      */
-    private static function display() {
+    private static function display()
+    {
         $collector = self::$issueCollector;
-
         $printer = self::$printer;
-
         foreach ($collector->getCollectedIssues() as $issue) {
             $printer->print($issue);
         }
-
         if ($collector instanceof BufferingCollector) {
             $collector->flush();
         }
-
         if ($printer instanceof BufferedPrinterInterface) {
             $printer->flush();
         }
     }
-
     /**
      * Save json encoded function&method signature to a map.
      * @return int - Exit code for process
      */
-    private static function dumpSignaturesToFile(CodeBase $code_base, string $filename) : int {
+    private static function dumpSignaturesToFile(CodeBase $code_base, $filename)
+    {
+        if (!is_string($filename)) {
+            throw new \InvalidArgumentException("Argument \$filename passed to dumpSignaturesToFile() must be of the type string, " . (gettype($filename) == "object" ? get_class($filename) : gettype($filename)) . " given");
+        }
         $encoded_signatures = json_encode($code_base->exportFunctionAndMethodSet(), JSON_PRETTY_PRINT);
         if (!file_put_contents($filename, $encoded_signatures)) {
             error_log(sprintf("Could not save contents to path '%s'\n", $filename));
-            return EXIT_FAILURE;
+            $ret5902c6feee6f9 = EXIT_FAILURE;
+            if (!is_int($ret5902c6feee6f9)) {
+                throw new \InvalidArgumentException("Argument returned must be of the type int, " . gettype($ret5902c6feee6f9) . " given");
+            }
+            return $ret5902c6feee6f9;
         }
-        return EXIT_SUCCESS;
+        $ret5902c6feee962 = EXIT_SUCCESS;
+        if (!is_int($ret5902c6feee962)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type int, " . gettype($ret5902c6feee962) . " given");
+        }
+        return $ret5902c6feee962;
     }
-
     /**
      * @return void
      */
-    public static function setPrinter(
-        IssuePrinterInterface $printer
-    ) {
+    public static function setPrinter(IssuePrinterInterface $printer)
+    {
         self::$printer = $printer;
     }
-
     /**
      * @param string $filename
      *
      * @return bool True if filename is ignored during analysis
      */
-    public function isFilenameIgnored(string $filename):bool {
-        return self::isExcludedAnalysisFile($filename);
+    public function isFilenameIgnored($filename)
+    {
+        if (!is_string($filename)) {
+            throw new \InvalidArgumentException("Argument \$filename passed to isFilenameIgnored() must be of the type string, " . (gettype($filename) == "object" ? get_class($filename) : gettype($filename)) . " given");
+        }
+        $ret5902c6feeeeb4 = self::isExcludedAnalysisFile($filename);
+        if (!is_bool($ret5902c6feeeeb4)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6feeeeb4) . " given");
+        }
+        return $ret5902c6feeeeb4;
     }
 }

@@ -1,4 +1,8 @@
-<?php declare(strict_types=1);
+<?php
+
+/*
+ * This code has been transpiled via TransPHPile. For more information, visit https://github.com/jaytaph/transphpile
+ */
 namespace Phan\Library;
 
 /**
@@ -11,7 +15,6 @@ class Some extends Option
 {
     /** @var T */
     private $_;
-
     /**
      * @param T $_
      */
@@ -19,15 +22,17 @@ class Some extends Option
     {
         $this->_ = $_;
     }
-
     /**
      * @return bool
      */
-    public function isDefined() : bool
+    public function isDefined()
     {
-        return true;
+        $ret5902c6fdab69e = true;
+        if (!is_bool($ret5902c6fdab69e)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6fdab69e) . " given");
+        }
+        return $ret5902c6fdab69e;
     }
-
     /**
      * @return T
      */
@@ -35,7 +40,6 @@ class Some extends Option
     {
         return $this->_;
     }
-
     /**
      * @param T $else
      * @return T
@@ -44,13 +48,16 @@ class Some extends Option
     {
         return $this->get();
     }
-
     /**
      * @return string
      * A string representation of this object
      */
-    public function __tostring() : string
+    public function __tostring()
     {
-        return 'Some(' . $this->_ . ')';
+        $ret5902c6fdabbd4 = 'Some(' . $this->_ . ')';
+        if (!is_string($ret5902c6fdabbd4)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type string, " . gettype($ret5902c6fdabbd4) . " given");
+        }
+        return $ret5902c6fdabbd4;
     }
 }

@@ -1,4 +1,8 @@
-<?php declare(strict_types=1);
+<?php
+
+/*
+ * This code has been transpiled via TransPHPile. For more information, visit https://github.com/jaytaph/transphpile
+ */
 namespace Phan\Language\FQSEN;
 
 /**
@@ -10,5 +14,5 @@ interface FullyQualifiedFunctionLikeName
      * @return bool
      * True if this FQSEN represents a closure
      */
-    public function isClosure() : bool;
+    public function isClosure();
 }

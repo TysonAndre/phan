@@ -1,4 +1,8 @@
-<?php declare(strict_types=1);
+<?php
+
+/*
+ * This code has been transpiled via TransPHPile. For more information, visit https://github.com/jaytaph/transphpile
+ */
 namespace Phan;
 
 use Phan\Language\Context;
@@ -6,7 +10,6 @@ use Phan\Language\Element\Clazz;
 use Phan\Language\Element\Method;
 use Phan\Language\Element\Func;
 use ast\Node;
-
 /**
  * Plugins can be defined in the config and will have
  * their hooks called at appropriate times during analysis
@@ -15,7 +18,8 @@ use ast\Node;
  * Plugins must extends this class and return an instance
  * of themselves.
  */
-abstract class Plugin {
+abstract class Plugin
+{
     /**
      * Do a first-pass analysis of a node before Phan
      * does its full analysis. This hook allows you to
@@ -36,12 +40,7 @@ abstract class Plugin {
      *
      * @return void
      */
-    abstract public function preAnalyzeNode(
-        CodeBase $code_base,
-        Context $context,
-        Node $node
-    );
-
+    public abstract function preAnalyzeNode(CodeBase $code_base, Context $context, Node $node);
     /**
      * Analyze the given node in the given context after
      * Phan has analyzed the node.
@@ -62,13 +61,7 @@ abstract class Plugin {
      *
      * @return void
      */
-    abstract public function analyzeNode(
-        CodeBase $code_base,
-        Context $context,
-        Node $node,
-        Node $parent_node = null
-    );
-
+    public abstract function analyzeNode(CodeBase $code_base, Context $context, Node $node, Node $parent_node = null);
     /**
      * @param CodeBase $code_base
      * The code base in which the class exists
@@ -78,11 +71,7 @@ abstract class Plugin {
      *
      * @return void
      */
-    abstract public function analyzeClass(
-        CodeBase $code_base,
-        Clazz $class
-    );
-
+    public abstract function analyzeClass(CodeBase $code_base, Clazz $class);
     /**
      * @param CodeBase $code_base
      * The code base in which the method exists
@@ -92,11 +81,7 @@ abstract class Plugin {
      *
      * @return void
      */
-    abstract public function analyzeMethod(
-        CodeBase $code_base,
-        Method $method
-    );
-
+    public abstract function analyzeMethod(CodeBase $code_base, Method $method);
     /**
      * @param CodeBase $code_base
      * The code base in which the function exists
@@ -106,11 +91,7 @@ abstract class Plugin {
      *
      * @return void
      */
-    abstract public function analyzeFunction(
-        CodeBase $code_base,
-        Func $function
-    );
-
+    public abstract function analyzeFunction(CodeBase $code_base, Func $function);
     /**
      * Emit an issue if it is not suppressed
      *
@@ -136,36 +117,25 @@ abstract class Plugin {
      * set {Issue:REMEDIATION_A, Issue:REMEDIATION_B, ...
      * Issue::REMEDIATION_F} with F being the hardest.
      */
-    public function emitIssue(
-        CodeBase $code_base,
-        Context $context,
-        string $issue_type,
-        string $issue_message,
-        int $severity = Issue::SEVERITY_NORMAL,
-        int $remediation_difficulty = Issue::REMEDIATION_B,
-        int $issue_type_id = Issue::TYPE_ID_UNKNOWN
-    ) {
-        $issue = new Issue(
-            $issue_type,
-            Issue::CATEGORY_PLUGIN,
-            $severity,
-            $issue_message,
-            $remediation_difficulty,
-            $issue_type_id
-        );
-
-        $issue_instance = new IssueInstance(
-            $issue,
-            $context->getFile(),
-            $context->getLineNumberStart(),
-            []
-        );
-
-        Issue::maybeEmitInstance(
-            $code_base,
-            $context,
-            $issue_instance
-        );
+    public function emitIssue(CodeBase $code_base, Context $context, $issue_type, $issue_message, $severity = Issue::SEVERITY_NORMAL, $remediation_difficulty = Issue::REMEDIATION_B, $issue_type_id = Issue::TYPE_ID_UNKNOWN)
+    {
+        if (!is_string($issue_type)) {
+            throw new \InvalidArgumentException("Argument \$issue_type passed to emitIssue() must be of the type string, " . (gettype($issue_type) == "object" ? get_class($issue_type) : gettype($issue_type)) . " given");
+        }
+        if (!is_string($issue_message)) {
+            throw new \InvalidArgumentException("Argument \$issue_message passed to emitIssue() must be of the type string, " . (gettype($issue_message) == "object" ? get_class($issue_message) : gettype($issue_message)) . " given");
+        }
+        if (!is_int($severity)) {
+            throw new \InvalidArgumentException("Argument \$severity passed to emitIssue() must be of the type int, " . (gettype($severity) == "object" ? get_class($severity) : gettype($severity)) . " given");
+        }
+        if (!is_int($remediation_difficulty)) {
+            throw new \InvalidArgumentException("Argument \$remediation_difficulty passed to emitIssue() must be of the type int, " . (gettype($remediation_difficulty) == "object" ? get_class($remediation_difficulty) : gettype($remediation_difficulty)) . " given");
+        }
+        if (!is_int($issue_type_id)) {
+            throw new \InvalidArgumentException("Argument \$issue_type_id passed to emitIssue() must be of the type int, " . (gettype($issue_type_id) == "object" ? get_class($issue_type_id) : gettype($issue_type_id)) . " given");
+        }
+        $issue = new Issue($issue_type, Issue::CATEGORY_PLUGIN, $severity, $issue_message, $remediation_difficulty, $issue_type_id);
+        $issue_instance = new IssueInstance($issue, $context->getFile(), $context->getLineNumberStart(), []);
+        Issue::maybeEmitInstance($code_base, $context, $issue_instance);
     }
-
 }

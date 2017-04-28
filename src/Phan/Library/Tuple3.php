@@ -1,4 +1,8 @@
-<?php declare(strict_types=1);
+<?php
+
+/*
+ * This code has been transpiled via TransPHPile. For more information, visit https://github.com/jaytaph/transphpile
+ */
 namespace Phan\Library;
 
 /**
@@ -19,10 +23,8 @@ class Tuple3 extends Tuple2
 {
     /** @var int */
     const ARITY = 3;
-
     /** @var T2 */
     public $_2;
-
     /**
      * @param T0 $_0
      * The 0th element
@@ -38,17 +40,16 @@ class Tuple3 extends Tuple2
         parent::__construct($_0, $_1);
         $this->_2 = $_2;
     }
-
     /**
      * @return array
      * An array of all elements in this tuple.
      */
-    public function toArray() : array
+    public function toArray()
     {
-        return [
-            $this->_0,
-            $this->_1,
-            $this->_2,
-        ];
+        $ret5902c6fdc7967 = [$this->_0, $this->_1, $this->_2];
+        if (!is_array($ret5902c6fdc7967)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type array, " . gettype($ret5902c6fdc7967) . " given");
+        }
+        return $ret5902c6fdc7967;
     }
 }

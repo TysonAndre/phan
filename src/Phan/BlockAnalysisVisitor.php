@@ -1,4 +1,8 @@
-<?php declare(strict_types=1);
+<?php
+
+/*
+ * This code has been transpiled via TransPHPile. For more information, visit https://github.com/jaytaph/transphpile
+ */
 namespace Phan;
 
 use Phan\AST\AnalysisVisitor;
@@ -11,31 +15,27 @@ use Phan\Language\Scope\BranchScope;
 use Phan\Plugin\ConfigPluginSet;
 use ast\Node;
 use ast\Node\Decl;
-
 /**
  * Analyze blocks of code
  */
-class BlockAnalysisVisitor extends AnalysisVisitor {
-
+class BlockAnalysisVisitor extends AnalysisVisitor
+{
     /**
      * @var ?Node
      * The parent of the current node
      */
     private $parent_node;
-
     /**
      * @var int
      * The depth of the node being analyzed in the
      * AST
      */
     private $depth;
-
     /**
      * @var bool
      * Whether or not this visitor will visit all nodes
      */
     private $should_visit_everything;
-
     /**
      * @param CodeBase $code_base
      * The code base within which we're operating
@@ -53,20 +53,22 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
      * @param bool|null $should_visit_everything
      * Determined from the Config instance. Cached to avoid overhead of function calls.
      */
-    public function __construct(
-        CodeBase $code_base,
-        Context $context,
-        Node $parent_node = null,
-        int $depth = 0,
-        bool $should_visit_everything = null
-    ) {
-        $should_visit_everything = $should_visit_everything ?? Analysis::shouldVisitEverything();
+    public function __construct(CodeBase $code_base, Context $context, Node $parent_node = null, $depth = 0, $should_visit_everything = null)
+    {
+        if (!is_int($depth)) {
+            throw new \InvalidArgumentException("Argument \$depth passed to __construct() must be of the type int, " . (gettype($depth) == "object" ? get_class($depth) : gettype($depth)) . " given");
+        }
+        if (!is_bool($should_visit_everything) and !is_null($should_visit_everything)) {
+            throw new \InvalidArgumentException("Argument \$should_visit_everything passed to __construct() must be of the type bool, " . (gettype($should_visit_everything) == "object" ? get_class($should_visit_everything) : gettype($should_visit_everything)) . " given");
+        }
+        $should_visit_everything = call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$should_visit_everything, @Analysis::shouldVisitEverything());
         parent::__construct($code_base, $context);
         $this->parent_node = $parent_node;
         $this->depth = $depth;
         $this->should_visit_everything = $should_visit_everything;
     }
-
     /**
      * For non-special nodes, we propagate the context and scope
      * from the parent, through the children and return the
@@ -89,55 +91,45 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
      * @return Context
      * The updated context after visiting the node
      */
-    public function visit(Node $node) : Context
+    public function visit(Node $node)
     {
-        $context = $this->context->withLineNumberStart(
-            $node->lineno ?? 0
-        );
-
+        $context = $this->context->withLineNumberStart(call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$node->lineno, @0));
         // Visit the given node populating the code base
         // with anything we learn and get a new context
         // indicating the state of the world within the
         // given node
-        $context = (new PreOrderAnalysisVisitor(
-            $this->code_base, $context
-        ))($node);
-
+        $context = (new PreOrderAnalysisVisitor($this->code_base, $context))($node);
         // Let any configured plugins do a pre-order
         // analysis of the node.
-        ConfigPluginSet::instance()->preAnalyzeNode(
-            $this->code_base, $context, $node
-        );
-
+        ConfigPluginSet::instance()->preAnalyzeNode($this->code_base, $context, $node);
         assert(!empty($context), 'Context cannot be null');
-
         // With a context that is inside of the node passed
         // to this method, we analyze all children of the
         // node.
-        foreach ($node->children ?? [] as $child_node) {
+        foreach (call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$node->children, @[]) as $child_node) {
             // Skip any non Node children or boring nodes
             // that are too deep.
-            if (!($child_node instanceof Node)
-                || !($this->should_visit_everything || Analysis::shouldVisitNode($child_node))
-            ) {
-                $context->withLineNumberStart(
-                    $child_node->lineno ?? 0
-                );
+            if (!$child_node instanceof Node || !($this->should_visit_everything || Analysis::shouldVisitNode($child_node))) {
+                $context->withLineNumberStart(call_user_func(function ($v1, $v2) {
+                    return isset($v1) ? $v1 : $v2;
+                }, @$child_node->lineno, @0));
                 continue;
             }
-
             // Step into each child node and get an
             // updated context for the node
-            $context = (new BlockAnalysisVisitor(
-                $this->code_base, $context, $node, $this->depth + 1
-            ))($child_node);
+            $context = (new BlockAnalysisVisitor($this->code_base, $context, $node, $this->depth + 1))($child_node);
         }
-
         $context = $this->postOrderAnalyze($context, $node);
-
-        return $context;
+        $ret5902c6f388668 = $context;
+        if (!$ret5902c6f388668 instanceof Context) {
+            throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f388668) == "object" ? get_class($ret5902c6f388668) : gettype($ret5902c6f388668)) . " given");
+        }
+        return $ret5902c6f388668;
     }
-
     /**
      * For nodes that are the root of mutually exclusive child
      * nodes (if, try), we analyze each child in the parent context
@@ -161,74 +153,56 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
      * @return Context
      * The updated context after visiting the node
      */
-    public function visitBranchedContext(Node $node) : Context
+    public function visitBranchedContext(Node $node)
     {
-        $context = $this->context->withLineNumberStart(
-            $node->lineno ?? 0
-        );
-
+        $context = $this->context->withLineNumberStart(call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$node->lineno, @0));
         $context = $this->preOrderAnalyze($context, $node);
-
         assert(!empty($context), 'Context cannot be null');
-
         // We collect all child context so that the
         // PostOrderAnalysisVisitor can optionally operate on
         // them
         $child_context_list = [];
-
         // With a context that is inside of the node passed
         // to this method, we analyze all children of the
         // node.
-        foreach ($node->children ?? [] as $node_key => $child_node) {
+        foreach (call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$node->children, @[]) as $node_key => $child_node) {
             // Skip any non Node children.
-            if (!($child_node instanceof Node)) {
+            if (!$child_node instanceof Node) {
                 continue;
             }
-
             if (!($this->should_visit_everything || Analysis::shouldVisitNode($child_node))) {
                 continue;
             }
-
             // The conditions need to communicate to the outter
             // scope for things like assigning veriables.
             if ($child_node->kind != \ast\AST_IF_ELEM) {
-                $child_context = $context->withScope(
-                    new BranchScope($context->getScope())
-                );
+                $child_context = $context->withScope(new BranchScope($context->getScope()));
             } else {
                 $child_context = $context;
             }
-
-            $child_context->withLineNumberStart(
-                $child_node->lineno ?? 0
-            );
-
+            $child_context->withLineNumberStart(call_user_func(function ($v1, $v2) {
+                return isset($v1) ? $v1 : $v2;
+            }, @$child_node->lineno, @0));
             // Step into each child node and get an
             // updated context for the node
-            $child_context = (new BlockAnalysisVisitor(
-                $this->code_base, $child_context, $node, $this->depth + 1
-            ))($child_node);
-
+            $child_context = (new BlockAnalysisVisitor($this->code_base, $child_context, $node, $this->depth + 1))($child_node);
             $child_context_list[] = $child_context;
         }
-
         // For if statements, we need to merge the contexts
         // of all child context into a single scope based
         // on any possible branching structure
-        $context = (new ContextMergeVisitor(
-            $this->code_base,
-            $context,
-            $child_context_list
-        ))($node);
-
+        $context = (new ContextMergeVisitor($this->code_base, $context, $child_context_list))($node);
         $context = $this->postOrderAnalyze($context, $node);
-
-        // When coming out of a scoped element, we pop the
-        // context to be the incoming context. Otherwise,
-        // we pass our new context up to our parent
-        return $context;
+        $ret5902c6f388d85 = $context;
+        if (!$ret5902c6f388d85 instanceof Context) {
+            throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f388d85) == "object" ? get_class($ret5902c6f388d85) : gettype($ret5902c6f388d85)) . " given");
+        }
+        return $ret5902c6f388d85;
     }
-
     /**
      * @param Node $node
      * An AST node we'd like to determine the UnionType
@@ -237,50 +211,36 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
      * @return Context
      * The updated context after visiting the node
      */
-    public function visitIfElem(Node $node) : Context
+    public function visitIfElem(Node $node)
     {
-        $context = $this->context->withLineNumberStart(
-            $node->lineno ?? 0
-        );
-
+        $context = $this->context->withLineNumberStart(call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$node->lineno, @0));
         $context = $this->preOrderAnalyze($context, $node);
-
         assert(!empty($context), 'Context cannot be null');
-
         $condition_node = $node->children['cond'];
         if ($condition_node && $condition_node instanceof Node) {
-            $context = (new BlockAnalysisVisitor(
-                $this->code_base,
-                $context->withLineNumberStart($condition_node->lineno ?? 0),
-                $node,
-                $this->depth + 1
-            ))($condition_node);
+            $context = (new BlockAnalysisVisitor($this->code_base, $context->withLineNumberStart(call_user_func(function ($v1, $v2) {
+                return isset($v1) ? $v1 : $v2;
+            }, @$condition_node->lineno, @0)), $node, $this->depth + 1))($condition_node);
         }
-
         if ($stmts_node = $node->children['stmts']) {
             if ($stmts_node instanceof Node) {
-                $context = (new BlockAnalysisVisitor(
-                    $this->code_base,
-                    $context->withScope(
-                        new BranchScope($context->getScope())
-                    )->withLineNumberStart($stmts_node->lineno ?? 0),
-                    $node,
-                    $this->depth + 1
-                ))($stmts_node);
+                $context = (new BlockAnalysisVisitor($this->code_base, $context->withScope(new BranchScope($context->getScope()))->withLineNumberStart(call_user_func(function ($v1, $v2) {
+                    return isset($v1) ? $v1 : $v2;
+                }, @$stmts_node->lineno, @0)), $node, $this->depth + 1))($stmts_node);
             }
         }
-
         // Now that we know all about our context (like what
         // 'self' means), we can analyze statements like
         // assignments and method calls.
         $context = $this->postOrderAnalyze($context, $node);
-
-        // When coming out of a scoped element, we pop the
-        // context to be the incoming context. Otherwise,
-        // we pass our new context up to our parent
-        return $context;
+        $ret5902c6f38946f = $context;
+        if (!$ret5902c6f38946f instanceof Context) {
+            throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f38946f) == "object" ? get_class($ret5902c6f38946f) : gettype($ret5902c6f38946f)) . " given");
+        }
+        return $ret5902c6f38946f;
     }
-
     /**
      * For 'closed context' items (classes, methods, functions,
      * closures), we analyze children in the parent context, but
@@ -304,66 +264,53 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
      * @return Context
      * The updated context after visiting the node
      */
-    public function visitClosedContext(Node $node) : Context
+    public function visitClosedContext(Node $node)
     {
         // Make a copy of the internal context so that we don't
         // leak any changes within the closed context to the
         // outer scope
-        $context = clone($this->context->withLineNumberStart(
-            $node->lineno ?? 0
-        ));
-
+        $context = clone $this->context->withLineNumberStart(call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$node->lineno, @0));
         $context = $this->preOrderAnalyze($context, $node);
-
         assert(!empty($context), 'Context cannot be null');
-
         // We collect all child context so that the
         // PostOrderAnalysisVisitor can optionally operate on
         // them
         $child_context_list = [];
-
         $child_context = $context;
-
         // With a context that is inside of the node passed
         // to this method, we analyze all children of the
         // node.
-        foreach ($node->children ?? [] as $child_node) {
+        foreach (call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$node->children, @[]) as $child_node) {
             // Skip any non Node children.
-            if (!($child_node instanceof Node)) {
+            if (!$child_node instanceof Node) {
                 continue;
             }
-
             if (!($this->should_visit_everything || Analysis::shouldVisit($child_node))) {
-                $child_context->withLineNumberStart(
-                    $child_node->lineno ?? 0
-                );
+                $child_context->withLineNumberStart(call_user_func(function ($v1, $v2) {
+                    return isset($v1) ? $v1 : $v2;
+                }, @$child_node->lineno, @0));
                 continue;
             }
-
             // Step into each child node and get an
             // updated context for the node
-            $child_context = (new BlockAnalysisVisitor(
-                $this->code_base, $child_context, $node, $this->depth + 1
-            ))($child_node);
-
+            $child_context = (new BlockAnalysisVisitor($this->code_base, $child_context, $node, $this->depth + 1))($child_node);
             $child_context_list[] = $child_context;
         }
-
         // For if statements, we need to merge the contexts
         // of all child context into a single scope based
         // on any possible branching structure
-        $context = (new ContextMergeVisitor(
-            $this->code_base,
-            $context,
-            $child_context_list
-        ))($node);
-
+        $context = (new ContextMergeVisitor($this->code_base, $context, $child_context_list))($node);
         $context = $this->postOrderAnalyze($context, $node);
-
-        // Return the initial context as we exit
-        return $this->context;
+        $ret5902c6f389b9e = $this->context;
+        if (!$ret5902c6f389b9e instanceof Context) {
+            throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f389b9e) == "object" ? get_class($ret5902c6f389b9e) : gettype($ret5902c6f389b9e)) . " given");
+        }
+        return $ret5902c6f389b9e;
     }
-
     /**
      * @param Node $node
      * An AST node we'd like to determine the UnionType
@@ -372,11 +319,14 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
      * @return Context
      * The updated context after visiting the node
      */
-    public function visitIf(Node $node) : Context
+    public function visitIf(Node $node)
     {
-        return $this->visitBranchedContext($node);
+        $ret5902c6f389ead = $this->visitBranchedContext($node);
+        if (!$ret5902c6f389ead instanceof Context) {
+            throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f389ead) == "object" ? get_class($ret5902c6f389ead) : gettype($ret5902c6f389ead)) . " given");
+        }
+        return $ret5902c6f389ead;
     }
-
     /**
      * @param Node $node
      * An AST node we'd like to determine the UnionType
@@ -385,11 +335,14 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
      * @return Context
      * The updated context after visiting the node
      */
-    public function visitCatchList(Node $node) : Context
+    public function visitCatchList(Node $node)
     {
-        return $this->visitBranchedContext($node);
+        $ret5902c6f38a1b5 = $this->visitBranchedContext($node);
+        if (!$ret5902c6f38a1b5 instanceof Context) {
+            throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f38a1b5) == "object" ? get_class($ret5902c6f38a1b5) : gettype($ret5902c6f38a1b5)) . " given");
+        }
+        return $ret5902c6f38a1b5;
     }
-
     /**
      * @param Node $node
      * An AST node we'd like to determine the UnionType
@@ -398,17 +351,19 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
      * @return Context
      * The updated context after visiting the node
      */
-    public function visitTry(Node $node) : Context
+    public function visitTry(Node $node)
     {
-        return $this->visitBranchedContext($node);
+        $ret5902c6f38a4f5 = $this->visitBranchedContext($node);
+        if (!$ret5902c6f38a4f5 instanceof Context) {
+            throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f38a4f5) == "object" ? get_class($ret5902c6f38a4f5) : gettype($ret5902c6f38a4f5)) . " given");
+        }
+        return $ret5902c6f38a4f5;
     }
-
-    public function visitConditional(Node $node) : Context
+    public function visitConditional(Node $node)
     {
-        $context = $this->context->withLineNumberStart(
-            $node->lineno ?? 0
-        );
-
+        $context = $this->context->withLineNumberStart(call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$node->lineno, @0));
         // Visit the given node populating the code base
         // with anything we learn and get a new context
         // indicating the state of the world within the
@@ -417,71 +372,55 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
         // $context = (new PreOrderAnalysisVisitor(
         //     $this->code_base, $context
         // ))($node);
-
         // Let any configured plugins do a pre-order
         // analysis of the node.
-        ConfigPluginSet::instance()->preAnalyzeNode(
-            $this->code_base, $context, $node
-        );
-
+        ConfigPluginSet::instance()->preAnalyzeNode($this->code_base, $context, $node);
         assert(!empty($context), 'Context cannot be null');
-
-        $true_node =
-            $node->children['trueExpr'] ??
-                $node->children['true'] ?? null;
-        $false_node =
-            $node->children['falseExpr'] ??
-                $node->children['false'] ?? null;
-
+        $true_node = call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$node->children['trueExpr'], @call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$node->children['true'], @null));
+        $false_node = call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$node->children['falseExpr'], @call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$node->children['false'], @null));
         $cond_node = $node->children['cond'];
-        if (($cond_node instanceof Node) && ($this->should_visit_everything || Analysis::shouldVisitNode($cond_node))) {
+        if ($cond_node instanceof Node && ($this->should_visit_everything || Analysis::shouldVisitNode($cond_node))) {
             // Step into each child node and get an
             // updated context for the node
             // (e.g. there may be assignments such as '($x = foo()) ? $a : $b)
-            $context = (new BlockAnalysisVisitor(
-                $this->code_base, $context, $node, $this->depth + 1
-            ))($cond_node);
-
+            $context = (new BlockAnalysisVisitor($this->code_base, $context, $node, $this->depth + 1))($cond_node);
             // TODO: false_context once there is a NegatedConditionVisitor
-            $true_context = (new ConditionVisitor(
-                $this->code_base,
-                $this->context
-            ))($cond_node);
+            $true_context = (new ConditionVisitor($this->code_base, $this->context))($cond_node);
         } else {
             $true_context = $context;
         }
-
         $child_context_list = [];
         // In the long form, there's a $true_node, but in the short form (?:),
         // $cond_node is the (already processed) value for truthy.
         if ($true_node instanceof Node) {
             if ($this->should_visit_everything || Analysis::shouldVisit($true_node)) {
-                $child_context = (new BlockAnalysisVisitor(
-                    $this->code_base, $true_context, $node, $this->depth + 1
-                ))($true_node);
+                $child_context = (new BlockAnalysisVisitor($this->code_base, $true_context, $node, $this->depth + 1))($true_node);
                 $child_context_list[] = $child_context;
             }
         }
-
         if ($false_node instanceof Node) {
             if ($this->should_visit_everything || Analysis::shouldVisit($false_node)) {
-                $child_context = (new BlockAnalysisVisitor(
-                    $this->code_base, $context, $node, $this->depth + 1
-                ))($false_node);
+                $child_context = (new BlockAnalysisVisitor($this->code_base, $context, $node, $this->depth + 1))($false_node);
                 $child_context_list[] = $child_context;
             }
         }
         if (count($child_context_list) >= 1) {
-            $context = (new ContextMergeVisitor(
-                $this->code_base,
-                $context,
-                $child_context_list
-            ))($node);
+            $context = (new ContextMergeVisitor($this->code_base, $context, $child_context_list))($node);
         }
-
         $context = $this->postOrderAnalyze($context, $node);
-
-        return $context;
+        $ret5902c6f38af1d = $context;
+        if (!$ret5902c6f38af1d instanceof Context) {
+            throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f38af1d) == "object" ? get_class($ret5902c6f38af1d) : gettype($ret5902c6f38af1d)) . " given");
+        }
+        return $ret5902c6f38af1d;
     }
     /**
      * @param Node $node
@@ -491,11 +430,14 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
      * @return Context
      * The updated context after visiting the node
      */
-    public function visitClass(Decl $node) : Context
+    public function visitClass(Decl $node)
     {
-        return $this->visitClosedContext($node);
+        $ret5902c6f38b22e = $this->visitClosedContext($node);
+        if (!$ret5902c6f38b22e instanceof Context) {
+            throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f38b22e) == "object" ? get_class($ret5902c6f38b22e) : gettype($ret5902c6f38b22e)) . " given");
+        }
+        return $ret5902c6f38b22e;
     }
-
     /**
      * @param Decl $node
      * An AST node we'd like to determine the UnionType
@@ -504,11 +446,14 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
      * @return Context
      * The updated context after visiting the node
      */
-    public function visitMethod(Decl $node) : Context
+    public function visitMethod(Decl $node)
     {
-        return $this->visitClosedContext($node);
+        $ret5902c6f38b596 = $this->visitClosedContext($node);
+        if (!$ret5902c6f38b596 instanceof Context) {
+            throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f38b596) == "object" ? get_class($ret5902c6f38b596) : gettype($ret5902c6f38b596)) . " given");
+        }
+        return $ret5902c6f38b596;
     }
-
     /**
      * @param Decl $node
      * An AST node we'd like to determine the UnionType
@@ -517,11 +462,14 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
      * @return Context
      * The updated context after visiting the node
      */
-    public function visitFuncDecl(Decl $node) : Context
+    public function visitFuncDecl(Decl $node)
     {
-        return $this->visitClosedContext($node);
+        $ret5902c6f38b8bb = $this->visitClosedContext($node);
+        if (!$ret5902c6f38b8bb instanceof Context) {
+            throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f38b8bb) == "object" ? get_class($ret5902c6f38b8bb) : gettype($ret5902c6f38b8bb)) . " given");
+        }
+        return $ret5902c6f38b8bb;
     }
-
     /**
      * @param Decl $node
      * An AST node we'd like to determine the UnionType
@@ -530,11 +478,14 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
      * @return Context
      * The updated context after visiting the node
      */
-    public function visitClosure(Decl $node) : Context
+    public function visitClosure(Decl $node)
     {
-        return $this->visitClosedContext($node);
+        $ret5902c6f38bbc1 = $this->visitClosedContext($node);
+        if (!$ret5902c6f38bbc1 instanceof Context) {
+            throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f38bbc1) == "object" ? get_class($ret5902c6f38bbc1) : gettype($ret5902c6f38bbc1)) . " given");
+        }
+        return $ret5902c6f38bbc1;
     }
-
     /**
      * Common options for pre-order analysis phase of a Node.
      * Run pre-order analysis steps, then run plugins.
@@ -548,24 +499,22 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
      * @return Context
      * The updated context after pre-order analysis of the node
      */
-    private function preOrderAnalyze(Context $context, Node $node) : Context
+    private function preOrderAnalyze(Context $context, Node $node)
     {
         // Visit the given node populating the code base
         // with anything we learn and get a new context
         // indicating the state of the world within the
         // given node
-        $context = (new PreOrderAnalysisVisitor(
-            $this->code_base, $context
-        ))($node);
-
+        $context = (new PreOrderAnalysisVisitor($this->code_base, $context))($node);
         // Let any configured plugins do a pre-order
         // analysis of the node.
-        ConfigPluginSet::instance()->preAnalyzeNode(
-            $this->code_base, $context, $node
-        );
-        return $context;
+        ConfigPluginSet::instance()->preAnalyzeNode($this->code_base, $context, $node);
+        $ret5902c6f38bf82 = $context;
+        if (!$ret5902c6f38bf82 instanceof Context) {
+            throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f38bf82) == "object" ? get_class($ret5902c6f38bf82) : gettype($ret5902c6f38bf82)) . " given");
+        }
+        return $ret5902c6f38bf82;
     }
-
     /**
      * Common options for post-order analysis phase of a Node.
      * Run analysis steps and run plugins.
@@ -579,21 +528,20 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
      * @return Context
      * The updated context after post-order analysis of the node
      */
-    private function postOrderAnalyze(Context $context, Node $node) : Context
+    private function postOrderAnalyze(Context $context, Node $node)
     {
         // Now that we know all about our context (like what
         // 'self' means), we can analyze statements like
         // assignments and method calls.
-        $context = (new PostOrderAnalysisVisitor(
-            $this->code_base,
-            $context->withLineNumberStart($node->lineno ?? 0),
-            $this->parent_node
-        ))($node);
-
+        $context = (new PostOrderAnalysisVisitor($this->code_base, $context->withLineNumberStart(call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$node->lineno, @0)), $this->parent_node))($node);
         // let any configured plugins analyze the node
-        ConfigPluginSet::instance()->analyzeNode(
-            $this->code_base, $context, $node, $this->parent_node
-        );
-        return $context;
+        ConfigPluginSet::instance()->analyzeNode($this->code_base, $context, $node, $this->parent_node);
+        $ret5902c6f38c3c9 = $context;
+        if (!$ret5902c6f38c3c9 instanceof Context) {
+            throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f38c3c9) == "object" ? get_class($ret5902c6f38c3c9) : gettype($ret5902c6f38c3c9)) . " given");
+        }
+        return $ret5902c6f38c3c9;
     }
 }

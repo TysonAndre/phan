@@ -1,4 +1,8 @@
-<?php declare(strict_types=1);
+<?php
+
+/*
+ * This code has been transpiled via TransPHPile. For more information, visit https://github.com/jaytaph/transphpile
+ */
 namespace Phan;
 
 use Phan\Output\Collector\BufferingCollector;
@@ -10,46 +14,43 @@ use Phan\Output\PrinterFactory;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Output\StreamOutput;
-
 class CLI
 {
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
     const PHAN_VERSION = '0.8.4-dev';
-
     /**
      * @var OutputInterface
      */
     private $output;
-
     /**
      * @return OutputInterface
      */
-    public function getOutput():OutputInterface
+    public function getOutput()
     {
-        return $this->output;
+        $ret5902c6f3a73d5 = $this->output;
+        if (!$ret5902c6f3a73d5 instanceof OutputInterface) {
+            throw new \InvalidArgumentException("Argument returned must be of the type OutputInterface, " . (gettype($ret5902c6f3a73d5) == "object" ? get_class($ret5902c6f3a73d5) : gettype($ret5902c6f3a73d5)) . " given");
+        }
+        return $ret5902c6f3a73d5;
     }
-
     /**
      * @var string[]
      * The set of file names to analyze
      */
     private $file_list = [];
-
     /**
      * @var bool
      * Set to true to ignore all files and directories
      * added by means other than -file-list-only on the CLI
      */
     private $file_list_only = false;
-
     /**
      * @var string|null
      * A possibly null path to the config file to load
      */
     private $config_file = null;
-
     /**
      * Create and read command line arguments, configuring
      * \Phan\Config as a side effect.
@@ -57,90 +58,70 @@ class CLI
     public function __construct()
     {
         global $argv;
-
         // Parse command line args
         // still available: g,n,t,u,w
-        $opts = getopt(
-            "f:m:o:c:k:aeqbr:pid:3:y:l:xj:zhvs:",
-            [
-                'backward-compatibility-checks',
-                'color',
-                'dead-code-detection',
-                'directory:',
-                'dump-ast',
-                'dump-signatures-file:',
-                'exclude-directory-list:',
-                'exclude-file:',
-                'file-list-only:',
-                'file-list:',
-                'help',
-                'ignore-undeclared',
-                'minimum-severity:',
-                'output-mode:',
-                'output:',
-                'parent-constructor-required:',
-                'progress-bar',
-                'project-root-directory:',
-                'quick',
-                'version',
-                'processes:',
-                'config-file:',
-                'signature-compatibility',
-                'markdown-issue-messages',
-                'daemonize-socket:',
-                'daemonize-tcp-port:',
-                'extended-help',
-            ]
-        );
-
-        if (array_key_exists('extended-help', $opts ?? [])) {
-            $this->usage('', EXIT_SUCCESS, true);  // --help prints help and calls exit(0)
+        $opts = getopt("f:m:o:c:k:aeqbr:pid:3:y:l:xj:zhvs:", ['backward-compatibility-checks', 'color', 'dead-code-detection', 'directory:', 'dump-ast', 'dump-signatures-file:', 'exclude-directory-list:', 'exclude-file:', 'file-list-only:', 'file-list:', 'help', 'ignore-undeclared', 'minimum-severity:', 'output-mode:', 'output:', 'parent-constructor-required:', 'progress-bar', 'project-root-directory:', 'quick', 'version', 'processes:', 'config-file:', 'signature-compatibility', 'markdown-issue-messages', 'daemonize-socket:', 'daemonize-tcp-port:', 'extended-help']);
+        if (array_key_exists('extended-help', call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$opts, @[]))) {
+            $this->usage('', EXIT_SUCCESS, true);
+            // --help prints help and calls exit(0)
         }
-        if (array_key_exists('h', $opts ?? []) || array_key_exists('help', $opts ?? [])) {
-            $this->usage();  // --help prints help and calls exit(0)
+        if (array_key_exists('h', call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$opts, @[])) || array_key_exists('help', call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$opts, @[]))) {
+            $this->usage();
+            // --help prints help and calls exit(0)
         }
-        if (array_key_exists('v', $opts ?? []) || array_key_exists('version', $opts ?? [])) {
+        if (array_key_exists('v', call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$opts, @[])) || array_key_exists('version', call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$opts, @[]))) {
             printf("Phan %s\n", self::PHAN_VERSION);
             exit(EXIT_SUCCESS);
         }
-
         // Determine the root directory of the project from which
         // we root all relative paths passed in as args
-        Config::get()->setProjectRootDirectory(
-            $opts['d'] ?? $opts['project-root-directory'] ?? getcwd()
-        );
-
+        Config::get()->setProjectRootDirectory(call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$opts['d'], @call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$opts['project-root-directory'], @getcwd())));
         // Before reading the config, check for an override on
         // the location of the config file path.
         if (isset($opts['k'])) {
             $this->config_file = $opts['k'];
-        } else if (isset($opts['config-file'])) {
-            $this->config_file = $opts['config-file'];
+        } else {
+            if (isset($opts['config-file'])) {
+                $this->config_file = $opts['config-file'];
+            }
         }
-
         // Now that we have a root directory, attempt to read a
         // configuration file `.phan/config.php` if it exists
         $this->maybeReadConfigFile();
-
         $this->output = new ConsoleOutput();
         $factory = new PrinterFactory();
         $printer_type = 'text';
         $minimum_severity = Config::get()->minimum_severity;
         $mask = -1;
-
-        foreach ($opts ?? [] as $key => $value) {
+        foreach (call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$opts, @[]) as $key => $value) {
             switch ($key) {
                 case 'r':
                 case 'file-list-only':
                     // Mark it so that we don't load files through
                     // other mechanisms.
                     $this->file_list_only = true;
-
                     // Empty out the file list
                     $this->file_list = [];
-
                     // Intentionally fall through to load the
                     // file list
+                // Intentionally fall through to load the
+                // file list
                 case 'f':
                 case 'file-list':
                     $file_list = is_array($value) ? $value : [$value];
@@ -148,12 +129,9 @@ class CLI
                         $file_path = Config::projectPath($file_name);
                         if (is_file($file_path) && is_readable($file_path)) {
                             /** @var string[] */
-                            $this->file_list = array_merge(
-                                $this->file_list,
-                                file(Config::projectPath($file_name), FILE_IGNORE_NEW_LINES|FILE_SKIP_EMPTY_LINES)
-                            );
+                            $this->file_list = array_merge($this->file_list, file(Config::projectPath($file_name), FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES));
                         } else {
-                            error_log("Unable to read file $file_path");
+                            error_log("Unable to read file {$file_path}");
                         }
                     }
                     break;
@@ -162,12 +140,7 @@ class CLI
                     if (!$this->file_list_only) {
                         $directory_list = is_array($value) ? $value : [$value];
                         foreach ($directory_list as $directory_name) {
-                            $this->file_list = array_merge(
-                                $this->file_list,
-                                $this->directoryNameToFileList(
-                                    $directory_name
-                                )
-                            );
+                            $this->file_list = array_merge($this->file_list, $this->directoryNameToFileList($directory_name));
                         }
                     }
                     break;
@@ -177,22 +150,13 @@ class CLI
                 case 'm':
                 case 'output-mode':
                     if (!in_array($value, $factory->getTypes(), true)) {
-                        $this->usage(
-                            sprintf(
-                                'Unknown output mode "%s". Known values are [%s]',
-                                $value,
-                                implode(',', $factory->getTypes())
-                            ),
-                            EXIT_FAILURE
-                        );
+                        $this->usage(sprintf('Unknown output mode "%s". Known values are [%s]', $value, implode(',', $factory->getTypes())), EXIT_FAILURE);
                     }
-
                     $printer_type = $value;
                     break;
                 case 'c':
                 case 'parent-constructor-required':
-                    Config::get()->parent_constructor_required =
-                    explode(',', $value);
+                    Config::get()->parent_constructor_required = explode(',', $value);
                     break;
                 case 'q':
                 case 'quick':
@@ -226,22 +190,19 @@ class CLI
                     Config::get()->exclude_analysis_directory_list = explode(',', $value);
                     break;
                 case 'exclude-file':
-                    Config::get()->exclude_file_list = array_merge(
-                        Config::get()->exclude_file_list,
-                        is_array($value) ? $value : [$value]
-                    );
+                    Config::get()->exclude_file_list = array_merge(Config::get()->exclude_file_list, is_array($value) ? $value : [$value]);
                     break;
                 case 'j':
                 case 'processes':
-                    Config::get()->processes = (int)$value;
+                    Config::get()->processes = (int) $value;
                     break;
                 case 'z':
                 case 'signature-compatibility':
-                    Config::get()->analyze_signature_compatibility = (bool)$value;
+                    Config::get()->analyze_signature_compatibility = (bool) $value;
                     break;
                 case 'y':
                 case 'minimum-severity':
-                    $minimum_severity = (int)$value;
+                    $minimum_severity = (int) $value;
                     break;
                 case 'd':
                 case 'project-root-directory':
@@ -257,17 +218,19 @@ class CLI
                         $msg = sprintf('Requested to create unix socket server in %s, but folder %s does not exist', json_encode($value), json_encode($socket_dirname));
                         $this->usage($msg, 1);
                     } else {
-                        Config::get()->daemonize_socket = $value;  // Daemonize. Assumes the file list won't change. Accepts requests over a Unix socket, or some other IPC mechanism.
+                        Config::get()->daemonize_socket = $value;
+                        // Daemonize. Assumes the file list won't change. Accepts requests over a Unix socket, or some other IPC mechanism.
                     }
                     break;
                     // TODO: HTTP server binding to 127.0.0.1, daemonize-port.
+                // TODO: HTTP server binding to 127.0.0.1, daemonize-port.
                 case 'daemonize-tcp-port':
                     $this->checkCanDaemonize('tcp');
                     $port = filter_var($value, FILTER_VALIDATE_INT);
                     if ($port >= 1024 && $port <= 65535) {
                         Config::get()->daemonize_tcp_port = $port;
                     } else {
-                        $this->usage("daemonize-tcp-port must be between 1024 and 65535, got '$value'", 1);
+                        $this->usage("daemonize-tcp-port must be between 1024 and 65535, got '{$value}'", 1);
                     }
                     break;
                 case 'x':
@@ -281,74 +244,47 @@ class CLI
                     Config::get()->color_issue_messages = true;
                     break;
                 default:
-                    $this->usage("Unknown option '-$key'", EXIT_FAILURE);
+                    $this->usage("Unknown option '-{$key}'", EXIT_FAILURE);
                     break;
             }
         }
-
         $printer = $factory->getPrinter($printer_type, $this->output);
-        $filter  = new ChainedIssueFilter([
-            new FileIssueFilter(new Phan()),
-            new MinimumSeverityFilter($minimum_severity),
-            new CategoryIssueFilter($mask)
-        ]);
+        $filter = new ChainedIssueFilter([new FileIssueFilter(new Phan()), new MinimumSeverityFilter($minimum_severity), new CategoryIssueFilter($mask)]);
         $collector = new BufferingCollector($filter);
-
         Phan::setPrinter($printer);
         Phan::setIssueCollector($collector);
-
         $pruneargv = array();
-        foreach ($opts ?? [] as $opt => $value) {
+        foreach (call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$opts, @[]) as $opt => $value) {
             foreach ($argv as $key => $chunk) {
-                $regex = '/^'. (isset($opt[1]) ? '--' : '-') . $opt . '/';
-
-                if (($chunk == $value
-                    || (is_array($value) && in_array($chunk, $value))
-                    )
-                    && $argv[$key-1][0] == '-'
-                    || preg_match($regex, $chunk)
-                ) {
+                $regex = '/^' . (isset($opt[1]) ? '--' : '-') . $opt . '/';
+                if (($chunk == $value || is_array($value) && in_array($chunk, $value)) && $argv[$key - 1][0] == '-' || preg_match($regex, $chunk)) {
                     array_push($pruneargv, $key);
                 }
             }
         }
-
         while ($key = array_pop($pruneargv)) {
             unset($argv[$key]);
         }
-
         foreach ($argv as $arg) {
-            if ($arg[0]=='-') {
+            if ($arg[0] == '-') {
                 $this->usage("Unknown option '{$arg}'", EXIT_FAILURE);
             }
         }
-
         if (!$this->file_list_only) {
             // Merge in any remaining args on the CLI
-            $this->file_list = array_merge(
-                $this->file_list,
-                array_slice($argv, 1)
-            );
-
+            $this->file_list = array_merge($this->file_list, array_slice($argv, 1));
             // Merge in any files given in the config
             /** @var string[] */
-            $this->file_list = array_merge(
-                $this->file_list,
-                Config::get()->file_list
-            );
-
+            $this->file_list = array_merge($this->file_list, Config::get()->file_list);
             // Merge in any directories given in the config
             foreach (Config::get()->directory_list as $directory_name) {
-                $this->file_list = array_merge(
-                    $this->file_list,
-                    $this->directoryNameToFileList($directory_name)
-                );
+                $this->file_list = array_merge($this->file_list, $this->directoryNameToFileList($directory_name));
             }
-
             // Don't scan anything twice
             $this->file_list = array_unique($this->file_list);
         }
-
         // Exclude any files that should be excluded from
         // parsing and analysis (not read at all)
         if (count(Config::get()->exclude_file_list) > 0) {
@@ -356,55 +292,68 @@ class CLI
             foreach (Config::get()->exclude_file_list as $file) {
                 $exclude_file_set[$file] = true;
             }
-
-            $this->file_list = array_filter($this->file_list,
-                function(string $file) use ($exclude_file_set) : bool {
-                    return empty($exclude_file_set[$file]);
+            $this->file_list = array_filter($this->file_list, function ($file) use($exclude_file_set) {
+                if (!is_string($file)) {
+                    throw new \InvalidArgumentException("Argument \$file passed to () must be of the type string, " . (gettype($file) == "object" ? get_class($file) : gettype($file)) . " given");
                 }
-            );
+                $ret5902c6f3a96a8 = empty($exclude_file_set[$file]);
+                if (!is_bool($ret5902c6f3a96a8)) {
+                    throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f3a96a8) . " given");
+                }
+                return $ret5902c6f3a96a8;
+            });
         }
-
         // We can't run dead code detection on multiple cores because
         // we need to update reference lists in a globally accessible
         // way during analysis. With our parallelization mechanism, there
         // is no shared state between processes, making it impossible to
         // have a complete set of reference lists.
-        assert(Config::get()->processes === 1
-            || !Config::get()->dead_code_detection,
-            "We cannot run dead code detection on more than one core.");
+        assert(Config::get()->processes === 1 || !Config::get()->dead_code_detection, "We cannot run dead code detection on more than one core.");
     }
-
     /** @return void - exits on usage error */
-    private function checkCanDaemonize(string $protocol) {
+    private function checkCanDaemonize($protocol)
+    {
+        if (!is_string($protocol)) {
+            throw new \InvalidArgumentException("Argument \$protocol passed to checkCanDaemonize() must be of the type string, " . (gettype($protocol) == "object" ? get_class($protocol) : gettype($protocol)) . " given");
+        }
         $opt = $protocol === 'unix' ? '--daemonize-socket' : '--daemonize-tcp-port';
         if (!in_array($protocol, stream_get_transports())) {
-            $this->usage("The $protocol:///path/to/file schema is not supported on this system, cannot create a daemon with $opt", 1);
+            $this->usage("The {$protocol}:///path/to/file schema is not supported on this system, cannot create a daemon with {$opt}", 1);
         }
         if (!function_exists('pcntl_fork')) {
-            $this->usage("The pcntl extension is not available to fork a new process, so $opt will not be able to create workers to respond to requests.", 1);
+            $this->usage("The pcntl extension is not available to fork a new process, so {$opt} will not be able to create workers to respond to requests.", 1);
         }
         if (Config::get()->daemonize_socket || Config::get()->daemonize_tcp_port) {
             $this->usage('Can specify --daemonize-socket or --daemonize-tcp-port only once', 1);
         }
     }
-
     /**
      * @return string[]
      * Get the set of files to analyze
      */
-    public function getFileList() : array
+    public function getFileList()
     {
-        return $this->file_list;
-    }
-
-    private function usage(string $msg = '', int $exit_code = EXIT_SUCCESS, bool $print_extended_help = false)
-    {
-        global $argv;
-
-        if (!empty($msg)) {
-            echo "$msg\n";
+        $ret5902c6f3aa0be = $this->file_list;
+        if (!is_array($ret5902c6f3aa0be)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type array, " . gettype($ret5902c6f3aa0be) . " given");
         }
-
+        return $ret5902c6f3aa0be;
+    }
+    private function usage($msg = '', $exit_code = EXIT_SUCCESS, $print_extended_help = false)
+    {
+        if (!is_string($msg)) {
+            throw new \InvalidArgumentException("Argument \$msg passed to usage() must be of the type string, " . (gettype($msg) == "object" ? get_class($msg) : gettype($msg)) . " given");
+        }
+        if (!is_int($exit_code)) {
+            throw new \InvalidArgumentException("Argument \$exit_code passed to usage() must be of the type int, " . (gettype($exit_code) == "object" ? get_class($exit_code) : gettype($exit_code)) . " given");
+        }
+        if (!is_bool($print_extended_help)) {
+            throw new \InvalidArgumentException("Argument \$print_extended_help passed to usage() must be of the type bool, " . (gettype($print_extended_help) == "object" ? get_class($print_extended_help) : gettype($print_extended_help)) . " given");
+        }
+        global $argv;
+        if (!empty($msg)) {
+            echo "{$msg}\n";
+        }
         echo <<<EOB
 Usage: {$argv[0]} [options] [files...]
  -f, --file-list <filename>
@@ -524,7 +473,6 @@ EOB;
         }
         exit($exit_code);
     }
-
     /**
      * @param string $directory_name
      * The name of a directory to scan for files ending in `.php`.
@@ -532,61 +480,51 @@ EOB;
      * @return string[]
      * A list of PHP files in the given directory
      */
-    private function directoryNameToFileList(
-        string $directory_name
-    ) : array {
+    private function directoryNameToFileList($directory_name)
+    {
+        if (!is_string($directory_name)) {
+            throw new \InvalidArgumentException("Argument \$directory_name passed to directoryNameToFileList() must be of the type string, " . (gettype($directory_name) == "object" ? get_class($directory_name) : gettype($directory_name)) . " given");
+        }
         $file_list = [];
-
         try {
             $file_extensions = Config::get()->analyzed_file_extensions;
-
             if (!is_array($file_extensions) || count($file_extensions) === 0) {
-                throw new \InvalidArgumentException(
-                    'Empty list in config analyzed_file_extensions. Nothing to analyze.'
-                );
+                throw new \InvalidArgumentException('Empty list in config analyzed_file_extensions. Nothing to analyze.');
             }
-
             $exclude_file_regex = Config::get()->exclude_file_regex;
-            $iterator = new \CallbackFilterIterator(
-                new \RecursiveIteratorIterator(
-                    new \RecursiveDirectoryIterator(
-                        $directory_name,
-                        \RecursiveDirectoryIterator::FOLLOW_SYMLINKS
-                    )
-                ),
-                function(\SplFileInfo $file_info) use ($file_extensions, $exclude_file_regex) {
-                    if (!in_array($file_info->getExtension(), $file_extensions, true)) {
-                        return false;
-                    }
-
-                    if (!$file_info->isFile() || !$file_info->isReadable()) {
-                        $file_path = $file_info->getRealPath();
-                        error_log("Unable to read file {$file_path}");
-                        return false;
-                    }
-
-                    if ($exclude_file_regex && preg_match($exclude_file_regex,$file_info->getBasename())) {
-                        return false;
-                    }
-
-                    return true;
+            $iterator = new \CallbackFilterIterator(new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($directory_name, \RecursiveDirectoryIterator::FOLLOW_SYMLINKS)), function (\SplFileInfo $file_info) use($file_extensions, $exclude_file_regex) {
+                if (!in_array($file_info->getExtension(), $file_extensions, true)) {
+                    return false;
                 }
-            );
-
+                if (!$file_info->isFile() || !$file_info->isReadable()) {
+                    $file_path = $file_info->getRealPath();
+                    error_log("Unable to read file {$file_path}");
+                    return false;
+                }
+                if ($exclude_file_regex && preg_match($exclude_file_regex, $file_info->getBasename())) {
+                    return false;
+                }
+                return true;
+            });
             $file_list = array_keys(iterator_to_array($iterator));
         } catch (\Exception $exception) {
             error_log($exception->getMessage());
         }
-
-        return $file_list;
+        $ret5902c6f3aaf99 = $file_list;
+        if (!is_array($ret5902c6f3aaf99)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type array, " . gettype($ret5902c6f3aaf99) . " given");
+        }
+        return $ret5902c6f3aaf99;
     }
-
-    public static function shouldShowProgress() : bool
+    public static function shouldShowProgress()
     {
         $config = Config::get();
-        return $config->progress_bar && !$config->dump_ast && !$config->daemonize_tcp_port && !$config->daemonize_socket;
+        $ret5902c6f3ab4be = $config->progress_bar && !$config->dump_ast && !$config->daemonize_tcp_port && !$config->daemonize_socket;
+        if (!is_bool($ret5902c6f3ab4be)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f3ab4be) . " given");
+        }
+        return $ret5902c6f3ab4be;
     }
-
     /**
      * Update a progress bar on the screen
      *
@@ -603,48 +541,38 @@ EOB;
      *
      * @return void
      */
-    public static function progress(
-        string $msg,
-        float $p
-    ) {
+    public static function progress($msg, $p)
+    {
+        if (!is_string($msg)) {
+            throw new \InvalidArgumentException("Argument \$msg passed to progress() must be of the type string, " . (gettype($msg) == "object" ? get_class($msg) : gettype($msg)) . " given");
+        }
+        if (!is_float($p)) {
+            throw new \InvalidArgumentException("Argument \$p passed to progress() must be of the type float, " . (gettype($p) == "object" ? get_class($p) : gettype($p)) . " given");
+        }
         if (!self::shouldShowProgress()) {
             return;
         }
-
         // Bound the percentage to [0, 1]
         $p = min(max($p, 0.0), 1.0);
-
         // Don't update every time when we're moving
         // super fast
-        if ($p > 0.0
-            && $p < 1.0
-            && rand(0, 1000) > (1000 * Config::get()->progress_bar_sample_rate
-            )) {
+        if ($p > 0.0 && $p < 1.0 && rand(0, 1000) > 1000 * Config::get()->progress_bar_sample_rate) {
             return;
         }
-
         // If we're on windows, just print a dot to show we're
         // working
         if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
             fwrite(STDERR, '.');
             return;
         }
-        $memory = memory_get_usage()/1024/1024;
-        $peak = memory_get_peak_usage()/1024/1024;
-
-        $current = (int)($p * 60);
+        $memory = memory_get_usage() / 1024 / 1024;
+        $peak = memory_get_peak_usage() / 1024 / 1024;
+        $current = (int) ($p * 60);
         $rest = max(60 - $current, 0);
-
         // Build up a string, then make a single call to fwrite(). Should be slightly faster and smoother to render to the console.
-        $msg = str_pad($msg, 10, ' ', STR_PAD_LEFT) .
-               ' ' .
-               str_repeat("\u{2588}", $current) .
-               str_repeat("\u{2591}", $rest) .
-               " " . sprintf("% 3d", (int)(100*$p)) . "%" .
-               sprintf(' %0.2dMB/%0.2dMB', $memory, $peak) . "\r";
+        $msg = str_pad($msg, 10, ' ', STR_PAD_LEFT) . ' ' . str_repeat("█", $current) . str_repeat("░", $rest) . " " . sprintf("% 3d", (int) (100 * $p)) . "%" . sprintf(' %0.2dMB/%0.2dMB', $memory, $peak) . "\r";
         fwrite(STDERR, $msg);
     }
-
     /**
      * Look for a .phan/config file up to a few directories
      * up the hierarchy and apply anything in there to
@@ -652,25 +580,14 @@ EOB;
      */
     private function maybeReadConfigFile()
     {
-
         // If the file doesn't exist here, try a directory up
-        $config_file_name =
-            !empty($this->config_file)
-            ? realpath($this->config_file)
-            : implode(DIRECTORY_SEPARATOR, [
-                Config::get()->getProjectRootDirectory(),
-                '.phan',
-                'config.php'
-            ]);
-
+        $config_file_name = !empty($this->config_file) ? realpath($this->config_file) : implode(DIRECTORY_SEPARATOR, [Config::get()->getProjectRootDirectory(), '.phan', 'config.php']);
         // Totally cool if the file isn't there
         if (!file_exists($config_file_name)) {
             return;
         }
-
         // Read the configuration file
-        $config = require($config_file_name);
-
+        $config = (require $config_file_name);
         // Write each value to the config
         foreach ($config as $key => $value) {
             Config::get()->__set($key, $value);

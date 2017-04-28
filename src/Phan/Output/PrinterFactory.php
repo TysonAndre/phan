@@ -1,4 +1,8 @@
-<?php declare(strict_types = 1);
+<?php
+
+/*
+ * This code has been transpiled via TransPHPile. For more information, visit https://github.com/jaytaph/transphpile
+ */
 namespace Phan\Output;
 
 use Phan\Output\Printer\CheckstylePrinter;
@@ -8,23 +12,24 @@ use Phan\Output\Printer\JSONPrinter;
 use Phan\Output\Printer\PlainTextPrinter;
 use Phan\Output\Printer\PylintPrinter;
 use Symfony\Component\Console\Output\OutputInterface;
-
 /**
  * Class PrinterFactory
  * Subject of future refactoring to be a bit more extensible
  */
 class PrinterFactory
 {
-
     /**
      * @return string[]
      */
-    public function getTypes():array
+    public function getTypes()
     {
-        return ['text', 'json', 'csv', 'codeclimate', 'checkstyle', 'pylint'];
+        $ret5902c6fea944f = ['text', 'json', 'csv', 'codeclimate', 'checkstyle', 'pylint'];
+        if (!is_array($ret5902c6fea944f)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type array, " . gettype($ret5902c6fea944f) . " given");
+        }
+        return $ret5902c6fea944f;
     }
-
-    public function getPrinter($type, OutputInterface $output):IssuePrinterInterface
+    public function getPrinter($type, OutputInterface $output)
     {
         switch ($type) {
             case 'codeclimate':
@@ -47,9 +52,11 @@ class PrinterFactory
                 $printer = new PlainTextPrinter();
                 break;
         }
-
         $printer->configureOutput($output);
-
-        return $printer;
+        $ret5902c6fea9aa9 = $printer;
+        if (!$ret5902c6fea9aa9 instanceof IssuePrinterInterface) {
+            throw new \InvalidArgumentException("Argument returned must be of the type IssuePrinterInterface, " . (gettype($ret5902c6fea9aa9) == "object" ? get_class($ret5902c6fea9aa9) : gettype($ret5902c6fea9aa9)) . " given");
+        }
+        return $ret5902c6fea9aa9;
     }
 }

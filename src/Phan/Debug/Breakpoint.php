@@ -1,7 +1,11 @@
 <?php
+
+/*
+ * This code has been transpiled via TransPHPile. For more information, visit https://github.com/jaytaph/transphpile
+ */
 namespace Phan\Debug;
 
-readline_completion_function(function($input) {
+readline_completion_function(function ($input) {
     $matches = array();
     foreach (get_declared_classes() as $i => $className) {
         if (strpos($className, $input) == 0) {
@@ -10,30 +14,21 @@ readline_completion_function(function($input) {
     }
     return $matches;
 });
-
 print "\n";
 do {
     /** @var string|null */
     $input = readline("breakpoint> ");
-
     if (is_string($input)) {
         readline_add_history($input);
     }
-
-    if (in_array($input, [
-        'quit',
-        'exit',
-        'continue',
-        'run',
-        'c'
-    ])) {
+    if (in_array($input, ['quit', 'exit', 'continue', 'run', 'c'])) {
         break;
     }
     try {
         eval($input . ';');
     } catch (\ParseError $exception) {
-        print "Parse error in `$input`\n";
-    } catch(\Throwable $exception) {
+        print "Parse error in `{$input}`\n";
+    } catch (\Throwable $exception) {
         print $exception->getMessage() . "\n";
         print $exception->getTraceAsString() . "\n";
     }

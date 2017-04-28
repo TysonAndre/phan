@@ -1,4 +1,8 @@
-<?php declare(strict_types=1);
+<?php
+
+/*
+ * This code has been transpiled via TransPHPile. For more information, visit https://github.com/jaytaph/transphpile
+ */
 namespace Phan\Language\Element;
 
 use Phan\CodeBase;
@@ -9,134 +13,137 @@ use Phan\Language\Type\MixedType;
 use Phan\Language\Type\NullType;
 use Phan\Language\UnionType;
 use ast\Node\Decl;
-
-trait FunctionTrait {
-
+trait FunctionTrait
+{
     /**
      * @return int
      */
-    abstract public function getPhanFlags() : int;
-
+    public abstract function getPhanFlags();
     /**
      * @param int $phan_flags
      *
      * @return void
      */
-    abstract public function setPhanFlags(int $phan_flags);
-
-
+    public abstract function setPhanFlags($phan_flags);
     /**
      * @var int
      * The number of required parameters for the method
      */
     private $number_of_required_parameters = 0;
-
     /**
      * @var int
      * The number of optional parameters for the method
      */
     private $number_of_optional_parameters = 0;
-
     /**
      * @var Parameter[]
      * The list of parameters for this method
      * This will change while the method is being analyzed when the config quick_mode is false.
      */
     private $parameter_list = [];
-
     /**
      * @var ?int
      * The hash of the types for the list of parameters for this function/method.
      */
     private $parameter_list_hash = null;
-
     /**
      * @var ?bool
      * Whether or not this function/method has any pass by reference parameters.
      */
     private $has_pass_by_reference_parameters = null;
-
     /**
      * @var int[]
      * If the types for a parameter list were checked,
      * this contains the recursion depth (smaller is earlier in recursion)
      */
     private $checked_parameter_list_hashes = [];
-
     /**
      * @var Parameter[]
      * The list of *real* (not from phpdoc) parameters for this method.
      * This does not change after initialization.
      */
     private $real_parameter_list = [];
-
     /**
      * @var UnionType
      * The *real* (not from phpdoc) return type from this method.
      * This does not change after initialization.
      */
     private $real_return_type;
-
     /**
      * @return int
      * The number of optional parameters on this method
      */
-    public function getNumberOfOptionalParameters() : int {
-        return $this->number_of_optional_parameters;
+    public function getNumberOfOptionalParameters()
+    {
+        $ret5902c6f5aec23 = $this->number_of_optional_parameters;
+        if (!is_int($ret5902c6f5aec23)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type int, " . gettype($ret5902c6f5aec23) . " given");
+        }
+        return $ret5902c6f5aec23;
     }
-
     /**
      * The number of optional parameters
      *
      * @return void
      */
-    public function setNumberOfOptionalParameters(int $number) {
+    public function setNumberOfOptionalParameters($number)
+    {
+        if (!is_int($number)) {
+            throw new \InvalidArgumentException("Argument \$number passed to setNumberOfOptionalParameters() must be of the type int, " . (gettype($number) == "object" ? get_class($number) : gettype($number)) . " given");
+        }
         $this->number_of_optional_parameters = $number;
     }
-
     /**
      * @return int
      * The maximum number of parameters to this method
      */
-    public function getNumberOfParameters() : int {
-        return (
-            $this->getNumberOfRequiredParameters()
-            + $this->getNumberOfOptionalParameters()
-        );
+    public function getNumberOfParameters()
+    {
+        $ret5902c6f5af23b = $this->getNumberOfRequiredParameters() + $this->getNumberOfOptionalParameters();
+        if (!is_int($ret5902c6f5af23b)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type int, " . gettype($ret5902c6f5af23b) . " given");
+        }
+        return $ret5902c6f5af23b;
     }
-
     /**
      * @return int
      * The number of required parameters on this method
      */
-    public function getNumberOfRequiredParameters() : int {
-        return $this->number_of_required_parameters;
+    public function getNumberOfRequiredParameters()
+    {
+        $ret5902c6f5af491 = $this->number_of_required_parameters;
+        if (!is_int($ret5902c6f5af491)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type int, " . gettype($ret5902c6f5af491) . " given");
+        }
+        return $ret5902c6f5af491;
     }
-
     /**
      *
      * The number of required parameters
      *
      * @return void
      */
-    public function setNumberOfRequiredParameters(int $number) {
+    public function setNumberOfRequiredParameters($number)
+    {
+        if (!is_int($number)) {
+            throw new \InvalidArgumentException("Argument \$number passed to setNumberOfRequiredParameters() must be of the type int, " . (gettype($number) == "object" ? get_class($number) : gettype($number)) . " given");
+        }
         $this->number_of_required_parameters = $number;
     }
-
     /**
      * @return bool
      * True if this method had no return type defined when it
      * was defined (either in the signature itself or in the
      * docblock).
      */
-    public function isReturnTypeUndefined() : bool
+    public function isReturnTypeUndefined()
     {
-        return Flags::bitVectorHasState(
-            $this->getPhanFlags(),
-            Flags::IS_RETURN_TYPE_UNDEFINED
-        );
+        $ret5902c6f5afa17 = Flags::bitVectorHasState($this->getPhanFlags(), Flags::IS_RETURN_TYPE_UNDEFINED);
+        if (!is_bool($ret5902c6f5afa17)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f5afa17) . " given");
+        }
+        return $ret5902c6f5afa17;
     }
-
     /**
      * @param bool $is_return_type_undefined
      * True if this method had no return type defined when it
@@ -145,41 +152,38 @@ trait FunctionTrait {
      *
      * @return void
      */
-    public function setIsReturnTypeUndefined(
-        bool $is_return_type_undefined
-    ) {
-        $this->setPhanFlags(Flags::bitVectorWithState(
-            $this->getPhanFlags(),
-            Flags::IS_RETURN_TYPE_UNDEFINED,
-            $is_return_type_undefined
-        ));
+    public function setIsReturnTypeUndefined($is_return_type_undefined)
+    {
+        if (!is_bool($is_return_type_undefined)) {
+            throw new \InvalidArgumentException("Argument \$is_return_type_undefined passed to setIsReturnTypeUndefined() must be of the type bool, " . (gettype($is_return_type_undefined) == "object" ? get_class($is_return_type_undefined) : gettype($is_return_type_undefined)) . " given");
+        }
+        $this->setPhanFlags(Flags::bitVectorWithState($this->getPhanFlags(), Flags::IS_RETURN_TYPE_UNDEFINED, $is_return_type_undefined));
     }
-
     /**
      * @return bool
      * True if this method returns a value
      * (i.e. it has a return with an expression)
      */
-    public function getHasReturn() : bool
+    public function getHasReturn()
     {
-        return Flags::bitVectorHasState(
-            $this->getPhanFlags(),
-            Flags::HAS_RETURN
-        );
+        $ret5902c6f5aff83 = Flags::bitVectorHasState($this->getPhanFlags(), Flags::HAS_RETURN);
+        if (!is_bool($ret5902c6f5aff83)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f5aff83) . " given");
+        }
+        return $ret5902c6f5aff83;
     }
-
     /**
      * @return bool
      * True if this method yields any value(i.e. it is a \Generator)
      */
-    public function getHasYield() : bool
+    public function getHasYield()
     {
-        return Flags::bitVectorHasState(
-            $this->getPhanFlags(),
-            Flags::HAS_YIELD
-        );
+        $ret5902c6f5b0223 = Flags::bitVectorHasState($this->getPhanFlags(), Flags::HAS_YIELD);
+        if (!is_bool($ret5902c6f5b0223)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f5b0223) . " given");
+        }
+        return $ret5902c6f5b0223;
     }
-
     /**
      * @param bool $has_return
      * Set to true to mark this method as having a
@@ -187,15 +191,13 @@ trait FunctionTrait {
      *
      * @return void
      */
-    public function setHasReturn(bool $has_return)
+    public function setHasReturn($has_return)
     {
-        $this->setPhanFlags(Flags::bitVectorWithState(
-            $this->getPhanFlags(),
-            Flags::HAS_RETURN,
-            $has_return
-        ));
+        if (!is_bool($has_return)) {
+            throw new \InvalidArgumentException("Argument \$has_return passed to setHasReturn() must be of the type bool, " . (gettype($has_return) == "object" ? get_class($has_return) : gettype($has_return)) . " given");
+        }
+        $this->setPhanFlags(Flags::bitVectorWithState($this->getPhanFlags(), Flags::HAS_RETURN, $has_return));
     }
-
     /**
      * @param bool $has_yield
      * Set to true to mark this method as having a
@@ -203,23 +205,21 @@ trait FunctionTrait {
      *
      * @return void
      */
-    public function setHasYield(bool $has_yield)
+    public function setHasYield($has_yield)
     {
-        $this->setPhanFlags(Flags::bitVectorWithState(
-            $this->getPhanFlags(),
-            Flags::HAS_YIELD,
-            $has_yield
-        ));
+        if (!is_bool($has_yield)) {
+            throw new \InvalidArgumentException("Argument \$has_yield passed to setHasYield() must be of the type bool, " . (gettype($has_yield) == "object" ? get_class($has_yield) : gettype($has_yield)) . " given");
+        }
+        $this->setPhanFlags(Flags::bitVectorWithState($this->getPhanFlags(), Flags::HAS_YIELD, $has_yield));
     }
-
     /**
      * @return Parameter[]
      * A list of parameters on the method
      */
-    public function getParameterList() {
+    public function getParameterList()
+    {
         return $this->parameter_list;
     }
-
     /**
      * Gets the $ith parameter for the **caller**.
      * In the case of variadic arguments, an infinite number of parameters exist.
@@ -229,12 +229,18 @@ trait FunctionTrait {
      * @param int $i - offset of the parameter.
      * @return Parameter|null The parameter type that the **caller** observes.
      */
-    public function getParameterForCaller(int $i) {
+    public function getParameterForCaller($i)
+    {
+        if (!is_int($i)) {
+            throw new \InvalidArgumentException("Argument \$i passed to getParameterForCaller() must be of the type int, " . (gettype($i) == "object" ? get_class($i) : gettype($i)) . " given");
+        }
         $list = $this->parameter_list;
         if (count($list) === 0) {
             return null;
         }
-        $parameter = $list[$i] ?? null;
+        $parameter = call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$list[$i], @null);
         if ($parameter) {
             return $parameter->asNonVariadic();
         }
@@ -244,7 +250,6 @@ trait FunctionTrait {
         }
         return null;
     }
-
     /**
      * @param Parameter[] $parameter_list
      * A list of parameters to set on this method
@@ -253,17 +258,18 @@ trait FunctionTrait {
      *
      * @return void
      */
-    public function setParameterList(array $parameter_list) {
+    public function setParameterList(array $parameter_list)
+    {
         $this->parameter_list = $parameter_list;
         if ($this->parameter_list_hash === null) {
             $this->initParameterListInfo();
         }
     }
-
     /**
      * Called to lazily initialize properties of $this derived from $this->parameter_list
      */
-    private function initParameterListInfo() {
+    private function initParameterListInfo()
+    {
         $parameter_list = $this->parameter_list;
         $this->parameter_list_hash = self::computeParameterListHash($parameter_list);
         $has_pass_by_reference_parameters = false;
@@ -275,28 +281,39 @@ trait FunctionTrait {
         }
         $this->has_pass_by_reference_parameters = $has_pass_by_reference_parameters;
     }
-
     /**
      * Called to generate a hash of a given parameter list, to avoid calling this on the same parameter list twice.
      *
      * @return int 32-bit or 64-bit hash. Not likely to collide unless there are around 2^16 possible union types on 32-bit, or around 2^32 on 64-bit.
      *    (Collisions aren't a concern; The memory/runtime would probably be a bigger issue than collisions in non-quick mode.)
      */
-    private static function computeParameterListHash(array $parameter_list) : int {
+    private static function computeParameterListHash(array $parameter_list)
+    {
         // Choosing a small value to fit inside of a packed array.
         if (count($parameter_list) === 0) {
-            return 0;
+            $ret5902c6f5b10f0 = 0;
+            if (!is_int($ret5902c6f5b10f0)) {
+                throw new \InvalidArgumentException("Argument returned must be of the type int, " . gettype($ret5902c6f5b10f0) . " given");
+            }
+            return $ret5902c6f5b10f0;
         }
         if (Config::get()->quick_mode) {
-            return 0;
+            $ret5902c6f5b135d = 0;
+            if (!is_int($ret5902c6f5b135d)) {
+                throw new \InvalidArgumentException("Argument returned must be of the type int, " . gettype($ret5902c6f5b135d) . " given");
+            }
+            return $ret5902c6f5b135d;
         }
-        $param_repr = implode(',', array_map(function(Variable $param) {
-            return (string)($param->getNonVariadicUnionType());
+        $param_repr = implode(',', array_map(function (Variable $param) {
+            return (string) $param->getNonVariadicUnionType();
         }, $parameter_list));
         $raw_bytes = md5($param_repr, true);
-        return unpack(PHP_INT_SIZE === 8 ? 'q' : 'l', $raw_bytes)[1];
+        $ret5902c6f5b1742 = unpack(PHP_INT_SIZE === 8 ? 'q' : 'l', $raw_bytes)[1];
+        if (!is_int($ret5902c6f5b1742)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type int, " . gettype($ret5902c6f5b1742) . " given");
+        }
+        return $ret5902c6f5b1742;
     }
-
     /**
      * @return Parameter[] $parameter_list
      * A list of parameters (not from phpdoc) that were set on this method. The parameters will be cloned.
@@ -304,11 +321,10 @@ trait FunctionTrait {
     public function getRealParameterList()
     {
         // Excessive cloning, to ensure that this stays immutable.
-        return array_map(function(Parameter $param) {
-            return clone($param);
+        return array_map(function (Parameter $param) {
+            return clone $param;
         }, $this->real_parameter_list);
     }
-
     /**
      * @param Parameter[] $parameter_list
      * A list of parameters (not from phpdoc) to set on this method. The parameters will be cloned.
@@ -317,11 +333,10 @@ trait FunctionTrait {
      */
     public function setRealParameterList(array $parameter_list)
     {
-        $this->real_parameter_list = array_map(function(Parameter $param) {
-            return clone($param);
+        $this->real_parameter_list = array_map(function (Parameter $param) {
+            return clone $param;
         }, $parameter_list);
     }
-
     /**
      * @param UnionType
      * The real (non-phpdoc) return type of this method in its given context.
@@ -332,37 +347,42 @@ trait FunctionTrait {
     {
         // TODO: was `self` properly resolved already? What about in subclasses?
         // Clone it, since caller has a mutable version of this.
-        $this->real_return_type = clone($union_type);
+        $this->real_return_type = clone $union_type;
     }
-
     /**
      * @param Context $context
      *
      * @return UnionType
      * The type of this method in its given context.
      */
-    public function getRealReturnType() : UnionType
+    public function getRealReturnType()
     {
         if (!$this->real_return_type && $this instanceof \Phan\Language\Element\Method) {
-            // Incomplete patch for https://github.com/etsy/phan/issues/670
-            return new UnionType();
+            $ret5902c6f5b1b6b = new UnionType();
+            if (!$ret5902c6f5b1b6b instanceof UnionType) {
+                throw new \InvalidArgumentException("Argument returned must be of the type UnionType, " . (gettype($ret5902c6f5b1b6b) == "object" ? get_class($ret5902c6f5b1b6b) : gettype($ret5902c6f5b1b6b)) . " given");
+            }
+            return $ret5902c6f5b1b6b;
             // throw new \Error(sprintf("Failed to get real return type in %s method %s", (string)$this->getClassFQSEN(), (string)$this));
         }
         // Clone the union type, to be certain it will remain immutable.
-        $union_type = clone($this->real_return_type);
-        return $union_type;
+        $union_type = clone $this->real_return_type;
+        $ret5902c6f5b1e66 = $union_type;
+        if (!$ret5902c6f5b1e66 instanceof UnionType) {
+            throw new \InvalidArgumentException("Argument returned must be of the type UnionType, " . (gettype($ret5902c6f5b1e66) == "object" ? get_class($ret5902c6f5b1e66) : gettype($ret5902c6f5b1e66)) . " given");
+        }
+        return $ret5902c6f5b1e66;
     }
-
     /**
      * @param Parameter $parameter
      * A parameter to append to the parameter list
      *
      * @return void
      */
-    public function appendParameter(Parameter $parameter) {
+    public function appendParameter(Parameter $parameter)
+    {
         $this->parameter_list[] = $parameter;
     }
-
     /**
      * Adds types from comments to the params of a user-defined function or method.
      * Also adds the types from defaults, and emits warnings for certain violations.
@@ -385,13 +405,8 @@ trait FunctionTrait {
      *
      * @return void
      */
-    public static function addParamsToScopeOfFunctionOrMethod(
-        Context $context,
-        CodeBase $code_base,
-        Decl $node,
-        FunctionInterface $function,
-        Comment $comment
-    ) {
+    public static function addParamsToScopeOfFunctionOrMethod(Context $context, CodeBase $code_base, Decl $node, FunctionInterface $function, Comment $comment)
+    {
         if ($function->isPHPInternal()) {
             return;
         }
@@ -402,30 +417,17 @@ trait FunctionTrait {
                 // for a docComment with @param declarations. We
                 // assume order in the docComment matches the
                 // parameter order in the code
-                if ($comment->hasParameterWithNameOrOffset(
-                    $parameter->getName(),
-                    $parameter_offset
-                )) {
-                    $comment_param = $comment->getParameterWithNameOrOffset(
-                        $parameter->getName(),
-                        $parameter_offset
-                    );
+                if ($comment->hasParameterWithNameOrOffset($parameter->getName(), $parameter_offset)) {
+                    $comment_param = $comment->getParameterWithNameOrOffset($parameter->getName(), $parameter_offset);
                     $comment_param_type = $comment_param->getUnionType();
                     if ($parameter->isVariadic() !== $comment_param->isVariadic()) {
-                        Issue::maybeEmit(
-                            $code_base,
-                            $context,
-                            $parameter->isVariadic() ? Issue::TypeMismatchVariadicParam : Issue::TypeMismatchVariadicComment,
-                            $node->lineno ?? 0,
-                            $comment_param->__toString(),
-                            $parameter->__toString()
-                        );
+                        Issue::maybeEmit($code_base, $context, $parameter->isVariadic() ? Issue::TypeMismatchVariadicParam : Issue::TypeMismatchVariadicComment, call_user_func(function ($v1, $v2) {
+                            return isset($v1) ? $v1 : $v2;
+                        }, @$node->lineno, @0), $comment_param->__toString(), $parameter->__toString());
                     }
-
                     $parameter->addUnionType($comment_param_type);
                 }
             }
-
             // If there's a default value on the parameter, check to
             // see if the type of the default is cool with the
             // specified type.
@@ -436,21 +438,12 @@ trait FunctionTrait {
                 // to the parameter's declared type, emit an
                 // issue.
                 if (!$defaultIsNull) {
-                    if (!$default_type->canCastToUnionType(
-                        $parameter->getUnionType()
-                    )) {
-                        Issue::maybeEmit(
-                            $code_base,
-                            $context,
-                            Issue::TypeMismatchDefault,
-                            $node->lineno ?? 0,
-                            (string)$parameter->getUnionType(),
-                            $parameter->getName(),
-                            (string)$default_type
-                        );
+                    if (!$default_type->canCastToUnionType($parameter->getUnionType())) {
+                        Issue::maybeEmit($code_base, $context, Issue::TypeMismatchDefault, call_user_func(function ($v1, $v2) {
+                            return isset($v1) ? $v1 : $v2;
+                        }, @$node->lineno, @0), (string) $parameter->getUnionType(), $parameter->getName(), (string) $default_type);
                     }
                 }
-
                 // If there are no types on the parameter, the
                 // default shouldn't be treated as the one
                 // and only allowable type.
@@ -458,11 +451,8 @@ trait FunctionTrait {
                 if ($wasEmpty) {
                     // TODO: Errors on usage of ?mixed are poorly defined and greatly differ from phan's old behavior.
                     // Consider passing $defaultIsNull once this is fixed.
-                    $parameter->addUnionType(
-                        MixedType::instance(false)->asUnionType()
-                    );
+                    $parameter->addUnionType(MixedType::instance(false)->asUnionType());
                 }
-
                 // If we have no other type info about a parameter,
                 // just because it has a default value of null
                 // doesn't mean that is its type. Any type can default
@@ -482,29 +472,38 @@ trait FunctionTrait {
                     }
                 }
             }
-
             ++$parameter_offset;
         }
     }
-
     /**
      * Returns true if the param list has an instance of PassByReferenceVariable
      * If it does, the method has to be analyzed even if the same parameter types were analyzed already
      */
-    private function hasPassByReferenceVariable() : bool
+    private function hasPassByReferenceVariable()
     {
         // Common case: function doesn't have any references in parameter list
         if ($this->has_pass_by_reference_parameters === false) {
-            return false;
+            $ret5902c6f5b2845 = false;
+            if (!is_bool($ret5902c6f5b2845)) {
+                throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f5b2845) . " given");
+            }
+            return $ret5902c6f5b2845;
         }
         foreach ($this->parameter_list as $param) {
             if ($param instanceof PassByReferenceVariable) {
-                return true;
+                $ret5902c6f5b2ade = true;
+                if (!is_bool($ret5902c6f5b2ade)) {
+                    throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f5b2ade) . " given");
+                }
+                return $ret5902c6f5b2ade;
             }
         }
-        return false;
+        $ret5902c6f5b2d38 = false;
+        if (!is_bool($ret5902c6f5b2d38)) {
+            throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6f5b2d38) . " given");
+        }
+        return $ret5902c6f5b2d38;
     }
-
     /**
      * analyzeWithNewParams is called only when the quick_mode config is false.
      * The new types are inferred based on the caller's types.
@@ -512,27 +511,38 @@ trait FunctionTrait {
      * (With an equal or larger remaining recursion depth)
      *
      */
-    public function analyzeWithNewParams(Context $context, CodeBase $code_base) : Context
+    public function analyzeWithNewParams(Context $context, CodeBase $code_base)
     {
         $hash = $this->computeParameterListHash($this->parameter_list);
         $has_pass_by_reference_variable = null;
         // Nothing to do, except if PassByReferenceVariable was used
         if ($hash === $this->parameter_list_hash) {
             if (!$this->hasPassByReferenceVariable()) {
-                // Have to analyze pass by reference variables anyway
-                return $context;
+                $ret5902c6f5b3053 = $context;
+                if (!$ret5902c6f5b3053 instanceof Context) {
+                    throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f5b3053) == "object" ? get_class($ret5902c6f5b3053) : gettype($ret5902c6f5b3053)) . " given");
+                }
+                return $ret5902c6f5b3053;
             }
             $has_pass_by_reference_variable = true;
         }
         // Check if we've already analyzed this method with those given types,
         // with as much or even more depth left in the recursion.
         // (getRecursionDepth() increases as the program recurses downward)
-        $old_recursion_depth_for_hash = $this->checked_parameter_list_hashes[$hash] ?? null;
+        $old_recursion_depth_for_hash = call_user_func(function ($v1, $v2) {
+            return isset($v1) ? $v1 : $v2;
+        }, @$this->checked_parameter_list_hashes[$hash], @null);
         $new_recursion_depth_for_hash = $this->getRecursionDepth();
         if ($old_recursion_depth_for_hash !== null) {
             if ($new_recursion_depth_for_hash >= $old_recursion_depth_for_hash) {
-                if (!($has_pass_by_reference_variable ?? $this->hasPassByReferenceVariable())) {
-                    return $context;
+                if (!call_user_func(function ($v1, $v2) {
+                    return isset($v1) ? $v1 : $v2;
+                }, @$has_pass_by_reference_variable, @$this->hasPassByReferenceVariable())) {
+                    $ret5902c6f5b3431 = $context;
+                    if (!$ret5902c6f5b3431 instanceof Context) {
+                        throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f5b3431) == "object" ? get_class($ret5902c6f5b3431) : gettype($ret5902c6f5b3431)) . " given");
+                    }
+                    return $ret5902c6f5b3431;
                 }
                 // Have to analyze pass by reference variables anyway
                 $new_recursion_depth_for_hash = $old_recursion_depth_for_hash;
@@ -541,10 +551,12 @@ trait FunctionTrait {
         // Record the fact that it has already been analyzed,
         // along with the depth of recursion so far.
         $this->checked_parameter_list_hashes[$hash] = $new_recursion_depth_for_hash;
-        return $this->analyze($context, $code_base);
+        $ret5902c6f5b37c9 = $this->analyze($context, $code_base);
+        if (!$ret5902c6f5b37c9 instanceof Context) {
+            throw new \InvalidArgumentException("Argument returned must be of the type Context, " . (gettype($ret5902c6f5b37c9) == "object" ? get_class($ret5902c6f5b37c9) : gettype($ret5902c6f5b37c9)) . " given");
+        }
+        return $ret5902c6f5b37c9;
     }
-
-    public abstract function analyze(Context $context, CodeBase $code_base) : Context;
-
-    public abstract function getRecursionDepth() : int;
+    public abstract function analyze(Context $context, CodeBase $code_base);
+    public abstract function getRecursionDepth();
 }
