@@ -87,6 +87,8 @@ function accessUndefinedPropertyTest() {
 
 accessUndefinedPropertyTest();
 
+/*
+// TODO: fix https://github.com/etsy/phan/issues/715
 class SubclassBaseTest {
     public function foo() {}
 }
@@ -98,3 +100,4 @@ function f() {
     $s->foo();
 }
 f();
+ */
