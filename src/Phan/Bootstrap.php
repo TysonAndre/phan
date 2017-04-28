@@ -10,6 +10,8 @@ ini_set("memory_limit", '-1');
 // Add the root to the include path
 define('CLASS_DIR', __DIR__ . '/../');
 set_include_path(get_include_path() . PATH_SEPARATOR . CLASS_DIR);
+// Add the php-ast stubs
+require_once CLASS_DIR . 'astshim.php';
 // Use the composer autoloader
 foreach ([__DIR__ . '/../../vendor/autoload.php', __DIR__ . '/../../../../../vendor/autoload.php'] as $file) {
     if (file_exists($file)) {
