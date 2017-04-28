@@ -281,7 +281,13 @@ abstract class Scope
         if (!is_string($template_type_identifier)) {
             throw new \InvalidArgumentException("Argument \$template_type_identifier passed to hasTemplateType() must be of the type string, " . (gettype($template_type_identifier) == "object" ? get_class($template_type_identifier) : gettype($template_type_identifier)) . " given");
         }
+        echo "Checking template_type_map for $template_type_identifier\n";
+        echo "Scope = " . spl_object_hash($this) . "\n";
+        var_dump($this->template_type_map);
         $ret5902c6fc4d030 = isset($this->template_type_map[$template_type_identifier]) || ($this->hasParentScope() ? $this->getParentScope()->hasTemplateType($template_type_identifier) : false);
+        if ($ret5902c6fc4d030) {
+            echo "Returning true\n";
+        }
         if (!is_bool($ret5902c6fc4d030)) {
             throw new \InvalidArgumentException("Argument returned must be of the type bool, " . gettype($ret5902c6fc4d030) . " given");
         }
@@ -309,7 +315,12 @@ abstract class Scope
         if (!is_string($template_type_identifier)) {
             throw new \InvalidArgumentException("Argument \$template_type_identifier passed to getTemplateType() must be of the type string, " . (gettype($template_type_identifier) == "object" ? get_class($template_type_identifier) : gettype($template_type_identifier)) . " given");
         }
+        // FIXME debugging
+        if (!$this->hasTemplateType($template_type_identifier)) {
+            var_dump($this->template_type_map);
+        }
         assert($this->hasTemplateType($template_type_identifier), "Cannot get template type with identifier {$template_type_identifier}");
+        // TODO: This is NOT equivalent, it always computes the right hand side
         $ret5902c6fc4d6e2 = call_user_func(function ($v1, $v2) {
             return isset($v1) ? $v1 : $v2;
         }, @$this->template_type_map[$template_type_identifier], @$this->getParentScope()->getTemplateType($template_type_identifier));
