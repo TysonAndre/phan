@@ -1,4 +1,4 @@
-<?php declare(strict_types=1);
+<?php
 namespace Phan\CodeBase;
 
 use Phan\CodeBase;
@@ -45,14 +45,14 @@ class UndoTracker {
      *
      * (This is the list prior to any analysis exclusion or whitelisting steps)
      */
-    public function getParsedFilePathList() : array {
+    public function getParsedFilePathList() {
         return array_keys($this->fileModificationState);
     }
 
     /**
-     * @return string[] - The size of $this->getParsedFilePathList()
+     * @return int - The size of $this->getParsedFilePathList()
      */
-    public function getParsedFilePathCount() : int {
+    public function getParsedFilePathCount() {
 
         return count($this->fileModificationState);
     }
@@ -103,7 +103,7 @@ class UndoTracker {
      */
     private function undoFileChanges(CodeBase $code_base, string $path) {
         Daemon::debugf("Undoing file changes for $path");
-        foreach ($this->undoOperationsForPath[$path] ?? [] as $undo_operation) {
+        foreach (array_get($this->undoOperationsForPath, $path, []) as $undo_operation) {
             $undo_operation($code_base);
         }
         unset($this->undoOperationsForPath[$path]);

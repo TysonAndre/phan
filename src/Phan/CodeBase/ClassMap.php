@@ -1,4 +1,4 @@
-<?php declare(strict_types=1);
+<?php
 namespace Phan\CodeBase;
 
 use Phan\Language\Element\ClassConstant;
@@ -41,12 +41,12 @@ class ClassMap
     /**
      * @return bool
      */
-    public function hasClassConstantWithName(string $name) : bool
+    public function hasClassConstantWithName(string $name)
     {
         return !empty($this->class_constant_map[$name]);
     }
 
-    public function getClassConstantByName(string $name) : ClassConstant
+    public function getClassConstantByName(string $name)
     {
         return $this->class_constant_map[$name];
     }
@@ -54,7 +54,7 @@ class ClassMap
     /**
      * @return ClassConstant[]
      */
-    public function getClassConstantMap() : array
+    public function getClassConstantMap()
     {
         return $this->class_constant_map;
     }
@@ -72,7 +72,7 @@ class ClassMap
     /**
      * @return bool
      */
-    public function hasPropertyWithName(string $name) : bool
+    public function hasPropertyWithName(string $name)
     {
         return !empty($this->property_map[$name]);
     }
@@ -80,7 +80,7 @@ class ClassMap
     /**
      * @return Property
      */
-    public function getPropertyByName(string $name) : Property
+    public function getPropertyByName(string $name)
     {
         return $this->property_map[$name];
     }
@@ -88,7 +88,7 @@ class ClassMap
     /**
      * @return Property[]
      */
-    public function getPropertyMap() : array
+    public function getPropertyMap()
     {
         return $this->property_map;
     }
@@ -104,17 +104,19 @@ class ClassMap
     }
 
     /**
+     * @param string $name
      * @return bool
      */
-    public function hasMethodWithName(string $name) : bool
+    public function hasMethodWithName($name)
     {
         return !empty($this->method_map[strtolower($name)]);
     }
 
     /**
+     * @param string $name
      * @return Method
      */
-    public function getMethodByName(string $name) : Method
+    public function getMethodByName($name)
     {
         return $this->method_map[strtolower($name)];
     }
@@ -122,7 +124,7 @@ class ClassMap
     /**
      * @return Method[]
      */
-    public function getMethodMap() : array
+    public function getMethodMap()
     {
         return $this->method_map;
     }
