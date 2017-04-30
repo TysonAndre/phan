@@ -255,6 +255,7 @@ class CLI
                     // base other config flags values on
                     break;
                 case 'disable-plugins':
+                    // Slightly faster, e.g. for daemon mode with lowest latency (along with --quick).
                     Config::get()->plugins = [];
                     break;
                 case 's':

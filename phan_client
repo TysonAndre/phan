@@ -2,7 +2,8 @@
 <?php
 /**
  * Usage: phan_client -l path/to/file.php
- * Compatible with php 7.0 and php 7.1
+ * Compatible with php 5.6, 7.0 and php 7.1.
+ * (The server itself requires a newer php version)
  *
  * See plugins/vim/snippet.vim for an example of a use of this program.
  *
@@ -32,11 +33,19 @@ class PhanPHPLinter {
     /** @var bool - Whether or not this is verbose */
     public static $verbose = false;
 
-    private static function debugError(string $msg) {
+    /**
+     * @param string $msg
+     * @return void
+     */
+    private static function debugError($msg) {
         error_log($msg);
     }
 
-    private static function debugInfo(string $msg) {
+    /**
+     * @param string $msg
+     * @return void
+     */
+    private static function debugInfo($msg) {
         if (self::$verbose) {
             self::debugError($msg);
         }
@@ -168,7 +177,7 @@ class PhanPHPLinter {
         $response_bytes = implode('', $response_lines);
         // This uses the 'phplike' format imitating php's error format. "%s in %s on line %d"
         $response = json_decode($response_bytes, true);
-        $status = ($response['status'] ?? null);
+        $status = isset($response['status']) ? $response['status'] : null;
         if ($status === 'ok') {
             self::dumpJSONIssues($response, $file_mapping);
         } else {
@@ -224,7 +233,7 @@ class PhanPHPLinterOpts {
      * @param int $exit_code - process exit code.
      * @return void - exits with $exit_code
      */
-    public function usage(string $msg = '', int $exit_code = 0) {
+    public function usage($msg = '', $exit_code = 0) {
         global $argv;
         if (!empty($msg)) {
             echo "$msg\n";
@@ -245,8 +254,12 @@ Usage: {$argv[0]} [options] -l file.php [ -l file2.php]
   Syntax check, and if the Phan daemon is running, analyze the following file (absolute path or relative to current working ditectory)
   This will only analyze the file if a full phan check (with .phan/config.php) would analyze the file.
 
- -t, --temporary-file-map '{"file.php":"/path/to/tmp/file:copy.php"}'
+ -t, --temporary-file-map '{"file.php":"/path/to/tmp/file_copy.php"}'
   A json mapping from original path to absolute temporary path (E.g. of a file that is still being edited)
+
+ -f, --flycheck-file '/path/to/tmp/file_copy.php'
+  A simpler way to specify a file mapping when checking a single files.
+  Pass this after the only occurence of --syntax-check.
 
  -v, --verbose
   Whether to emit debugging output of this client.
@@ -288,7 +301,7 @@ EOB;
         }
 
         $url = null;
-        foreach ($opts ?? [] as $key => $value) {
+        foreach ((is_array($opts) ? $opts : []) as $key => $value) {
             switch($key) {
             case 's':
             case 'daemonize-socket':
@@ -382,7 +395,7 @@ EOB;
      * prints error message if php doesn't support connecting to a daemon with a given protocol.
      * @return void
      */
-    private function checkCanConnectToDaemon(string $protocol) {
+    private function checkCanConnectToDaemon($protocol) {
         $opt = $protocol === 'unix' ? '--daemonize-socket' : '--daemonize-tcp-port';
         if (!in_array($protocol, stream_get_transports())) {
             $this->usage("The $protocol:///path/to/file schema is not supported on this system, cannot connect to a daemon with $opt", 1);
