@@ -268,7 +268,7 @@ class UnionType implements \Serializable
 
             return clone UnionType::memoizeStatic('internalFn:' . $type_name, function() use($type_name) {
                 $context = new Context;
-                return UnionType::fromStringInContext($type_name, $context, false);
+                return UnionType::fromStringInContext($type_name, $context, Type::FROM_PHPDOC);
             });
         };
 
@@ -574,7 +574,7 @@ class UnionType implements \Serializable
             return false;
         }
         foreach ($type_set as $type) {
-            if (!$other_type_set->contains($type)) {
+            if (!isset($other_type_set[ArraySet::spl_object_id($type)])) {
                 return false;
             }
         }
@@ -700,11 +700,9 @@ class UnionType implements \Serializable
      */
     public function hasIterable() : bool
     {
-        return (false !==
-            $this->type_set->find(function (Type $type) : bool {
-                return $type->isIterable();
-            })
-        );
+        return false !== ArraySet::find($this->type_set, function (Type $type) : bool {
+            return $type->isIterable();
+        });
     }
 
     /**
