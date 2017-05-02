@@ -782,8 +782,8 @@ class Type
     }
 
     /**
-     * @var Type[] - Maps spl_object_id to an array containing the type for that object id.
-     *               The object id doesn't change as long as there's one reference to that object (including singletonMap)
+     * @var null|Type[] - Maps spl_object_id to an array containing the type for that object id.
+     *                   The object id doesn't change as long as there's one reference to that object (including singletonArray)
      */
     private $singletonArray;
 

@@ -22,9 +22,6 @@ use ast\Node;
 
 class UnionType implements \Serializable
 {
-    // TODO: Is this used?
-    use \Phan\Memoize;
-
     /**
      * @var string
      * A list of one or more types delimited by the '|'
@@ -81,11 +78,15 @@ class UnionType implements \Serializable
             return new UnionType();
         }
 
-        $types_set = self::memoizeStatic('T:' . $fully_qualified_string, function() use($fully_qualified_string) {
-            return ArraySet::from_list(array_map(function (string $type_name) {
+        static $memoizeMap = [];
+        $types_set = $memoizeMap[$fully_qualified_string] ?? null;
+
+        if (!isset($types_set)) {
+            $types_set = ArraySet::from_list(array_map(function (string $type_name) {
                 return Type::fromFullyQualifiedString($type_name);
             }, explode('|', $fully_qualified_string)));
-        });
+            $memoizeMap[$fully_qualified_string] = $types_set;
+        }
 
         return new UnionType($types_set, true);
     }
@@ -228,6 +229,8 @@ class UnionType implements \Serializable
         return $map;
     }
 
+    private static $internal_fn_cache = [];
+
     /**
      * A list of types for parameters associated with the
      * given builtin function with the given name
@@ -266,10 +269,13 @@ class UnionType implements \Serializable
                 return null;
             }
 
-            return clone UnionType::memoizeStatic('internalFn:' . $type_name, function() use($type_name) {
+            $result = self::$internal_fn_cache[$type_name] ?? null;
+            if ($result === null) {
                 $context = new Context;
-                return UnionType::fromStringInContext($type_name, $context, Type::FROM_PHPDOC);
-            });
+                $result = UnionType::fromStringInContext($type_name, $context, Type::FROM_PHPDOC);
+                self::$internal_fn_cache[$type_name] = $result;
+            }
+            return $result;
         };
 
         $configurations = [];
