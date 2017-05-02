@@ -782,10 +782,10 @@ class Type
     }
 
     /**
-     * @var Type[][] - Maps spl_object_id to an array containing the type for that object id.
-     *                 The object id doesn't change as long as there's one reference to that object (including singletonMap)
+     * @var Type[] - Maps spl_object_id to an array containing the type for that object id.
+     *               The object id doesn't change as long as there's one reference to that object (including singletonMap)
      */
-    private static $singletonMap = [];
+    private $singletonArray;
 
     /**
      * @return UnionType
@@ -793,11 +793,11 @@ class Type
      */
     public function asUnionType() : UnionType
     {
-        $object_id = ArraySet::spl_object_id($this);
-        $types_set = self::$singletonMap[$object_id] ?? null;
+        $types_set = $this->singletonArray;
         if ($types_set === null) {
+            $object_id = ArraySet::spl_object_id($this);
             $types_set = [$object_id => $this];  // same as ArraySet::singleton, but why bother recomputing object id.
-            self::$singletonMap[$object_id] = $types_set;
+            $this->singletonArray = $types_set;
         }
         // var_export($types_set);
         /**
