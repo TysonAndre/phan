@@ -420,6 +420,9 @@ class Config
         // (use when the number of files is much larger than the process count)
         'consistent_hashing_file_order' => false,
 
+        // Set by --print-memory-usage-summary. Prints a memory usage summary to stderr after analysis.
+        'print_memory_usage_summary' => false,
+
         // Path to a unix socket for a daemon to listen to files to analyze. Use command line option instead.
         'daemonize_socket' => false,
 
