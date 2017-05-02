@@ -229,8 +229,6 @@ class UnionType implements \Serializable
         return $map;
     }
 
-    private static $internal_fn_cache = [];
-
     /**
      * A list of types for parameters associated with the
      * given builtin function with the given name
@@ -269,11 +267,13 @@ class UnionType implements \Serializable
                 return null;
             }
 
-            $result = self::$internal_fn_cache[$type_name] ?? null;
+            static $internal_fn_cache = [];
+
+            $result = $internal_fn_cache[$type_name] ?? null;
             if ($result === null) {
                 $context = new Context;
                 $result = UnionType::fromStringInContext($type_name, $context, Type::FROM_PHPDOC);
-                self::$internal_fn_cache[$type_name] = $result;
+                $internal_fn_cache[$type_name] = $result;
             }
             return $result;
         };

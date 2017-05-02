@@ -33,7 +33,8 @@ class CallableType extends NativeType
     }
 
     public function __clone() {
-        return new static($this->namespace, $this->name, $this->template_parameter_type_list, false);
+        assert($this->fqsen === null, 'should only clone null fqsen');
+        $result = new static($this->namespace, $this->name, $this->template_parameter_type_list, $this->is_nullable);
     }
 
     /**
