@@ -142,7 +142,9 @@ final class ArraySet {
         }
         $result = [];
         foreach ($sets as $set) {
-            $result += $set;
+            foreach ($set as $k => $v) {
+                $result[$k] = $v;
+            }
         }
         return $result;
     }

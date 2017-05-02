@@ -254,7 +254,12 @@ class Type
         );
 
         assert(
-            '' !== $type_name,
+            '\\' === $namespace[0],
+            "Namespace must be fully qualified"
+        );
+
+        assert(
+            !empty($type_name),
             "Type name cannot be empty"
         );
 
@@ -275,7 +280,7 @@ class Type
 
         // Make sure we only ever create exactly one
         // object for any unique type
-        $key = ($is_nullable ? '?' : '') . $namespace . $type_name;
+        $key = ($is_nullable ? '?' : '') . $namespace . '\\' . $type_name;
 
         if ($template_parameter_type_list) {
             $key .= '<' . implode(',', array_map(function (UnionType $union_type) {
@@ -788,27 +793,18 @@ class Type
      */
     public function asUnionType() : UnionType
     {
-        $old_hash = spl_object_hash($this);
         $object_id = ArraySet::spl_object_id($this);
         $types_set = self::$singletonMap[$object_id] ?? null;
         if ($types_set === null) {
             $types_set = [$object_id => $this];  // same as ArraySet::singleton, but why bother recomputing object id.
             self::$singletonMap[$object_id] = $types_set;
         }
-        /*
-        if ($this instanceof StringType) {
-            printf("Created for stringType %s: %d %s\n", $this, $object_id, $old_hash);
-            debug_zval_dump($this);
-        }
-         */
         // var_export($types_set);
-        /*
         if (!ArraySet::is_array_set($types_set)) {
-            printf("What the hell: %s %s %d %s %s %s\n", $this, json_encode($this instanceof StringType), $object_id, $old_hash, spl_object_hash($this), var_export($types_set, true));
+            printf("Assertion failed: %s %s %d %s %s %s\n", $this, json_encode($this instanceof StringType), $object_id, $old_hash, spl_object_hash($this), var_export($types_set, true));
             debug_zval_dump([self::$singletonMap[$object_id], $types_set]);
             debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
         }
-        */
         // return new UnionType([$this]);
         // Memoize the set of types. The constructed UnionType object can be modified later, so it isn't memoized.
         // TODO: Figure out why this is buggy

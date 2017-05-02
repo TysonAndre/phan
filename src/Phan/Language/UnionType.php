@@ -49,12 +49,10 @@ class UnionType implements \Serializable
     {
         if ($is_an_array_set) {
             // Disable asserts in production
-            /**
             assert(is_array($type_list),
                    'should be an array array');
             assert(ArraySet::is_array_set($type_list),
                    'Should be an array set');
-             */
             $this->type_set = $type_list;
             return;
         }
@@ -570,6 +568,8 @@ class UnionType implements \Serializable
     {
         $type_set = $this->getTypeSet();
         $other_type_set = $union_type->getTypeSet();
+        assert(ArraySet::is_array_set($type_set));
+        assert(ArraySet::is_array_set($other_type_set));
         if (count($type_set) !== count($other_type_set)) {
             return false;
         }
@@ -700,7 +700,7 @@ class UnionType implements \Serializable
      */
     public function hasIterable() : bool
     {
-        return false !== ArraySet::find($this->type_set, function (Type $type) : bool {
+        return ArraySet::exists($this->type_set, function (Type $type) : bool {
             return $type->isIterable();
         });
     }
