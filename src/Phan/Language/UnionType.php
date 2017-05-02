@@ -269,13 +269,14 @@ class UnionType implements \Serializable
 
             static $internal_fn_cache = [];
 
+
             $result = $internal_fn_cache[$type_name] ?? null;
             if ($result === null) {
                 $context = new Context;
                 $result = UnionType::fromStringInContext($type_name, $context, Type::FROM_PHPDOC);
                 $internal_fn_cache[$type_name] = $result;
             }
-            return $result;
+            return clone($result);
         };
 
         $configurations = [];
