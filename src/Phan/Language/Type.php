@@ -793,6 +793,7 @@ class Type
      */
     public function asUnionType() : UnionType
     {
+        $old_hash = spl_object_hash($this);
         $object_id = ArraySet::spl_object_id($this);
         $types_set = self::$singletonMap[$object_id] ?? null;
         if ($types_set === null) {

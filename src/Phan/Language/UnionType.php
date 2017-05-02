@@ -288,7 +288,7 @@ class UnionType implements \Serializable
             $parameter_name_type_map = [];
 
             foreach ($name_type_name_map as $name => $type_name) {
-                $property_name_type_map[$name] = $getForGlobalContext($type_name) ?? new UnionType();
+                $parameter_name_type_map[$name] = $getForGlobalContext($type_name) ?? new UnionType();
             }
 
             $configurations[] = [
@@ -1193,7 +1193,7 @@ class UnionType implements \Serializable
     public function unserialize($serialized)
     {
         $this->type_set = ArraySet::from_list(
-            array_map(function (string $type_name) {
+            array_map(function (string $type_name) : Type {
                 return Type::fromFullyQualifiedString($type_name);
             }, explode('|', $serialized ?? ''))
         );
