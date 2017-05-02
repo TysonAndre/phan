@@ -298,6 +298,11 @@ class Phan implements IgnoredFilesFilterInterface {
 
         // Collect all issues, blocking
         self::display();
+
+        if (Config::get()->print_memory_usage_summary) {
+            self::printMemoryUsageSummary();
+        }
+
         if ($request instanceof Request) {
             $request->respondWithIssues($issue_count);
             exit(0);
@@ -408,6 +413,16 @@ class Phan implements IgnoredFilesFilterInterface {
             return EXIT_FAILURE;
         }
         return EXIT_SUCCESS;
+    }
+
+    /**
+     * @return void
+     */
+    private static function printMemoryUsageSummary()
+    {
+        $memory = memory_get_usage()/1024/1024;
+        $peak   = memory_get_peak_usage()/1024/1024;
+        fwrite(STDERR, sprintf("Memory usage after analysis completed: %.02dMB/%.02dMB\n", $memory, $peak));
     }
 
     /**
