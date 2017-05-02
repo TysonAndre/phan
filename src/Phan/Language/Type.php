@@ -793,7 +793,6 @@ class Type
      */
     public function asUnionType() : UnionType
     {
-        $old_hash = spl_object_hash($this);
         $object_id = ArraySet::spl_object_id($this);
         $types_set = self::$singletonMap[$object_id] ?? null;
         if ($types_set === null) {
@@ -801,11 +800,13 @@ class Type
             self::$singletonMap[$object_id] = $types_set;
         }
         // var_export($types_set);
+        /**
         if (!ArraySet::is_array_set($types_set)) {
             printf("Assertion failed: %s %s %d %s %s %s\n", $this, json_encode($this instanceof StringType), $object_id, $old_hash, spl_object_hash($this), var_export($types_set, true));
             debug_zval_dump([self::$singletonMap[$object_id], $types_set]);
             debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
         }
+         */
         // return new UnionType([$this]);
         // Memoize the set of types. The constructed UnionType object can be modified later, so it isn't memoized.
         // TODO: Figure out why this is buggy

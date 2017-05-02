@@ -142,8 +142,10 @@ final class ArraySet {
         }
         $result = [];
         foreach ($sets as $set) {
-            foreach ($set as $k => $v) {
-                $result[$k] = $v;
+            if (count($result) === 0) {
+                $result = $set;
+            } else {
+                $result += $set;
             }
         }
         return $result;
