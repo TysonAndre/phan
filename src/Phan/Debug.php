@@ -55,7 +55,7 @@ class Debug
      *
      * @suppress PhanUnreferencedMethod
      */
-    public static function print(string $message, int $indent = 0)
+    public static function print_(string $message, int $indent = 0)
     {
         print str_repeat("\t", $indent);
         print $message . "\n";
