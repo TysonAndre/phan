@@ -267,6 +267,13 @@ abstract class TypedElement implements TypedElementInterface
     }
 
     /**
+     * @return void
+     */
+    public function recordSuppressIssueUsage(string $issue_name) {
+        $this->suppress_issue_list[$issue_name]++;
+    }
+
+    /**
      * return bool
      * True if this element would like to suppress the given
      * issue name
