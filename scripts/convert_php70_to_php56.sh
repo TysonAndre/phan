@@ -5,7 +5,7 @@ if [ -z "$TRANSPHPILE_PATH" ]; then
 fi
 	
 # Note: Add -v after the transpile command to show stack traces if this fails
-for filepath in src/**/*.php; do
+for filepath in src/**/*.php tests/Phan/**/*.php; do
 	if grep -q 'This code has been transpiled via TransPHPile\. For more information' "$filepath"; then
 		echo "Skipping '$filepath', already transpiled"
 		continue
