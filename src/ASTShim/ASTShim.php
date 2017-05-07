@@ -252,105 +252,105 @@ function get_kind_name($kind)
 {
     // TODO: An array lookup would be faster than a giant switch.
 	switch (kind) {
-		case ZEND_AST_ARG_LIST: return "AST_ARG_LIST";
-		case ZEND_AST_LIST: return "AST_LIST";
-		case ZEND_AST_ARRAY: return "AST_ARRAY";
-		case ZEND_AST_ENCAPS_LIST: return "AST_ENCAPS_LIST";
-		case ZEND_AST_EXPR_LIST: return "AST_EXPR_LIST";
-		case ZEND_AST_STMT_LIST: return "AST_STMT_LIST";
-		case ZEND_AST_IF: return "AST_IF";
-		case ZEND_AST_SWITCH_LIST: return "AST_SWITCH_LIST";
-		case ZEND_AST_CATCH_LIST: return "AST_CATCH_LIST";
-		case ZEND_AST_PARAM_LIST: return "AST_PARAM_LIST";
-		case ZEND_AST_CLOSURE_USES: return "AST_CLOSURE_USES";
-		case ZEND_AST_PROP_DECL: return "AST_PROP_DECL";
-		case ZEND_AST_CONST_DECL: return "AST_CONST_DECL";
-		case ZEND_AST_CLASS_CONST_DECL: return "AST_CLASS_CONST_DECL";
-		case ZEND_AST_NAME_LIST: return "AST_NAME_LIST";
-		case ZEND_AST_TRAIT_ADAPTATIONS: return "AST_TRAIT_ADAPTATIONS";
-		case ZEND_AST_USE: return "AST_USE";
+		case AST_ARG_LIST: return "AST_ARG_LIST";
+		case AST_LIST: return "AST_LIST";
+		case AST_ARRAY: return "AST_ARRAY";
+		case AST_ENCAPS_LIST: return "AST_ENCAPS_LIST";
+		case AST_EXPR_LIST: return "AST_EXPR_LIST";
+		case AST_STMT_LIST: return "AST_STMT_LIST";
+		case AST_IF: return "AST_IF";
+		case AST_SWITCH_LIST: return "AST_SWITCH_LIST";
+		case AST_CATCH_LIST: return "AST_CATCH_LIST";
+		case AST_PARAM_LIST: return "AST_PARAM_LIST";
+		case AST_CLOSURE_USES: return "AST_CLOSURE_USES";
+		case AST_PROP_DECL: return "AST_PROP_DECL";
+		case AST_CONST_DECL: return "AST_CONST_DECL";
+		case AST_CLASS_CONST_DECL: return "AST_CLASS_CONST_DECL";
+		case AST_NAME_LIST: return "AST_NAME_LIST";
+		case AST_TRAIT_ADAPTATIONS: return "AST_TRAIT_ADAPTATIONS";
+		case AST_USE: return "AST_USE";
 		case AST_NAME: return "AST_NAME";
 		case AST_CLOSURE_VAR: return "AST_CLOSURE_VAR";
 		case AST_NULLABLE_TYPE: return "AST_NULLABLE_TYPE";
-		case ZEND_AST_FUNC_DECL: return "AST_FUNC_DECL";
-		case ZEND_AST_CLOSURE: return "AST_CLOSURE";
-		case ZEND_AST_METHOD: return "AST_METHOD";
-		case ZEND_AST_CLASS: return "AST_CLASS";
-		case ZEND_AST_MAGIC_CONST: return "AST_MAGIC_CONST";
-		case ZEND_AST_TYPE: return "AST_TYPE";
-		case ZEND_AST_VAR: return "AST_VAR";
-		case ZEND_AST_CONST: return "AST_CONST";
-		case ZEND_AST_UNPACK: return "AST_UNPACK";
-		case ZEND_AST_UNARY_PLUS: return "AST_UNARY_PLUS";
-		case ZEND_AST_UNARY_MINUS: return "AST_UNARY_MINUS";
-		case ZEND_AST_CAST: return "AST_CAST";
-		case ZEND_AST_EMPTY: return "AST_EMPTY";
-		case ZEND_AST_ISSET: return "AST_ISSET";
-		case ZEND_AST_SILENCE: return "AST_SILENCE";
-		case ZEND_AST_SHELL_EXEC: return "AST_SHELL_EXEC";
-		case ZEND_AST_CLONE: return "AST_CLONE";
-		case ZEND_AST_EXIT: return "AST_EXIT";
-		case ZEND_AST_PRINT: return "AST_PRINT";
-		case ZEND_AST_INCLUDE_OR_EVAL: return "AST_INCLUDE_OR_EVAL";
-		case ZEND_AST_UNARY_OP: return "AST_UNARY_OP";
-		case ZEND_AST_PRE_INC: return "AST_PRE_INC";
-		case ZEND_AST_PRE_DEC: return "AST_PRE_DEC";
-		case ZEND_AST_POST_INC: return "AST_POST_INC";
-		case ZEND_AST_POST_DEC: return "AST_POST_DEC";
-		case ZEND_AST_YIELD_FROM: return "AST_YIELD_FROM";
-		case ZEND_AST_GLOBAL: return "AST_GLOBAL";
-		case ZEND_AST_UNSET: return "AST_UNSET";
-		case ZEND_AST_RETURN: return "AST_RETURN";
-		case ZEND_AST_LABEL: return "AST_LABEL";
-		case ZEND_AST_REF: return "AST_REF";
-		case ZEND_AST_HALT_COMPILER: return "AST_HALT_COMPILER";
-		case ZEND_AST_ECHO: return "AST_ECHO";
-		case ZEND_AST_THROW: return "AST_THROW";
-		case ZEND_AST_GOTO: return "AST_GOTO";
-		case ZEND_AST_BREAK: return "AST_BREAK";
-		case ZEND_AST_CONTINUE: return "AST_CONTINUE";
-		case ZEND_AST_DIM: return "AST_DIM";
-		case ZEND_AST_PROP: return "AST_PROP";
-		case ZEND_AST_STATIC_PROP: return "AST_STATIC_PROP";
-		case ZEND_AST_CALL: return "AST_CALL";
-		case ZEND_AST_CLASS_CONST: return "AST_CLASS_CONST";
-		case ZEND_AST_ASSIGN: return "AST_ASSIGN";
-		case ZEND_AST_ASSIGN_REF: return "AST_ASSIGN_REF";
-		case ZEND_AST_ASSIGN_OP: return "AST_ASSIGN_OP";
-		case ZEND_AST_BINARY_OP: return "AST_BINARY_OP";
-		case ZEND_AST_GREATER: return "AST_GREATER";
-		case ZEND_AST_GREATER_EQUAL: return "AST_GREATER_EQUAL";
-		case ZEND_AST_AND: return "AST_AND";
-		case ZEND_AST_OR: return "AST_OR";
-		case ZEND_AST_ARRAY_ELEM: return "AST_ARRAY_ELEM";
-		case ZEND_AST_NEW: return "AST_NEW";
-		case ZEND_AST_INSTANCEOF: return "AST_INSTANCEOF";
-		case ZEND_AST_YIELD: return "AST_YIELD";
-		case ZEND_AST_COALESCE: return "AST_COALESCE";
-		case ZEND_AST_STATIC: return "AST_STATIC";
-		case ZEND_AST_WHILE: return "AST_WHILE";
-		case ZEND_AST_DO_WHILE: return "AST_DO_WHILE";
-		case ZEND_AST_IF_ELEM: return "AST_IF_ELEM";
-		case ZEND_AST_SWITCH: return "AST_SWITCH";
-		case ZEND_AST_SWITCH_CASE: return "AST_SWITCH_CASE";
-		case ZEND_AST_DECLARE: return "AST_DECLARE";
-		case ZEND_AST_PROP_ELEM: return "AST_PROP_ELEM";
-		case ZEND_AST_CONST_ELEM: return "AST_CONST_ELEM";
-		case ZEND_AST_USE_TRAIT: return "AST_USE_TRAIT";
-		case ZEND_AST_TRAIT_PRECEDENCE: return "AST_TRAIT_PRECEDENCE";
-		case ZEND_AST_METHOD_REFERENCE: return "AST_METHOD_REFERENCE";
-		case ZEND_AST_NAMESPACE: return "AST_NAMESPACE";
-		case ZEND_AST_USE_ELEM: return "AST_USE_ELEM";
-		case ZEND_AST_TRAIT_ALIAS: return "AST_TRAIT_ALIAS";
-		case ZEND_AST_GROUP_USE: return "AST_GROUP_USE";
-		case ZEND_AST_METHOD_CALL: return "AST_METHOD_CALL";
-		case ZEND_AST_STATIC_CALL: return "AST_STATIC_CALL";
-		case ZEND_AST_CONDITIONAL: return "AST_CONDITIONAL";
-		case ZEND_AST_TRY: return "AST_TRY";
-		case ZEND_AST_CATCH: return "AST_CATCH";
-		case ZEND_AST_PARAM: return "AST_PARAM";
-		case ZEND_AST_FOR: return "AST_FOR";
-		case ZEND_AST_FOREACH: return "AST_FOREACH";
+		case AST_FUNC_DECL: return "AST_FUNC_DECL";
+		case AST_CLOSURE: return "AST_CLOSURE";
+		case AST_METHOD: return "AST_METHOD";
+		case AST_CLASS: return "AST_CLASS";
+		case AST_MAGIC_CONST: return "AST_MAGIC_CONST";
+		case AST_TYPE: return "AST_TYPE";
+		case AST_VAR: return "AST_VAR";
+		case AST_CONST: return "AST_CONST";
+		case AST_UNPACK: return "AST_UNPACK";
+		case AST_UNARY_PLUS: return "AST_UNARY_PLUS";
+		case AST_UNARY_MINUS: return "AST_UNARY_MINUS";
+		case AST_CAST: return "AST_CAST";
+		case AST_EMPTY: return "AST_EMPTY";
+		case AST_ISSET: return "AST_ISSET";
+		case AST_SILENCE: return "AST_SILENCE";
+		case AST_SHELL_EXEC: return "AST_SHELL_EXEC";
+		case AST_CLONE: return "AST_CLONE";
+		case AST_EXIT: return "AST_EXIT";
+		case AST_PRINT: return "AST_PRINT";
+		case AST_INCLUDE_OR_EVAL: return "AST_INCLUDE_OR_EVAL";
+		case AST_UNARY_OP: return "AST_UNARY_OP";
+		case AST_PRE_INC: return "AST_PRE_INC";
+		case AST_PRE_DEC: return "AST_PRE_DEC";
+		case AST_POST_INC: return "AST_POST_INC";
+		case AST_POST_DEC: return "AST_POST_DEC";
+		case AST_YIELD_FROM: return "AST_YIELD_FROM";
+		case AST_GLOBAL: return "AST_GLOBAL";
+		case AST_UNSET: return "AST_UNSET";
+		case AST_RETURN: return "AST_RETURN";
+		case AST_LABEL: return "AST_LABEL";
+		case AST_REF: return "AST_REF";
+		case AST_HALT_COMPILER: return "AST_HALT_COMPILER";
+		case AST_ECHO: return "AST_ECHO";
+		case AST_THROW: return "AST_THROW";
+		case AST_GOTO: return "AST_GOTO";
+		case AST_BREAK: return "AST_BREAK";
+		case AST_CONTINUE: return "AST_CONTINUE";
+		case AST_DIM: return "AST_DIM";
+		case AST_PROP: return "AST_PROP";
+		case AST_STATIC_PROP: return "AST_STATIC_PROP";
+		case AST_CALL: return "AST_CALL";
+		case AST_CLASS_CONST: return "AST_CLASS_CONST";
+		case AST_ASSIGN: return "AST_ASSIGN";
+		case AST_ASSIGN_REF: return "AST_ASSIGN_REF";
+		case AST_ASSIGN_OP: return "AST_ASSIGN_OP";
+		case AST_BINARY_OP: return "AST_BINARY_OP";
+		case AST_GREATER: return "AST_GREATER";
+		case AST_GREATER_EQUAL: return "AST_GREATER_EQUAL";
+		case AST_AND: return "AST_AND";
+		case AST_OR: return "AST_OR";
+		case AST_ARRAY_ELEM: return "AST_ARRAY_ELEM";
+		case AST_NEW: return "AST_NEW";
+		case AST_INSTANCEOF: return "AST_INSTANCEOF";
+		case AST_YIELD: return "AST_YIELD";
+		case AST_COALESCE: return "AST_COALESCE";
+		case AST_STATIC: return "AST_STATIC";
+		case AST_WHILE: return "AST_WHILE";
+		case AST_DO_WHILE: return "AST_DO_WHILE";
+		case AST_IF_ELEM: return "AST_IF_ELEM";
+		case AST_SWITCH: return "AST_SWITCH";
+		case AST_SWITCH_CASE: return "AST_SWITCH_CASE";
+		case AST_DECLARE: return "AST_DECLARE";
+		case AST_PROP_ELEM: return "AST_PROP_ELEM";
+		case AST_CONST_ELEM: return "AST_CONST_ELEM";
+		case AST_USE_TRAIT: return "AST_USE_TRAIT";
+		case AST_TRAIT_PRECEDENCE: return "AST_TRAIT_PRECEDENCE";
+		case AST_METHOD_REFERENCE: return "AST_METHOD_REFERENCE";
+		case AST_NAMESPACE: return "AST_NAMESPACE";
+		case AST_USE_ELEM: return "AST_USE_ELEM";
+		case AST_TRAIT_ALIAS: return "AST_TRAIT_ALIAS";
+		case AST_GROUP_USE: return "AST_GROUP_USE";
+		case AST_METHOD_CALL: return "AST_METHOD_CALL";
+		case AST_STATIC_CALL: return "AST_STATIC_CALL";
+		case AST_CONDITIONAL: return "AST_CONDITIONAL";
+		case AST_TRY: return "AST_TRY";
+		case AST_CATCH: return "AST_CATCH";
+		case AST_PARAM: return "AST_PARAM";
+		case AST_FOR: return "AST_FOR";
+		case AST_FOREACH: return "AST_FOREACH";
 	}
 }
 }
@@ -364,18 +364,18 @@ function kind_uses_flags($kind)
 {
     // TODO: lookup table
     // source: php-ast/ast.c, ast_kind_uses_attr(kind)
-    if ($kind === ZEND_AST_PARAM || $kind === ZEND_AST_TYPE || $kind === ZEND_AST_TRAIT_ALIAS
-		|| $kind === ZEND_AST_UNARY_OP || $kind === ZEND_AST_BINARY_OP || $kind === ZEND_AST_ASSIGN_OP
-		|| $kind === ZEND_AST_CAST || $kind === ZEND_AST_MAGIC_CONST || $kind === ZEND_AST_ARRAY_ELEM
-		|| $kind === ZEND_AST_INCLUDE_OR_EVAL || $kind === ZEND_AST_USE || $kind === ZEND_AST_PROP_DECL
-		|| $kind === ZEND_AST_GROUP_USE || $kind === ZEND_AST_USE_ELEM
-		|| $kind === AST_NAME || $kind === AST_CLOSURE_VAR || $kind === ZEND_AST_CLASS_CONST_DECL
-        || $kind === ZEND_AST_ARRAY) {
+    if ($kind === AST_PARAM || $kind === AST_TYPE || $kind === AST_TRAIT_ALIAS
+		|| $kind === AST_UNARY_OP || $kind === AST_BINARY_OP || $kind === AST_ASSIGN_OP
+		|| $kind === AST_CAST || $kind === AST_MAGIC_CONST || $kind === AST_ARRAY_ELEM
+		|| $kind === AST_INCLUDE_OR_EVAL || $kind === AST_USE || $kind === AST_PROP_DECL
+		|| $kind === AST_GROUP_USE || $kind === AST_USE_ELEM
+		|| $kind === AST_NAME || $kind === AST_CLOSURE_VAR || $kind === AST_CLASS_CONST_DECL
+        || $kind === AST_ARRAY) {
         return true;
     }
     // source: php-ast/ast.c, ast_kind_is_decl(kind)
-	return $kind === ZEND_AST_FUNC_DECL || $kind === ZEND_AST_CLOSURE
-		|| $kind === ZEND_AST_METHOD || $kind === ZEND_AST_CLASS;
+	return $kind === AST_FUNC_DECL || $kind === AST_CLOSURE
+		|| $kind === AST_METHOD || $kind === AST_CLASS;
 }
 }
 
