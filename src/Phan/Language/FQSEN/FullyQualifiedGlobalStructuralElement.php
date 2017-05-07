@@ -194,7 +194,9 @@ abstract class FullyQualifiedGlobalStructuralElement extends AbstractFQSEN
      * @return int
      * The namespace map type such as \ast\flags\USE_NORMAL or \ast\flags\USE_FUNCTION
      */
-    abstract protected static function getNamespaceMapType() : int;
+    protected static function getNamespaceMapType() : int {
+        throw new \BadMethodCallException('getNamespaceMapType should be implemented in subclasses');
+    }
 
     /**
      * @return string
