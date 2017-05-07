@@ -17,6 +17,7 @@
     },
     "require": {
         "php": "~5.6.0",
+        "nikic/PHP-Parser": "3.0.5",
         "symfony/console": "~2.3|~3.0"
     },
     "require-dev": {
