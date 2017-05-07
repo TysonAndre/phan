@@ -142,7 +142,10 @@ class Element
             return $visitor->{$fn_name}($node);
         } else {
             Debug::printNode($node);
-            assert(false, 'All node kinds must match');
+            // This is normally an integer.
+            // But php-parser-to-php-ast has "TODO:<PHP-Parser class name>" instead.
+            $kind = $node->kind;
+            assert(false, "All node kinds must match, but saw a node of kind $kind");
         }
     }
 
