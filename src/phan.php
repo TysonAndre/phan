@@ -47,6 +47,9 @@ $is_issue_found =
         function() use($cli) { return $cli->getFileList(); }  // Daemon mode will reload the file list.
     );
 
+// TODO: Does PHP-Parser have any cycles that won't be garbage collected if gc_disable() is used?
+require_once __DIR__ . '/astshim.php';
+
 // Provide an exit status code based on if
 // issues were found
 exit($is_issue_found ? EXIT_ISSUES_FOUND : EXIT_SUCCESS);
