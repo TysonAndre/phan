@@ -252,7 +252,7 @@ if (!function_exists('\ast\get_kind_name')) {
 function get_kind_name($kind)
 {
     // TODO: An array lookup would be faster than a giant switch.
-	switch (kind) {
+	switch ($kind) {
 		case AST_ARG_LIST: return "AST_ARG_LIST";
 		case AST_LIST: return "AST_LIST";
 		case AST_ARRAY: return "AST_ARRAY";
