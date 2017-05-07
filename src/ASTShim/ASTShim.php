@@ -207,6 +207,7 @@ const ARRAY_SYNTAX_SHORT = 3;
 // END AST FLAG CONSTANTS
 
 namespace ast;
+use ASTConverter\ASTConverter;
 
 if (!function_exists('\ast\parse_file')) {
 /**
