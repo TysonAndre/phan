@@ -12,7 +12,7 @@ final class PylintPrinter implements IssuePrinterInterface
     private $output;
 
     /** @param IssueInstance $instance */
-    public function print(IssueInstance $instance)
+    public function print_(IssueInstance $instance)
     {
         $message = sprintf(
             "%s: %s",

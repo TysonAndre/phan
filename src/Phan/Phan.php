@@ -392,7 +392,7 @@ class Phan implements IgnoredFilesFilterInterface {
         $printer = self::$printer;
 
         foreach ($collector->getCollectedIssues() as $issue) {
-            $printer->print($issue);
+            $printer->print_($issue);
         }
 
         if ($collector instanceof BufferingCollector) {
