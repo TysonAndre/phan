@@ -1304,7 +1304,7 @@ class UnionTypeVisitor extends AnalysisVisitor
             && $function->getUnionType()->isEmpty()
         ) {
             $map = UnionType::internalFunctionSignatureMapForFQSEN(
-                $function->getFQSEN()
+                $function_fqsen
             );
 
             return $map[$function_name] ?? new UnionType();
