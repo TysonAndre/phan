@@ -190,7 +190,6 @@ class Type
 
     // Override two magic methods to ensure that Type isn't being cloned accidentally.
     public function __wakeup() {
-        debug_print_backtrace();
         throw new \Error("Cannot unserialize Type");
     }
 
