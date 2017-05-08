@@ -14,6 +14,7 @@ class Issue
     const EmptyFile                 = 'PhanEmptyFile';
     const ParentlessClass           = 'PhanParentlessClass';
     const TraitParentReference      = 'PhanTraitParentReference';
+    const UndeclaredAliasedMethodOfTrait = 'PhanUndeclaredAliasedMethodOfTrait';
     const UndeclaredClass           = 'PhanUndeclaredClass';
     const UndeclaredClassCatch      = 'PhanUndeclaredClassCatch';
     const UndeclaredClassConstant   = 'PhanUndeclaredClassConstant';
@@ -30,6 +31,7 @@ class Issue
     const UndeclaredStaticMethod    = 'PhanUndeclaredStaticMethod';
     const UndeclaredStaticProperty  = 'PhanUndeclaredStaticProperty';
     const UndeclaredTrait           = 'PhanUndeclaredTrait';
+    const RequiredTraitNotAdded     = 'PhanRequiredTraitNotAdded';
     const UndeclaredTypeParameter   = 'PhanUndeclaredTypeParameter';
     const UndeclaredTypeProperty    = 'PhanUndeclaredTypeProperty';
     const UndeclaredVariable        = 'PhanUndeclaredVariable';
@@ -481,6 +483,22 @@ class Issue
                 "Reference to undeclared class {CLASS} in PhanClosureScope",
                 self::REMEDIATION_B,
                 1021
+            ),
+            new Issue(
+                self::UndeclaredAliasedMethodOfTrait,
+                self::CATEGORY_UNDEFINED,
+                self::SEVERITY_CRITICAL,
+                "Alias {METHOD} was defined for a method {METHOD} which does not exist in trait {TRAIT}",
+                self::REMEDIATION_B,
+                1022
+            ),
+            new Issue(
+                self::RequiredTraitNotAdded,
+                self::CATEGORY_UNDEFINED,
+                self::SEVERITY_NORMAL,
+                "Required trait {TRAIT} for trait adaptation was not added to class",
+                self::REMEDIATION_B,
+                1022
             ),
 
             // Issue::CATEGORY_ANALYSIS
