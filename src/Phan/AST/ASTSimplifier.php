@@ -11,13 +11,15 @@ use ast\Node;
  */
 class ASTSimplifier {
     /** @var BlockExitStatusChecker */
-    private $_blockChecker;
-    /** @var string - for debugging purposes */
-    private $_filename;
+    private $block_checker;
 
-    public function __construct(string $filename = 'unknown') {
-        $this->_blockChecker = new BlockExitStatusChecker($filename);
-        $this->_filename = $filename;
+    /** @var string - for debugging purposes */
+    private $filename;
+
+    public function __construct(string $filename = 'unknown')
+    {
+        $this->block_checker = new BlockExitStatusChecker($filename);
+        $this->filename = $filename;
     }
 
     /**
@@ -62,7 +64,6 @@ class ASTSimplifier {
     private function applyToStmts(Node $node) : Node {
         $stmts = $node->children['stmts'];
         // Can be null, a single statement, or (possibly) a scalar instead of a node?
-        // TODO: newer versions of php-ast may guarantee Node?
         if (!($stmts instanceof Node)) {
             return $node;
         }
@@ -81,14 +82,12 @@ class ASTSimplifier {
      */
     private function applyToStatementList(Node $statement_list) : Node {
         if ($statement_list->kind !== \ast\AST_STMT_LIST) {
-            // TODO: This check may be unnecessary in new php-ast versions
             $statement_list = self::buildStatementList($statement_list->lineno ?? 0, $statement_list);
         }
         $new_children = [];
         foreach ($statement_list->children as $child_node) {
             if ($child_node instanceof Node) {
                 foreach ($this->apply($child_node) as $new_child_node) {
-                    // The apply() step can also modify the nodes, check below with ===
                     $new_children[] = $new_child_node;
                 }
             } else {
@@ -118,7 +117,7 @@ class ASTSimplifier {
 
     /**
      * Get a modifiable Node that is a clone of the statement or statement list.
-     * The resulting Node has kind AST_STMT_LIST.
+     * The resulting Node has kind AST_STMT_LIST
      */
     private static function cloneStatementList(Node $stmt_list = null) : Node {
         if (is_null($stmt_list)) {
@@ -155,7 +154,7 @@ class ASTSimplifier {
                 if ($N === 2 &&
                         ($stmt->children[1]->children['stmts'] instanceof Node) &&
                         $stmt->children[1]->children['cond'] === null &&  // cannot be elseif
-                        $this->_blockChecker->check($stmt->children[1]->children['stmts']) !== BlockExitStatusChecker::STATUS_PROCEED) {
+                        $this->block_checker->check($stmt->children[1]->children['stmts']) !== BlockExitStatusChecker::STATUS_PROCEED) {
                     // If the else statement is guaranteed to break/continue/return/throw,
                     // then merge the remaining statements following that into the `if` block.
                     $new_if_elem = clone($stmt->children[0]);
@@ -174,7 +173,7 @@ class ASTSimplifier {
                 }
                 if (($N == 1 || ($N == 2 && $stmt->children[1]->children['cond'] === null)) &&
                         $stmt->children[0]->children['stmts'] instanceof Node &&  // Why does php-ast sometime return string.
-                        $this->_blockChecker->check($stmt->children[0]->children['stmts']) !== BlockExitStatusChecker::STATUS_PROCEED) {
+                        $this->block_checker->check($stmt->children[0]->children['stmts']) !== BlockExitStatusChecker::STATUS_PROCEED) {
                     // If the if statement is guaranteed to break/continue/return/throw,
                     // then merge the remaining statements following that into the `else` block (not `elseif`)
                     // Create an `else` block if necessary.
@@ -210,7 +209,7 @@ class ASTSimplifier {
     /**
      * Replaces the last node in a list with a list of 0 or more nodes
      * @param \ast\Node[] $nodes
-     * @param \ast\Node ...$new_statements
+     * @param \ast\Node[] $new_statements
      * @return void
      */
     private static function replaceLastNodeWithNodeList(array &$nodes, Node... $new_statements) {
@@ -245,7 +244,7 @@ class ASTSimplifier {
                     $if_cond->flags === \ast\flags\UNARY_BOOL_NOT &&
                     $if_cond->children['expr']->kind === \ast\AST_UNARY_OP &&
                     $if_cond->children['expr']->flags === \ast\flags\UNARY_BOOL_NOT) {
-                self::replaceLastNodeWithNodeList($nodes, $this->_applyIfDoubleNegateReduction($node));
+                self::replaceLastNodeWithNodeList($nodes, $this->applyIfDoubleNegateReduction($node));
                 continue;
             }
             if (count($node->children) === 1) {
@@ -367,7 +366,6 @@ class ASTSimplifier {
         assert($node->children[0]->children['cond']->flags === \ast\flags\UNARY_BOOL_NOT);
         assert($node->children[1]->children['cond'] === null);
         $new_node = clone($node);
-        $if_elem = $new_node->children[0];
         $new_node->children = [clone($new_node->children[1]), clone($new_node->children[0])];
         $new_node->children[0]->children['cond'] = $node->children[0]->children['cond']->children['expr'];
         $new_node->children[1]->children['cond'] = null;
@@ -378,7 +376,7 @@ class ASTSimplifier {
      * Converts if (!!(x)) {Y} -> if (x) {Y}
      * This improves phan's analysis for cases such as `if (!!x)`
      */
-    private function _applyIfDoubleNegateReduction(Node $node) : Node {
+    private function applyIfDoubleNegateReduction(Node $node) : Node {
         assert($node->children[0]->children['cond']->flags === \ast\flags\UNARY_BOOL_NOT);
         assert($node->children[0]->children['cond']->children['expr']->flags === \ast\flags\UNARY_BOOL_NOT);
 
@@ -406,6 +404,7 @@ class ASTSimplifier {
         $new_catches->children = $new_list;
         return $new_catches;
     }
+
 
     /**
      * Recurses on a try/catch/finally node, applying simplifications(catch/finally are optional)

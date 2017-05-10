@@ -4,9 +4,20 @@ Phan looks for common issues and will verify type compatibility on various opera
 information is available or can be deduced. Phan does not have a strong understanding of flow control
 and does not attempt to track values.
 
-[![Code Climate](https://codeclimate.com/github/etsy/phan/badges/gpa.svg)](https://codeclimate.com/github/etsy/phan) [![Build Status](https://travis-ci.org/etsy/phan.svg?branch=master)](https://travis-ci.org/etsy/phan) [![Gitter](https://badges.gitter.im/etsy/phan.svg)](https://gitter.im/etsy/phan?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
-[![Latest Stable Version](https://poser.pugx.org/etsy/phan/v/stable)](https://packagist.org/packages/etsy/phan)
+[![Build Status (fork)](https://travis-ci.org/TysonAndre/phan.svg?branch=master)](https://travis-ci.org/TysonAndre/phan) [![Gitter](https://badges.gitter.im/etsy/phan.svg)](https://gitter.im/etsy/phan?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+[![Latest Stable Version (upstream)](https://poser.pugx.org/etsy/phan/v/stable)](https://packagist.org/packages/etsy/phan)
 [![License](https://poser.pugx.org/etsy/phan/license)](https://github.com/etsy/phan/blob/master/LICENSE)
+
+# About this fork
+
+This fork supports miscellaneous features which haven't been merged to etsy/phan yet, such as
+
+- rewriting the AST.
+- Ignoring common mistakes in @return/@param annotations
+- Even more gradual strengthening of types (Granular scalar type casting, allowing casting null to/from arrays/scalars but not to/from objects)
+- Daemon mode improvements
+
+see [.phan/config.php](.phan/config.php) and [src/phan/Config.php](src/phan/Config.php) for more details on the new features.
 
 # Getting Started
 

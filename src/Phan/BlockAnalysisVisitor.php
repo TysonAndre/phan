@@ -2,6 +2,8 @@
 namespace Phan;
 
 use Phan\AST\AnalysisVisitor;
+use Phan\AST\Visitor\Element;
+use Phan\Analysis\BlockExitStatusChecker;
 use Phan\Analysis\ConditionVisitor;
 use Phan\Analysis\ContextMergeVisitor;
 use Phan\Analysis\PostOrderAnalysisVisitor;
@@ -31,6 +33,12 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
     private $depth;
 
     /**
+     * @var BlockExitStatusChecker
+     * Checks if execution continues past the end of a block.
+     */
+    private $block_exit_status_checker;
+
+    /**
      * @var bool
      * Whether or not this visitor will visit all nodes
      */
@@ -52,18 +60,24 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
      *
      * @param bool|null $should_visit_everything
      * Determined from the Config instance. Cached to avoid overhead of function calls.
+     *
+     * @param ?BlockExitStatusChecker $block_exit_status_checker
+     * This object determines the exit status of a statement or list of statement.
+     * This is re-used so that it can efficiently memoize the status of a block
      */
     public function __construct(
         CodeBase $code_base,
         Context $context,
         Node $parent_node = null,
         int $depth = 0,
-        bool $should_visit_everything = null
+        bool $should_visit_everything = null,
+        BlockExitStatusChecker $block_exit_status_checker = null
     ) {
         $should_visit_everything = $should_visit_everything ?? Analysis::shouldVisitEverything();
         parent::__construct($code_base, $context);
         $this->parent_node = $parent_node;
         $this->depth = $depth;
+        $this->block_exit_status_checker = $block_exit_status_checker ?? new BlockExitStatusChecker();
         $this->should_visit_everything = $should_visit_everything;
     }
 
@@ -128,14 +142,34 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
 
             // Step into each child node and get an
             // updated context for the node
-            $context = (new BlockAnalysisVisitor(
-                $this->code_base, $context, $node, $this->depth + 1
-            ))($child_node);
+            $context = $this->recurse($context, $node, $child_node);
         }
 
         $context = $this->postOrderAnalyze($context, $node);
 
         return $context;
+    }
+
+    private function recurse(Context $context, Node $node, Node $child_node) : Context
+    {
+        $fn_name = Element::VISIT_LOOKUP_TABLE[$child_node->kind] ?? null;
+        $old_context = $this->context;
+        $old_parent_node = $this->parent_node;
+        $old_depth = $this->depth++;
+        $this->context = $context;
+        $this->parent_node = $node;
+        try {
+            if (is_string($fn_name)) {
+                return $this->{$fn_name}($child_node);
+            } else {
+                Debug::printNode($child_node);
+                assert(false, 'All node kinds must match');
+            }
+        } finally {
+            $this->context = $old_context;
+            $this->parent_node = $old_parent_node;
+            $this->depth = $old_depth;
+        }
     }
 
     /**
@@ -205,27 +239,31 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
 
             // Step into each child node and get an
             // updated context for the node
-            $child_context = (new BlockAnalysisVisitor(
-                $this->code_base, $child_context, $node, $this->depth + 1
-            ))($child_node);
+            $child_context = $this->recurse($child_context, $node, $child_node);
 
-            // TODO(Issue #406): We can improve analysis of `if` blocks by using
-            // a BlockExitStatusChecker to avoid propogating invalid inferences.
-            // However, we need to check for a try block between this line's scope
-            // and the parent function's (or global) scope,
-            // to reduce false positives.
-            // (Variables will be available in `catch` and `finally`)
-            $child_context_list[] = $child_context;
+            // TODO: Actually use weaker statuses, e.g. when analyzing variables effectively limited to a loop,
+            // or if there are no try blocks in the parent scope.
+            $skip = Config::get()->simplify_ast &&
+                $node->kind === \ast\AST_IF &&
+                $this->block_exit_status_checker->check($child_node) === BlockExitStatusChecker::STATUS_RETURN;
+
+            if (!$skip) {
+                $child_context_list[] = $child_context;
+            }
         }
 
         // For if statements, we need to merge the contexts
         // of all child context into a single scope based
         // on any possible branching structure
-        $context = (new ContextMergeVisitor(
-            $this->code_base,
-            $context,
-            $child_context_list
-        ))($node);
+        // (If they unconditionally return, we (generally) don't need to do this.
+        // TODO: `finally` blocks break this assumption. context may need to track catch blocks.)
+        if (count($child_context_list) > 0) {
+            $context = (new ContextMergeVisitor(
+                $this->code_base,
+                $context,
+                $child_context_list
+            ))($node);
+        }
 
         $context = $this->postOrderAnalyze($context, $node);
 
@@ -255,24 +293,22 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
 
         $condition_node = $node->children['cond'];
         if ($condition_node && $condition_node instanceof Node) {
-            $context = (new BlockAnalysisVisitor(
-                $this->code_base,
+            $context = $this->recurse(
                 $context->withLineNumberStart($condition_node->lineno ?? 0),
                 $node,
-                $this->depth + 1
-            ))($condition_node);
+                $condition_node
+            );
         }
 
         if ($stmts_node = $node->children['stmts']) {
             if ($stmts_node instanceof Node) {
-                $context = (new BlockAnalysisVisitor(
-                    $this->code_base,
+                $context = $this->recurse(
                     $context->withScope(
                         new BranchScope($context->getScope())
                     )->withLineNumberStart($stmts_node->lineno ?? 0),
                     $node,
-                    $this->depth + 1
-                ))($stmts_node);
+                    $stmts_node
+                );
             }
         }
 
@@ -348,9 +384,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
 
             // Step into each child node and get an
             // updated context for the node
-            $child_context = (new BlockAnalysisVisitor(
-                $this->code_base, $child_context, $node, $this->depth + 1
-            ))($child_node);
+            $child_context = $this->recurse($child_context, $node, $child_node);
 
             $child_context_list[] = $child_context;
         }
@@ -444,9 +478,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
             // Step into each child node and get an
             // updated context for the node
             // (e.g. there may be assignments such as '($x = foo()) ? $a : $b)
-            $context = (new BlockAnalysisVisitor(
-                $this->code_base, $context, $node, $this->depth + 1
-            ))($cond_node);
+            $context = $this->recurse($context, $node, $cond_node);
 
             // TODO: false_context once there is a NegatedConditionVisitor
             $true_context = (new ConditionVisitor(
@@ -462,18 +494,14 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
         // $cond_node is the (already processed) value for truthy.
         if ($true_node instanceof Node) {
             if ($this->should_visit_everything || Analysis::shouldVisit($true_node)) {
-                $child_context = (new BlockAnalysisVisitor(
-                    $this->code_base, $true_context, $node, $this->depth + 1
-                ))($true_node);
+                $child_context = $this->recurse($true_context, $node, $true_node);
                 $child_context_list[] = $child_context;
             }
         }
 
         if ($false_node instanceof Node) {
             if ($this->should_visit_everything || Analysis::shouldVisit($false_node)) {
-                $child_context = (new BlockAnalysisVisitor(
-                    $this->code_base, $context, $node, $this->depth + 1
-                ))($false_node);
+                $child_context = $this->recurse($context, $node, $false_node);
                 $child_context_list[] = $child_context;
             }
         }

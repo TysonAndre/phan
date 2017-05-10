@@ -3,6 +3,7 @@ namespace Phan;
 
 use ast\Node;
 use ast\Node\Decl;
+use ast\flags;
 
 /**
  * Debug utilities
@@ -225,6 +226,8 @@ class Debug
     /**
      * Dumps abstract syntax tree
      * Source: https://github.com/nikic/php-ast/blob/master/util.php
+     * @suppress PhanUndeclaredProperty - some \ast\Node instances have docComment (prop decls),
+     * and others are the \ast\Node\Decl subclass.
      */
     public static function astDump($ast, int $options = 0) : string {
         if ($ast instanceof \ast\Node) {

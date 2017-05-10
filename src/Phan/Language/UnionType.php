@@ -769,6 +769,13 @@ class UnionType implements \Serializable
             ) {
                 return true;
             }
+        } else if (Config::get()->null_casts_as_array) {
+            // null <-> null
+            if (($this->isType(NullType::instance(false)) && $target->hasArrayLike())
+                || ($target->isType(NullType::instance(false)) && $this->hasArrayLike())
+            ) {
+                return true;
+            }
         }
 
         // mixed <-> mixed

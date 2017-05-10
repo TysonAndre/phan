@@ -1,0 +1,4 @@
+%s:67 PhanTypeMismatchProperty Assigning \stdClass to property but \MagicPropertiesClass::stringVar is string
+%s:68 PhanTypeMismatchProperty Assigning int to property but \MagicPropertiesClass::dateVar is \DateTime
+%s:70 PhanTypeMismatchArgumentInternal Argument 1 (numerator) is string but \intdiv() takes int
+%s:74 PhanTypeMismatchProperty Assigning \stdClass to property but \MagicPropertiesClass::undeclaredTypeVar is string

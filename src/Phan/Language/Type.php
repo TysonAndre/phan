@@ -1234,17 +1234,23 @@ class Type
             return true;
         }
 
-        // A nullable type cannot cast to a non-nullable type
-        if ($this->getIsNullable() && !$type->getIsNullable()) {
-
-            // If this is nullable, but that isn't, and we've
-            // configured nulls to cast as anything, ignore
-            // the nullable part.
-            if (Config::get()->null_casts_as_any_type) {
-                return $this->withIsNullable(false)->canCastToType($type);
+        if ($this->getIsNullable()) {
+            // A nullable type cannot cast to a non-nullable type (Except when null_casts_as_any_type is true)
+            $config = Config::get();
+            if ($config->null_casts_as_any_type) {
+                return true;
+            } else if ($config->null_casts_as_array && $type->isArrayLike()) {
+                return true;
+            } else if ($type->isScalar() && (
+                    $config->scalar_implicit_cast ||
+                    in_array($type->getName(), $config->scalar_implicit_partial['null'] ?? []))) {
+                // e.g. allow casting ?string to string if scalar_implicit_cast or 'null' => ['string'] is in scalar_implicit_partial.
+                return true;
             }
 
-            return false;
+            if (!$type->getIsNullable()) {
+                return false;
+            }
         }
 
         // Get a non-null version of the type we're comparing

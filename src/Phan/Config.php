@@ -139,6 +139,13 @@ class Config
         // defined.
         'allow_missing_properties' => false,
 
+        // Allow null to be cast as any array-like type and for any
+        // array-like type to be cast to null. Setting this to false
+        // will cut down on false positives.
+        // This is an incremental step in migrating away from null_casts_as_any_type.
+        // If null_casts_as_any_type is true, this has no effect.
+        'null_casts_as_array' => false,
+
         // Allow null to be cast as any type and for any
         // type to be cast to null. Setting this to false
         // will cut down on false positives.
@@ -147,6 +154,13 @@ class Config
         // If enabled, scalars (int, float, bool, string, null)
         // are treated as if they can cast to each other.
         'scalar_implicit_cast' => false,
+
+        // If this has entries, scalars (int, float, bool, string, null)
+        // are treated as if they can cast to any element in this nested list of types.
+        // Stricter than scalar_implicit_cast.
+        // E.g. ['int' => ['float', 'string'], 'float' => ['int'], 'string' => ['int'], 'null' => ['string']]
+        // allows casting null to a string, but not vice versa.
+        'scalar_implicit_partial' => [],
 
         // If true, seemingly undeclared variables in the global
         // scope will be ignored. This is useful for projects
@@ -202,6 +216,26 @@ class Config
         // @var, @suppress, @deprecated) and only rely on
         // types expressed in code.
         'read_type_annotations' => true,
+
+        // If disabled, Phan will not read docblock type
+        // annotation comments for @property.
+        // @property-read and @property-write are treated exactly the
+        // same as @property for now.
+        // Note: read_type_annotations must also be enabled.
+        // TODO: Disable this by default, but enable it for a unit test.
+        // TODO: How do you override specific config in a unit test?
+        'read_magic_property_annotations' => true,
+
+        // Note:
+        // Case insensitive type to support custom UnionTypes.
+        // Ignore(or remap) these unionTypes(s) when they show up in a UnionType of @param, @return, @var, @property, etc.
+        // Matches the entire string, not part of the string.
+        //
+        // (They will still show up if they are used outside of doc comments).
+        // (Does not check if classes with these names exist)
+        //
+        // E.g. ['unknown' => '', 'char' => 'string', 'long' => 'int']
+        'experimental_invalid_phpdoc_types' => [ ],
 
         // Set to true in order to ignore issue suppression.
         // This is useful for testing the state of your code, but
@@ -385,6 +419,9 @@ class Config
         // relatively few files will move to a different group.
         // (use when the number of files is much larger than the process count)
         'consistent_hashing_file_order' => false,
+
+        // Set by --print-memory-usage-summary. Prints a memory usage summary to stderr after analysis.
+        'print_memory_usage_summary' => false,
 
         // Path to a unix socket for a daemon to listen to files to analyze. Use command line option instead.
         'daemonize_socket' => false,

@@ -25,12 +25,12 @@ class BlockExitStatusChecker extends KindVisitorImplementation {
     /** @var \SplObjectStorage */
     private $exit_status_cache;
     /** @var string - filename, for debugging*/
-    private $_filename;
+    private $filename;
 
     public function __construct(string $filename = 'unknown')
     {
         $this->exit_status_cache = new \SplObjectStorage();
-        $this->_filename = $filename;
+        $this->filename = $filename;
     }
 
     public function check(Node $node = null) : int
