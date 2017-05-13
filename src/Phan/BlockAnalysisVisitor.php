@@ -32,11 +32,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
      */
     private $depth;
 
-    /**
-     * @var BlockExitStatusChecker
-     * Checks if execution continues past the end of a block.
-     */
-    private $block_exit_status_checker;
+    // TODO: restore block_exit_status_checker (or cache the status in $node->flags, for node types with no flags)
 
     /**
      * @var bool
@@ -57,28 +53,16 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
      *
      * @param int $depth
      * The depth of the node being analyzed in the AST
-     *
-     * @param bool|null $should_visit_everything
-     * Determined from the Config instance. Cached to avoid overhead of function calls.
-     *
-     * @param ?BlockExitStatusChecker $block_exit_status_checker
-     * This object determines the exit status of a statement or list of statement.
-     * This is re-used so that it can efficiently memoize the status of a block
      */
     public function __construct(
         CodeBase $code_base,
         Context $context,
         Node $parent_node = null,
-        int $depth = 0,
-        bool $should_visit_everything = null,
-        BlockExitStatusChecker $block_exit_status_checker = null
+        int $depth = 0
     ) {
-        $should_visit_everything = $should_visit_everything ?? Analysis::shouldVisitEverything();
         parent::__construct($code_base, $context);
         $this->parent_node = $parent_node;
         $this->depth = $depth;
-        $this->block_exit_status_checker = $block_exit_status_checker ?? new BlockExitStatusChecker();
-        $this->should_visit_everything = $should_visit_everything;
     }
 
     /**
@@ -129,14 +113,8 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
         // to this method, we analyze all children of the
         // node.
         foreach ($node->children ?? [] as $child_node) {
-            // Skip any non Node children or boring nodes
-            // that are too deep.
-            if (!($child_node instanceof Node)
-                || !($this->should_visit_everything || Analysis::shouldVisitNode($child_node))
-            ) {
-                $context->withLineNumberStart(
-                    $child_node->lineno ?? 0
-                );
+            // Skip any non Node children.
+            if (!($child_node instanceof Node)) {
                 continue;
             }
 
@@ -219,10 +197,6 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
                 continue;
             }
 
-            if (!($this->should_visit_everything || Analysis::shouldVisitNode($child_node))) {
-                continue;
-            }
-
             // The conditions need to communicate to the outter
             // scope for things like assigning veriables.
             if ($child_node->kind != \ast\AST_IF_ELEM) {
@@ -241,15 +215,17 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
             // updated context for the node
             $child_context = $this->recurse($child_context, $node, $child_node);
 
+            /**
+            // TODO: This is slow when quick_mode => false. Cache it in $node->flags instead for `if` statements.
             // TODO: Actually use weaker statuses, e.g. when analyzing variables effectively limited to a loop,
             // or if there are no try blocks in the parent scope.
             $skip = Config::get()->simplify_ast &&
                 $node->kind === \ast\AST_IF &&
                 $this->block_exit_status_checker->check($child_node) === BlockExitStatusChecker::STATUS_RETURN;
 
-            if (!$skip) {
-                $child_context_list[] = $child_context;
-            }
+            if (!$skip) { */
+            $child_context_list[] = $child_context;
+            /* } */
         }
 
         // For if statements, we need to merge the contexts
@@ -375,13 +351,6 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
                 continue;
             }
 
-            if (!($this->should_visit_everything || Analysis::shouldVisit($child_node))) {
-                $child_context->withLineNumberStart(
-                    $child_node->lineno ?? 0
-                );
-                continue;
-            }
-
             // Step into each child node and get an
             // updated context for the node
             $child_context = $this->recurse($child_context, $node, $child_node);
@@ -474,7 +443,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
                 $node->children['false'] ?? null;
 
         $cond_node = $node->children['cond'];
-        if (($cond_node instanceof Node) && ($this->should_visit_everything || Analysis::shouldVisitNode($cond_node))) {
+        if ($cond_node instanceof Node) {
             // Step into each child node and get an
             // updated context for the node
             // (e.g. there may be assignments such as '($x = foo()) ? $a : $b)
@@ -493,18 +462,15 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
         // In the long form, there's a $true_node, but in the short form (?:),
         // $cond_node is the (already processed) value for truthy.
         if ($true_node instanceof Node) {
-            if ($this->should_visit_everything || Analysis::shouldVisit($true_node)) {
-                $child_context = $this->recurse($true_context, $node, $true_node);
-                $child_context_list[] = $child_context;
-            }
+            $child_context = $this->recurse($true_context, $node, $true_node);
+            $child_context_list[] = $child_context;
         }
 
         if ($false_node instanceof Node) {
-            if ($this->should_visit_everything || Analysis::shouldVisit($false_node)) {
-                $child_context = $this->recurse($context, $node, $false_node);
-                $child_context_list[] = $child_context;
-            }
+            $child_context = $this->recurse($context, $node, $false_node);
+            $child_context_list[] = $child_context;
         }
+
         if (count($child_context_list) >= 1) {
             $context = (new ContextMergeVisitor(
                 $this->code_base,
