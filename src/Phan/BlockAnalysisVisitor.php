@@ -3,7 +3,6 @@ namespace Phan;
 
 use Phan\AST\AnalysisVisitor;
 use Phan\AST\Visitor\Element;
-use Phan\Analysis\BlockExitStatusChecker;
 use Phan\Analysis\ConditionVisitor;
 use Phan\Analysis\ContextMergeVisitor;
 use Phan\Analysis\PostOrderAnalysisVisitor;
@@ -120,7 +119,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
 
             // Step into each child node and get an
             // updated context for the node
-            $context = $this->recurse($context, $node, $child_node);
+            $context = $this->analyzeAndGetUpdatedContext($context, $node, $child_node);
         }
 
         $context = $this->postOrderAnalyze($context, $node);
@@ -143,6 +142,38 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
                 Debug::printNode($child_node);
                 assert(false, 'All node kinds must match');
             }
+        } finally {
+            $this->context = $old_context;
+            $this->parent_node = $old_parent_node;
+            $this->depth = $old_depth;
+        }
+    }
+
+    /**
+     * This is an abstraction for getting a new, updated context for a child node.
+     *
+     * Effectively the same as (new BlockAnalysisVisitor(..., $context, $node, ..., $depth + 1, ...)($child_node))
+     * but is much less repetitive and verbose, and slightly more efficient.
+     *
+     * @param Context $context - The original context for $node, before analyzing $child_node
+     *
+     * @param Node $node - The parent node of $child_node
+     *
+     * @param Node $child_node - The node which will be analyzed to create the updated context.
+     *
+     * @return Context (The unmodified $context, or a different Context instance with modifications)
+     */
+    private function analyzeAndGetUpdatedContext(Context $context, Node $node, Node $child_node) : Context
+    {
+        // Modify the original object instead of creating a new BlockAnalysisVisitor.
+        // this is slightly more efficient, especially if a large number of unchanged parameters would exist.
+        $old_context = $this->context;
+        $old_parent_node = $this->parent_node;
+        $old_depth = $this->depth++;
+        $this->context = $context;
+        $this->parent_node = $node;
+        try {
+            return Element::acceptNodeAndKindVisitor($child_node, $this);
         } finally {
             $this->context = $old_context;
             $this->parent_node = $old_parent_node;
@@ -213,7 +244,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
 
             // Step into each child node and get an
             // updated context for the node
-            $child_context = $this->recurse($child_context, $node, $child_node);
+            $child_context = $this->analyzeAndGetUpdatedContext($child_context, $node, $child_node);
 
             /**
             // TODO: This is slow when quick_mode => false. Cache it in $node->flags instead for `if` statements.
@@ -269,7 +300,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
 
         $condition_node = $node->children['cond'];
         if ($condition_node && $condition_node instanceof Node) {
-            $context = $this->recurse(
+            $context = $this->analyzeAndGetUpdatedContext(
                 $context->withLineNumberStart($condition_node->lineno ?? 0),
                 $node,
                 $condition_node
@@ -278,7 +309,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
 
         if ($stmts_node = $node->children['stmts']) {
             if ($stmts_node instanceof Node) {
-                $context = $this->recurse(
+                $context = $this->analyzeAndGetUpdatedContext(
                     $context->withScope(
                         new BranchScope($context->getScope())
                     )->withLineNumberStart($stmts_node->lineno ?? 0),
@@ -353,7 +384,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
 
             // Step into each child node and get an
             // updated context for the node
-            $child_context = $this->recurse($child_context, $node, $child_node);
+            $child_context = $this->analyzeAndGetUpdatedContext($child_context, $node, $child_node);
 
             $child_context_list[] = $child_context;
         }
@@ -447,7 +478,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
             // Step into each child node and get an
             // updated context for the node
             // (e.g. there may be assignments such as '($x = foo()) ? $a : $b)
-            $context = $this->recurse($context, $node, $cond_node);
+            $context = $this->analyzeAndGetUpdatedContext($context, $node, $cond_node);
 
             // TODO: false_context once there is a NegatedConditionVisitor
             $true_context = (new ConditionVisitor(
@@ -462,12 +493,12 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
         // In the long form, there's a $true_node, but in the short form (?:),
         // $cond_node is the (already processed) value for truthy.
         if ($true_node instanceof Node) {
-            $child_context = $this->recurse($true_context, $node, $true_node);
+            $child_context = $this->analyzeAndGetUpdatedContext($true_context, $node, $true_node);
             $child_context_list[] = $child_context;
         }
 
         if ($false_node instanceof Node) {
-            $child_context = $this->recurse($context, $node, $false_node);
+            $child_context = $this->analyzeAndGetUpdatedContext($context, $node, $false_node);
             $child_context_list[] = $child_context;
         }
 
