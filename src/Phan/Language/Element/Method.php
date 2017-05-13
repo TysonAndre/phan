@@ -193,6 +193,42 @@ class Method extends ClassElement implements FunctionInterface
     }
 
     /**
+     * @return Method
+     * An alias from a trait use
+     */
+    public function createUseAlias(
+        Clazz $clazz,
+        CodeBase $code_base,
+        string $alias_method_name
+    ) : Method {
+
+        $method_fqsen = FullyQualifiedMethodName::make(
+            $clazz->getFQSEN(),
+            $alias_method_name
+        );
+
+        $method = new Method(
+            $this->getContext(),
+            $alias_method_name,
+            $clazz->getUnionType(),
+            $this->getFlags(),
+            $method_fqsen
+        );
+        $method->setDefiningFQSEN($this->getDefiningFQSEN());
+
+        // TODO: setDefiningFQSEN?
+
+        // TODO: Update and add setNumberOfRealRequiredParameters once other PR is merged?
+        $parameter_list = $this->getParameterList();
+        $method->setParameterList($parameter_list);
+        $method->setRealParameterList($parameter_list);
+        $method->setNumberOfRequiredParameters($this->getNumberOfRequiredParameters());
+        $method->setNumberOfOptionalParameters($this->getNumberOfOptionalParameters());
+
+        return $method;
+    }
+
+    /**
      * @param Context $context
      * The context in which the node appears
      *

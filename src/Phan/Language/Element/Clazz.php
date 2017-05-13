@@ -55,6 +55,13 @@ class Clazz extends AddressableElement
     private $trait_fqsen_list = [];
 
     /**
+     * @var TraitAdaptations[]
+     * Maps lowercase fqsen of a method to the trait names which are hidden
+     * and the trait aliasing info
+     */
+    private $trait_adaptations_map = [];
+
+    /**
      * @param Context $context
      * The context in which the structural element lives
      *
@@ -268,6 +275,8 @@ class Clazz extends AddressableElement
         }
 
         foreach ($class->getTraitNames() as $name) {
+            // TODO: getTraitAliases()? This is low importance for internal PHP modules,
+            // it would be uncommon to see that.
             $clazz->addTraitFQSEN(
                 FullyQualifiedClassName::fromFullyQualifiedString(
                     '\\' . $name
@@ -1422,6 +1431,14 @@ class Clazz extends AddressableElement
     }
 
     /**
+     * @return void
+     */
+    public function addTraitAdaptations(TraitAdaptations $trait_adaptations)
+    {
+        $this->trait_adaptations_map[strtolower($trait_adaptations->getTraitFQSEN()->__toString())] = $trait_adaptations;
+    }
+
+    /**
      * @return FQSEN[]
      * A list of FQSEN's for included traits
      */
@@ -1822,8 +1839,9 @@ class Clazz extends AddressableElement
         Clazz $class,
         $type_option
     ) {
+        $key = strtolower((string)$class->getFQSEN());
         if (!$this->isFirstExecution(
-            __METHOD__ . ':' . (string)$class->getFQSEN()
+            __METHOD__ . ':' . $key
         )) {
             return;
         }
@@ -1832,9 +1850,13 @@ class Clazz extends AddressableElement
 
         // Make sure that the class imports its parents first
         $class->hydrate($code_base);
+        $is_trait = $class->isTrait();
+        $trait_adaptations = $is_trait ? ($this->trait_adaptations_map[$key] ?? null) : null;
 
         // Copy properties
         foreach ($class->getPropertyMap($code_base) as $property) {
+            // TODO: check for conflicts in visibility and default values for traits.
+            // TODO: Check for ancestor classes with the same private property?
             $this->addProperty(
                 $code_base,
                 $property,
@@ -1849,11 +1871,59 @@ class Clazz extends AddressableElement
 
         // Copy methods
         foreach ($class->getMethodMap($code_base) as $method) {
+            if (!is_null($trait_adaptations) && count($trait_adaptations->hidden_methods) > 0) {
+                $method_name_key = strtolower($method->getName());
+                if (isset($trait_adaptations->hidden_methods[$method_name_key])) {
+                    // TODO: Record that the method existed right here, and check that all method that were hidden were actually defined?
+                    continue;
+                }
+            }
             $this->addMethod(
                 $code_base,
                 $method,
                 $type_option
             );
+        }
+
+        if (!is_null($trait_adaptations)) {
+            $this->importTraitAdaptations($code_base, $class, $trait_adaptations, $type_option);
+        }
+    }
+
+    /**
+     * @param CodeBase $code_base
+     * @param Clazz $class
+     * @param TraitAdaptations $trait_adaptations
+     * @param Option<Type>|None $type_option
+     * A possibly defined ancestor type used to define template
+     * parameter types when importing ancestor properties and
+     * methods
+     *
+     * @return void
+     */
+    private function importTraitAdaptations(
+        CodeBase $code_base,
+        Clazz $class,
+        TraitAdaptations $trait_adaptations,
+        $type_option
+    ) {
+        foreach ($trait_adaptations->alias_methods ?? [] as $alias_method_name => $original_trait_alias_source) {
+            $source_method_name = $original_trait_alias_source->getSourceMethodName();
+            if (!$class->hasMethodWithName($code_base, $source_method_name)) {
+                Issue::maybeEmit(
+                    $code_base,
+                    $this->getContext(),
+                    Issue::UndeclaredAliasedMethodOfTrait,
+                    $original_trait_alias_source->getAliasLineno(),  // TODO: Track line number in TraitAdaptation
+                    sprintf('%s::%s', $this->getFQSEN(), $alias_method_name),
+                    sprintf('%s::%s', $class->getFQSEN(), $source_method_name),
+                    $class->getName()
+                );
+                continue;
+            }
+            $source_method = $class->getMethodByName($code_base, $source_method_name);
+            $alias_method = $source_method->createUseAlias($class, $code_base, $alias_method_name);
+            $this->addMethod($code_base, $alias_method, $type_option);
         }
     }
 

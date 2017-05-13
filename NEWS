@@ -25,6 +25,7 @@ New Features (Analysis)
   Outside of phpdoc (e.g. `$x instanceof resource`), analyze those names as if they were class names.
 + Add issue type for non-abstract classes containing abstract methods from itself or its ancestors
   (`PhanClassContainsAbstractMethod`, `PhanClassContainsAbstractMethodInternal`)
++ Partial support for handling trait adaptations (`as`/`insteadof`) when using traits (Issue #312)
 
 New Features (CLI, Configs)
 + (Linux/Unix only) Add Experimental Phan Daemon mode (PR #563 for Issue #22), which allows phan to run in the background, and accept TCP requests to analyze single files.
