@@ -467,9 +467,9 @@ class UnionTypeVisitor extends AnalysisVisitor
     public function visitNullableType(Node $node) : UnionType
     {
         // Get the type
-        $union_type = UnionType::fromNode(
-            $this->context,
+        $union_type = UnionTypeVisitor::unionTypeFromNode(
             $this->code_base,
+            $this->context,
             $node->children['type'],
             $this->should_catch_issue_exception
         );
@@ -478,6 +478,27 @@ class UnionTypeVisitor extends AnalysisVisitor
         return $union_type->asMappedUnionType(function (Type $type) : Type {
             return $type->withIsNullable(true);
         });
+    }
+
+    /**
+     * @param int|float|string|Node $node
+     * @return ?UnionType
+     */
+    public static function unionTypeFromLiteralOrConstant(CodeBase $code_base, Context $context, $node) {
+        if ($node instanceof Node) {
+            // TODO: Could check for arrays of constants or literals, and convert those to the generic array types
+            if ($node->kind === \ast\AST_CONST || $node->kind === \ast\AST_CLASS_CONST) {
+                try {
+                    return UnionTypeVisitor::unionTypeFromNode($code_base, $context, $node, false);
+                } catch(IssueException $e) {
+                    return null;
+                }
+            }
+            return null;
+        }
+        // Otherwise, this is an int/float/string.
+        assert(is_scalar($node), 'node must be Node or scalar');
+        return Type::fromObject($node)->asUnionType();
     }
 
     /**
@@ -512,6 +533,7 @@ class UnionTypeVisitor extends AnalysisVisitor
         assert(is_scalar($cond), 'cond must be Node or scalar');
         return (bool)$cond;
     }
+
     /**
      * Visit a node with kind `\ast\AST_CONDITIONAL`
      *
@@ -539,9 +561,9 @@ class UnionTypeVisitor extends AnalysisVisitor
             // TODO: Add no-op checks in another PR, if they don't already exist for conditional.
             if ($cond_truthiness === true) {
                 // The condition is unconditionally true
-                return UnionType::fromNode(
-                    $this->context,
+                return UnionTypeVisitor::unionTypeFromNode(
                     $this->code_base,
+                    $this->context,
                     $node->children['trueExpr'] ??
                         $node->children['true'] ??
                             $cond_node
@@ -550,9 +572,9 @@ class UnionTypeVisitor extends AnalysisVisitor
                 // The condition is unconditionally false
 
                 // Add the type for the 'false' side
-                return UnionType::fromNode(
-                    $this->context,
+                return UnionTypeVisitor::unionTypeFromNode(
                     $this->code_base,
+                    $this->context,
                     $node->children['falseExpr'] ??
                         $node->children['false'] ?? ''
                 );
@@ -572,15 +594,15 @@ class UnionTypeVisitor extends AnalysisVisitor
             $true_context = $this->context;
         }
 
-        $true_type = UnionType::fromNode(
-            $true_context,
+        $true_type = UnionTypeVisitor::unionTypeFromNode(
             $this->code_base,
+            $true_context,
             $true_node
         );
 
-        $false_type = UnionType::fromNode(
-            $this->context,
+        $false_type = UnionTypeVisitor::unionTypeFromNode(
             $this->code_base,
+            $this->context,
             $node->children['falseExpr'] ??
                 $node->children['false'] ?? ''
         );
@@ -636,9 +658,9 @@ class UnionTypeVisitor extends AnalysisVisitor
                 }
 
                 if ($node->children[$i]->children['value'] instanceof Node) {
-                    $element_types[] = UnionType::fromNode(
-                        $this->context,
+                    $element_types[] = UnionTypeVisitor::unionTypeFromNode(
                         $this->code_base,
+                        $this->context,
                         $node->children[$i]->children['value'],
                         $this->should_catch_issue_exception
                     );
@@ -725,7 +747,7 @@ class UnionTypeVisitor extends AnalysisVisitor
     public function visitCast(Node $node) : UnionType
     {
         // TODO: Check if the cast is allowed based on the right side type
-        UnionType::fromNode($this->context, $this->code_base, $node->children['expr']);
+        UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $node->children['expr']);
         switch ($node->flags) {
             case \ast\flags\TYPE_NULL:
                 return NullType::instance(false)->asUnionType();
@@ -807,9 +829,9 @@ class UnionTypeVisitor extends AnalysisVisitor
 
             // Map each argument to its type
             $arg_type_list = array_map(function($arg_node) {
-                return UnionType::fromNode(
-                    $this->context,
+                return UnionTypeVisitor::unionTypeFromNode(
                     $this->code_base,
+                    $this->context,
                     $arg_node
                 );
             }, $node->children['args']->children ?? []);
@@ -842,7 +864,7 @@ class UnionTypeVisitor extends AnalysisVisitor
     public function visitInstanceOf(Node $node) : UnionType
     {
         // Check to make sure the left side is valid
-        UnionType::fromNode($this->context, $this->code_base, $node->children['expr']);
+        UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $node->children['expr']);
         try {
             // Confirm that the right-side exists
             $union_type = $this->visitClassNode(
@@ -1172,9 +1194,9 @@ class UnionTypeVisitor extends AnalysisVisitor
             if ($property->getUnionType()->hasTemplateType()) {
 
                 // Get the type of the object calling the property
-                $expression_type = UnionType::fromNode(
-                    $this->context,
+                $expression_type = UnionTypeVisitor::unionTypeFromNode(
                     $this->code_base,
+                    $this->context,
                     $node->children['expr']
                 );
 
@@ -1351,9 +1373,9 @@ class UnionTypeVisitor extends AnalysisVisitor
                     if ($union_type->hasTemplateType()) {
 
                         // Get the type of the object calling the property
-                        $expression_type = UnionType::fromNode(
-                            $this->context,
+                        $expression_type = UnionTypeVisitor::unionTypeFromNode(
                             $this->code_base,
+                            $this->context,
                             $node->children['expr']
                         );
 
