@@ -180,6 +180,7 @@ class ContextNode
         $trait_new_method_name = $adaptation_node->children['alias'];
         assert(is_string($trait_original_method_name));
         assert(is_string($trait_new_method_name));
+        $trait_fqsen = null;
         if ($trait_original_class_name_node instanceof Node) {
             $trait_fqsen = (new ContextNode(
                 $this->code_base,
@@ -193,7 +194,7 @@ class ContextNode
             } else {
                 error_log(sprintf("Could not determine type of trait 'use as', expected 1 possibility but got: " . implode(', ', $trait_fqsen_list)));
                 // Not supposed to happen
-                throw new UnanalyzableException(sprintf("Could not determine type of trait 'use as', expected 1 possibility but got: " . implode(', ', $trait_fqsen_list)));
+                throw new UnanalyzableException($adaptation_node, sprintf("Could not determine type of trait 'use as', expected 1 possibility but got: " . implode(', ', $trait_fqsen_list)));
             }
         }
 
