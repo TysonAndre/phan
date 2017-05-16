@@ -1,5 +1,10 @@
-%s:13 PhanUndeclaredAliasedMethodOfTrait Alias \A291::bar was defined for a method \Trait291::foo which does not exist in trait Trait291
-%s:14 PhanRequiredTraitNotAdded Required trait \Trait291B for trait adaptation was not added to class
-%s:15 PhanRequiredTraitNotAdded Required trait \Trait291C for trait adaptation was not added to class
-%s:22 PhanUndeclaredMethod Call to undeclared method \A291::bar
-%s:23 PhanUndeclaredMethod Call to undeclared method \A291::foo
+%s:14 PhanUndeclaredAliasedMethodOfTrait Alias \A291::bar was defined for a method \Trait291::foo which does not exist in trait Trait291
+%s:15 PhanRequiredTraitNotAdded Required trait \Trait291B for trait adaptation was not added to class
+%s:16 PhanRequiredTraitNotAdded Required trait \Trait291C for trait adaptation was not added to class
+%s:19 PhanUndeclaredAliasedMethodOfTrait Alias \A291::shortformAliasOfMissing was defined for a method \Trait291::shortform2 which does not exist in trait Trait291
+%s:26 PhanUndeclaredMethod Call to undeclared method \A291::bar
+%s:27 PhanUndeclaredMethod Call to undeclared method \A291::foo
+%s:29 PhanTypeMismatchArgument Argument 1 (x) is int[] but \A291::shortform() takes int defined at %s:7
+%s:31 PhanTypeMismatchArgument Argument 1 (x) is int[] but \A291::shortformalias() takes int defined at %s:7
+%s:33 PhanUndeclaredMethod Call to undeclared method \A291::shortform2
+%s:34 PhanUndeclaredMethod Call to undeclared method \A291::shortformAliasOfMissing
