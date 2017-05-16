@@ -155,7 +155,7 @@ class ContextNode
         foreach ($this->node->children ?? [] as $adaptation_node) {
             assert($adaptation_node instanceof Node);
             if ($adaptation_node->kind === \ast\AST_TRAIT_ALIAS) {
-                $this->handleTraitAlias($adaptations_map, $adaptation_node);
+                $this->handleTraitAlias($adaptations_map, $adaptation_node, $trait_fqsen_list);
             } else if ($adaptation_node->kind === \ast\AST_TRAIT_PRECEDENCE) {
                 $this->handleTraitPrecedence($adaptations_map, $adaptation_node);
             } else {
@@ -170,20 +170,33 @@ class ContextNode
      * Handles a node of kind \ast\AST_TRAIT_ALIAS, modifying the corresponding TraitAdaptation instance
      * @param TraitAdaptations[] $adaptations_map
      * @param Node $adaptations_node
+     * @param FQSEN[] $trait_fqsen_list
      * @return void
      */
-    private function handleTraitAlias(array $adaptations_map, Node $adaptation_node) {
+    private function handleTraitAlias(array $adaptations_map, Node $adaptation_node, array $trait_fqsen_list) {
         $trait_method_node = $adaptation_node->children['method'];
         $trait_original_class_name_node = $trait_method_node->children['class'];
         $trait_original_method_name = $trait_method_node->children['method'];
         $trait_new_method_name = $adaptation_node->children['alias'];
         assert(is_string($trait_original_method_name));
         assert(is_string($trait_new_method_name));
-        $trait_fqsen = (new ContextNode(
-            $this->code_base,
-            $this->context,
-            $trait_original_class_name_node
-        ))->getTraitFQSEN();
+        $trait_fqsen = null;
+        if ($trait_original_class_name_node instanceof Node) {
+            $trait_fqsen = (new ContextNode(
+                $this->code_base,
+                $this->context,
+                $trait_original_class_name_node
+            ))->getTraitFQSEN();
+        } else {
+            if (count($trait_fqsen_list) === 1) {
+                // e.g. use HelloWorld { sayHello as private myPrivateHello; }. This has already resolved import aliases.
+                $trait_fqsen = $trait_fqsen_list[0];
+            } else {
+                error_log(sprintf("Could not determine type of trait 'use as', expected 1 possibility but got: " . implode(', ', $trait_fqsen_list)));
+                // Not supposed to happen
+                throw new UnanalyzableException($adaptation_node, sprintf("Could not determine type of trait 'use as', expected 1 possibility but got: " . implode(', ', $trait_fqsen_list)));
+            }
+        }
 
         $fqsen_key = strtolower($trait_fqsen->__toString());
 
