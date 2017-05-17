@@ -169,7 +169,7 @@ class ContextNode
     /**
      * Handles a node of kind \ast\AST_TRAIT_ALIAS, modifying the corresponding TraitAdaptation instance
      * @param TraitAdaptations[] $adaptations_map
-     * @param Node $adaptations_node
+     * @param Node $adaptation_node
      * @param FQSEN[] $trait_fqsen_list
      * @return void
      */
@@ -219,7 +219,7 @@ class ContextNode
     /**
      * Handles a node of kind \ast\AST_TRAIT_PRECEDENCE, modifying the corresponding TraitAdaptation instance
      * @param TraitAdaptations[] $adaptations_map
-     * @param Node $adaptations_node
+     * @param Node $adaptation_node
      */
     private function handleTraitPrecedence(array $adaptations_map, Node $adaptation_node) {
         // TODO: Should also verify that the original method exists, in a future PR?

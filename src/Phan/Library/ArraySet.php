@@ -39,7 +39,7 @@ final class ArraySet {
     }
 
     /**
-     * @param Type[] $array
+     * @param Type[] $object_set
      * @param \Closure $cb - Closure mapping Type to boolean.
      * @return bool
      */
