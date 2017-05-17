@@ -537,7 +537,7 @@ class Comment
                     $context,
                     Issue::UnextractableAnnotation,
                     $lineno,
-                    $line
+                    trim($line)
                 );
             }
         }
@@ -717,7 +717,7 @@ class Comment
                             $context,
                             Issue::UnextractableAnnotationPart,
                             $lineno,
-                            $line,
+                            trim($line),
                             $param_string
                         );
                         $failed = true;
@@ -737,7 +737,7 @@ class Comment
                 $context,
                 Issue::UnextractableAnnotation,
                 $lineno,
-                $line
+                trim($line)
             );
         }
 
@@ -796,7 +796,7 @@ class Comment
                 $context,
                 Issue::UnextractableAnnotation,
                 $lineno,
-                $line
+                trim($line)
             );
         }
 
@@ -908,13 +908,23 @@ class Comment
     }
 
     /**
-     * @return CommentParameter[]
+     * @return CommentParameter[] (The leftover parameters without a name)
      *
      * @suppress PhanUnreferencedMethod
      */
     public function getParameterList() : array
     {
         return $this->parameter_list;
+    }
+
+    /**
+     * @return CommentParameter[] (maps the names of parameters to their values. Does not include parameters which didn't provide names)
+     *
+     * @suppress PhanUnreferencedMethod
+     */
+    public function getParameterMap() : array
+    {
+        return $this->parameter_map;
     }
 
     /**
