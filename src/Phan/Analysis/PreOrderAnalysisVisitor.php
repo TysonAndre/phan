@@ -142,7 +142,10 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
         // extra meta information about the method.
         $comment = Comment::fromStringInContext(
             $node->docComment ?? '',
-            $this->context
+            $this->code_base,
+            $this->context,
+            $node->lineno ?? 0,
+            Comment::ON_METHOD
         );
 
         $context = $this->context->withScope(
@@ -240,11 +243,14 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
             $function->getInternalScope()
         );
 
-        // Parse the comment above the method to get
+        // Parse the comment above the function to get
         // extra meta information about the method.
         $comment = Comment::fromStringInContext(
             $node->docComment ?? '',
-            $this->context
+            $this->code_base,
+            $this->context,
+            $node->lineno ?? 0,
+            Comment::ON_FUNCTION
         );
 
         // For any @var references in the method declaration,
