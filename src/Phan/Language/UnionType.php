@@ -789,20 +789,20 @@ class UnionType implements \Serializable
             return true;
         }
 
-        if (Config::get()->null_casts_as_any_type) {
+        $config = Config::get();
+        if ($config->null_casts_as_any_type) {
             // null <-> null
-            if ($this->isType(NullType::instance(false))
+            if ($this->hasType(NullType::instance(false))
                 || $target->isType(NullType::instance(false))
             ) {
                 return true;
             }
-        } else if (Config::get()->null_casts_as_array) {
-            // null <-> null
-            if (($this->isType(NullType::instance(false)) && $target->hasArrayLike())
-                || ($target->isType(NullType::instance(false)) && $this->hasArrayLike())
-            ) {
-                return true;
-            }
+        } else if ($config->null_casts_as_array && $this->hasType(NullType::instance(false)) && $target->hasArrayLike()) {
+            // null->array
+            return true;
+        } else if ($config->array_casts_as_null && $target->isType(NullType::instance(false)) && $this->hasArrayLike()) {
+            // array -> null
+            return true;
         }
 
         // mixed <-> mixed

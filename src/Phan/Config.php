@@ -130,12 +130,15 @@ class Config
         // defined.
         'allow_missing_properties' => false,
 
-        // Allow null to be cast as any array-like type and for any
-        // array-like type to be cast to null. Setting this to false
-        // will cut down on false positives.
+        // Allow null to be cast as any array-like type
         // This is an incremental step in migrating away from null_casts_as_any_type.
         // If null_casts_as_any_type is true, this has no effect.
         'null_casts_as_array' => false,
+
+        // Allow any array-like type to be cast to null.
+        // This is an incremental step in migrating away from null_casts_as_any_type.
+        // If null_casts_as_any_type is true, this has no effect.
+        'array_casts_as_null' => false,
 
         // Allow null to be cast as any type and for any
         // type to be cast to null. Setting this to false
