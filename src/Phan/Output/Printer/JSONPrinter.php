@@ -41,7 +41,8 @@ final class JSONPrinter implements BufferedPrinterInterface
     {
         // NOTE: Need to use OUTPUT_RAW for JSON.
         // Otherwise, error messages such as "...Unexpected << (T_SL)" don't get formatted properly (They get escaped into unparseable JSON)
-        $this->output->write(json_encode($this->messages, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), false, OutputInterface::OUTPUT_RAW);
+        $encodedMessage = json_encode($this->messages, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $this->output->write($encodedMessage, false, OutputInterface::OUTPUT_RAW);
         $this->messages = [];
     }
 
