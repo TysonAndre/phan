@@ -17,16 +17,30 @@ class TraitAliasSource
      */
     private $source_method_name;
 
-    public function __construct(string $source_method_name, int $alias_lineno) {
+    /**
+     * @var int the overriden visibility modifier, or 0 if the visibility didn't change
+     */
+    private $alias_visibility_flags;
+
+    public function __construct(string $source_method_name, int $alias_lineno, int $alias_visibility_flags)
+    {
         $this->source_method_name = $source_method_name;
         $this->alias_lineno = $alias_lineno;
+        $this->alias_visibility_flags = $alias_visibility_flags;
     }
 
-    public function getSourceMethodName() : string {
+    public function getSourceMethodName() : string
+    {
         return $this->source_method_name;
     }
 
-    public function getAliasLineno() : int {
+    public function getAliasLineno() : int
+    {
         return $this->alias_lineno;
+    }
+
+    public function getAliasVisibilityFlags() : int
+    {
+        return $this->alias_visibility_flags;
     }
 }

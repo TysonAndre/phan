@@ -275,8 +275,8 @@ class Clazz extends AddressableElement
         }
 
         foreach ($class->getTraitNames() as $name) {
-            // TODO: getTraitAliases()? This is low importance for internal PHP modules,
-            // it would be uncommon to see that.
+            // TODO: optionally, support getTraitAliases()? This is low importance for internal PHP modules,
+            // it would be uncommon to see traits in internal PHP modules.
             $clazz->addTraitFQSEN(
                 FullyQualifiedClassName::fromFullyQualifiedString(
                     '\\' . $name
@@ -1879,9 +1879,15 @@ class Clazz extends AddressableElement
             if (!is_null($trait_adaptations) && count($trait_adaptations->hidden_methods) > 0) {
                 $method_name_key = strtolower($method->getName());
                 if (isset($trait_adaptations->hidden_methods[$method_name_key])) {
-                    // TODO: Record that the method existed right here, and check that all method that were hidden were actually defined?
+                    // TODO: Record that the method was hidden, and check later on that all method that were hidden were actually defined?
                     continue;
                 }
+            }
+            // Workaround: For private methods, copy the method with a new defining class.
+            // If you import a trait's private method, it becomes private **to the class which used the trait** in PHP code.
+            // (But preserving the defining FQSEN is fine for this)
+            if ($is_trait && Flags::bitVectorHasState($method->getFlags(), \ast\flags\MODIFIER_PRIVATE)) {
+                $method = $method->createUseAlias($this, $code_base, $method->getName(), \ast\flags\MODIFIER_PRIVATE);
             }
             $this->addMethod(
                 $code_base,
@@ -1927,7 +1933,12 @@ class Clazz extends AddressableElement
                 continue;
             }
             $source_method = $class->getMethodByName($code_base, $source_method_name);
-            $alias_method = $source_method->createUseAlias($class, $code_base, $alias_method_name);
+            $alias_method = $source_method->createUseAlias(
+                $class,
+                $code_base,
+                $alias_method_name,
+                $original_trait_alias_source->getAliasVisibilityFlags()
+            );
             $this->addMethod($code_base, $alias_method, $type_option);
         }
     }

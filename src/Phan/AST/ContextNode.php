@@ -106,22 +106,32 @@ class ContextNode
             return [];
         }
 
-        return array_map(function ($name_node) : FQSEN {
+        return array_map(function($name_node) : FQSEN {
             return (new ContextNode(
                 $this->code_base,
                 $this->context,
                 $name_node
-            ))->getTraitFQSEN();
+            ))->getTraitFQSEN([]);
         }, $this->node->children ?? []);
     }
 
     /**
      * Gets the FQSEN for a trait.
      * NOTE: does not validate that it is really used on a trait
+     * @param TraitAdaptations[] $adaptations_map
+     * @return ?FQSEN (If this returns null, the caller is responsible for emitting an issue or falling back)
      */
-    public function getTraitFQSEN() : FQSEN
+    public function getTraitFQSEN(array $adaptations_map)
     {
+        // TODO: In a subsequent PR, try to make trait analysis work when $adaptations_map has multiple possible traits.
         $trait_fqsen_string = $this->getQualifiedName();
+        if ($trait_fqsen_string === '') {
+            if (count($adaptations_map) === 1) {
+                return reset($adaptations_map)->getTraitFQSEN();
+            } else {
+                return null;
+            }
+        }
         return FullyQualifiedClassName::fromStringInContext(
             $trait_fqsen_string,
             $this->context
@@ -145,7 +155,7 @@ class ContextNode
         assert($node->kind === \ast\AST_TRAIT_ADAPTATIONS);
 
         // NOTE: This fetches fully qualified names more than needed,
-        // but traits aren't really frequently used in classes
+        // but this isn't optimized, since traits aren't frequently used in classes.
 
         $adaptations_map = [];
         foreach ($trait_fqsen_list as $trait_fqsen) {
@@ -155,7 +165,7 @@ class ContextNode
         foreach ($this->node->children ?? [] as $adaptation_node) {
             assert($adaptation_node instanceof Node);
             if ($adaptation_node->kind === \ast\AST_TRAIT_ALIAS) {
-                $this->handleTraitAlias($adaptations_map, $adaptation_node, $trait_fqsen_list);
+                $this->handleTraitAlias($adaptations_map, $adaptation_node);
             } else if ($adaptation_node->kind === \ast\AST_TRAIT_PRECEDENCE) {
                 $this->handleTraitPrecedence($adaptations_map, $adaptation_node);
             } else {
@@ -163,39 +173,42 @@ class ContextNode
             }
         }
         return $adaptations_map;
-        // TODO: merge?
     }
 
     /**
-     * Handles a node of kind \ast\AST_TRAIT_ALIAS, modifying the corresponding TraitAdaptation instance
+     * Handles a node of kind \ast\AST_TRAIT_ALIAS, modifying the corresponding TraitAdaptations instance
      * @param TraitAdaptations[] $adaptations_map
      * @param Node $adaptation_node
-     * @param FQSEN[] $trait_fqsen_list
      * @return void
      */
-    private function handleTraitAlias(array $adaptations_map, Node $adaptation_node, array $trait_fqsen_list) {
+    private function handleTraitAlias(array $adaptations_map, Node $adaptation_node)
+    {
         $trait_method_node = $adaptation_node->children['method'];
         $trait_original_class_name_node = $trait_method_node->children['class'];
         $trait_original_method_name = $trait_method_node->children['method'];
         $trait_new_method_name = $adaptation_node->children['alias'];
         assert(is_string($trait_original_method_name));
         assert(is_string($trait_new_method_name));
-        $trait_fqsen = null;
-        if ($trait_original_class_name_node instanceof Node) {
-            $trait_fqsen = (new ContextNode(
+        $trait_fqsen = (new ContextNode(
+            $this->code_base,
+            $this->context,
+            $trait_original_class_name_node
+        ))->getTraitFQSEN($adaptations_map);
+        if ($trait_fqsen === null) {
+            // TODO: try to analyze this rare special case instead of giving up in a subsequent PR?
+            // E.g. `use A, B{foo as bar}` is valid PHP, but hard to analyze.
+            Issue::maybeEmit(
                 $this->code_base,
                 $this->context,
-                $trait_original_class_name_node
-            ))->getTraitFQSEN();
-        } else {
-            if (count($trait_fqsen_list) === 1) {
-                // e.g. use HelloWorld { sayHello as private myPrivateHello; }. This has already resolved import aliases.
-                $trait_fqsen = $trait_fqsen_list[0];
-            } else {
-                error_log(sprintf("Could not determine type of trait 'use as', expected 1 possibility but got: " . implode(', ', $trait_fqsen_list)));
-                // Not supposed to happen
-                throw new UnanalyzableException($adaptation_node, sprintf("Could not determine type of trait 'use as', expected 1 possibility but got: " . implode(', ', $trait_fqsen_list)));
-            }
+                Issue::AmbiguousTraitAliasSource,
+                $trait_method_node->lineno ?? 0,
+                $trait_new_method_name,
+                $trait_original_method_name,
+                '[' . implode(', ', array_map(function(TraitAdaptations $t) : string {
+                    return (string) $t->getTraitFQSEN();
+                }, $adaptations_map)) . ']'
+            );
+            return;
         }
 
         $fqsen_key = strtolower($trait_fqsen->__toString());
@@ -212,14 +225,15 @@ class ContextNode
             );
             return;
         }
-        // TODO: Could check for duplicate alias method occurences, but `php -l` would do that for you?
-        $adaptations_info->alias_methods[$trait_new_method_name] = new TraitAliasSource($trait_original_method_name, $adaptation_node->lineno ?? 0);
+        // TODO: Could check for duplicate alias method occurences, but `php -l` would do that for you in some cases
+        $adaptations_info->alias_methods[$trait_new_method_name] = new TraitAliasSource($trait_original_method_name, $adaptation_node->lineno ?? 0, $adaptation_node->flags ?? 0);
     }
 
     /**
-     * Handles a node of kind \ast\AST_TRAIT_PRECEDENCE, modifying the corresponding TraitAdaptation instance
+     * Handles a node of kind \ast\AST_TRAIT_PRECEDENCE, modifying the corresponding TraitAdaptations instance
      * @param TraitAdaptations[] $adaptations_map
      * @param Node $adaptation_node
+     * @return void
      */
     private function handleTraitPrecedence(array $adaptations_map, Node $adaptation_node) {
         // TODO: Should also verify that the original method exists, in a future PR?
@@ -232,7 +246,12 @@ class ContextNode
             $this->code_base,
             $this->context,
             $trait_chosen_class_name_node
-        ))->getTraitFQSEN();
+        ))->getTraitFQSEN($adaptations_map);
+
+
+        if (!$trait_chosen_fqsen) {
+            throw new UnanalyzableException($trait_chosen_class_name_node, "This shouldn't happen. Could not determine trait fqsen for trait with higher precedence for method $trait_chosen_method_name");
+        }
 
         if (($adaptations_map[strtolower($trait_chosen_fqsen->__toString())] ?? null) === null) {
             // This will probably correspond to a PHP fatal error, but keep going anyway.
@@ -252,7 +271,10 @@ class ContextNode
                 $this->code_base,
                 $this->context,
                 $trait_insteadof_class_name
-            ))->getTraitFQSEN();
+            ))->getTraitFQSEN($adaptations_map);
+            if (!$trait_insteadof_fqsen) {
+                throw new UnanalyzableException($trait_insteadof_class_name, "This shouldn't happen. Could not determine trait fqsen for trait with lower precedence for method $trait_chosen_method_name");
+            }
 
             $fqsen_key = strtolower($trait_insteadof_fqsen->__toString());
 

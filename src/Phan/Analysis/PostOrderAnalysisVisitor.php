@@ -1575,7 +1575,6 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     ) {
         if (
             $method->isPrivate()
-            && !$method->getDefiningClass($code_base)->isTrait()
             && (
                 !$this->context->isInClassScope()
                 || $this->context->getClassFQSEN() != $method->getDefiningClassFQSEN()
@@ -1590,7 +1589,6 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             );
         } else if (
             $method->isProtected()
-            && !$method->getDefiningClass($code_base)->isTrait()
             && (
                 !$this->context->isInClassScope()
                 || (

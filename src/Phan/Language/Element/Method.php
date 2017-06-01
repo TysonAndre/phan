@@ -193,13 +193,15 @@ class Method extends ClassElement implements FunctionInterface
     }
 
     /**
+     * @param int $new_visibility_flags (0 if unchanged)
      * @return Method
      * An alias from a trait use
      */
     public function createUseAlias(
         Clazz $clazz,
         CodeBase $code_base,
-        string $alias_method_name
+        string $alias_method_name,
+        int $new_visibility_flags
     ) : Method {
 
         $method_fqsen = FullyQualifiedMethodName::make(
@@ -210,11 +212,34 @@ class Method extends ClassElement implements FunctionInterface
         $method = new Method(
             $this->getContext(),
             $alias_method_name,
-            $clazz->getUnionType(),
+            $this->getUnionType(),
             $this->getFlags(),
             $method_fqsen
         );
-        $method->setDefiningFQSEN($this->getDefiningFQSEN());
+        switch ($new_visibility_flags) {
+        case \ast\flags\MODIFIER_PUBLIC:
+        case \ast\flags\MODIFIER_PROTECTED:
+        case \ast\flags\MODIFIER_PRIVATE:
+            // Replace the visibility with the new visibility.
+            $method->setFlags(Flags::bitVectorWithState(
+                Flags::bitVectorWithState(
+                    $method->getFlags(),
+                    \ast\flags\MODIFIER_PUBLIC | \ast\flags\MODIFIER_PROTECTED | \ast\flags\MODIFIER_PRIVATE,
+                    false
+                ),
+                $new_visibility_flags,
+                true
+            ));
+            break;
+        default:
+            break;
+        }
+
+        // Workaround: If you import a trait's method as private, it becomes private **to the class which used the trait**
+        // (But preserving the defining FQSEN is fine for this)
+        if (!Flags::bitVectorHasState($method->getFlags(), \ast\flags\MODIFIER_PRIVATE)) {
+            $method->setDefiningFQSEN($method_fqsen);
+        }
 
         // TODO: setDefiningFQSEN?
 

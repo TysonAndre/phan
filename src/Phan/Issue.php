@@ -11,8 +11,12 @@ class Issue
     const SyntaxError               = 'PhanSyntaxError';
 
     // Issue::CATEGORY_UNDEFINED
+    const AmbiguousTraitAliasSource = 'AmbiguousTraitAliasSource';
+    const ClassContainsAbstractMethodInternal = 'PhanClassContainsAbstractMethodInternal';
+    const ClassContainsAbstractMethod = 'PhanClassContainsAbstractMethod';
     const EmptyFile                 = 'PhanEmptyFile';
     const ParentlessClass           = 'PhanParentlessClass';
+    const RequiredTraitNotAdded     = 'PhanRequiredTraitNotAdded';
     const TraitParentReference      = 'PhanTraitParentReference';
     const UndeclaredAliasedMethodOfTrait = 'PhanUndeclaredAliasedMethodOfTrait';
     const UndeclaredClass           = 'PhanUndeclaredClass';
@@ -31,12 +35,9 @@ class Issue
     const UndeclaredStaticMethod    = 'PhanUndeclaredStaticMethod';
     const UndeclaredStaticProperty  = 'PhanUndeclaredStaticProperty';
     const UndeclaredTrait           = 'PhanUndeclaredTrait';
-    const RequiredTraitNotAdded     = 'PhanRequiredTraitNotAdded';
     const UndeclaredTypeParameter   = 'PhanUndeclaredTypeParameter';
     const UndeclaredTypeProperty    = 'PhanUndeclaredTypeProperty';
     const UndeclaredVariable        = 'PhanUndeclaredVariable';
-    const ClassContainsAbstractMethod = 'PhanClassContainsAbstractMethod';
-    const ClassContainsAbstractMethodInternal = 'PhanClassContainsAbstractMethodInternal';
 
     // Issue::CATEGORY_TYPE
     const NonClassMethodCall        = 'PhanNonClassMethodCall';
@@ -547,6 +548,14 @@ class Issue
                 "Required trait {TRAIT} for trait adaptation was not added to class",
                 self::REMEDIATION_B,
                 1025
+            ),
+            new Issue(
+                self::AmbiguousTraitAliasSource,
+                self::CATEGORY_UNDEFINED,
+                self::SEVERITY_NORMAL,
+                "Trait alias {METHOD} has an ambiguous source method {METHOD} with more than one possible source trait. Possibilities: {TRAIT}",
+                self::REMEDIATION_B,
+                1026
             ),
 
             // Issue::CATEGORY_ANALYSIS

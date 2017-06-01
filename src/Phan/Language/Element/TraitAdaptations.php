@@ -26,7 +26,8 @@ class TraitAdaptations
      */
     public $hidden_methods;
 
-    public function __construct(FQSEN $trait_fqsen) {
+    public function __construct(FQSEN $trait_fqsen)
+    {
         $this->trait_fqsen = $trait_fqsen;
     }
 
