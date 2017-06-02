@@ -837,6 +837,16 @@ class Type
         return $this->is_nullable;
     }
 
+    public function getIsPossiblyFalsey() : bool
+    {
+        return $this->is_nullable;
+    }
+
+    public function getIsAlwaysFalsey() : bool
+    {
+        return false;  // overridden in FalseType and NullType
+    }
+
     /**
      * @param bool $is_nullable
      * Set to true if the type should be nullable, else pass
@@ -858,6 +868,12 @@ class Type
             $is_nullable,
             Type::FROM_TYPE
         );
+    }
+
+    public function asNonFalseyType() : Type
+    {
+        // Overridden by BoolType subclass to return TrueType
+        return $this->withIsNullable(false);
     }
 
     /**

@@ -11,6 +11,7 @@ use Phan\Language\Element\Clazz;
 use Phan\Language\FQSEN\FullyQualifiedFunctionName;
 use Phan\Language\FQSEN\FullyQualifiedMethodName;
 use Phan\Language\Type\ArrayType;
+use Phan\Language\Type\FalseType;
 use Phan\Language\Type\FloatType;
 use Phan\Language\Type\IntType;
 use Phan\Language\Type\MixedType;
@@ -596,6 +597,40 @@ class UnionType implements \Serializable
             }
 
             $result->addType($type->withIsNullable(true));
+        }
+        return $result;
+    }
+
+    /**
+     * @return bool - True if type set is not empty and at least one type is NullType or nullable or FalseType or BoolType.
+     * (I.e. the type is always falsey, or both sometimes falsey with a non-falsey type it can be narrowed down to)
+     * This does not include values such as `IntType`, since there is currently no `NonZeroIntType`.
+     */
+    public function containsFalsey() : bool
+    {
+        foreach ($this->getTypeSet() as $type) {
+            if ($type->getIsPossiblyFalsey()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function nonFalseyClone() : UnionType
+    {
+        $result = new UnionType();
+        foreach ($this->getTypeSet() as $type) {
+            if (!$type->getIsPossiblyFalsey()) {
+                $result->addType($type);
+                continue;
+            }
+            if ($type->getIsAlwaysFalsey()) {
+                // don't add null/false to the resulting type
+                continue;
+            }
+
+            // add non-nullable equivalents, and replace BoolType with non-nullable TrueType
+            $result->addType($type->asNonFalseyType());
         }
         return $result;
     }

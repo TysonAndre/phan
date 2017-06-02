@@ -197,7 +197,10 @@ class ConditionVisitor extends KindVisitorImplementation
                 // This may be redundant in some places if AST canonicalization is used, but still useful in some places
                 // TODO: Make this generic so that it can be used in the 'else' branches?
                 $function_name = $negatedNode->children['expr']->children['name'];
-                if (in_array($function_name, ['empty', 'is_null', 'is_scalar'], true)) {
+                if (in_array($function_name, ['empty', 'is_scalar'], true)) {
+                    // TODO: removeScalarFromVariable (low priority)
+                    return $this->removeFalseyFromVariable($negatedNode->children['args']->children[0], $context);
+                } else if ($function_name === 'is_null') {
                     return $this->removeNullFromVariable($negatedNode->children['args']->children[0], $context);
                 }
             }
@@ -245,7 +248,39 @@ class ConditionVisitor extends KindVisitorImplementation
      */
     public function visitVar(Node $node) : Context
     {
-        return $this->removeNullFromVariable($node, $this->context);
+        return $this->removeFalseyFromVariable($node, $this->context);
+    }
+
+    private function removeFalseyFromVariable(Node $varNode, Context $context) : Context
+    {
+        try {
+            // Get the variable we're operating on
+            $variable = (new ContextNode(
+                $this->code_base,
+                $context,
+                $varNode
+            ))->getVariable();
+
+            if (!$variable->getUnionType()->containsFalsey()) {
+                return $context;
+            }
+
+            // Make a copy of the variable
+            $variable = clone($variable);
+
+            $variable->setUnionType(
+                $variable->getUnionType()->nonFalseyClone()
+            );
+
+            // Overwrite the variable with its new type in this
+            // scope without overwriting other scopes
+            $context = $context->withScopeVariable(
+                $variable
+            );
+        } catch (\Exception $exception) {
+            // Swallow it
+        }
+        return $context;
     }
 
     private function removeNullFromVariable(Node $varNode, Context $context) : Context
