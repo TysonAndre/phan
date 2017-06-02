@@ -14,6 +14,9 @@ use Phan\Language\Element\Variable;
 use Phan\Language\UnionType;
 use ast\Node;
 
+
+// TODO: Make $x != null remove FalseType and NullType from $x
+// TODO: Make $x > 0, $x < 0, $x >= 50, etc.  remove FalseType and NullType from $x
 class ConditionVisitor extends KindVisitorImplementation
 {
 
@@ -191,6 +194,7 @@ class ConditionVisitor extends KindVisitorImplementation
         // Negation
         // TODO: negate instanceof, other checks
         // TODO: negation would also go in the else statement
+        // TODO: if (!$x) {} should narrow the types down to false and null (and other falsey possibilities such as int(0), string(""/"0"), array([]))
         if (($negatedNode->kind ?? 0) === \ast\AST_CALL) {
             if (self::isCallStringWithSingleVariableArgument($negatedNode)) {
                 // TODO: Make this generic to all type assertions? E.g. if (!is_string($x)) removes 'string' from type, makes '?string' (nullable) into 'null'.
