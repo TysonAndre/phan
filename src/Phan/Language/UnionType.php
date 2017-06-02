@@ -12,10 +12,12 @@ use Phan\Language\FQSEN\FullyQualifiedClassName;
 use Phan\Language\FQSEN\FullyQualifiedFunctionName;
 use Phan\Language\FQSEN\FullyQualifiedMethodName;
 use Phan\Language\Type\ArrayType;
+use Phan\Language\Type\FalseType;
 use Phan\Language\Type\FloatType;
 use Phan\Language\Type\IntType;
 use Phan\Language\Type\MixedType;
 use Phan\Language\Type\NullType;
+use Phan\Language\Type\ObjectType;
 use Phan\Language\Type\TemplateType;
 use Phan\Library\ArraySet;
 use ast\Node;
@@ -633,6 +635,104 @@ class UnionType implements \Serializable
     }
 
     /**
+     * @return bool - True if type set is not empty and at least one type is NullType or nullable or FalseType or BoolType.
+     * (I.e. the type is always falsey, or both sometimes falsey with a non-falsey type it can be narrowed down to)
+     * This does not include values such as `IntType`, since there is currently no `NonZeroIntType`.
+     */
+    public function containsFalsey() : bool
+    {
+        foreach ($this->getTypeSet() as $type) {
+            if ($type->getIsPossiblyFalsey()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function nonFalseyClone() : UnionType
+    {
+        $result = new UnionType();
+        foreach ($this->getTypeSet() as $type) {
+            if (!$type->getIsPossiblyFalsey()) {
+                $result->addType($type);
+                continue;
+            }
+            if ($type->getIsAlwaysFalsey()) {
+                // don't add null/false to the resulting type
+                continue;
+            }
+
+            // add non-nullable equivalents, and replace BoolType with non-nullable TrueType
+            $result->addType($type->asNonFalseyType());
+        }
+        return $result;
+    }
+
+    /**
+     * @return bool - True if type set is not empty and at least one type is BoolType or FalseType
+     */
+    public function containsFalse() : bool
+    {
+        foreach ($this->getTypeSet() as $type) {
+            if ($type->getIsPossiblyFalseType()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @return bool - True if type set is not empty and at least one type is BoolType or TrueType
+     */
+    public function containsTrue() : bool
+    {
+        foreach ($this->getTypeSet() as $type) {
+            if ($type->getIsPossiblyTrueType()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function nonFalseClone() : UnionType
+    {
+        $result = new UnionType();
+        foreach ($this->getTypeSet() as $type) {
+            if (!$type->getIsPossiblyFalse()) {
+                $result->addType($type);
+                continue;
+            }
+            if ($type->getIsAlwaysFalse()) {
+                // don't add null/false to the resulting type
+                continue;
+            }
+
+            // add non-nullable equivalents, and replace BoolType with non-nullable TrueType
+            $result->addType($type->asNonFalseType());
+        }
+        return $result;
+    }
+
+    public function nonTrueClone() : UnionType
+    {
+        $result = new UnionType();
+        foreach ($this->getTypeSet() as $type) {
+            if (!$type->getIsPossiblyTrue()) {
+                $result->addType($type);
+                continue;
+            }
+            if ($type->getIsAlwaysTrue()) {
+                // don't add null/false to the resulting type
+                continue;
+            }
+
+            // add non-nullable equivalents, and replace BoolType with non-nullable TrueType
+            $result->addType($type->asNonTrueType());
+        }
+        return $result;
+    }
+
+    /**
      * @param UnionType $union_type
      * A union type to compare against
      *
@@ -1012,7 +1112,7 @@ class UnionType implements \Serializable
      * Takes "a|b[]|c|d[]|e" and returns "a|c|e"
      *
      * @return UnionType
-     * A UnionType with generic types filtered out
+     * A UnionType with generic array types filtered out
      *
      * @see \Phan\Deprecated\Pass2::nongenerics
      * Formerly `function nongenerics`
@@ -1022,6 +1122,70 @@ class UnionType implements \Serializable
         return $this->makeFromFilter(function (Type $type) : bool {
             return !$type->isGenericArray();
         });
+    }
+
+    /**
+     * Takes "a|b[]|c|d[]|e" and returns "b[]|d[]"
+     *
+     * @return UnionType
+     * A UnionType with generic array types kept, other types filtered out.
+     *
+     * @see nonGenericArrayTypes
+     * @see genericArrayElementTypes
+     */
+    public function genericArrayTypes() : UnionType
+    {
+        return new UnionType(
+            $this->type_set->filter(
+                function (Type $type) : bool {
+                    return $type->isGenericArray();
+                }
+            )
+        );
+    }
+
+    /**
+     * Takes "MyClass|int|array|?object" and returns "MyClass|?object"
+     *
+     * @return UnionType
+     * A UnionType with known object types kept, other types filtered out.
+     *
+     * @see nonGenericArrayTypes
+     * @see genericArrayElementTypes
+     */
+    public function objectTypes() : UnionType
+    {
+        return new UnionType(
+            $this->type_set->filter(
+                function (Type $type) : bool {
+                    return $type->isObject();
+                }
+            )
+        );
+    }
+
+    /**
+     * Takes "MyClass|int|?bool|array|?object" and returns "int|?bool"
+     * Takes "?MyClass" and returns "null"
+     *
+     * @return UnionType
+     * A UnionType with known object types kept, other types filtered out.
+     *
+     * @see nonGenericArrayTypes
+     * @see genericArrayElementTypes
+     */
+    public function scalarTypes() : UnionType
+    {
+        $types = $this->type_set->filter(
+            function (Type $type) : bool {
+                return $type->isScalar();
+            }
+        );
+        $nullType = NullType::instance(false);
+        if (!$types->contains($nullType) && $this->containsNullable()) {
+            $types->attach($nullType);
+        }
+        return new UnionType($types);
     }
 
     /**
