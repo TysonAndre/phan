@@ -674,7 +674,7 @@ class UnionType implements \Serializable
     public function containsFalse() : bool
     {
         foreach ($this->getTypeSet() as $type) {
-            if ($type->getIsPossiblyFalseType()) {
+            if ($type->getIsPossiblyFalse()) {
                 return true;
             }
         }
@@ -687,7 +687,7 @@ class UnionType implements \Serializable
     public function containsTrue() : bool
     {
         foreach ($this->getTypeSet() as $type) {
-            if ($type->getIsPossiblyTrueType()) {
+            if ($type->getIsPossiblyTrue()) {
                 return true;
             }
         }
@@ -1135,13 +1135,9 @@ class UnionType implements \Serializable
      */
     public function genericArrayTypes() : UnionType
     {
-        return new UnionType(
-            $this->type_set->filter(
-                function (Type $type) : bool {
-                    return $type->isGenericArray();
-                }
-            )
-        );
+        return $this->makeFromFilter(function (Type $type) : bool {
+            return $type->isGenericArray();
+        });
     }
 
     /**
@@ -1155,13 +1151,9 @@ class UnionType implements \Serializable
      */
     public function objectTypes() : UnionType
     {
-        return new UnionType(
-            $this->type_set->filter(
-                function (Type $type) : bool {
-                    return $type->isObject();
-                }
-            )
-        );
+        return $this->makeFromFilter(function (Type $type) : bool {
+            return $type->isObject();
+        });
     }
 
     /**
@@ -1176,16 +1168,14 @@ class UnionType implements \Serializable
      */
     public function scalarTypes() : UnionType
     {
-        $types = $this->type_set->filter(
-            function (Type $type) : bool {
-                return $type->isScalar();
-            }
-        );
+        $types = $this->makeFromFilter(function (Type $type) : bool {
+            return $type->isScalar();
+        });
         $nullType = NullType::instance(false);
-        if (!$types->contains($nullType) && $this->containsNullable()) {
-            $types->attach($nullType);
+        if (!$types->hasType($nullType) && $this->containsNullable()) {
+            $types->addType($nullType);
         }
-        return new UnionType($types);
+        return $types;
     }
 
     /**
