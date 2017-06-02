@@ -890,6 +890,11 @@ class Type
         return false;  // overridden in TrueType
     }
 
+    public function getIsInBoolFamily() : bool
+    {
+        return false;  // overridden in FalseType, TrueType, BoolType
+    }
+
     /**
      * @param bool $is_nullable
      * Set to true if the type should be nullable, else pass

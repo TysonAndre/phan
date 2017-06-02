@@ -391,6 +391,17 @@ class UnionType implements \Serializable
     }
 
     /**
+     * @return bool
+     * True if this union type has any types that are bool/false/true types
+     */
+    public function hasTypeInBoolFamily() : bool
+    {
+        return ArraySet::exists($this->type_set, function (Type $type) : bool {
+            return $type->getIsInBoolFamily();
+        });
+    }
+
+    /**
      * @return UnionType[]
      * A map from template type identifiers to the UnionType
      * to replace it with

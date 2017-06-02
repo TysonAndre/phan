@@ -58,4 +58,10 @@ class BoolType extends ScalarType
     {
         return FalseType::instance($this->is_nullable);
     }
+
+    public function getIsInBoolFamily() : bool
+    {
+        return true;
+    }
+
 }

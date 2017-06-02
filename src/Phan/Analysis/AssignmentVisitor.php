@@ -360,6 +360,7 @@ class AssignmentVisitor extends AnalysisVisitor
                     $property->getUnionType(),
                     $this->code_base
                 )
+                && !($this->right_type->hasTypeInBoolFamily() && $property->getUnionType()->hasTypeInBoolFamily())
                 && !$clazz->getHasDynamicProperties($this->code_base)
             ) {
                 // TODO: optionally, change the message from "::" to "->"?
@@ -489,9 +490,10 @@ class AssignmentVisitor extends AnalysisVisitor
             }
 
             if (!$this->right_type->canCastToExpandedUnionType(
-                $property->getUnionType(),
-                $this->code_base
-            )) {
+                    $property->getUnionType(),
+                    $this->code_base)
+                && !($this->right_type->hasTypeInBoolFamily() && $property->getUnionType()->hasTypeInBoolFamily())
+            ) {
                 // Currently, same warning type for static and non-static property type mismatches.
                 $this->emitIssue(
                     Issue::TypeMismatchProperty,

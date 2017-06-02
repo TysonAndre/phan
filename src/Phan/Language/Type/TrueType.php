@@ -23,4 +23,9 @@ class TrueType extends ScalarType
         assert($this->is_nullable, 'should only call on ?true');
         return NullType::instance(false);
     }
+
+    public function getIsInBoolFamily() : bool
+    {
+        return true;
+    }
 }

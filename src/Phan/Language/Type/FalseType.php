@@ -32,4 +32,9 @@ class FalseType extends ScalarType
         assert($this->is_nullable, 'should only call on ?false');
         return NullType::instance(false);
     }
+
+    public function getIsInBoolFamily() : bool
+    {
+        return true;
+    }
 }
