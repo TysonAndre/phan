@@ -7,4 +7,20 @@ use Phan\Language\Type;
 class TrueType extends ScalarType
 {
     const NAME = 'true';
+
+    public function getIsPossiblyTrue() : bool
+    {
+        return true;
+    }
+
+    public function getIsAlwaysTrue() : bool
+    {
+        return !$this->is_nullable;  // If it can be null, it's not **always** identical to true
+    }
+
+    public function asNonTrueType() : Type
+    {
+        assert($this->is_nullable, 'should only call on ?true');
+        return NullType::instance(false);
+    }
 }

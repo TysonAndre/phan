@@ -38,4 +38,24 @@ class BoolType extends ScalarType
     {
         return TrueType::instance(false);
     }
+
+    public function getIsPossiblyFalse() : bool
+    {
+        return true;  // it's possibly false, since this is conceptually a collection of FalseType and TrueType
+    }
+
+    public function asNonFalseType() : Type
+    {
+        return TrueType::instance($this->is_nullable);
+    }
+
+    public function getIsPossiblyTrue() : bool
+    {
+        return true;  // it's possibly true, since this is conceptually a collection of FalseType and TrueType
+    }
+
+    public function asNonTrueType() : Type
+    {
+        return FalseType::instance($this->is_nullable);
+    }
 }

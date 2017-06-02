@@ -81,6 +81,9 @@ class ConditionVisitor extends KindVisitorImplementation
             return $this->visitShortCircuitingAnd($node->children['left'], $node->children['right']);
         } else if ($flags === \ast\flags\BINARY_IS_IDENTICAL) {
             return $this->analyzeIsIdentical($node->children['left'], $node->children['right']);
+        } else if ($flags === \ast\flags\BINARY_IS_NOT_IDENTICAL || $flags === \ast\flags\BINARY_IS_NOT_EQUAL) {
+            // TODO: Add a different function for IS_NOT_EQUAL, e.g. analysis of != null should be different from !== null (First would remove FalseType)
+            return $this->analyzeIsNotIdentical($node->children['left'], $node->children['right']);
         }
         return $this->context;
     }
@@ -96,6 +99,21 @@ class ConditionVisitor extends KindVisitorImplementation
             return $this->analyzeVarIsIdentical($left, $right);
         } else if (($right instanceof Node) && $right->kind === \ast\AST_VAR) {
             return $this->analyzeVarIsIdentical($right, $left);
+        }
+        return $this->context;
+    }
+
+    /**
+     * @param Node|int|float|string $left
+     * @param Node|int|float|string $right
+     * @return Context - Constant after inferring type from an expression such as `if ($x !== false)`
+     */
+    private function analyzeIsNotIdentical($left, $right) : Context
+    {
+        if (($left instanceof Node) && $left->kind === \ast\AST_VAR) {
+            return $this->analyzeVarIsNotIdentical($left, $right);
+        } else if (($right instanceof Node) && $right->kind === \ast\AST_VAR) {
+            return $this->analyzeVarIsNotIdentical($right, $left);
         }
         return $this->context;
     }
@@ -134,6 +152,29 @@ class ConditionVisitor extends KindVisitorImplementation
         }
         return $context;
     }
+
+    /**
+     * @param Node $varNode
+     * @param Node|int|float|string $expr
+     * @return Context - Constant after inferring type from an expression such as `if ($x === 'literal')`
+     */
+    private function analyzeVarIsNotIdentical(Node $varNode, $expr) : Context
+    {
+        $name = $varNode->children['name'] ?? null;
+        $context = $this->context;
+        if (is_string($name)) {
+            switch(strtolower(ltrim($name, '\\'))) {
+            case 'null':
+                return $this->removeNullFromVariable($varNode, $context);
+            case 'false':
+                return $this->removeFalseFromVariable($varNode, $context);
+            case 'true':
+                return $this->removeTrueFromVariable($varNode, $context);
+            }
+        }
+        return $context;
+    }
+
 
     /**
      * @param Node $node
@@ -306,6 +347,70 @@ class ConditionVisitor extends KindVisitorImplementation
 
             $variable->setUnionType(
                 $variable->getUnionType()->nonNullableClone()
+            );
+
+            // Overwrite the variable with its new type in this
+            // scope without overwriting other scopes
+            $context = $context->withScopeVariable(
+                $variable
+            );
+        } catch (\Exception $exception) {
+            // Swallow it
+        }
+        return $context;
+    }
+
+    private function removeFalseFromVariable(Node $varNode, Context $context) : Context
+    {
+        try {
+            // Get the variable we're operating on
+            $variable = (new ContextNode(
+                $this->code_base,
+                $context,
+                $varNode
+            ))->getVariable();
+
+            if (!$variable->getUnionType()->containsFalse()) {
+                return $context;
+            }
+
+            // Make a copy of the variable
+            $variable = clone($variable);
+
+            $variable->setUnionType(
+                $variable->getUnionType()->nonFalseClone()
+            );
+
+            // Overwrite the variable with its new type in this
+            // scope without overwriting other scopes
+            $context = $context->withScopeVariable(
+                $variable
+            );
+        } catch (\Exception $exception) {
+            // Swallow it
+        }
+        return $context;
+    }
+
+    private function removeTrueFromVariable(Node $varNode, Context $context) : Context
+    {
+        try {
+            // Get the variable we're operating on
+            $variable = (new ContextNode(
+                $this->code_base,
+                $context,
+                $varNode
+            ))->getVariable();
+
+            if (!$variable->getUnionType()->containsTrue()) {
+                return $context;
+            }
+
+            // Make a copy of the variable
+            $variable = clone($variable);
+
+            $variable->setUnionType(
+                $variable->getUnionType()->nonTrueClone()
             );
 
             // Overwrite the variable with its new type in this

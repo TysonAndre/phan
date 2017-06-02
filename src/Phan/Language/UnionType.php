@@ -636,6 +636,70 @@ class UnionType implements \Serializable
     }
 
     /**
+     * @return bool - True if type set is not empty and at least one type is BoolType or FalseType
+     */
+    public function containsFalse() : bool
+    {
+        foreach ($this->getTypeSet() as $type) {
+            if ($type->getIsPossiblyFalseType()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @return bool - True if type set is not empty and at least one type is BoolType or TrueType
+     */
+    public function containsTrue() : bool
+    {
+        foreach ($this->getTypeSet() as $type) {
+            if ($type->getIsPossiblyTrueType()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function nonFalseClone() : UnionType
+    {
+        $result = new UnionType();
+        foreach ($this->getTypeSet() as $type) {
+            if (!$type->getIsPossiblyFalse()) {
+                $result->addType($type);
+                continue;
+            }
+            if ($type->getIsAlwaysFalse()) {
+                // don't add null/false to the resulting type
+                continue;
+            }
+
+            // add non-nullable equivalents, and replace BoolType with non-nullable TrueType
+            $result->addType($type->asNonFalseType());
+        }
+        return $result;
+    }
+
+    public function nonTrueClone() : UnionType
+    {
+        $result = new UnionType();
+        foreach ($this->getTypeSet() as $type) {
+            if (!$type->getIsPossiblyTrue()) {
+                $result->addType($type);
+                continue;
+            }
+            if ($type->getIsAlwaysTrue()) {
+                // don't add null/false to the resulting type
+                continue;
+            }
+
+            // add non-nullable equivalents, and replace BoolType with non-nullable TrueType
+            $result->addType($type->asNonTrueType());
+        }
+        return $result;
+    }
+
+    /**
      * @param UnionType $union_type
      * A union type to compare against
      *

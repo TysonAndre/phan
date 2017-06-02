@@ -847,6 +847,26 @@ class Type
         return false;  // overridden in FalseType and NullType
     }
 
+    public function getIsPossiblyFalse() : bool
+    {
+        return false;
+    }
+
+    public function getIsAlwaysFalse() : bool
+    {
+        return false;  // overridden in FalseType
+    }
+
+    public function getIsPossiblyTrue() : bool
+    {
+        return false;
+    }
+
+    public function getIsAlwaysTrue() : bool
+    {
+        return false;  // overridden in TrueType
+    }
+
     /**
      * @param bool $is_nullable
      * Set to true if the type should be nullable, else pass
@@ -875,6 +895,19 @@ class Type
         // Overridden by BoolType subclass to return TrueType
         return $this->withIsNullable(false);
     }
+
+    public function asNonFalseType() : Type
+    {
+        // Overridden by BoolType, etc.
+        return $this;
+    }
+
+    public function asNonTrueType() : Type
+    {
+        // Overridden by BoolType, etc.
+        return $this;
+    }
+
 
     /**
      * @return bool
