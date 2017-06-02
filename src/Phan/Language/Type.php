@@ -7,6 +7,7 @@ use Phan\Language\FQSEN\FullyQualifiedClassName;
 use Phan\Language\Type\ArrayType;
 use Phan\Language\Type\BoolType;
 use Phan\Language\Type\CallableType;
+use Phan\Language\Type\FalseType;
 use Phan\Language\Type\FloatType;
 use Phan\Language\Type\GenericArrayType;
 use Phan\Language\Type\IntType;
@@ -19,6 +20,7 @@ use Phan\Language\Type\ResourceType;
 use Phan\Language\Type\StaticType;
 use Phan\Language\Type\StringType;
 use Phan\Language\Type\TemplateType;
+use Phan\Language\Type\TrueType;
 use Phan\Language\Type\VoidType;
 use Phan\Library\None;
 use Phan\Library\Option;
@@ -77,6 +79,7 @@ class Type
         'array'     => true,
         'bool'      => true,
         'callable'  => true,
+        'false'     => true,
         'float'     => true,
         'int'       => true,
         'iterable'  => true,
@@ -86,6 +89,7 @@ class Type
         'resource'  => true,
         'static'    => true,
         'string'    => true,
+        'true'      => true,
         'void'      => true,
     ];
 
@@ -362,11 +366,13 @@ class Type
      * Uses the constants and types from https://secure.php.net/manual/en/reserved.constants.php
      */
     private static function createReservedConstantNameLookup() : array {
-        $int = IntType::instance(false);
-        $bool = BoolType::instance(false);
-        $null = NullType::instance(false);
-        $string = StringType::instance(false);
+        $false  = FalseType::instance(false);
         $float  = FloatType::instance(false);
+        $int    = IntType::instance(false);
+        $null   = NullType::instance(false);
+        $string = StringType::instance(false);
+        $true   = TrueType::instance(false);
+
         return [
             'PHP_VERSION'           => $string,
             'PHP_MAJOR_VERSION'     => $int,
@@ -420,8 +426,8 @@ class Type
             'E_ALL'                 => $int,
             'E_STRICT'              => $int,
             '__COMPILER_HALT_OFFSET__' => $int,
-            'TRUE'                  => $bool,
-            'FALSE'                 => $bool,
+            'TRUE'                  => $true,
+            'FALSE'                 => $false,
             'NULL'                  => $null,
         ];
     }
@@ -475,6 +481,7 @@ class Type
         $type_name =
             self::canonicalNameFromName($type_name);
 
+        // TODO: Is this worth optimizing into a lookup table?
         switch (strtolower($type_name)) {
             case 'array':
                 return ArrayType::instance($is_nullable);
@@ -482,6 +489,8 @@ class Type
                 return BoolType::instance($is_nullable);
             case 'callable':
                 return CallableType::instance($is_nullable);
+            case 'false':
+                return FalseType::instance($is_nullable);
             case 'float':
                 return FloatType::instance($is_nullable);
             case 'int':
@@ -496,6 +505,8 @@ class Type
                 return ResourceType::instance($is_nullable);
             case 'string':
                 return StringType::instance($is_nullable);
+            case 'true':
+                return TrueType::instance($is_nullable);
             case 'void':
                 // TODO: This can't be nullable, right?
                 return VoidType::instance($is_nullable);
@@ -1359,15 +1370,13 @@ class Type
      * @return string
      * A canonical name for the given type name
      */
-    private static function canonicalNameFromName(
+    public static function canonicalNameFromName(
         string $name
     ) : string {
         static $map = [
             'boolean'  => 'bool',
             'callback' => 'callable',
             'double'   => 'float',
-            'false'    => 'bool',
-            'true'     => 'bool',
             'integer'  => 'int',
         ];
 
