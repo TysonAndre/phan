@@ -39,6 +39,11 @@ class BoolType extends ScalarType
         return TrueType::instance(false);
     }
 
+    public function asNonTruthyType() : Type
+    {
+        return FalseType::instance($this->is_nullable);
+    }
+
     public function getIsPossiblyFalse() : bool
     {
         return true;  // it's possibly false, since this is conceptually a collection of FalseType and TrueType
@@ -64,4 +69,8 @@ class BoolType extends ScalarType
         return true;
     }
 
+    public function getIsAlwaysTruthy() : bool
+    {
+        return false;  // overridden in various types. This base class (Type) is implicitly the type of an object, which is always truthy.
+    }
 }

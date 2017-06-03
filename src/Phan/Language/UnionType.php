@@ -680,6 +680,40 @@ class UnionType implements \Serializable
     }
 
     /**
+     * @return bool - True if type set is not empty and at least one type is NullType or nullable or FalseType or BoolType.
+     * (I.e. the type is always falsey, or both sometimes falsey with a non-falsey type it can be narrowed down to)
+     * This does not include values such as `IntType`, since there is currently no `NonZeroIntType`.
+     */
+    public function containsTruthy() : bool
+    {
+        foreach ($this->getTypeSet() as $type) {
+            if ($type->getIsPossiblyTruthy()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function nonTruthyClone() : UnionType
+    {
+        $result = new UnionType();
+        foreach ($this->getTypeSet() as $type) {
+            if (!$type->getIsPossiblyTruthy()) {
+                $result->addType($type);
+                continue;
+            }
+            if ($type->getIsAlwaysTruthy()) {
+                // don't add null/false to the resulting type
+                continue;
+            }
+
+            // add non-nullable equivalents, and replace BoolType with non-nullable TrueType
+            $result->addType($type->asNonTruthyType());
+        }
+        return $result;
+    }
+
+    /**
      * @return bool - True if type set is not empty and at least one type is BoolType or FalseType
      */
     public function containsFalse() : bool
@@ -1240,6 +1274,15 @@ class UnionType implements \Serializable
         return ArraySet::exists($this->type_set, function (Type $type) : bool {
             return $type->isGenericArray();
         });
+    }
+
+    /**
+     * @return bool
+     * True if any of the types in this UnionType made $matcher_callback return true
+     */
+    public function hasTypeMatchingCallback(\Closure $matcher_callback) : bool
+    {
+        return ArraySet::exists($this->type_set, $matcher_callback);
     }
 
     /**

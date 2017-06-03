@@ -870,6 +870,16 @@ class Type
         return false;  // overridden in FalseType and NullType
     }
 
+    public function getIsPossiblyTruthy() : bool
+    {
+        return true;  // overridden in various types. This base class (Type) is implicitly the type of an object, which is always truthy.
+    }
+
+    public function getIsAlwaysTruthy() : bool
+    {
+        return true;  // overridden in various types. This base class (Type) is implicitly the type of an object, which is always truthy.
+    }
+
     public function getIsPossiblyFalse() : bool
     {
         return false;
@@ -922,6 +932,12 @@ class Type
     {
         // Overridden by BoolType subclass to return TrueType
         return $this->withIsNullable(false);
+    }
+
+    public function asNonTruthyType() : Type
+    {
+        // Overridden by ScalarType, BoolType, etc.
+        return NullType::instance(false);
     }
 
     public function asNonFalseType() : Type

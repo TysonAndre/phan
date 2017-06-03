@@ -22,6 +22,16 @@ class FalseType extends ScalarType
         return !$this->is_nullable;  // If it can be null, it's not **always** identical to false
     }
 
+    public function getIsPossiblyTruthy() : bool
+    {
+        return false;
+    }
+
+    public function getIsAlwaysTruthy() : bool
+    {
+        return false;
+    }
+
     public function getIsPossiblyFalse() : bool
     {
         return true;

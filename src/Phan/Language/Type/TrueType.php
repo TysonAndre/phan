@@ -8,6 +8,16 @@ class TrueType extends ScalarType
 {
     const NAME = 'true';
 
+    public function getIsPossiblyTruthy() : bool
+    {
+        return true;
+    }
+
+    public function getIsAlwaysTruthy() : bool
+    {
+        return true;
+    }
+
     public function getIsPossiblyTrue() : bool
     {
         return true;
