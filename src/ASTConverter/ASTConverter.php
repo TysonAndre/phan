@@ -648,6 +648,8 @@ class ASTConverter {
      */
     private static function _ast_stub($parserNode) : \ast\Node{
         $node = new \ast\Node();
+        fprintf(STDERR, "TODO: Add conversion rule for PhpParser class %s\n", get_class($parserNode));
+        throw new \RuntimeException(sprintf("TODO: Add conversion rule for PhpParser class %s\n", get_class($parserNode)));
         $node->kind = "TODO:" . get_class($parserNode);
         $node->flags = 0;
         $node->lineno = $parserNode->getAttribute('startLine');
