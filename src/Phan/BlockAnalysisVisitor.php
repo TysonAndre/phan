@@ -80,8 +80,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
      *          ▼
      *
      * @param Node $node
-     * An AST node we'd like to determine the UnionType
-     * for
+     * An AST node we'd like to analyze the statements for
      *
      * @return Context
      * The updated context after visiting the node
@@ -198,8 +197,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
      *           ▼
      *
      * @param Node $node
-     * An AST node we'd like to determine the UnionType
-     * for
+     * An AST node we'd like to analyze the statements for
      *
      * @return Context
      * The updated context after visiting the node
@@ -282,8 +280,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
 
     /**
      * @param Node $node
-     * An AST node we'd like to determine the UnionType
-     * for
+     * An AST node we'd like to analyze the statements for
      *
      * @return Context
      * The updated context after visiting the node
@@ -347,8 +344,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
      *           ▼
      *
      * @param Node $node
-     * An AST node we'd like to determine the UnionType
-     * for
+     * An AST node we'd like to analyze the statements for
      *
      * @return Context
      * The updated context after visiting the node
@@ -406,8 +402,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
 
     /**
      * @param Node $node
-     * An AST node we'd like to determine the UnionType
-     * for
+     * An AST node we'd like to analyze the statements
      *
      * @return Context
      * The updated context after visiting the node
@@ -419,8 +414,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
 
     /**
      * @param Node $node
-     * An AST node we'd like to determine the UnionType
-     * for
+     * An AST node we'd like to analyze the statements for
      *
      * @return Context
      * The updated context after visiting the node
@@ -432,8 +426,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
 
     /**
      * @param Node $node
-     * An AST node we'd like to determine the UnionType
-     * for
+     * An AST node we'd like to analyze the statements for
      *
      * @return Context
      * The updated context after visiting the node
@@ -510,10 +503,10 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
 
         return $context;
     }
+
     /**
      * @param Node $node
-     * An AST node we'd like to determine the UnionType
-     * for
+     * An AST node we'd like to analyze the statements for
      *
      * @return Context
      * The updated context after visiting the node
@@ -525,8 +518,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
 
     /**
      * @param Decl $node
-     * An AST node we'd like to determine the UnionType
-     * for
+     * An AST node we'd like to analyze the statements for
      *
      * @return Context
      * The updated context after visiting the node
@@ -538,8 +530,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
 
     /**
      * @param Decl $node
-     * An AST node we'd like to determine the UnionType
-     * for
+     * An AST node we'd like to analyze the statements for
      *
      * @return Context
      * The updated context after visiting the node
@@ -551,8 +542,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
 
     /**
      * @param Decl $node
-     * An AST node we'd like to determine the UnionType
-     * for
+     * An AST node we'd like to analyze the statements for
      *
      * @return Context
      * The updated context after visiting the node
@@ -569,8 +559,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
      * @param Context $context - The context before pre-order analysis
      *
      * @param Node $node
-     * An AST node we'd like to determine the UnionType
-     * for
+     * An AST node we'd like to analyze the statements for
      *
      * @return Context
      * The updated context after pre-order analysis of the node
@@ -600,8 +589,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
      * @param Context $context - The context before post-order analysis
      *
      * @param Node $node
-     * An AST node we'd like to determine the UnionType
-     * for
+     * An AST node we'd like to analyze the statements for
      *
      * @return Context
      * The updated context after post-order analysis of the node
