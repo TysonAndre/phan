@@ -218,6 +218,7 @@ if (!function_exists('\ast\parse_file')) {
  * @return Node Root node of AST
  *
  * @see https://github.com/nikic/php-ast for version information
+ * @suppress PhanRedefineFunctionInternal
  */
 function parse_file(string $filename, int $version)
 {
@@ -235,6 +236,7 @@ if (!function_exists('\ast\parse_code')) {
  * @return Node Root node of AST
  *
  * @see https://github.com/nikic/php-ast for version information
+ * @suppress PhanRedefineFunctionInternal
  */
 function parse_code(string $code, int $version, string $filename = "string code")
 {
@@ -248,6 +250,7 @@ if (!function_exists('\ast\get_kind_name')) {
  * @param int $kind AST_* constant value defining the kind of an AST node
  * @return string|null String representation of AST kind value
  * Source: php-ast/ast_data.c, ast_kind_to_name
+ * @suppress PhanRedefineFunctionInternal
  */
 function get_kind_name($kind)
 {
@@ -360,6 +363,7 @@ if (!function_exists('\ast\kind_uses_flags')) {
 /**
  * @param int $kind AST_* constant value defining the kind of an AST node
  * @return bool Returns true if AST kind uses flags
+ * @suppress PhanRedefineFunctionInternal
  */
 function kind_uses_flags($kind)
 {
@@ -383,6 +387,7 @@ function kind_uses_flags($kind)
 if (!class_exists('\ast\Node')) {
 /**
  * This class describes a single node in a PHP AST.
+ * @suppress PhanRedefineClassInternal
  */
 class Node
 {
@@ -409,6 +414,7 @@ namespace ast\Node;
 if (!class_exists('\ast\Node\Decl')) {
 /**
  * AST Node type for function and class declarations.
+ * @suppress PhanRedefineClassInternal
  */
 class Decl extends \ast\Node
 {
