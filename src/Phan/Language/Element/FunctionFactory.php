@@ -139,7 +139,9 @@ class FunctionFactory {
             $method->setNumberOfRequiredParameters(0);
         }
         $method->setIsDeprecated($reflection_method->isDeprecated());
-        $method->setRealReturnType(UnionType::fromReflectionType($reflection_method->getReturnType()));
+        // FIXME: make this from ReflectionMethod->getReturnType
+        // Patch to run in php5.6
+        $method->setRealReturnType(method_exists($reflection_method, 'getReturnType') ? UnionType::fromReflectionType($reflection_method->getReturnType()) : new UnionType());
         $method->setRealParameterList(Parameter::listFromReflectionParameterList($reflection_method->getParameters()));
 
         return self::functionListFromFunction($method, $code_base);

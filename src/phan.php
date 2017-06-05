@@ -4,6 +4,8 @@
 // improvment if your system can handle it (which it
 // should be able to)
 gc_disable();
+// Must add the shim implementation before adding any other files.
+require_once __DIR__ . '/astshim.php';
 
 // Check the environment to make sure Phan can run successfully
 require_once(__DIR__ . '/requirements.php');
@@ -48,7 +50,6 @@ $is_issue_found =
     );
 
 // TODO: Does PHP-Parser have any cycles that won't be garbage collected if gc_disable() is used?
-require_once __DIR__ . '/astshim.php';
 
 // Provide an exit status code based on if
 // issues were found
