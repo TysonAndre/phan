@@ -37,7 +37,8 @@ assert_options(ASSERT_QUIET_EVAL, false);
 assert_options(ASSERT_CALLBACK, '');  // Can't explicitly set ASSERT_CALLBACK to null?
 
 // Print more of the backtrace than is done by default
-set_exception_handler(function (Error $throwable) {
+/** @param Exception $throwable */
+set_exception_handler(function ($throwable) {
     error_log("$throwable\n");
     exit(EXIT_FAILURE);
 });
