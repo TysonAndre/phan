@@ -10,9 +10,13 @@ for filepath in src/**/*.php tests/Phan/**/*.php; do
 		echo "Skipping '$filepath', already transpiled"
 		continue
 	fi
-    if php -d memory_limit=500M $TRANSPHPILE_PATH transpile "$filepath" ; then
-		cp "php5/$filepath" "$filepath"
-	else
+	if php -d memory_limit=500M $TRANSPHPILE_PATH transpile "$filepath" ; then
+		cp "php5/$filepath" $filepath
+		echo -n "."
+	else 
+		echo
 		echo "Failed to transpile '$filepath'";
 	fi
 done
+echo
+echo "Created Transphpiled php files in php5/"
