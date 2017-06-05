@@ -389,6 +389,8 @@ class Request {
                 Analysis::parseFile($code_base, $file_path);
             } catch (\Throwable $throwable) {
                 error_log(sprintf("Analysis::parseFile threw %s for %s: %s\n%s", get_class($throwable), $file_path, $throwable->getMessage(), $throwable->getTraceAsString()));
+            } catch (\Exception $throwable) {  // Patch for php 5.6
+                error_log(sprintf("Analysis::parseFile threw %s for %s: %s\n%s", get_class($throwable), $file_path, $throwable->getMessage(), $throwable->getTraceAsString()));
             }
         }
         Daemon::debugf("Done parsing modified files");
@@ -436,6 +438,8 @@ class Request {
                 // Parse the file
                 Analysis::parseFile($code_base, $file_path, false, $newContents);
             } catch (\Throwable $throwable) {
+                error_log(sprintf("Analysis::parseFile threw %s for %s: %s\n%s", get_class($throwable), $file_path, $throwable->getMessage(), $throwable->getTraceAsString()));
+            } catch (\Exception $throwable) {  // Patch for php 5.6
                 error_log(sprintf("Analysis::parseFile threw %s for %s: %s\n%s", get_class($throwable), $file_path, $throwable->getMessage(), $throwable->getTraceAsString()));
             }
         }

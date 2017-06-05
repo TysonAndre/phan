@@ -135,6 +135,9 @@ class Phan implements IgnoredFilesFilterInterface {
             } catch (\Throwable $throwable) {
                 error_log($file_path . ' ' . $throwable->getMessage() . "\n");
                 $code_base->recordUnparseableFile($file_path);
+            } catch (\Exception $throwable) {
+                error_log($file_path . ' ' . $throwable->getMessage() . "\n");
+                $code_base->recordUnparseableFile($file_path);
             }
         }
         $code_base->setCurrentParsedFile(null);

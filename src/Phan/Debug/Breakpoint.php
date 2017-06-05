@@ -33,6 +33,9 @@ do {
         eval($input . ';');
     } catch (\ParseError $exception) {
         print "Parse error in `$input`\n";
+    } catch(\Exception $exception) {  // Patch for php 5.6
+        print $exception->getMessage() . "\n";
+        print $exception->getTraceAsString() . "\n";
     } catch(\Throwable $exception) {
         print $exception->getMessage() . "\n";
         print $exception->getTraceAsString() . "\n";

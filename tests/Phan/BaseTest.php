@@ -1,11 +1,14 @@
-<?php declare(strict_types=1);
+<?php
 
+/*
+ * This code has been transpiled via TransPHPile. For more information, visit https://github.com/jaytaph/transphpile
+ */
 namespace Phan\Tests;
 
-use PHPUnit\Framework\TestCase;
 /**
  * Any common initialization or configuration should go here
  * (E.g. may want to change https://phpunit.de/manual/current/en/fixtures.html#fixtures.global-state in some classes)
  */
-class BaseTest extends TestCase {
+class BaseTest extends \PHPUnit_Framework_TestCase
+{
 }
