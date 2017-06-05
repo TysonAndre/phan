@@ -56,6 +56,7 @@ New Features (CLI, Configs)
   (E.g. handles some variable declarations within `if ()` statements.
    Infers that $x is a string for constructs such as `if (!is_string($x)) {return;} function_using_x($x);`)
   This is slow, and disabled by default.
++ Add `--include-analysis-file-list` option to define files that will be included in static analysis, to the exclusion of others.
 
 Maintenance
 + Update function signature map to analyze `iterable` and `is_iterable` from php 7.1
@@ -68,7 +69,9 @@ Bug Fixes
 - Existence of __get() no longer affects analyzing static properties. (Issue #610)
 - Phan can now detect the declaration of constants relative to a `use`d namespace (Issue #509)
 - Phan can now detect the declaration of functions relative to a `use`d namespace (Issue #510)
-- Fix bug where JSON output printer accidentally escaped some output ("<"), causing invalid JSON.
+- Fix a bug where the JSON output printer accidentally escaped some output ("<"), causing invalid JSON.
+- Fix a bug where a print/echo/method call erroneously marked methods/functions as having a return value. (Issue #811)
+- Improve analysis of SimpleXMLElement (Issues #542, #539)
 
 Backwards Incompatible Changes
 - Declarations of user-defined constants are now consistently
