@@ -40,7 +40,7 @@ class CSVPrinterTest extends BaseTest {
 
         $printer = new CSVPrinter();
         $printer->configureOutput($output);
-        $printer->print(new IssueInstance(Issue::fromType(Issue::SyntaxError), 'test.php', 0, [$string]));
+        $printer->print_(new IssueInstance(Issue::fromType(Issue::SyntaxError), 'test.php', 0, [$string]));
         $printer->flush();
 
         $expected = 'test.php,0,10,critical,UndefError,PhanSyntaxError,' . $messageExpected;

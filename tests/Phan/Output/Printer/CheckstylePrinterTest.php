@@ -20,7 +20,7 @@ class CheckstylePrinterTest extends BaseTest {
 
         $printer = new CheckstylePrinter();
         $printer->configureOutput($output);
-        $printer->print(new IssueInstance(Issue::fromType(Issue::SyntaxError), 'test.php', 0, [$string]));
+        $printer->print_(new IssueInstance(Issue::fromType(Issue::SyntaxError), 'test.php', 0, [$string]));
         $printer->flush();
         $this->assertContains('PhanSyntaxError', $output->fetch());
     }
