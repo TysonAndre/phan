@@ -17,7 +17,7 @@ class CSVPrinterTest extends BaseTest
         $output = new BufferedOutput();
         $printer = new CSVPrinter();
         $printer->configureOutput($output);
-        $printer->print(new IssueInstance(Issue::fromType(Issue::SyntaxError), 'test.php', 0, ["foo"]));
+        $printer->print_(new IssueInstance(Issue::fromType(Issue::SyntaxError), 'test.php', 0, ["foo"]));
         $printer->flush();
         $lines = array_map("str_getcsv", explode("\n", $output->fetch()));
         $fields = array_combine($lines[0], $lines[1]);
