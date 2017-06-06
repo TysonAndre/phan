@@ -5,7 +5,7 @@ use Phan\AST\ContextNode;
 use Phan\AST\UnionTypeVisitor;
 use Phan\AST\Visitor\KindVisitorImplementation;
 use Phan\CodeBase;
-use Phan\Langauge\Type;
+use Phan\Language\Type;
 use Phan\Language\Context;
 use Phan\Language\Type\ArrayType;
 use Phan\Language\Type\CallableType;
@@ -260,7 +260,12 @@ class ConditionVisitor extends KindVisitorImplementation
         // TODO: negation would also go in the else statement
         // TODO: if (!$x) {} should narrow the types down to false and null (and other falsey possibilities such as int(0), string(""/"0"), array([]))
         if (($negatedNode->kind ?? 0) === \ast\AST_CALL) {
-            if (self::isCallStringWithSingleVariableArgument($negatedNode)) {
+            $args = $negatedNode->children['args']->children;
+            if (self::isArgumentListWithVarAsFirstArgument($args)) {
+                $function_name = strtolower(ltrim($negatedNode->children['expr']->children['name'], '\\'));
+                if (count($args) !== 1 && $function_name !== 'is_a') {
+                    return $this->context;
+                }
                 static $map;
                 if ($map === null) {
                     $map = self::createNegationCallbackMap();
@@ -268,13 +273,11 @@ class ConditionVisitor extends KindVisitorImplementation
                 // TODO: Make this generic to all type assertions? E.g. if (!is_string($x)) removes 'string' from type, makes '?string' (nullable) into 'null'.
                 // This may be redundant in some places if AST canonicalization is used, but still useful in some places
                 // TODO: Make this generic so that it can be used in the 'else' branches?
-                $function_name = strtolower(ltrim($negatedNode->children['expr']->children['name'], '\\'));
-                if (in_array($function_name, ['empty', 'is_scalar'], true)) {
-                    // TODO: removeScalarFromVariable (low priority)
-                    return $this->removeFalseyFromVariable($negatedNode->children['args']->children[0], $context);
-                } else if ($function_name === 'is_null') {
-                    return $this->removeNullFromVariable($negatedNode->children['args']->children[0], $context);
+                $callback = $map[$function_name] ?? null;
+                if ($callback === null) {
+                    return $this->context;
                 }
+                return $callback($this, $args[0], $this->context);
             }
         }
         return $context;
@@ -567,20 +570,11 @@ class ConditionVisitor extends KindVisitorImplementation
         return $context;
     }
 
-    private static function isCallStringWithSingleVariableArgument(Node $node) : bool
+    private static function isArgumentListWithVarAsFirstArgument(array $args) : bool
     {
-        $args = $node->children['args']->children;
-        if (count($args) === 1) {
+        if (count($args) >= 1) {
             $arg = $args[0];
-            if (($arg instanceof Node) && ($arg->kind === \ast\AST_VAR)) {
-                $expr = $node->children['expr'];
-                if ($expr instanceof Node) {
-                    $name = $expr->children['name'] ?? null;
-                    if (is_string($name) && $name) {
-                        return true;
-                    }
-                }
-            }
+            return ($arg instanceof Node) && ($arg->kind === \ast\AST_VAR);
         }
         return false;
     }
@@ -601,7 +595,7 @@ class ConditionVisitor extends KindVisitorImplementation
             );
 
             /** @return void */
-            return function(Variable $variable) use($type)
+            return function(Variable $variable, array $args) use($type)
             {
                 // Otherwise, overwrite the type for any simple
                 // primitive types.
@@ -610,7 +604,7 @@ class ConditionVisitor extends KindVisitorImplementation
         };
 
         /** @return void */
-        $array_callback = function(Variable $variable)
+        $array_callback = function(Variable $variable, array $args)
         {
             // Change the type to match the is_a relationship
             // If we already have generic array types, then keep those
@@ -628,7 +622,7 @@ class ConditionVisitor extends KindVisitorImplementation
         };
 
         /** @return void */
-        $object_callback = function(Variable $variable) : void
+        $object_callback = function(Variable $variable, array $args)
         {
             // Change the type to match the is_a relationship
             // If we already have the `object` type or generic object types, then keep those
@@ -644,7 +638,26 @@ class ConditionVisitor extends KindVisitorImplementation
             }
             $variable->setUnionType($newType);
         };
-        $scalar_callback = function(Variable $variable) : void
+        /** @return void */
+        $is_a_callback = function(Variable $variable, array $args) use($object_callback)
+        {
+            $class_name = $args[1] ?? null;
+            if (!is_string($class_name)) {
+                // Limit the types of $variable to an object if we can't infer the class name.
+                $object_callback($variable, $args);
+                return;
+            }
+            $class_name = ltrim($class_name, '\\');
+            if (empty($class_name)) {
+                return;
+            }
+            // TODO: validate argument
+            $class_name = '\\' . $class_name;
+            $class_type = Type::fromStringInContext($class_name, new Context(), Type::FROM_NODE);
+            $variable->setUnionType($class_type->asUnionType());
+        };
+        /** @return void */
+        $scalar_callback = function(Variable $variable, array $args)
         {
             // Change the type to match the is_a relationship
             // If we already have possible scalar types, then keep those
@@ -665,6 +678,7 @@ class ConditionVisitor extends KindVisitorImplementation
         // Note: isset() is handled in visitIsset()
 
         return [
+            'is_a' => $is_a_callback,
             'is_array' => $array_callback,
             'is_bool' => $make_basic_assertion_callback('bool'),
             'is_callable' => $make_basic_assertion_callback('callable'),
@@ -686,6 +700,22 @@ class ConditionVisitor extends KindVisitorImplementation
     }
 
     /**
+     * Fetches the function name. Does not check for function uses or namespaces.
+     * @return ?string (null if function name could not be found)
+     */
+    private static function getFunctionName(Node $node) {
+        $expr = $node->children['expr'];
+        if (!($expr instanceof Node)) {
+            return null;
+        }
+        $raw_function_name = $expr->children['name'] ?? null;
+        if (!(is_string($raw_function_name) && $raw_function_name)) {
+            return null;
+        }
+        return $raw_function_name;
+    }
+
+    /**
      * Look at elements of the form `is_array($v)` and modify
      * the type of the variable.
      *
@@ -698,19 +728,26 @@ class ConditionVisitor extends KindVisitorImplementation
      */
     public function visitCall(Node $node) : Context
     {
+        $raw_function_name = self::getFunctionName($node);
+        if (!is_string($raw_function_name)) {
+            return $this->context;
+        }
+        assert(is_string($raw_function_name));
+        $args = $node->children['args']->children;
         // Only look at things of the form
         // `is_string($variable)`
-        if (!self::isCallStringWithSingleVariableArgument($node)) {
+        if (!self::isArgumentListWithVarAsFirstArgument($args)) {
             return $this->context;
         }
 
         // Translate the function name into the UnionType it asserts
         static $map = null;
-        if (empty($map)) {
+
+        if ($map === null) {
              $map = self::initTypeModifyingClosuresForVisitCall();
         }
 
-        $function_name = strtolower($node->children['expr']->children['name']);
+        $function_name = strtolower($raw_function_name);
         $type_modification_callback = $map[$function_name] ?? null;
         if ($type_modification_callback === null) {
             return $this->context;
@@ -723,7 +760,7 @@ class ConditionVisitor extends KindVisitorImplementation
             $variable = (new ContextNode(
                 $this->code_base,
                 $this->context,
-                $node->children['args']->children[0]
+                $args[0]
             ))->getVariable();
 
             if ($variable->getUnionType()->isEmpty()) {
@@ -736,7 +773,7 @@ class ConditionVisitor extends KindVisitorImplementation
             $variable = clone($variable);
 
             // Modify the types of that variable.
-            $type_modification_callback($variable);
+            $type_modification_callback($variable, $args);
 
             // Overwrite the variable with its new type in this
             // scope without overwriting other scopes
