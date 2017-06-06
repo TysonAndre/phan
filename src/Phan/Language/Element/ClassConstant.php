@@ -50,4 +50,24 @@ class ClassConstant extends ClassElement implements ConstantInterface
         return $string . 'const ' . $this->getName();
     }
 
+    public function toStub(\Phan\CodeBase $code_base) : string {
+        $string = '    ';
+
+        if ($this->isPublic()) {
+            $string .= 'public ';
+        } elseif ($this->isProtected()) {
+            $string .= 'protected ';
+        } elseif ($this->isPrivate()) {
+            $string .= 'private ';
+        }
+
+        $string .= 'const ' . $this->getName() . ' = ';
+        $fqsen = (string)$this->getFQSEN();
+        if (defined($fqsen)) {
+            $string .= var_export(constant($fqsen), true) . ';';
+        } else {
+            $string .= "null;  // could not find";
+        }
+        return $string;
+    }
 }

@@ -333,4 +333,84 @@ class Func extends AddressableElement implements FunctionInterface
         return $string;
     }
 
+    /**
+     * This method must be called before analysis
+     * begins.
+     *
+     * @return void
+     */
+    protected function hydrateOnce(CodeBase $code_base)
+    {
+        foreach ($this->getAncestorFQSENList($code_base) as $fqsen) {
+            if ($code_base->hasClassWithFQSEN($fqsen)) {
+                $code_base->getClassByFQSEN(
+                    $fqsen
+                )->hydrate($code_base);
+            }
+        }
+
+        // Create the 'class' constant
+        $this->addConstant($code_base,
+            new ClassConstant(
+                $this->getContext(),
+                'class',
+                StringType::instance(false)->asUnionType(),
+                0,
+                FullyQualifiedClassConstantName::make(
+                    $this->getFQSEN(),
+                    'class'
+                )
+            )
+        );
+
+        // Add variable '$this' to the scope
+        $this->getInternalScope()->addVariable(
+            new Variable(
+                $this->getContext(),
+                'this',
+                $this->getUnionType(),
+                0
+            )
+        );
+
+        // Load parent methods, properties, constants
+        $this->importAncestorClasses($code_base);
+
+        // Make sure there are no abstract methods on non-abstract classes
+        AbstractMethodAnalyzer::analyzeAbstractMethodsAreImplemented(
+            $code_base, $this
+        );
+    }
+
+    /**
+     * @return bool
+     * True if this method returns reference
+     * TODO: move to FunctionTrait?
+     */
+    public function returnsRef() : bool {
+        return Flags::bitVectorHasState(
+            $this->getFlags(),
+            \ast\flags\RETURNS_REF
+        );
+    }
+
+    public function toStub() {
+        $stub = 'function ';
+        if ($this->returnsRef()) {
+            $stub .= '&';
+        }
+        $stub .= $this->getName();
+        $stub .= '(' . implode(', ', $this->getRealParameterList()) . ')';
+        if ($this->real_return_type && !$this->getRealReturnType()->isEmpty()) {
+            $stub .= ' : ' . (string)$this->getRealReturnType();
+        }
+
+        $stub .= ' {}' . "\n";
+
+        $namespace = ltrim($this->getFQSEN()->getNamespace(), '\\');
+        $namespace_text = $namespace === '' ? '' : "$namespace ";
+        $stub = sprintf("namespace %s{\n%s}\n", $namespace_text, $stub);
+
+        return $stub;
+    }
 }
