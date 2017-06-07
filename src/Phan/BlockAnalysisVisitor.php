@@ -34,12 +34,6 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
     // TODO: restore block_exit_status_checker (or cache the status in $node->flags, for node types with no flags)
 
     /**
-     * @var bool
-     * Whether or not this visitor will visit all nodes
-     */
-    private $should_visit_everything;
-
-    /**
      * @param CodeBase $code_base
      * The code base within which we're operating
      *
@@ -505,8 +499,9 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
     }
 
     /**
-     * @param Node $node
-     * An AST node we'd like to analyze the statements for
+     * @param Decl $node
+     * An AST node we'd like to determine the UnionType
+     * for
      *
      * @return Context
      * The updated context after visiting the node
