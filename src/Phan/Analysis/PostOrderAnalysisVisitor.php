@@ -228,7 +228,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 $variable_name = $child_node->children['name'];
 
                 // Ignore $$var type things
-                if (!is_string($variable_name)) {
+                if (!\is_string($variable_name)) {
                     continue;
                 }
 
@@ -935,7 +935,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         $method_name = $node->children['method'];
 
         // Give up on things like Class::$var
-        if (!is_string($method_name)) {
+        if (!\is_string($method_name)) {
             return $this->context;
         }
 
@@ -1292,7 +1292,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     {
         $method_name = $node->children['method'];
 
-        if (!is_string($method_name)) {
+        if (!\is_string($method_name)) {
             return $this->context;
         }
 
@@ -1578,7 +1578,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 ) {
                     $property_name = $argument->children['prop'];
 
-                    if (is_string($property_name)) {
+                    if (\is_string($property_name)) {
                         // We don't do anything with it; just create it
                         // if it doesn't exist
                         try {
@@ -1648,7 +1648,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 ) {
                     $property_name = $argument->children['prop'];
 
-                    if (is_string($property_name)) {
+                    if (\is_string($property_name)) {
                         // We don't do anything with it; just create it
                         // if it doesn't exist
                         try {

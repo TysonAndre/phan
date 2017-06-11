@@ -188,8 +188,8 @@ class ContextNode
         $trait_original_class_name_node = $trait_method_node->children['class'];
         $trait_original_method_name = $trait_method_node->children['method'];
         $trait_new_method_name = $adaptation_node->children['alias'] ?? $trait_original_method_name;
-        assert(is_string($trait_original_method_name));
-        assert(is_string($trait_new_method_name));
+        assert(\is_string($trait_original_method_name));
+        assert(\is_string($trait_new_method_name));
         $trait_fqsen = (new ContextNode(
             $this->code_base,
             $this->context,
@@ -272,7 +272,7 @@ class ContextNode
 
         // This is the class which will have the method hidden
         foreach ($adaptation_node->children['insteadof']->children as $trait_insteadof_class_name) {
-            assert(is_string($trait_chosen_method_name));
+            assert(\is_string($trait_chosen_method_name));
             $trait_insteadof_fqsen = (new ContextNode(
                 $this->code_base,
                 $this->context,
@@ -447,7 +447,7 @@ class ContextNode
         }
 
         assert(
-            is_string($method_name),
+            \is_string($method_name),
             "Method name must be a string. Found non-string in context."
         );
 
@@ -734,7 +734,7 @@ class ContextNode
         $property_name = $this->node->children['prop'];
 
         // Give up for things like C::$prop_name
-        if (!is_string($property_name)) {
+        if (!\is_string($property_name)) {
             throw new NodeException(
                 $this->node,
                 "Cannot figure out non-string property name"
@@ -1359,7 +1359,7 @@ class ContextNode
             $ftemp = new \SplFileObject($this->context->getFile());
             $ftemp->seek($this->node->lineno-1);
             $line = $ftemp->current();
-            assert(is_string($line));
+            assert(\is_string($line));
             unset($ftemp);
             if (strpos($line, '}[') === false
                 || strpos($line, ']}') === false

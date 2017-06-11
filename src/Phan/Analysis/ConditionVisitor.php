@@ -135,7 +135,7 @@ class ConditionVisitor extends KindVisitorImplementation
         $var_name = $var_node->children['name'] ?? null;
         $context = $this->context;
         // Don't analyze variables such as $$a
-        if (is_string($var_name) && $var_name) {
+        if (\is_string($var_name) && $var_name) {
             try {
                 $exprType = UnionTypeVisitor::unionTypeFromLiteralOrConstant($this->code_base, $this->context, $expr);
                 if ($exprType) {
@@ -582,7 +582,7 @@ class ConditionVisitor extends KindVisitorImplementation
     /**
      * This function is called once, and returns closures to modify the types of variables.
      *
-     * This contains Phan's logic for inferring the resulting union types of variables, e.g. in is_array($x).
+     * This contains Phan's logic for inferring the resulting union types of variables, e.g. in \is_array($x).
      *
      * @return \Closure[] - The closures to call for a given
      */
@@ -642,7 +642,7 @@ class ConditionVisitor extends KindVisitorImplementation
         $is_a_callback = function(Variable $variable, array $args) use($object_callback)
         {
             $class_name = $args[1] ?? null;
-            if (!is_string($class_name)) {
+            if (!\is_string($class_name)) {
                 // Limit the types of $variable to an object if we can't infer the class name.
                 $object_callback($variable, $args);
                 return;
@@ -709,7 +709,7 @@ class ConditionVisitor extends KindVisitorImplementation
             return null;
         }
         $raw_function_name = $expr->children['name'] ?? null;
-        if (!(is_string($raw_function_name) && $raw_function_name)) {
+        if (!(\is_string($raw_function_name) && $raw_function_name)) {
             return null;
         }
         return $raw_function_name;
@@ -729,10 +729,10 @@ class ConditionVisitor extends KindVisitorImplementation
     public function visitCall(Node $node) : Context
     {
         $raw_function_name = self::getFunctionName($node);
-        if (!is_string($raw_function_name)) {
+        if (!\is_string($raw_function_name)) {
             return $this->context;
         }
-        assert(is_string($raw_function_name));
+        assert(\is_string($raw_function_name));
         $args = $node->children['args']->children;
         // Only look at things of the form
         // `is_string($variable)`

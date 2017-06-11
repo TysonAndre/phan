@@ -145,7 +145,7 @@ class Phan implements IgnoredFilesFilterInterface {
             exit(EXIT_SUCCESS);
         }
 
-        if (is_string(Config::getValue('dump_signatures_file'))) {
+        if (\is_string(Config::getValue('dump_signatures_file'))) {
             exit(self::dumpSignaturesToFile($code_base, Config::getValue('dump_signatures_file')));
         }
 

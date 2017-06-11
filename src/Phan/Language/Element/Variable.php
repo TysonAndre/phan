@@ -141,7 +141,7 @@ class Variable extends TypedElement
     public static function isSuperglobalVariableWithName(
         string $name
     ) : bool {
-        if (array_key_exists($name, self::_BUILTIN_SUPERGLOBAL_TYPES)) {
+        if (\array_key_exists($name, self::_BUILTIN_SUPERGLOBAL_TYPES)) {
             return true;
         }
         return in_array($name, Config::getValue('runkit_superglobals'));
@@ -155,7 +155,7 @@ class Variable extends TypedElement
     ) : bool {
         return (
             self::isSuperglobalVariableWithName($name)
-            || array_key_exists($name, Config::getValue('globals_type_map'))
+            || \array_key_exists($name, Config::getValue('globals_type_map'))
         );
     }
 
@@ -169,14 +169,14 @@ class Variable extends TypedElement
         string $name,
         Context $context
     ) {
-        if (array_key_exists($name, self::_BUILTIN_SUPERGLOBAL_TYPES)) {
+        if (\array_key_exists($name, self::_BUILTIN_SUPERGLOBAL_TYPES)) {
             // More efficient than using context.
             return UnionType::fromFullyQualifiedString(
                 self::_BUILTIN_SUPERGLOBAL_TYPES[$name]
             );
         }
 
-        if (array_key_exists($name, Config::getValue('globals_type_map'))
+        if (\array_key_exists($name, Config::getValue('globals_type_map'))
             || in_array($name, Config::getValue('runkit_superglobals'))
         ) {
             $type_string = Config::getValue('globals_type_map')[$name] ?? '';

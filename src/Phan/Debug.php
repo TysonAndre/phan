@@ -68,7 +68,7 @@ class Debug
      */
     public static function nodeName($node) : string
     {
-        if (is_string($node)) {
+        if (\is_string($node)) {
             return 'string';
         }
 
@@ -100,7 +100,7 @@ class Debug
             $string .= "$name => ";
         }
 
-        if (is_string($node)) {
+        if (\is_string($node)) {
             return $string . $node . "\n";
         }
 
@@ -108,7 +108,7 @@ class Debug
             return $string . 'null' . "\n";
         }
 
-        if (!is_object($node)) {
+        if (!\is_object($node)) {
             return $string . $node . "\n";
         }
 
@@ -255,7 +255,7 @@ class Debug
             return $result;
         } else if ($ast === null) {
             return 'null';
-        } else if (is_string($ast)) {
+        } else if (\is_string($ast)) {
             return "\"$ast\"";
         } else {
             return (string) $ast;
