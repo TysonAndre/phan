@@ -492,7 +492,7 @@ class ContextNode
                     StringType::instance(false)
                 ])
                 && !(
-                    Config::getValue('null_casts_as_any_type')
+                    Config::get_null_casts_as_any_type()
                     && $union_type->hasType(NullType::instance(false))
                 )
             ) {
@@ -1245,7 +1245,7 @@ class ContextNode
      */
     public function analyzeBackwardCompatibility()
     {
-        if (!Config::getValue('backward_compatibility_checks')) {
+        if (!Config::get_backward_compatibility_checks()) {
             return;
         }
 

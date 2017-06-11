@@ -710,7 +710,7 @@ class ParseVisitor extends ScopeVisitor
                 );
             }
         }
-        if (Config::getValue('backward_compatibility_checks')) {
+        if (Config::get_backward_compatibility_checks()) {
             $this->analyzeBackwardCompatibility($node);
 
             foreach ($node->children['args']->children ?? [] as $arg_node) {
@@ -760,7 +760,7 @@ class ParseVisitor extends ScopeVisitor
      */
     private function analyzeBackwardCompatibility(Node $node)
     {
-        if (Config::getValue('backward_compatibility_checks')) {
+        if (Config::get_backward_compatibility_checks()) {
             (new ContextNode(
                 $this->code_base,
                 $this->context,
@@ -857,7 +857,7 @@ class ParseVisitor extends ScopeVisitor
 
     public function visitAssign(Node $node) : Context
     {
-        if (!Config::getValue('backward_compatibility_checks')) {
+        if (!Config::get_backward_compatibility_checks()) {
             return $this->context;
         }
         // Analyze the assignment for compatibility with some
@@ -875,7 +875,7 @@ class ParseVisitor extends ScopeVisitor
 
     public function visitDim(Node $node) : Context
     {
-        if (!Config::getValue('backward_compatibility_checks')) {
+        if (!Config::get_backward_compatibility_checks()) {
             return $this->context;
         }
 

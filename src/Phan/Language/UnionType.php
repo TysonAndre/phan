@@ -759,7 +759,7 @@ class UnionType implements \Serializable
             return true;
         }
 
-        if (Config::getValue('null_casts_as_any_type')) {
+        if (Config::get_null_casts_as_any_type()) {
             // null <-> null
             if ($this->isType(NullType::instance(false))
                 || $target->isType(NullType::instance(false))
@@ -1122,7 +1122,7 @@ class UnionType implements \Serializable
         if ($this->hasType(ArrayType::instance(false))
             || $this->hasType(MixedType::instance(false))
             || (
-                Config::getValue('null_casts_as_any_type')
+                Config::get_null_casts_as_any_type()
                 && $this->hasType(ArrayType::instance(true))
             )
         ) {

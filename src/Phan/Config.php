@@ -21,6 +21,20 @@ class Config
      */
     private static $configuration = self::DEFAULT_CONFIGURATION;
 
+    // The 4 most commonly accessed configs:
+    /** @var bool */
+    private static $null_casts_as_any_type = false;
+
+    /** @var bool */
+    private static $dead_code_detection = false;
+
+    /** @var bool */
+    private static $backward_compatibility_checks = false;
+
+    /** @var bool */
+    private static $quick_mode = false;
+    // End of the 4 most commonly accessed configs.
+
     const DEFAULT_CONFIGURATION = [
         // A list of individual files to include in analysis
         // with a path relative to the root directory of the
@@ -439,7 +453,19 @@ class Config
         }
 
         $instance = new Config();
+        $instance->init();
         return $instance;
+    }
+
+    /**
+     * @return void
+     */
+    private function init()
+    {
+        // Trigger magic setters
+        foreach (self::$configuration as $name => $v) {
+            $this->{$name} = $v;
+        }
     }
 
     /**
@@ -459,14 +485,53 @@ class Config
         return self::$configuration[$name];
     }
 
+    public static function get_null_casts_as_any_type() : bool
+    {
+        return self::$null_casts_as_any_type;
+    }
+
+    public static function get_dead_code_detection() : bool
+    {
+        return self::$dead_code_detection;
+    }
+
+    public static function get_backward_compatibility_checks() : bool
+    {
+        return self::$backward_compatibility_checks;
+    }
+
+    public static function get_quick_mode() : bool
+    {
+        return self::$quick_mode;
+    }
+
     /** @return mixed */
     public function __get(string $name)
     {
         return self::$configuration[$name];
     }
 
+    /**
+     * @param string $name
+     * @param mixed $value
+     */
     public function __set(string $name, $value)
     {
+        switch ($name) {
+        case 'null_casts_as_any_type':
+            self::$null_casts_as_any_type = $value;
+            break;
+        case 'dead_code_detection':
+            self::$dead_code_detection = $value;
+            break;
+        case 'backward_compatibility_checks':
+            self::$backward_compatibility_checks = $value;
+            break;
+        case 'quick_mode':
+            self::$quick_mode = $value;
+            break;
+        }
+
         self::$configuration[$name] = $value;
     }
 
