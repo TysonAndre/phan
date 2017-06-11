@@ -35,6 +35,7 @@ class ConfigPluginSet extends Plugin {
         static $instance = null;
         if ($instance === null) {
             $instance = new self;
+            $instance->getPlugins();
         }
         return $instance;
     }
@@ -58,7 +59,7 @@ class ConfigPluginSet extends Plugin {
         Context $context,
         Node $node
     ) {
-        foreach ($this->getPlugins() as $plugin) {
+        foreach ($this->pluginSet as $plugin) {
             $plugin->preAnalyzeNode(
                 $code_base,
                 $context,
@@ -90,7 +91,7 @@ class ConfigPluginSet extends Plugin {
         Node $node,
         Node $parent_node = null
     ) {
-        foreach ($this->getPlugins() as $plugin) {
+        foreach ($this->pluginSet as $plugin) {
             $plugin->analyzeNode(
                 $code_base,
                 $context,
@@ -113,7 +114,7 @@ class ConfigPluginSet extends Plugin {
         CodeBase $code_base,
         Clazz $class
     ) {
-        foreach ($this->getPlugins() as $plugin) {
+        foreach ($this->pluginSet as $plugin) {
             $plugin->analyzeClass(
                 $code_base,
                 $class
@@ -134,7 +135,7 @@ class ConfigPluginSet extends Plugin {
         CodeBase $code_base,
         Method $method
     ) {
-        foreach ($this->getPlugins() as $plugin) {
+        foreach ($this->pluginSet as $plugin) {
             $plugin->analyzeMethod(
                 $code_base,
                 $method
@@ -165,7 +166,8 @@ class ConfigPluginSet extends Plugin {
 
     // Micro-optimization in tight loops: check for plugins before calling config plugin set
     public function hasPlugins() : bool {
-        return count($this->getPlugins()) > 0;
+        assert(!is_null($this->pluginSet));
+        return count($this->pluginSet) > 0;
     }
 
     /**

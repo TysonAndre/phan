@@ -21,13 +21,14 @@ abstract class KindVisitorImplementation implements KindVisitor
      */
     public function __invoke(Node $node)
     {
-        $fn_name = Element::VISIT_LOOKUP_TABLE[$node->kind] ?? null;
-        if (is_string($fn_name)) {
-            return $this->{$fn_name}($node);
-        } else {
-            Debug::printNode($node);
-            assert(false, 'All node kinds must match');
-        }
+        $fn_name = Element::VISIT_LOOKUP_TABLE[$node->kind] ?? 'handleMissingNodeKind';
+        return $this->{$fn_name}($node);
+    }
+
+    private function handleMissingNodeKind(Node $node)
+    {
+        Debug::printNode($node);
+        assert(false, 'All node kinds must match');
     }
 
     public function visitArgList(Node $node)

@@ -301,6 +301,9 @@ abstract class FullyQualifiedGlobalStructuralElement extends AbstractFQSEN
         return $fqsen_string;
     }
 
+    /** @var string|null */
+    private $asString = null;
+
     /**
      * @return string
      * A string representation of this fully-qualified
@@ -308,12 +311,15 @@ abstract class FullyQualifiedGlobalStructuralElement extends AbstractFQSEN
      */
     public function __toString() : string
     {
-        return $this->memoize(__METHOD__, function () {
-            return static::toString(
+        $asString = $this->asString;
+        if ($asString === null) {
+            $asString = static::toString(
                 $this->getNamespace(),
                 $this->getName(),
                 $this->getAlternateId()
             );
-        });
+            $this->asString = $asString;
+        }
+        return $asString;
     }
 }
