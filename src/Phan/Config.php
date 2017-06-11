@@ -14,13 +14,14 @@ class Config
      * The root directory of the project. This is used to
      * store canonical path names and find project resources
      */
-    private $project_root_directory = null;
+    private static $project_root_directory = null;
 
     /**
      * Configuration options
      */
-    private $configuration = [
+    private static $configuration = self::DEFAULT_CONFIGURATION;
 
+    const DEFAULT_CONFIGURATION = [
         // A list of individual files to include in analysis
         // with a path relative to the root directory of the
         // project
@@ -407,9 +408,9 @@ class Config
      * Get the root directory of the project that we're
      * scanning
      */
-    public function getProjectRootDirectory() : string
+    public static function getProjectRootDirectory() : string
     {
-        return $this->project_root_directory ?? getcwd();
+        return self::$project_root_directory ?? getcwd();
     }
 
     /**
@@ -447,18 +448,26 @@ class Config
      */
     public function toArray() : array
     {
-        return $this->configuration;
+        return self::$configuration;
+    }
+
+    /**
+     * @return mixed
+     */
+    public static function getValue(string $name)
+    {
+        return self::$configuration[$name];
     }
 
     /** @return mixed */
     public function __get(string $name)
     {
-        return $this->configuration[$name];
+        return self::$configuration[$name];
     }
 
     public function __set(string $name, $value)
     {
-        $this->configuration[$name] = $value;
+        self::$configuration[$name] = $value;
     }
 
     /**
@@ -475,7 +484,7 @@ class Config
         }
 
         return implode(DIRECTORY_SEPARATOR, [
-            Config::get()->getProjectRootDirectory(),
+            Config::getProjectRootDirectory(),
             $relative_path
         ]);
     }

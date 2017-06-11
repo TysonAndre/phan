@@ -76,7 +76,7 @@ class Phan implements IgnoredFilesFilterInterface {
         CodeBase $code_base,
         \Closure $file_path_lister
     ) : bool {
-        $is_daemon_request = Config::get()->daemonize_socket || Config::get()->daemonize_tcp_port;
+        $is_daemon_request = Config::getValue('daemonize_socket') || Config::getValue('daemonize_tcp_port');
         if ($is_daemon_request) {
             $code_base->enableUndoTracking();
         }
@@ -89,14 +89,14 @@ class Phan implements IgnoredFilesFilterInterface {
         // want to run an analysis on
         $analyze_file_path_list = [];
 
-        if (Config::get()->consistent_hashing_file_order) {
+        if (Config::getValue('consistent_hashing_file_order')) {
             // Parse the files in lexicographic order.
             // If there are duplicate class/function definitions,
             // this ensures they are added to the maps in the same order.
             sort($file_path_list, SORT_STRING);
         }
 
-        if (Config::get()->dump_parsed_file_list === true) {
+        if (Config::getValue('dump_parsed_file_list') === true) {
             // If --dump-parsed-file-list is provided,
             // print the files in the order they would be parsed.
             echo implode("\n", $file_path_list) . (count($file_path_list) > 0 ? "\n" : "");
@@ -141,12 +141,12 @@ class Phan implements IgnoredFilesFilterInterface {
 
         // Don't continue on to analysis if the user has
         // chosen to just dump the AST
-        if (Config::get()->dump_ast) {
+        if (Config::getValue('dump_ast')) {
             exit(EXIT_SUCCESS);
         }
 
-        if (is_string(Config::get()->dump_signatures_file)) {
-            exit(self::dumpSignaturesToFile($code_base, Config::get()->dump_signatures_file));
+        if (is_string(Config::getValue('dump_signatures_file'))) {
+            exit(self::dumpSignaturesToFile($code_base, Config::getValue('dump_signatures_file')));
         }
 
         $temporary_file_mapping = [];
@@ -195,7 +195,7 @@ class Phan implements IgnoredFilesFilterInterface {
         $code_base->setShouldHydrateRequestedElements(true);
 
 
-        // TODO: consider filtering if Config::get()->include_analysis_file_list is set
+        // TODO: consider filtering if Config::getValue('include_analysis_file_list') is set
         // most of what needs considering is that Analysis::analyzeClasses() and Analysis:analyzeFunctions() have side effects
         // these side effects don't matter in daemon mode, but they do matter with this other form of incremental analysis
         // other parts of these analysis steps could be skipped, which would reduce the overall execution time
@@ -236,7 +236,7 @@ class Phan implements IgnoredFilesFilterInterface {
         // the given process should analyze in a stable order
         $process_file_list_map =
             (new Ordering($code_base))->orderForProcessCount(
-                Config::get()->processes,
+                Config::getValue('processes'),
                 $analyze_file_path_list
             );
 
@@ -252,7 +252,7 @@ class Phan implements IgnoredFilesFilterInterface {
         // excessively.
         $process_count = count($process_file_list_map);
 
-        assert($process_count > 0 && $process_count <= Config::get()->processes,
+        assert($process_count > 0 && $process_count <= Config::getValue('processes'),
             "The process count must be between 1 and the given number of processes. After mapping files to cores, $process_count process were set to be used.");
 
         CLI::progress('analyze', 0.0);
@@ -363,13 +363,13 @@ class Phan implements IgnoredFilesFilterInterface {
     private static function isExcludedAnalysisFile(
         string $file_path
     ) : bool {
-        $include_analysis_file_list = Config::get()->include_analysis_file_list;
+        $include_analysis_file_list = Config::getValue('include_analysis_file_list');
         if ($include_analysis_file_list) {
             return !in_array($file_path, $include_analysis_file_list, true);
         }
 
         $file_path = str_replace('\\', '/', $file_path);
-        foreach (Config::get()->exclude_analysis_directory_list
+        foreach (Config::getValue('exclude_analysis_directory_list')
                  as $directory
         ) {
             if (0 === strpos($file_path, $directory)

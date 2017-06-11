@@ -712,7 +712,7 @@ EOB;
             !empty($this->config_file)
             ? realpath($this->config_file)
             : implode(DIRECTORY_SEPARATOR, [
-                Config::get()->getProjectRootDirectory(),
+                Config::getProjectRootDirectory(),
                 '.phan',
                 'config.php'
             ]);

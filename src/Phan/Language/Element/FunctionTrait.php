@@ -338,7 +338,7 @@ trait FunctionTrait {
         if (count($parameter_list) === 0) {
             return 0;
         }
-        if (Config::get()->quick_mode) {
+        if (Config::getValue('quick_mode')) {
             return 0;
         }
         $param_repr = implode(',', array_map(function(Variable $param) {
