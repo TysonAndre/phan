@@ -63,7 +63,7 @@ class UndoTracker {
      * @return void
      */
     public function setCurrentParsedFile($current_parsed_file) {
-        if (is_string($current_parsed_file)) {
+        if (\is_string($current_parsed_file)) {
             Daemon::debugf("Recording file modification state for %s", $current_parsed_file);
             $this->fileModificationState[$current_parsed_file] = self::getFileState($current_parsed_file);
         }
@@ -119,7 +119,7 @@ class UndoTracker {
      */
     public function recordUndo(\Closure $undo_operation) {
         $file = $this->current_parsed_file;
-        if (!is_string($file)) {
+        if (!\is_string($file)) {
             debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
             throw new \Error("Called recordUndo in CodeBaseMutable, but not parsing a file");
         }
