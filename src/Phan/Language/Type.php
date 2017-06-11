@@ -1345,14 +1345,13 @@ class Type
 
         if ($this->getIsNullable()) {
             // A nullable type cannot cast to a non-nullable type (Except when null_casts_as_any_type is true)
-            $config = Config::get();
-            if ($config->null_casts_as_any_type) {
+            if (Config::get_null_casts_as_any_type()) {
                 return true;
-            } else if ($config->null_casts_as_array && $type->isArrayLike()) {
+            } else if (Config::getValue('null_casts_as_array') && $type->isArrayLike()) {
                 return true;
             } else if ($type->isScalar() && (
-                    $config->scalar_implicit_cast ||
-                    in_array($type->getName(), $config->scalar_implicit_partial['null'] ?? []))) {
+                    Config::getValue('scalar_implicit_cast') ||
+                    in_array($type->getName(), Config::getValue('scalar_implicit_partial')['null'] ?? []))) {
                 // e.g. allow casting ?string to string if scalar_implicit_cast or 'null' => ['string'] is in scalar_implicit_partial.
                 return true;
             }

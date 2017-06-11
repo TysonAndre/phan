@@ -40,10 +40,9 @@ class NullType extends ScalarType
 
     public function canCastToNonNullableType(Type $type) : bool
     {
-        $config = Config::get();
         // null_casts_as_any_type means that null or nullable can cast to any type?
-        return $config->null_casts_as_any_type
-            || ($config->null_casts_as_array && $type->isArrayLike())
+        return Config::get_null_casts_as_any_type()
+            || (Config::get_null_casts_as_array() && $type->isArrayLike())
             || parent::canCastToNonNullableType($type);
     }
 
@@ -64,18 +63,19 @@ class NullType extends ScalarType
             return true;
         }
 
-        $config = Config::get();
-        if ($config->null_casts_as_any_type) {
+        if (Config::get_null_casts_as_any_type()) {
             return true;
         }
 
         // NullType is a sub-type of ScalarType. So it's affected by scalar_implicit_cast.
         if ($type->isScalar()) {
-            if ($config->scalar_implicit_cast) {
+            if (Config::getValue('scalar_implicit_cast')) {
                 return true;
-            } else if (count($config->scalar_implicit_partial) > 0) {
+            }
+            $partial_cast_types = Config::getValue('scalar_implicit_partial');
+            if (count($partial_cast_types) > 0) {
                 // check if $type->getName() is in the list of permitted types $this->getName() can cast to.
-                if ($type->isScalar() && in_array($type->getName(), $config->scalar_implicit_partial[$this->getName()] ?? [])) {
+                if ($type->isScalar() && in_array($type->getName(), $partial_cast_types[$this->getName()] ?? [])) {
                     return true;
                 }
             }

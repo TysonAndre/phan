@@ -83,7 +83,7 @@ class ParameterTypesAnalyzer
         CodeBase $code_base,
         Method $method
     ) {
-        if (!Config::get()->analyze_signature_compatibility) {
+        if (!Config::getValue('analyze_signature_compatibility')) {
             return;
         }
 

@@ -380,7 +380,7 @@ class Method extends ClassElement implements FunctionInterface
                 }
             }
 
-            if (Config::get()->check_docblock_signature_return_type_match) {
+            if (Config::getValue('check_docblock_signature_return_type_match')) {
                 // Make sure that the commented type is a narrowed
                 // or equivalent form of the syntax-level declared
                 // return type.

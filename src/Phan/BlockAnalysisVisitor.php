@@ -500,8 +500,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
 
     /**
      * @param Decl $node
-     * An AST node we'd like to determine the UnionType
-     * for
+     * An AST node we'd like to analyze the statements for
      *
      * @return Context
      * The updated context after visiting the node

@@ -22,7 +22,7 @@ class ParentConstructorCalledAnalyzer
         // to its parent constructor
         if (!in_array(
             $clazz->getName(),
-            Config::get()->parent_constructor_required
+            Config::getValue('parent_constructor_required')
         )
         ) {
             return;

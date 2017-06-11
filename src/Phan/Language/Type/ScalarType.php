@@ -60,7 +60,7 @@ abstract class ScalarType extends NativeType
     {
         $config = Config::get();
         // Scalars may be configured to always cast to eachother
-        if ($config->scalar_implicit_cast
+        if (Config::getValue('scalar_implicit_cast')
             && $type->isScalar()
         ) {
             return true;
