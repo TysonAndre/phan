@@ -141,7 +141,7 @@ class Clazz extends AddressableElement
      * A reference to the entire code base in which this
      * context exists
      *
-     * @param ReflectionClass $class
+     * @param \ReflectionClass $class
      * A reflection class representing a builtin class.
      *
      * @return Clazz
@@ -369,8 +369,7 @@ class Clazz extends AddressableElement
 
         $this->parent_type = $parent_type;
 
-        // Add the parent to the union type of this
-        // class
+        // Add the parent to the union type of this class
         $this->getUnionType()->addUnionType(
             $parent_type->asUnionType()
         );
@@ -502,7 +501,7 @@ class Clazz extends AddressableElement
      * details
      *
      * @return FullyQualifiedClassName
-     * The FQSEN of the root class on this class's hiearchy
+     * The FQSEN of the root class on this class's hierarchy
      */
     public function getHierarchyRootFQSEN(
         CodeBase $code_base
@@ -1208,11 +1207,12 @@ class Clazz extends AddressableElement
      */
     public function hasMethodWithName(
         CodeBase $code_base,
-        string $name
+        string $name,
+        bool $is_direct_invocation = false
     ) : bool {
         // All classes have a constructor even if it hasn't
         // been declared yet
-        if ('__construct' === strtolower($name)) {
+        if (!$is_direct_invocation && '__construct' === strtolower($name)) {
             return true;
         }
 

@@ -210,11 +210,17 @@ class AssignmentVisitor extends AnalysisVisitor
                         $this->context,
                         $exception->getIssueInstance()
                     );
-                    return $this->context;
+                    continue;
                 }
-
+            } else {
+                $this->context = (new AssignmentVisitor(
+                    $this->code_base,
+                    $this->context,
+                    $node,
+                    $element_type,
+                    false
+                ))($value_node);
             }
-
         }
 
         return $this->context;
@@ -356,32 +362,53 @@ class AssignmentVisitor extends AnalysisVisitor
                 return $this->context;
             }
 
-            if (!$this->right_type->canCastToExpandedUnionType(
-                    $property->getUnionType(),
-                    $this->code_base
-                )
-                && !($this->right_type->hasTypeInBoolFamily() && $property->getUnionType()->hasTypeInBoolFamily())
-                && !$clazz->getHasDynamicProperties($this->code_base)
-            ) {
-                // TODO: optionally, change the message from "::" to "->"?
-                $this->emitIssue(
-                    Issue::TypeMismatchProperty,
-                    $node->lineno ?? 0,
-                    (string)$this->right_type,
-                    "{$clazz->getFQSEN()}::{$property->getName()}",
-                    (string)$property->getUnionType()
-                );
-
-                return $this->context;
-            } else {
-                // If we're assigning to an array element then we don't
-                // know what the constitutation of the parameter is
-                // outside of the scope of this assignment, so we add to
-                // its union type rather than replace it.
-                if ($this->is_dim_assignment) {
-                    $property->getUnionType()->addUnionType(
+            // If we're assigning to an array element then we don't
+            // know what the constitutation of the parameter is
+            // outside of the scope of this assignment, so we add to
+            // its union type rather than replace it.
+            $property_union_type = $property->getUnionType();
+            if ($this->is_dim_assignment) {
+                if ($this->right_type->canCastToExpandedUnionType(
+                        $property_union_type,
+                        $this->code_base
+                    )
+                ) {
+                    $property_union_type->addUnionType(
                         $this->right_type
                     );
+                } else if ($property_union_type->asExpandedTypes($this->code_base)->hasArrayAccess()) {
+                    // Add any type if this is a subclass with array access.
+                    $property_union_type->addUnionType(
+                        $this->right_type
+                    );
+                } else {
+                    $this->emitIssue(
+                        Issue::TypeMismatchProperty,
+                        $node->lineno ?? 0,
+                        (string)$this->right_type,
+                        "{$clazz->getFQSEN()}::{$property->getName()}",
+                        (string)$property_union_type
+                    );
+                    return $this->context;
+                }
+            } else {
+                if (!$this->right_type->canCastToExpandedUnionType(
+                        $property_union_type,
+                        $this->code_base
+                    )
+                    && !($this->right_type->hasTypeInBoolFamily() && $property_union_type->hasTypeInBoolFamily())
+                    && !$clazz->getHasDynamicProperties($this->code_base)
+                ) {
+                    // TODO: optionally, change the message from "::" to "->"?
+                    $this->emitIssue(
+                        Issue::TypeMismatchProperty,
+                        $node->lineno ?? 0,
+                        (string)$this->right_type,
+                        "{$clazz->getFQSEN()}::{$property->getName()}",
+                        (string)$property_union_type
+                    );
+
+                    return $this->context;
                 }
             }
 
@@ -560,6 +587,10 @@ class AssignmentVisitor extends AnalysisVisitor
             );
             return $this->context;
         }
+        // Don't analyze variables when we can't determine their names.
+        if ($variable_name === '') {
+            return $this->context;
+        }
 
         // Check to see if the variable already exists
         if ($this->context->getScope()->hasVariableWithName(
@@ -580,7 +611,7 @@ class AssignmentVisitor extends AnalysisVisitor
                 );
 
             } else {
-                // If the variable isn't a pass-by-reference paramter
+                // If the variable isn't a pass-by-reference parameter
                 // we clone it so as to not disturb its previous types
                 // as we replace it.
                 if ($variable instanceof Parameter) {
@@ -600,6 +631,15 @@ class AssignmentVisitor extends AnalysisVisitor
             );
 
             return $this->context;
+        } else {
+            // no such variable exists, check for invalid array Dim access
+            if ($this->is_dim_assignment) {
+                $this->emitIssue(
+                    Issue::UndeclaredVariableDim,
+                    $node->lineno ?? 0,
+                    $variable_name
+                );
+            }
         }
 
         $variable = Variable::fromNodeInContext(

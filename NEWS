@@ -6,9 +6,38 @@ New Features (Analysis)
 + Automatically inherit `@param` and `@return` types from parent methods.
   This is controlled by the boolean config `enable_phpdoc_types`, which is true by default.
   `analyze_signature_compatibility` must also be set to true (default is true) for this step to be performed.
++ Better analysis of calls to parent::__construct(). (Issue #852)
++ Warn with `PhanAccessOwnConstructor` if directly invoking self::__construct or static::__construct in some cases (partial).
++ Start analyzing the inside of for/while loops using the loop's condition (Issue #859)
+  (Inferences may leak to outside of those loops. `do{} while(cond)` is not specially analyzed yet)
++ Improve analysis of types in expressions within compound conditions (Issue #847)
+  (E.g. `if (is_array($x) && fn_expecting_array($x)) {...}`)
++ Evaluate the third part of a for loop with the context after the inner body is evaluated (Issue #477)
++ Emit `PhanUndeclaredVariableDim` if adding an array field to an undeclared variable. (Issue #841)
+  Better analyze `list($var['field']) = values`
++ Improve accuracy of `PhanTypeMismatchDeclaredReturn` (Move the check to after params are parsed)
++ Create `PhanTypeMismatchDeclaredParam` (Move the check to after params are parsed)
+  Also `prefer_narrowed_phpdoc_param_type` (See "New Features (CLI, Configs))
++ Detect undeclared return types at point of declaration, and emit `PhanUndeclaredTypeReturnType` (Issue #835)
 
-?? ??? 2017, Phan 0.9.2 (dev)
------------------------
+New Features (CLI, Configs)
++ Create `check_docblock_signature_param_type_match` (similar to `check_docblock_signature_return_type_match`) config setting
+  to enable warning if phpdoc types are incompatible with the real types. False by default.
+
+  Create `prefer_narrowed_phpdoc_param_type` (requires `check_docblock_signature_return_type_match`)
+  to analyze phpdoc param types instead of provided signature types if the possible phpdoc types are narrower and compatible.
+  (E.g. indicate that subclasses are expected over base classes, indicate that non-nullable is expected instead of nullable)
+  This affects analysis both inside and outside the method.
+
+Maintenance
+
+Bug Fixes
++ Work around known bugs in current releases of two PECL extensions (Issue #888, #889)
+
+Backwards Incompatible Changes
+
+0.9.2 Jun 13, 2017
+------------------
 
 New Features (Analysis)
 + Add `PhanParamSignatureRealMismatch*` (e.g. `ParamSignatureRealMismatchTooManyRequiredParameters`),

@@ -5,6 +5,8 @@ use Phan\AST\ContextNode;
 use Phan\AST\UnionTypeVisitor;
 use Phan\AST\Visitor\KindVisitorImplementation;
 use Phan\CodeBase;
+use Phan\Exception\IssueException;
+use Phan\Issue;
 use Phan\Language\Type;
 use Phan\Language\Context;
 use Phan\Language\Type\ArrayType;
@@ -70,7 +72,32 @@ class ConditionVisitor extends KindVisitorImplementation
      */
     public function visit(Node $node) : Context
     {
+        $this->checkVariablesDefined($node);
         return $this->context;
+    }
+
+    /**
+     * Check if variables from within a generic condition are defined.
+     * @param Node $node
+     * A node to parse
+     * @return void
+     */
+    private function checkVariablesDefined(Node $node)
+    {
+        while ($node->kind === \ast\AST_UNARY_OP) {
+            $node = $node->children['expr'];
+            if (!($node instanceof Node)) {
+                return;
+            }
+        }
+        // Get the type just to make sure everything
+        // is defined.
+        UnionTypeVisitor::unionTypeFromNode(
+            $this->code_base,
+            $this->context,
+            $node,
+            true
+        );
     }
 
     /**
@@ -87,10 +114,14 @@ class ConditionVisitor extends KindVisitorImplementation
         if ($flags === \ast\flags\BINARY_BOOL_AND) {
             return $this->visitShortCircuitingAnd($node->children['left'], $node->children['right']);
         } else if ($flags === \ast\flags\BINARY_IS_IDENTICAL) {
+            $this->checkVariablesDefined($node);
             return $this->analyzeIsIdentical($node->children['left'], $node->children['right']);
         } else if ($flags === \ast\flags\BINARY_IS_NOT_IDENTICAL || $flags === \ast\flags\BINARY_IS_NOT_EQUAL) {
+            $this->checkVariablesDefined($node);
             // TODO: Add a different function for IS_NOT_EQUAL, e.g. analysis of != null should be different from !== null (First would remove FalseType)
             return $this->analyzeIsNotIdentical($node->children['left'], $node->children['right']);
+        } else {
+            $this->checkVariablesDefined($node);
         }
         return $this->context;
     }
@@ -247,20 +278,34 @@ class ConditionVisitor extends KindVisitorImplementation
      */
     public function visitUnaryOp(Node $node) : Context
     {
+        $expr_node = $node->children['expr'];
         if (($node->flags ?? 0) !== \ast\flags\UNARY_BOOL_NOT) {
+            if ($expr_node instanceof Node) {
+                $this->checkVariablesDefined($expr_node);
+            }
             return $this->context;
         }
-        return $this->updateContextWithNegation($node->children['expr'], $this->context);
+        // TODO: Emit dead code issue for non-nodes
+        if ($expr_node instanceof Node) {
+            return $this->updateContextWithNegation($expr_node, $this->context);
+        }
+        return $this->context;
     }
 
     private function updateContextWithNegation(Node $negatedNode, Context $context) : Context
     {
+        $this->checkVariablesDefined($negatedNode);
         // Negation
         // TODO: negate instanceof, other checks
         // TODO: negation would also go in the else statement
         // TODO: if (!$x) {} should narrow the types down to false and null (and other falsey possibilities such as int(0), string(""/"0"), array([]))
         if (($negatedNode->kind ?? 0) === \ast\AST_CALL) {
             $args = $negatedNode->children['args']->children;
+            foreach ($args as $arg) {
+                if ($arg instanceof Node) {
+                    $this->checkVariablesDefined($arg);
+                }
+            }
             if (self::isArgumentListWithVarAsFirstArgument($args)) {
                 $function_name = strtolower(ltrim($negatedNode->children['expr']->children['name'], '\\'));
                 if (count($args) !== 1 && $function_name !== 'is_a') {
@@ -363,6 +408,7 @@ class ConditionVisitor extends KindVisitorImplementation
      */
     public function visitCoalesce(Node $node) : Context
     {
+        $this->checkVariablesDefined($node);
         return $this->context;
     }
 
@@ -376,6 +422,7 @@ class ConditionVisitor extends KindVisitorImplementation
      */
     public function visitIsset(Node $node) : Context
     {
+        $this->checkVariablesDefined($node);
         if ($node->children['var']->kind !== \ast\AST_VAR) {
             return $this->context;
         }
@@ -393,6 +440,7 @@ class ConditionVisitor extends KindVisitorImplementation
      */
     public function visitVar(Node $node) : Context
     {
+        $this->checkVariablesDefined($node);
         return $this->removeFalseyFromVariable($node, $this->context);
     }
 
@@ -512,6 +560,8 @@ class ConditionVisitor extends KindVisitorImplementation
             $context = $context->withScopeVariable(
                 $variable
             );
+        } catch (IssueException $exception) {
+            Issue::maybeEmitInstance($this->code_base, $context, $exception->getIssueInstance());
         } catch (\Exception $exception) {
             // Swallow it
         }
@@ -528,6 +578,7 @@ class ConditionVisitor extends KindVisitorImplementation
      */
     public function visitInstanceof(Node $node) : Context
     {
+        //$this->checkVariablesDefined($node);
         // Only look at things of the form
         // `$variable instanceof ClassName`
         if ($node->children['expr']->kind !== \ast\AST_VAR) {
@@ -562,7 +613,8 @@ class ConditionVisitor extends KindVisitorImplementation
             $context = $context->withScopeVariable(
                 $variable
             );
-
+        } catch (IssueException $exception) {
+            Issue::maybeEmitInstance($this->code_base, $context, $exception->getIssueInstance());
         } catch (\Exception $exception) {
             // Swallow it
         }
@@ -780,6 +832,8 @@ class ConditionVisitor extends KindVisitorImplementation
             $context = $context->withScopeVariable(
                 $variable
             );
+        } catch (IssueException $exception) {
+            Issue::maybeEmitInstance($this->code_base, $context, $exception->getIssueInstance());
         } catch (\Exception $exception) {
             // Swallow it (E.g. IssueException for undefined variable)
         }
@@ -810,6 +864,31 @@ class ConditionVisitor extends KindVisitorImplementation
                 }
             );
         }
+        $this->checkVariablesDefined($node);
         return $this->context;
+    }
+
+    /**
+     * @param Node $node
+     * A node to parse
+     *
+     * @return Context
+     * A new or an unchanged context resulting from
+     * parsing the node
+     */
+    public function visitExprList(Node $node) : Context
+    {
+        $children = $node->children;
+        $count = count($children);
+        if ($count > 1) {
+            foreach ($children as $sub_node) {
+                --$count;
+                if ($count > 0 && $sub_node instanceof Node) {
+                    $this->checkVariablesDefined($sub_node);
+                }
+            }
+        }
+        // Only analyze the last expression in the expression list for conditions.
+        return $this(end($node->children));
     }
 }

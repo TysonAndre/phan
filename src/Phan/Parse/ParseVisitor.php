@@ -63,7 +63,7 @@ class ParseVisitor extends ScopeVisitor
     /**
      * Visit a node with kind `\ast\AST_CLASS`
      *
-     * @param Node $node
+     * @param Decl $node
      * A node to parse
      *
      * @return Context
@@ -286,7 +286,7 @@ class ParseVisitor extends ScopeVisitor
     /**
      * Visit a node with kind `\ast\AST_METHOD`
      *
-     * @param Node $node
+     * @param Decl $node
      * A node to parse
      *
      * @return Context
@@ -445,7 +445,7 @@ class ParseVisitor extends ScopeVisitor
                 $union_type = new UnionType();
             }
 
-            // Don't set 'null' as the type if thats the default
+            // Don't set 'null' as the type if that's the default
             // given that its the default default.
             if ($union_type->isType(NullType::instance(false))) {
                 $union_type = new UnionType();
@@ -491,6 +491,7 @@ class ParseVisitor extends ScopeVisitor
             if ($variable = $comment->getVariableList()[$i] ?? null) {
                 if ((string)$union_type != 'null'
                     && !$union_type->canCastToUnionType($variable->getUnionType())
+                    && !$property->hasSuppressIssue(Issue::TypeMismatchProperty)
                 ) {
                     $this->emitIssue(
                         Issue::TypeMismatchProperty,
@@ -621,7 +622,7 @@ class ParseVisitor extends ScopeVisitor
     /**
      * Visit a node with kind `\ast\AST_FUNC_DECL`
      *
-     * @param Node $node
+     * @param Decl $node
      * A node to parse
      *
      * @return Context

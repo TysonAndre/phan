@@ -141,7 +141,7 @@ class Func extends AddressableElement implements FunctionInterface
      *
      * @param CodeBase $code_base
      *
-     * @param Node $node
+     * @param Decl $node
      * An AST node representing a function
      *
      * @param FullyQualifiedFunctionName $fqsen
@@ -251,6 +251,7 @@ class Func extends AddressableElement implements FunctionInterface
                 $code_base,
                 $node->children['returnType']
             );
+            $func->setRealReturnType($union_type);
 
             $func->getUnionType()->addUnionType($union_type);
         }

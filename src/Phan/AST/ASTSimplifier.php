@@ -209,7 +209,7 @@ class ASTSimplifier {
     /**
      * Replaces the last node in a list with a list of 0 or more nodes
      * @param \ast\Node[] $nodes
-     * @param \ast\Node[] $new_statements
+     * @param \ast\Node ...$new_statements
      * @return void
      */
     private static function replaceLastNodeWithNodeList(array &$nodes, Node... $new_statements) {

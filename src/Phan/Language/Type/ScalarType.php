@@ -4,6 +4,8 @@ namespace Phan\Language\Type;
 use Phan\CodeBase;
 use Phan\Config;
 use Phan\Language\Type;
+use Phan\Language\UnionType;
+use Phan\Language\Context;
 
 abstract class ScalarType extends NativeType
 {
@@ -80,7 +82,7 @@ abstract class ScalarType extends NativeType
     }
 
     /**
-     *
+     * @override
      */
     public function asFQSENString() : string
     {
@@ -98,5 +100,16 @@ abstract class ScalarType extends NativeType
     {
         // Subclasses of ScalarType all have false values within their types.
         return $this;
+    }
+
+    /**
+     * @override
+     */
+    public function isExclusivelyNarrowedFormOrEquivalentTo(
+        UnionType $union_type,
+        Context $context,
+        CodeBase $code_base
+    ) : bool {
+        return $union_type->hasType($this) || $this->asUnionType()->canCastToUnionType($union_type);
     }
 }
