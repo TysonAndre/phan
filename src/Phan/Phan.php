@@ -76,6 +76,7 @@ class Phan implements IgnoredFilesFilterInterface {
         CodeBase $code_base,
         \Closure $file_path_lister
     ) : bool {
+        self::checkForSlowPHPOptions();
         $is_daemon_request = Config::getValue('daemonize_socket') || Config::getValue('daemonize_tcp_port');
         if ($is_daemon_request) {
             $code_base->enableUndoTracking();
@@ -201,6 +202,12 @@ class Phan implements IgnoredFilesFilterInterface {
         // these side effects don't matter in daemon mode, but they do matter with this other form of incremental analysis
         // other parts of these analysis steps could be skipped, which would reduce the overall execution time
         $path_filter = isset($request) ? array_flip($analyze_file_path_list) : null;
+
+        // Tie class aliases together with the source class
+        if (Config::get()->enable_class_alias_support) {
+            $code_base->resolveClassAliases();
+        }
+
         // Take a pass over all functions verifying
         // various states now that we have the whole
         // state in memory
@@ -472,5 +479,28 @@ class Phan implements IgnoredFilesFilterInterface {
      */
     public function isFilenameIgnored(string $filename):bool {
         return self::isExcludedAnalysisFile($filename);
+    }
+
+    /**
+     * Logs slow php options to stdout
+     * @return void
+     */
+    private static function checkForSlowPHPOptions() {
+        if (Config::get()->skip_slow_php_options_warning) {
+            return;
+        }
+        $warned = false;
+        // Unless debugging Phan itself, these two configurations are unnecessarily adding slowness.
+        if (PHP_DEBUG) {
+            fwrite(STDERR, "Warning: Phan is around twice as slow when php is compiled with --enable-debug (That option is only needed when debugging Phan itself).\n");
+            $warned = true;
+        }
+        if (extension_loaded('xdebug')) {
+            fwrite(STDERR, "Warning: Phan is around five times as slow when xdebug is enabled (xdebug only makes sense when debugging Phan itself)\n");
+            $warned = true;
+        }
+        if ($warned) {
+            fwrite(STDERR, "(The above warnings about slow PHP settings can be disabled by setting 'skip_slow_php_options_warning' to true in .phan/config.php)\n");
+        }
     }
 }

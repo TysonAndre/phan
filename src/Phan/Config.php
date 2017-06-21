@@ -139,6 +139,7 @@ class Config
         // parent method to make sure its signature is
         // compatible with the parent's. This check
         // can add quite a bit of time to the analysis.
+        // This will also check if final methods are overridden, etc.
         'analyze_signature_compatibility' => true,
 
         // If enabled, inherit any missing phpdoc for types from
@@ -238,6 +239,14 @@ class Config
         // This option also slows down analysis noticeably.
         'simplify_ast' => false,
 
+        // If true, Phan will read `class_alias` calls in the global scope,
+        // then (1) create aliases from the *parsed* files if no class definition was found,
+        // and (2) emit issues in the global scope if the source or target class is invalid.
+        // (If there are multiple possible valid original classes for an aliased class name,
+        //  the one which will be created is unspecified.)
+        // NOTE: THIS IS EXPERIMENTAL, and the implementation may change.
+        'enable_class_alias_support' => false,
+
         // If disabled, Phan will not read docblock type
         // annotation comments for @property.
         // @property-read and @property-write are treated exactly the
@@ -326,23 +335,47 @@ class Config
         // If this white-list is non-empty, only issues within the list
         // will be emitted by Phan.
         'whitelist_issue_types' => [
+            // 'PhanAccessClassConstantInternal',
+            // 'PhanAccessClassConstantPrivate',
+            // 'PhanAccessClassConstantProtected',
+            // 'PhanAccessClassInternal',
+            // 'PhanAccessConstantInternal',
+            // 'PhanAccessMethodInternal',
             // 'PhanAccessMethodPrivate',
+            // 'PhanAccessMethodPrivateWithCallMagicMethod',
             // 'PhanAccessMethodProtected',
+            // 'PhanAccessMethodProtectedWithCallMagicMethod',
             // 'PhanAccessNonStaticToStatic',
+            // 'PhanAccessOwnConstructor',
+            // 'PhanAccessPropertyInternal',
             // 'PhanAccessPropertyPrivate',
             // 'PhanAccessPropertyProtected',
+            // 'PhanAccessPropertyStaticAsNonStatic',
             // 'PhanAccessSignatureMismatch',
             // 'PhanAccessSignatureMismatchInternal',
             // 'PhanAccessStaticToNonStatic',
+            // 'PhanClassContainsAbstractMethod',
+            // 'PhanClassContainsAbstractMethodInternal',
+            // 'PhanCommentParamOnEmptyParamList',
+            // 'PhanCommentParamWithoutRealParam',
             // 'PhanCompatibleExpressionPHP7',
             // 'PhanCompatiblePHP7',
             // 'PhanContextNotObject',
             // 'PhanDeprecatedClass',
-            // 'PhanDeprecatedInterface',
-            // 'PhanDeprecatedTrait',
             // 'PhanDeprecatedFunction',
+            // 'PhanDeprecatedFunctionInternal',
+            // 'PhanDeprecatedInterface',
             // 'PhanDeprecatedProperty',
+            // 'PhanDeprecatedTrait',
             // 'PhanEmptyFile',
+            // 'PhanGenericConstructorTypes',
+            // 'PhanGenericGlobalVariable',
+            // 'PhanIncompatibleCompositionMethod',
+            // 'PhanIncompatibleCompositionProp',
+            // 'PhanInvalidCommentForDeclarationType',
+            // 'PhanMismatchVariadicComment',
+            // 'PhanMismatchVariadicParam',
+            // 'PhanMisspelledAnnotation',
             // 'PhanNonClassMethodCall',
             // 'PhanNoopArray',
             // 'PhanNoopClosure',
@@ -353,6 +386,36 @@ class Config
             // 'PhanParamReqAfterOpt',
             // 'PhanParamSignatureMismatch',
             // 'PhanParamSignatureMismatchInternal',
+            // 'PhanParamSignaturePHPDocMismatchHasNoParamType',
+            // 'PhanParamSignaturePHPDocMismatchHasParamType',
+            // 'PhanParamSignaturePHPDocMismatchParamIsNotReference',
+            // 'PhanParamSignaturePHPDocMismatchParamIsReference',
+            // 'PhanParamSignaturePHPDocMismatchParamNotVariadic',
+            // 'PhanParamSignaturePHPDocMismatchParamType',
+            // 'PhanParamSignaturePHPDocMismatchParamVariadic',
+            // 'PhanParamSignaturePHPDocMismatchReturnType',
+            // 'PhanParamSignaturePHPDocMismatchTooFewParameters',
+            // 'PhanParamSignaturePHPDocMismatchTooManyRequiredParameters',
+            // 'PhanParamSignatureRealMismatchHasNoParamType',
+            // 'PhanParamSignatureRealMismatchHasNoParamTypeInternal',
+            // 'PhanParamSignatureRealMismatchHasParamType',
+            // 'PhanParamSignatureRealMismatchHasParamTypeInternal',
+            // 'PhanParamSignatureRealMismatchParamIsNotReference',
+            // 'PhanParamSignatureRealMismatchParamIsNotReferenceInternal',
+            // 'PhanParamSignatureRealMismatchParamIsReference',
+            // 'PhanParamSignatureRealMismatchParamIsReferenceInternal',
+            // 'PhanParamSignatureRealMismatchParamNotVariadic',
+            // 'PhanParamSignatureRealMismatchParamNotVariadicInternal',
+            // 'PhanParamSignatureRealMismatchParamType',
+            // 'PhanParamSignatureRealMismatchParamTypeInternal',
+            // 'PhanParamSignatureRealMismatchParamVariadic',
+            // 'PhanParamSignatureRealMismatchParamVariadicInternal',
+            // 'PhanParamSignatureRealMismatchReturnType',
+            // 'PhanParamSignatureRealMismatchReturnTypeInternal',
+            // 'PhanParamSignatureRealMismatchTooFewParameters',
+            // 'PhanParamSignatureRealMismatchTooFewParametersInternal',
+            // 'PhanParamSignatureRealMismatchTooManyRequiredParameters',
+            // 'PhanParamSignatureRealMismatchTooManyRequiredParametersInternal',
             // 'PhanParamSpecial1',
             // 'PhanParamSpecial2',
             // 'PhanParamSpecial3',
@@ -364,11 +427,16 @@ class Config
             // 'PhanParamTypeMismatch',
             // 'PhanParentlessClass',
             // 'PhanRedefineClass',
+            // 'PhanRedefineClassAlias',
             // 'PhanRedefineClassInternal',
             // 'PhanRedefineFunction',
             // 'PhanRedefineFunctionInternal',
+            // 'PhanRequiredTraitNotAdded',
             // 'PhanStaticCallToNonStatic',
             // 'PhanSyntaxError',
+            // 'PhanTemplateTypeConstant',
+            // 'PhanTemplateTypeStaticMethod',
+            // 'PhanTemplateTypeStaticProperty',
             // 'PhanTraitParentReference',
             // 'PhanTypeArrayOperator',
             // 'PhanTypeArraySuspicious',
@@ -377,10 +445,13 @@ class Config
             // 'PhanTypeConversionFromArray',
             // 'PhanTypeInstantiateAbstract',
             // 'PhanTypeInstantiateInterface',
+            // 'PhanTypeInvalidClosureScope',
             // 'PhanTypeInvalidLeftOperand',
             // 'PhanTypeInvalidRightOperand',
             // 'PhanTypeMismatchArgument',
             // 'PhanTypeMismatchArgumentInternal',
+            // 'PhanTypeMismatchDeclaredParam',
+            // 'PhanTypeMismatchDeclaredReturn',
             // 'PhanTypeMismatchDefault',
             // 'PhanTypeMismatchForeach',
             // 'PhanTypeMismatchProperty',
@@ -388,14 +459,18 @@ class Config
             // 'PhanTypeMissingReturn',
             // 'PhanTypeNonVarPassByRef',
             // 'PhanTypeParentConstructorCalled',
+            // 'PhanTypeSuspiciousIndirectVariable',
             // 'PhanTypeVoidAssignment',
             // 'PhanUnanalyzable',
+            // 'PhanUndeclaredAliasedMethodOfTrait',
             // 'PhanUndeclaredClass',
+            // 'PhanUndeclaredClassAliasOriginal',
             // 'PhanUndeclaredClassCatch',
             // 'PhanUndeclaredClassConstant',
             // 'PhanUndeclaredClassInstanceof',
             // 'PhanUndeclaredClassMethod',
             // 'PhanUndeclaredClassReference',
+            // 'PhanUndeclaredClosureScope',
             // 'PhanUndeclaredConstant',
             // 'PhanUndeclaredExtendedClass',
             // 'PhanUndeclaredFunction',
@@ -407,7 +482,11 @@ class Config
             // 'PhanUndeclaredTrait',
             // 'PhanUndeclaredTypeParameter',
             // 'PhanUndeclaredTypeProperty',
+            // 'PhanUndeclaredTypeReturnType',
             // 'PhanUndeclaredVariable',
+            // 'PhanUndeclaredVariableDim',
+            // 'PhanUnextractableAnnotation',
+            // 'PhanUnextractableAnnotationPart',
             // 'PhanUnreferencedClass',
             // 'PhanUnreferencedConstant',
             // 'PhanUnreferencedMethod',
@@ -423,7 +502,7 @@ class Config
         'runkit_superglobals' => [],
 
         // Override to hardcode existence and types of (non-builtin) globals in the global scope.
-        // Class names must be prefixed with '\\'.
+        // Class names should be prefixed with '\\'.
         // (E.g. ['_FOO' => '\\FooClass', 'page' => '\\PageClass', 'userId' => 'int'])
         'globals_type_map' => [],
 
@@ -464,6 +543,10 @@ class Config
 
         // Set by --print-memory-usage-summary. Prints a memory usage summary to stderr after analysis.
         'print_memory_usage_summary' => false,
+
+        // By default, Phan will log error messages to stdout if PHP is using options that slow the analysis.
+        // (e.g. PHP is compiled with --enable-debug or when using XDebug)
+        'skip_slow_php_options_warning' => false,
 
         // Path to a unix socket for a daemon to listen to files to analyze. Use command line option instead.
         'daemonize_socket' => false,

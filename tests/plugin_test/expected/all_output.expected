@@ -25,3 +25,7 @@ src/001_dead_code.php:44 PhanUnreferencedProperty Possibly zero references to pr
 src/001_dead_code.php:47 PhanUnreferencedProperty Possibly zero references to property \DuplicateClass001,1::instance_prop2
 src/001_dead_code.php:50 PhanUnreferencedMethod Possibly zero references to method \DuplicateClass001,1::f2
 src/001_dead_code.php:51 PhanUnreferencedMethod Possibly zero references to method \DuplicateClass001,1::f4
+src/001_globals_type_map.php:5 PhanTypeMismatchArgumentInternal Argument 1 (numerator) is \Exception|\Throwable but \intdiv() takes int
+src/001_globals_type_map.php:8 PhanTypeMismatchArgumentInternal Argument 1 (numerator) is \Error|\Throwable but \intdiv() takes int
+src/001_globals_type_map.php:12 PhanTypeMismatchArgumentInternal Argument 1 (numerator) is \Exception|\Throwable but \intdiv() takes int
+src/001_globals_type_map.php:15 PhanTypeMismatchArgumentInternal Argument 1 (numerator) is \Error|\Throwable but \intdiv() takes int

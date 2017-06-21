@@ -710,9 +710,12 @@ class Clazz extends AddressableElement
             $real_parameter_list = array_map(function(\Phan\Language\Element\Comment\Parameter $parameter) use ($context) : Parameter {
                 return $parameter->asRealParameter($context);
             }, $comment_method->getParameterList());
+
             $method->setParameterList($real_parameter_list);
+            $method->setRealParameterList($real_parameter_list);
             $method->setNumberOfRequiredParameters($comment_method->getNumberOfRequiredParameters());
             $method->setNumberOfOptionalParameters($comment_method->getNumberOfOptionalParameters());
+            $method->setIsFromPHPDoc(true);
 
             $this->addMethod($code_base, $method, new None);
         }
@@ -931,7 +934,7 @@ class Clazz extends AddressableElement
     /**
      * Add a class constant
      *
-     * @return null;
+     * @return void
      */
     public function addConstant(
         CodeBase $code_base,
@@ -1109,12 +1112,15 @@ class Clazz extends AddressableElement
         // Don't overwrite overridden methods with
         // parent methods
         if ($is_override) {
-
             // Note that we're overriding something
             // (but only do this if it's abstract)
             // TODO: Consider all permutations of abstract and real methods on classes, interfaces, and traits.
             $existing_method =
                 $code_base->getMethodByFQSEN($method_fqsen);
+            if ($method->getDefiningFQSEN() === $existing_method->getDefiningFQSEN()) {
+                return;
+            }
+
             if ($method->isAbstract() || !$existing_method->isAbstract() || $existing_method->getIsNewConstructor()) {
                 // TODO: What if both of these are abstract, and those get combined into an abstract class?
                 //       Should phan check compatibility of the abstract methods it inherits?
@@ -1129,6 +1135,9 @@ class Clazz extends AddressableElement
             $method = clone($method);
             $method->setDefiningFQSEN($method->getDefiningFQSEN());
             $method->setFQSEN($method_fqsen);
+            // When we inherit it from the ancestor class, it may be an override in the ancestor class,
+            // but that doesn't imply it's an override in *this* class.
+            $method->setIsOverride($is_override);
 
             // Clone the parameter list, so that modifying the parameters on the first call won't modify the others.
             // TODO: Make the parameter list immutable and have immutable types (e.g. getPhpdocParameterList(), setPhpdocParameterList()
@@ -1757,12 +1766,31 @@ class Clazz extends AddressableElement
             return;
         }
 
-        foreach ($this->getNonParentAncestorFQSENList($code_base) as $fqsen) {
+        foreach ($this->getInterfaceFQSENList() as $fqsen) {
             if (!$code_base->hasClassWithFQSEN($fqsen)) {
                 continue;
             }
 
             $ancestor = $code_base->getClassByFQSEN($fqsen);
+
+            if (!$ancestor->isInterface()) {
+                $this->emitWrongInheritanceCategoryWarning($code_base, $ancestor, 'Interface');
+            }
+
+            $this->importAncestorClass(
+                $code_base, $ancestor, new None
+            );
+        }
+
+        foreach ($this->getTraitFQSENList() as $fqsen) {
+            if (!$code_base->hasClassWithFQSEN($fqsen)) {
+                continue;
+            }
+
+            $ancestor = $code_base->getClassByFQSEN($fqsen);
+            if (!$ancestor->isTrait()) {
+                $this->emitWrongInheritanceCategoryWarning($code_base, $ancestor, 'Trait');
+            }
 
             $this->importAncestorClass(
                 $code_base, $ancestor, new None
@@ -1781,9 +1809,9 @@ class Clazz extends AddressableElement
      * The entire code base from which we'll find ancestor
      * details
      *
-     * @return null
+     * @return void
      */
-    public function importParentClass(CodeBase $code_base)
+    private function importParentClass(CodeBase $code_base)
     {
         if (!$this->isFirstExecution(__METHOD__)) {
             return;
@@ -1812,6 +1840,13 @@ class Clazz extends AddressableElement
         // Get the parent class
         $parent = $this->getParentClass($code_base);
 
+        if ($parent->isTrait() || $parent->isInterface()) {
+            $this->emitWrongInheritanceCategoryWarning($code_base, $parent, 'Class');
+        }
+        if ($parent->isFinal()) {
+            $this->emitExtendsFinalClassWarning($code_base, $parent);
+        }
+
         $parent->addReference($this->getContext());
 
         // Tell the parent to import its own parents first
@@ -1822,6 +1857,75 @@ class Clazz extends AddressableElement
             $parent,
             $this->getParentTypeOption()
         );
+    }
+
+    /**
+     * @return void
+     */
+    private function emitWrongInheritanceCategoryWarning(
+        CodeBase $code_base,
+        Clazz $ancestor,
+        string $expected_inheritance_category
+    ) {
+        $context = $this->getContext();
+        if ($ancestor->isPHPInternal()) {
+            if (!$this->hasSuppressIssue(Issue::AccessWrongInheritanceCategoryInternal)) {
+                Issue::maybeEmit(
+                    $code_base,
+                    $context,
+                    Issue::AccessWrongInheritanceCategoryInternal,
+                    $context->getLineNumberStart(),
+                    (string)$ancestor,
+                    $expected_inheritance_category
+                );
+            }
+        } else {
+            if (!$this->hasSuppressIssue(Issue::AccessWrongInheritanceCategory)) {
+                Issue::maybeEmit(
+                    $code_base,
+                    $context,
+                    Issue::AccessWrongInheritanceCategory,
+                    $context->getLineNumberStart(),
+                    (string)$ancestor,
+                    $ancestor->getFileRef()->getFile(),
+                    $ancestor->getFileRef()->getLineNumberStart(),
+                    $expected_inheritance_category
+                );
+            }
+        }
+    }
+
+    /**
+     * @return void
+     */
+    private function emitExtendsFinalClassWarning(
+        CodeBase $code_base,
+        Clazz $ancestor
+    ) {
+        $context = $this->getContext();
+        if ($ancestor->isPHPInternal()) {
+            if (!$this->hasSuppressIssue(Issue::AccessExtendsFinalClassInternal)) {
+                Issue::maybeEmit(
+                    $code_base,
+                    $context,
+                    Issue::AccessExtendsFinalClassInternal,
+                    $context->getLineNumberStart(),
+                    (string)$ancestor->getFQSEN()
+                );
+            }
+        } else {
+            if (!$this->hasSuppressIssue(Issue::AccessExtendsFinalClass)) {
+                Issue::maybeEmit(
+                    $code_base,
+                    $context,
+                    Issue::AccessExtendsFinalClass,
+                    $context->getLineNumberStart(),
+                    (string)$ancestor->getFQSEN(),
+                    $ancestor->getFileRef()->getFile(),
+                    $ancestor->getFileRef()->getLineNumberStart()
+                );
+            }
+        }
     }
 
     /**

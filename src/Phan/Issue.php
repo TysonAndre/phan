@@ -20,6 +20,7 @@ class Issue
     const TraitParentReference      = 'PhanTraitParentReference';
     const UndeclaredAliasedMethodOfTrait = 'PhanUndeclaredAliasedMethodOfTrait';
     const UndeclaredClass           = 'PhanUndeclaredClass';
+    const UndeclaredClassAliasOriginal = 'PhanUndeclaredClassAliasOriginal';
     const UndeclaredClassCatch      = 'PhanUndeclaredClassCatch';
     const UndeclaredClassConstant   = 'PhanUndeclaredClassConstant';
     const UndeclaredClassInstanceof = 'PhanUndeclaredClassInstanceof';
@@ -54,6 +55,7 @@ class Issue
     const TypeInvalidClosureScope   = 'PhanTypeInvalidClosureScope';
     const TypeInvalidLeftOperand    = 'PhanTypeInvalidLeftOperand';
     const TypeInvalidRightOperand   = 'PhanTypeInvalidRightOperand';
+    const TypeMagicVoidWithReturn   = 'TypeMagicVoidWithReturn';
     const TypeMismatchArgument      = 'PhanTypeMismatchArgument';
     const TypeMismatchArgumentInternal = 'PhanTypeMismatchArgumentInternal';
     const TypeMismatchDefault       = 'PhanTypeMismatchDefault';
@@ -71,6 +73,7 @@ class Issue
 
     // Issue::CATEGORY_ANALYSIS
     const Unanalyzable              = 'PhanUnanalyzable';
+    const UnanalyzableInheritance   = 'PhanUnanalyzableInheritance';
 
     // Issue::CATEGORY_VARIABLE
     const VariableUseClause         = 'PhanVariableUseClause';
@@ -104,26 +107,36 @@ class Issue
     const ParamSignatureMismatchInternal = 'PhanParamSignatureMismatchInternal';
     const ParamRedefined            = 'PhanParamRedefined';
 
-    const ParamSignatureRealMismatchReturnType                        = 'PhanParamSignatureRealMismatch';
-    const ParamSignatureRealMismatchReturnTypeInternal                = 'PhanParamSignatureRealMismatchInternal';
+    const ParamSignatureRealMismatchReturnType                        = 'PhanParamSignatureRealMismatchReturnType';
+    const ParamSignatureRealMismatchReturnTypeInternal                = 'PhanParamSignatureRealMismatchReturnTypeInternal';
+    const ParamSignaturePHPDocMismatchReturnType                      = 'PhanParamSignaturePHPDocMismatchReturnType';
     const ParamSignatureRealMismatchTooManyRequiredParameters         = 'PhanParamSignatureRealMismatchTooManyRequiredParameters';
     const ParamSignatureRealMismatchTooManyRequiredParametersInternal = 'PhanParamSignatureRealMismatchTooManyRequiredParametersInternal';
+    const ParamSignaturePHPDocMismatchTooManyRequiredParameters       = 'PhanParamSignaturePHPDocMismatchTooManyRequiredParameters';
     const ParamSignatureRealMismatchTooFewParameters                  = 'PhanParamSignatureRealMismatchTooFewParameters';
     const ParamSignatureRealMismatchTooFewParametersInternal          = 'PhanParamSignatureRealMismatchTooFewParametersInternal';
+    const ParamSignaturePHPDocMismatchTooFewParameters                = 'PhanParamSignaturePHPDocMismatchTooFewParameters';
     const ParamSignatureRealMismatchHasParamType                      = 'PhanParamSignatureRealMismatchHasParamType';
     const ParamSignatureRealMismatchHasParamTypeInternal              = 'PhanParamSignatureRealMismatchHasParamTypeInternal';
+    const ParamSignaturePHPDocMismatchHasParamType                    = 'PhanParamSignaturePHPDocMismatchHasParamType';
     const ParamSignatureRealMismatchHasNoParamType                    = 'PhanParamSignatureRealMismatchHasNoParamType';
     const ParamSignatureRealMismatchHasNoParamTypeInternal            = 'PhanParamSignatureRealMismatchHasNoParamTypeInternal';
+    const ParamSignaturePHPDocMismatchHasNoParamType                  = 'PhanParamSignaturePHPDocMismatchHasNoParamType';
     const ParamSignatureRealMismatchParamIsReference                  = 'PhanParamSignatureRealMismatchParamIsReference';
     const ParamSignatureRealMismatchParamIsReferenceInternal          = 'PhanParamSignatureRealMismatchParamIsReferenceInternal';
+    const ParamSignaturePHPDocMismatchParamIsReference                = 'PhanParamSignaturePHPDocMismatchParamIsReference';
     const ParamSignatureRealMismatchParamIsNotReference               = 'PhanParamSignatureRealMismatchParamIsNotReference';
     const ParamSignatureRealMismatchParamIsNotReferenceInternal       = 'PhanParamSignatureRealMismatchParamIsNotReferenceInternal';
+    const ParamSignaturePHPDocMismatchParamIsNotReference             = 'PhanParamSignaturePHPDocMismatchParamIsNotReference';
     const ParamSignatureRealMismatchParamVariadic                     = 'PhanParamSignatureRealMismatchParamVariadic';
     const ParamSignatureRealMismatchParamVariadicInternal             = 'PhanParamSignatureRealMismatchParamVariadicInternal';
+    const ParamSignaturePHPDocMismatchParamVariadic                   = 'PhanParamSignaturePHPDocMismatchParamVariadic';
     const ParamSignatureRealMismatchParamNotVariadic                  = 'PhanParamSignatureRealMismatchParamNotVariadic';
     const ParamSignatureRealMismatchParamNotVariadicInternal          = 'PhanParamSignatureRealMismatchParamNotVariadicInternal';
+    const ParamSignaturePHPDocMismatchParamNotVariadic                = 'PhanParamSignaturePHPDocMismatchParamNotVariadic';
     const ParamSignatureRealMismatchParamType                         = 'PhanParamSignatureRealMismatchParamType';
     const ParamSignatureRealMismatchParamTypeInternal                 = 'PhanParamSignatureRealMismatchParamTypeInternal';
+    const ParamSignaturePHPDocMismatchParamType                       = 'PhanParamSignaturePHPDocMismatchParamType';
 
     // Issue::CATEGORY_NOOP
     const NoopArray                 = 'PhanNoopArray';
@@ -138,6 +151,7 @@ class Issue
 
     // Issue::CATEGORY_REDEFINE
     const RedefineClass             = 'PhanRedefineClass';
+    const RedefineClassAlias        = 'PhanRedefineClassAlias';
     const RedefineClassInternal     = 'PhanRedefineClassInternal';
     const RedefineFunction          = 'PhanRedefineFunction';
     const RedefineFunctionInternal  = 'PhanRedefineFunctionInternal';
@@ -165,6 +179,13 @@ class Issue
     const AccessClassConstantInternal = 'PhanAccessClassConstantInternal';
     const AccessPropertyInternal    = 'PhanAccessPropertyInternal';
     const AccessMethodInternal      = 'PhanAccessMethodInternal';
+    const AccessWrongInheritanceCategory = 'PhanAccessWrongInheritanceCategory';
+    const AccessWrongInheritanceCategoryInternal = 'PhanAccessWrongInheritanceCategoryInternal';
+    const AccessExtendsFinalClass                = 'PhanAccessExtendsFinalClass';
+    const AccessExtendsFinalClassInternal        = 'PhanAccessExtendsFinalClassInternal';
+    const AccessOverridesFinalMethod             = 'PhanAccessOverridesFinalMethod';
+    const AccessOverridesFinalMethodInternal     = 'PhanAccessOverridesFinalMethodInternal';
+    const AccessOverridesFinalMethodPHPDoc     = 'PhanAccessOverridesFinalMethodPHPDoc';
 
     // Issue::CATEGORY_COMPATIBLE
     const CompatibleExpressionPHP7  = 'PhanCompatibleExpressionPHP7';
@@ -239,6 +260,7 @@ class Issue
     // Keep sorted and in sync with Colorizing::default_color_for_template
     const uncolored_format_string_for_template = [
         'CLASS'         => '%s',
+        'CLASSLIKE'     => '%s',
         'COMMENT'       => '%s',
         'CONST'         => '%s',
         'COUNT'         => '%d',
@@ -582,6 +604,14 @@ class Issue
                 self::REMEDIATION_B,
                 1028
             ),
+            new Issue(
+                self::UndeclaredClassAliasOriginal,
+                self::CATEGORY_UNDEFINED,
+                self::SEVERITY_CRITICAL,
+                "Reference to undeclared class {CLASS} for the original class of a class_alias for {CLASS}",
+                self::REMEDIATION_B,
+                1029
+            ),
 
             // Issue::CATEGORY_ANALYSIS
             new Issue(
@@ -589,6 +619,14 @@ class Issue
                 self::CATEGORY_ANALYSIS,
                 self::SEVERITY_LOW,
                 "Expression is unanalyzable or feature is unimplemented. Please create an issue at https://github.com/etsy/phan/issues/new.",
+                self::REMEDIATION_B,
+                2000
+            ),
+            new Issue(
+                self::UnanalyzableInheritance,
+                self::CATEGORY_ANALYSIS,
+                self::SEVERITY_LOW,
+                "Unable to determine the method(s) which {METHOD} overrides, but Phan inferred that it did override something earlier. Please create an issue at https://github.com/etsy/phan/issues/new with a test case.",
                 self::REMEDIATION_B,
                 2000
             ),
@@ -802,6 +840,14 @@ class Issue
                 self::REMEDIATION_B,
                 10023
             ),
+            new Issue(
+                self::TypeMagicVoidWithReturn,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_LOW,
+                'Found a return statement with a value in the implementation of the magic method {METHOD}, expected void return type',
+                self::REMEDIATION_B,
+                10024
+            ),
 
             // Issue::CATEGORY_VARIABLE
             new Issue(
@@ -1008,6 +1054,14 @@ class Issue
                 7014
             ),
             new Issue(
+                self::ParamSignaturePHPDocMismatchReturnType,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_LOW,
+                "Declaration of real/@method {METHOD} should be compatible with real/@method {METHOD} (method returning '{TYPE}' cannot override method returning '{TYPE}') defined in {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                7033
+            ),
+            new Issue(
                 self::ParamSignatureRealMismatchParamType,
                 self::CATEGORY_PARAMETER,
                 self::SEVERITY_NORMAL,
@@ -1022,6 +1076,14 @@ class Issue
                 "Declaration of {METHOD} should be compatible with internal {METHOD} (parameter #{INDEX} of type '{TYPE}' cannot replace original parameter of type '{TYPE}')",
                 self::REMEDIATION_B,
                 7016
+            ),
+            new Issue(
+                self::ParamSignaturePHPDocMismatchParamType,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_LOW,
+                "Declaration of real/@method {METHOD} should be compatible with real/@method {METHOD} (parameter #{INDEX} of type '{TYPE}' cannot replace original parameter of type '{TYPE}') defined in {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                7034
             ),
             new Issue(
                 self::ParamSignatureRealMismatchHasParamType,
@@ -1040,6 +1102,14 @@ class Issue
                 7018
             ),
             new Issue(
+                self::ParamSignaturePHPDocMismatchHasParamType,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_LOW,
+                "Declaration of real/@method {METHOD} should be compatible with real/@method {METHOD} (parameter #{INDEX} of has type '{TYPE}' cannot replace original parameter with no type) defined in {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                7035
+            ),
+            new Issue(
                 self::ParamSignatureRealMismatchHasNoParamType,
                 self::CATEGORY_PARAMETER,
                 self::SEVERITY_NORMAL,
@@ -1054,6 +1124,14 @@ class Issue
                 "Declaration of {METHOD} should be compatible with internal {METHOD} (parameter #{INDEX} with no type cannot replace original parameter with type '{TYPE}')",
                 self::REMEDIATION_B,
                 7020
+            ),
+            new Issue(
+                self::ParamSignaturePHPDocMismatchHasNoParamType,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_LOW,
+                "Declaration of real/@method {METHOD} should be compatible with real/@method {METHOD} (parameter #{INDEX} with no type cannot replace original parameter with type '{TYPE}') defined in {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                7036
             ),
             new Issue(
                 self::ParamSignatureRealMismatchParamVariadic,
@@ -1072,6 +1150,14 @@ class Issue
                 7022
             ),
             new Issue(
+                self::ParamSignaturePHPDocMismatchParamVariadic,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_LOW,
+                "Declaration of real/@method {METHOD} should be compatible with real/@method {METHOD} (parameter #{INDEX} is a variadic parameter replacing a non-variadic parameter) defined in {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                7037
+            ),
+            new Issue(
                 self::ParamSignatureRealMismatchParamNotVariadic,
                 self::CATEGORY_PARAMETER,
                 self::SEVERITY_NORMAL,
@@ -1086,6 +1172,14 @@ class Issue
                 "Declaration of {METHOD} should be compatible with internal {METHOD} (parameter #{INDEX} is a non-variadic parameter replacing a variadic parameter)",
                 self::REMEDIATION_B,
                 7024
+            ),
+            new Issue(
+                self::ParamSignaturePHPDocMismatchParamNotVariadic,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_LOW,
+                "Declaration of real/@method {METHOD} should be compatible with real/@method {METHOD} (parameter #{INDEX} is a non-variadic parameter replacing a variadic parameter) defined in {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                7038
             ),
             new Issue(
                 self::ParamSignatureRealMismatchParamIsReference,
@@ -1104,6 +1198,14 @@ class Issue
                 7026
             ),
             new Issue(
+                self::ParamSignaturePHPDocMismatchParamIsReference,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_LOW,
+                "Declaration of real/@method {METHOD} should be compatible with real/@method {METHOD} (parameter #{INDEX} is a reference parameter overriding a non-reference parameter) defined in {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                7039
+            ),
+            new Issue(
                 self::ParamSignatureRealMismatchParamIsNotReference,
                 self::CATEGORY_PARAMETER,
                 self::SEVERITY_NORMAL,
@@ -1118,6 +1220,14 @@ class Issue
                 "Declaration of {METHOD} should be compatible with internal {METHOD} (parameter #{INDEX} is a non-reference parameter overriding a reference parameter)",
                 self::REMEDIATION_B,
                 7028
+            ),
+            new Issue(
+                self::ParamSignaturePHPDocMismatchParamIsNotReference,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_LOW,
+                "Declaration of real/@method {METHOD} should be compatible with real/@method {METHOD} (parameter #{INDEX} is a non-reference parameter overriding a reference parameter) defined in {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                7040
             ),
             new Issue(
                 self::ParamSignatureRealMismatchTooFewParameters,
@@ -1136,6 +1246,14 @@ class Issue
                 7030
             ),
             new Issue(
+                self::ParamSignaturePHPDocMismatchTooFewParameters,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_LOW,
+                "Declaration of real/@method {METHOD} should be compatible with real/@method {METHOD} (the method override accepts {COUNT} parameter(s), but the overridden method can accept {COUNT}) defined in {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                7041
+            ),
+            new Issue(
                 self::ParamSignatureRealMismatchTooManyRequiredParameters,
                 self::CATEGORY_PARAMETER,
                 self::SEVERITY_NORMAL,
@@ -1150,6 +1268,14 @@ class Issue
                 "Declaration of {METHOD} should be compatible with internal {METHOD} (the method override requires {COUNT} parameter(s), but the overridden method requires only {COUNT})",
                 self::REMEDIATION_B,
                 7032
+            ),
+            new Issue(
+                self::ParamSignaturePHPDocMismatchTooManyRequiredParameters,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_LOW,
+                "Declaration of real/@method {METHOD} should be compatible with real/@method {METHOD} (the method override requires {COUNT} parameter(s), but the overridden method requires only {COUNT}) defined in {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                7042
             ),
 
             // Issue::CATEGORY_NOOP
@@ -1275,6 +1401,14 @@ class Issue
                 self::REMEDIATION_B,
                 8005
             ),
+            new Issue(
+                self::RedefineClassAlias,
+                self::CATEGORY_REDEFINE,
+                self::SEVERITY_NORMAL,
+                "{CLASS} aliased at {FILE}:{LINE} was previously defined as {CLASS} at {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                8006
+            ),
 
             // Issue::CATEGORY_ACCESS
             new Issue(
@@ -1388,6 +1522,62 @@ class Issue
                 "Cannot access private method {METHOD} defined at {FILE}:{LINE} (if this call should be handled by __call, consider adding a @method tag to the class)",
                 self::REMEDIATION_B,
                 1012
+            ),
+            new Issue(
+                self::AccessWrongInheritanceCategory,
+                self::CATEGORY_ACCESS,
+                self::SEVERITY_CRITICAL,
+                "Attempting to inherit {CLASSLIKE} defined at {FILE}:{LINE} as if it were a {CLASSLIKE}",
+                self::REMEDIATION_B,
+                1013
+            ),
+            new Issue(
+                self::AccessWrongInheritanceCategoryInternal,
+                self::CATEGORY_ACCESS,
+                self::SEVERITY_CRITICAL,
+                "Attempting to inherit internal {CLASSLIKE} as if it were a {CLASSLIKE}",
+                self::REMEDIATION_B,
+                1014
+            ),
+            new Issue(
+                self::AccessExtendsFinalClass,
+                self::CATEGORY_ACCESS,
+                self::SEVERITY_CRITICAL,
+                "Attempting to extend from final class {CLASS} defined at {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                1015
+            ),
+            new Issue(
+                self::AccessExtendsFinalClassInternal,
+                self::CATEGORY_ACCESS,
+                self::SEVERITY_CRITICAL,
+                "Attempting to extend from final internal class {CLASS}",
+                self::REMEDIATION_B,
+                1016
+            ),
+            new Issue(
+                self::AccessOverridesFinalMethod,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_CRITICAL,
+                "Declaration of method {METHOD} overrides final method {METHOD} defined in {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                1017
+            ),
+            new Issue(
+                self::AccessOverridesFinalMethodInternal,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_CRITICAL,
+                "Declaration of method {METHOD} overrides final internal method {METHOD}",
+                self::REMEDIATION_B,
+                1018
+            ),
+            new Issue(
+                self::AccessOverridesFinalMethodPHPDoc,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_LOW,
+                "Declaration of phpdoc method {METHOD} is an unnecessary override of final method {METHOD} defined in {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                1019
             ),
 
             // Issue::CATEGORY_COMPATIBLE

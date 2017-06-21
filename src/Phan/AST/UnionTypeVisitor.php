@@ -546,9 +546,9 @@ class UnionTypeVisitor extends AnalysisVisitor
         $cond_truthiness = $this->checkCondUnconditionalTruthiness($cond_node);
         // For the shorthand $a ?: $b, the cond node will be the truthy value.
         // Note: an ast node will never be null(can be unset), it will be a const AST node with the name null.
-        $true_node = $node->children['true'] ??  $cond_node;
+        $true_node = $node->children['true'] ?? $cond_node;
 
-        // Rarely, an
+        // Rarely, a conditional will always be true or always be false.
         if ($cond_truthiness !== null) {
             // TODO: Add no-op checks in another PR, if they don't already exist for conditional.
             if ($cond_truthiness === true) {
@@ -556,7 +556,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                 return UnionTypeVisitor::unionTypeFromNode(
                     $this->code_base,
                     $this->context,
-                    $node->children['true'] ?? $cond_node
+                    $true_node
                 );
             } else {
                 // The condition is unconditionally false
@@ -568,6 +568,14 @@ class UnionTypeVisitor extends AnalysisVisitor
                     $node->children['false'] ?? ''
                 );
             }
+        }
+        if ($true_node !== $cond_node) {
+            // Visit the condition to check for undefined variables.
+            UnionTypeVisitor::unionTypeFromNode(
+                $this->code_base,
+                $this->context,
+                $cond_node
+            );
         }
 
         // TODO: false_context once there is a NegatedConditionVisitor
@@ -989,7 +997,8 @@ class UnionTypeVisitor extends AnalysisVisitor
         // at its definition
         $closure_fqsen =
             FullyQualifiedFunctionName::fromClosureInContext(
-                $this->context
+                $this->context,
+                $node
             );
 
         $type = CallableType::instanceWithClosureFQSEN(
@@ -1037,7 +1046,7 @@ class UnionTypeVisitor extends AnalysisVisitor
 
         if (!$this->context->getScope()->hasVariableWithName($variable_name)) {
             if (Variable::isHardcodedVariableInScopeWithName($variable_name, $this->context->isInGlobalScope())) {
-                return Variable::getUnionTypeOfHardcodedGlobalVariableWithName($variable_name, $this->context);
+                return Variable::getUnionTypeOfHardcodedGlobalVariableWithName($variable_name);
             }
             if (!Config::getValue('ignore_undeclared_variables_in_global_scope')
                 || !$this->context->isInGlobalScope()
@@ -1567,7 +1576,6 @@ class UnionTypeVisitor extends AnalysisVisitor
         // class node and get its type
         $is_static_type_string = Type::isStaticTypeString($class_name);
         if (!($is_static_type_string || Type::isSelfTypeString($class_name))) {
-            // TODO: does anyone else call this method?
             return self::unionTypeFromClassNode(
                 $this->code_base,
                 $this->context,

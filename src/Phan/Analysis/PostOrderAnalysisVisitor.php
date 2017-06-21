@@ -3,6 +3,7 @@ namespace Phan\Analysis;
 
 use Phan\AST\AnalysisVisitor;
 use Phan\AST\ContextNode;
+use Phan\AST\UnionTypeVisitor;
 use Phan\CodeBase;
 use Phan\Config;
 use Phan\Exception\CodeBaseException;
@@ -287,7 +288,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             false
         );
         $variable_name = $variable->getName();
-        $optional_global_variable_type = Variable::getUnionTypeOfHardcodedGlobalVariableWithName($variable_name, $this->context);
+        $optional_global_variable_type = Variable::getUnionTypeOfHardcodedGlobalVariableWithName($variable_name);
         if ($optional_global_variable_type) {
             $variable->setUnionType($optional_global_variable_type);
         } else {
@@ -543,6 +544,23 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      */
     public function visitClosure(Decl $node) : Context
     {
+        $func = $this->context->getFunctionLikeInScope($this->code_base);
+
+        $return_type = $func->getUnionType();
+
+        if (!$return_type->isEmpty()
+            && !$func->getHasReturn()
+            && !$this->declOnlyThrows($node)
+            && !$return_type->hasType(VoidType::instance(false))
+            && !$return_type->hasType(NullType::instance(false))
+        ) {
+            $this->emitIssue(
+                Issue::TypeMissingReturn,
+                $node->lineno ?? 0,
+                (string)$func->getFQSEN(),
+                (string)$return_type
+            );
+        }
         $this->analyzeNoOp($node, Issue::NoopClosure);
         return $this->context;
     }
@@ -1240,6 +1258,14 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             }
         }
 
+        if ($method->getHasReturn() && $method->getIsMagicAndVoid()) {
+            $this->emitIssue(
+                Issue::TypeMagicVoidWithReturn,
+                $node->lineno ?? 0,
+                (string)$method->getFQSEN()
+            );
+        }
+
         $parameters_seen = [];
         foreach ($method->getParameterList() as $i => $parameter) {
             if (isset($parameters_seen[$parameter->getName()])) {
@@ -1382,15 +1408,24 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         // Check the array type to trigger
         // TypeArraySuspicious
         try {
-            $array_type = UnionType::fromNode(
-                $this->context,
+            $array_type = UnionTypeVisitor::unionTypeFromNode(
                 $this->code_base,
+                $this->context,
                 $node,
                 false
             );
+            // TODO: check if array_type has array but not ArrayAccess.
+            // If that is true, then assert that $dim_type can cast to `int|string`
         } catch (IssueException $exception) {
-            // Swallow it. We'll deal with issues elsewhere
+            // Detect this elsewhere, e.g. want to detect PhanUndeclaredVariableDim but not PhanUndeclaredVariable
         }
+        // Check the dimension type to trigger PhanUndeclaredVariable, etc.
+        $dim_type = UnionTypeVisitor::unionTypeFromNode(
+            $this->code_base,
+            $this->context,
+            $node->children['dim'],
+            true
+        );
         return $this->context;
     }
 
