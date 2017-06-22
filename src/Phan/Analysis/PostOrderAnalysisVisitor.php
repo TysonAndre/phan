@@ -672,7 +672,9 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         }
 
         // Mark the method as returning something (even if void)
-        $method->setHasReturn(true);
+        if (null !== $node->children['expr']) {
+            $method->setHasReturn(true);
+        }
 
         return $this->context;
     }
