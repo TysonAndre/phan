@@ -523,62 +523,6 @@ class ConditionVisitor extends KindVisitorImplementation
     }
 
     /**
-     * @return ?Variable - Returns null if the variable is undeclared and ignore_undeclared_variables_in_global_scope applies.
-     *                     or if assertions won't be applied?
-     * @throws IssueException if variable is undeclared and not ignored.
-     * @see UnionTypeVisitor->visitVar
-     *
-     * TODO: support assertions on superglobals, within the current file scope?
-     */
-    private function getVariableFromScope(Node $var_node) {
-        if (!($var_node instanceof Node || $var_node->kind !== \ast\AST_VAR)) {
-            return null;
-        }
-        $var_name_node = $var_node->children['name'] ?? null;
-
-        if ($var_name_node instanceof Node) {
-            // This is nonsense. Give up, but check if it's a type other than int/string.
-            // (e.g. to catch typos such as $$this->foo = bar;)
-            $name_node_type = (new UnionTypeVisitor($this->code_base, $this->context, true))($var_name_node);
-            static $int_or_string_type;
-            if ($int_or_string_type === null) {
-                $int_or_string_type = new UnionType();
-                $int_or_string_type->addType(StringType::instance(false));
-                $int_or_string_type->addType(IntType::instance(false));
-                $int_or_string_type->addType(NullType::instance(false));
-            }
-            if (!$name_node_type->canCastToUnionType($int_or_string_type)) {
-                Issue::maybeEmit($this->code_base, $this->context, Issue::TypeSuspiciousIndirectVariable, $var_name_node->lineno ?? 0, (string)$name_node_type);
-            }
-
-            return null;
-        }
-
-        $var_name = (string)$var_name_node;
-
-        if (!$this->context->getScope()->hasVariableWithName($var_name)) {
-            if (Variable::isHardcodedVariableInScopeWithName($var_name, $this->context->isInGlobalScope())) {
-                return null;
-            }
-            if (!Config::getValue('ignore_undeclared_variables_in_global_scope')
-                || !$this->context->isInGlobalScope()
-            ) {
-                throw new IssueException(
-                    Issue::fromType(Issue::UndeclaredVariable)(
-                        $this->context->getFile(),
-                        $var_node->lineno ?? 0,
-                        [$var_name]
-                    )
-                );
-            }
-            return null;
-        }
-        return $this->context->getScope()->getVariableByName(
-            $var_name
-        );
-    }
-
-    /**
      * If the inferred UnionType makes $should_filter_cb return true
      * (indicating there are Types to be removed from the UnionType or altered),
      * then replace the UnionType with the modified UnionType which $filter_union_type_cb returns,
@@ -623,6 +567,62 @@ class ConditionVisitor extends KindVisitorImplementation
             // Swallow it
         }
         return $context;
+    }
+
+    /**
+     * @return ?Variable - Returns null if the variable is undeclared and ignore_undeclared_variables_in_global_scope applies.
+     *                     or if assertions won't be applied?
+     * @throws IssueException if variable is undeclared and not ignored.
+     * @see UnionTypeVisitor->visitVar
+     *
+     * TODO: support assertions on superglobals, within the current file scope?
+     */
+    private function getVariableFromScope(Node $var_node) {
+        if (!($var_node instanceof Node || $var_node->kind !== \ast\AST_VAR)) {
+            return null;
+        }
+        $var_name_node = $var_node->children['name'] ?? null;
+
+        if ($var_name_node instanceof Node) {
+            // This is nonsense. Give up, but check if it's a type other than int/string.
+            // (e.g. to catch typos such as $$this->foo = bar;)
+            $name_node_type = (new UnionTypeVisitor($this->code_base, $this->context, true))($var_name_node);
+            static $int_or_string_type;
+            if ($int_or_string_type === null) {
+                $int_or_string_type = new UnionType();
+                $int_or_string_type->addType(StringType::instance(false));
+                $int_or_string_type->addType(IntType::instance(false));
+                $int_or_string_type->addType(NullType::instance(false));
+            }
+            if (!$name_node_type->canCastToUnionType($int_or_string_type)) {
+                Issue::maybeEmit($this->code_base, $this->context, Issue::TypeSuspiciousIndirectVariable, $var_name_node->lineno ?? 0, (string)$name_node_type);
+            }
+
+            return null;
+        }
+
+        $var_name = (string)$var_name_node;
+
+        if (!$this->context->getScope()->hasVariableWithName($var_name)) {
+            if (Variable::isHardcodedVariableInScopeWithName($var_name, $this->context->isInGlobalScope())) {
+                return null;
+            }
+            if (!Config::get()->ignore_undeclared_variables_in_global_scope
+                || !$this->context->isInGlobalScope()
+            ) {
+                throw new IssueException(
+                    Issue::fromType(Issue::UndeclaredVariable)(
+                        $this->context->getFile(),
+                        $var_node->lineno ?? 0,
+                        [$var_name]
+                    )
+                );
+            }
+            return null;
+        }
+        return $this->context->getScope()->getVariableByName(
+            $var_name
+        );
     }
 
     /**

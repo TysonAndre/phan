@@ -2,7 +2,7 @@
 
 if (empty($_REQUEST)) {
 }
-if (empty($undefVar)) {
+if (intdiv($undefVar, 2)) {
 }
 if (array_shift($argv)) {
 }
