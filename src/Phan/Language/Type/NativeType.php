@@ -23,7 +23,7 @@ abstract class NativeType extends Type
             if (empty($nullable_instance)) {
                 $nullable_instance = static::make('\\', static::NAME, [], true, Type::FROM_NODE);
             }
-            assert($nullable_instance instanceof static);
+            \assert($nullable_instance instanceof static);
 
             return $nullable_instance;
         }
@@ -34,7 +34,7 @@ abstract class NativeType extends Type
             $instance = static::make('\\', static::NAME, [], false, Type::FROM_NODE);
         }
 
-        assert($instance instanceof static);
+        \assert($instance instanceof static);
         return $instance;
     }
 
@@ -80,7 +80,7 @@ abstract class NativeType extends Type
         }
 
         // Cast this to a native type
-        assert($type instanceof NativeType);
+        \assert($type instanceof NativeType);
 
         // A nullable type cannot cast to a non-nullable type
         if ($this->getIsNullable() && !$type->getIsNullable()) {

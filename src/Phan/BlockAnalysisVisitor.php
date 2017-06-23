@@ -99,7 +99,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
             $this->code_base, $context, $node
         );
 
-        assert(!empty($context), 'Context cannot be null');
+        \assert(!empty($context), 'Context cannot be null');
 
         // With a context that is inside of the node passed
         // to this method, we analyze all children of the
@@ -204,7 +204,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
 
         $context = $this->preOrderAnalyze($context, $node);
 
-        assert(!empty($context), 'Context cannot be null');
+        \assert(!empty($context), 'Context cannot be null');
 
         // We collect all child context so that the
         // PostOrderAnalysisVisitor can optionally operate on
@@ -294,14 +294,14 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
             );
         }
         $context = $this->preOrderAnalyze($context, $node);
-        assert(!empty($context), 'Context cannot be null');
+        \assert(!empty($context), 'Context cannot be null');
 
         $condition_node = $node->children['cond'];
         if ($condition_node instanceof Node) {
             // The typical case is `for (init; $x; loop) {}`
             // But `for (init; $x; loop) {}` is rare but possible, which requires evaluating those in order.
             // Evaluate the list of cond expressions in order.
-            assert($condition_node->kind === \ast\AST_EXPR_LIST);
+            \assert($condition_node->kind === \ast\AST_EXPR_LIST);
             foreach ($condition_node->children as $condition_subnode) {
                 if ($condition_subnode instanceof Node) {
                     $context = $this->analyzeAndGetUpdatedContext(
@@ -360,7 +360,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
 
         $context = $this->preOrderAnalyze($context, $node);
 
-        assert(!empty($context), 'Context cannot be null');
+        \assert(!empty($context), 'Context cannot be null');
 
         $condition_node = $node->children['cond'];
         if ($condition_node instanceof Node) {
@@ -412,7 +412,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
 
         $context = $this->preOrderAnalyze($context, $node);
 
-        assert(!empty($context), 'Context cannot be null');
+        \assert(!empty($context), 'Context cannot be null');
 
         $condition_node = $node->children['cond'];
         if ($condition_node && $condition_node instanceof Node) {
@@ -479,7 +479,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
 
         $context = $this->preOrderAnalyze($context, $node);
 
-        assert(!empty($context), 'Context cannot be null');
+        \assert(!empty($context), 'Context cannot be null');
 
         // We collect all child context so that the
         // PostOrderAnalysisVisitor can optionally operate on
@@ -576,7 +576,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
             $this->code_base, $context, $node
         );
 
-        assert(!empty($context), 'Context cannot be null');
+        \assert(!empty($context), 'Context cannot be null');
 
         $true_node = $node->children['true'] ?? null;
         $false_node = $node->children['false'] ?? null;
@@ -610,7 +610,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
             $child_context_list[] = $child_context;
         }
 
-        if (count($child_context_list) >= 1) {
+        if (\count($child_context_list) >= 1) {
             $context = (new ContextMergeVisitor(
                 $this->code_base,
                 $context,
@@ -761,7 +761,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
             $this->code_base, $context, $node
         );
 
-        assert(!empty($context), 'Context cannot be null');
+        \assert(!empty($context), 'Context cannot be null');
 
         $context = $this->postOrderAnalyze($context, $node);
 

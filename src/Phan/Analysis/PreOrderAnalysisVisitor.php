@@ -68,7 +68,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
             $class_name = (string)$node->name;
         }
 
-        assert(!empty($class_name), "Class name cannot be empty");
+        \assert(!empty($class_name), "Class name cannot be empty");
 
         $alternate_id = 0;
 
@@ -117,7 +117,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
     {
         $method_name = (string)$node->name;
 
-        assert($this->context->isInClassScope(),
+        \assert($this->context->isInClassScope(),
             "Must be in class context to see a method");
 
         $clazz = $this->getContextClass();
@@ -162,7 +162,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
 
         // Add $this to the scope of non-static methods
         if (!($node->flags & \ast\flags\MODIFIER_STATIC)) {
-            assert(
+            \assert(
                 $clazz->getInternalScope()->hasVariableWithName('this'),
                 "Classes must have a \$this variable."
             );
@@ -237,7 +237,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
             );
         }
 
-        assert($function instanceof Func);
+        \assert($function instanceof Func);
 
         $context = $this->context->withScope(
             $function->getInternalScope()
@@ -299,7 +299,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
             // shouldn't happen
             return $context;
         }
-        assert($class_fqsen instanceof FullyQualifiedClassName);
+        \assert($class_fqsen instanceof FullyQualifiedClassName);
 
         $clazz = $this->code_base->getClassByFQSEN(
             $class_fqsen
@@ -552,7 +552,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
                 if ($value_node === null) {
                     continue;
                 }
-                assert($value_node instanceof Node);
+                \assert($value_node instanceof Node);
 
                 $variable = Variable::fromNodeInContext(
                     $value_node,
@@ -769,12 +769,13 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
      */
     public function visitCall(Node $node) : Context
     {
+        $name = $node->children['expr']->children['name'] ?? null;
         // Look only at nodes of the form `assert(expr, ...)`.
-        if (!isset($node->children['expr'])
-            || !isset($node->children['expr']->children['name'])
-            || $node->children['expr']->children['name'] !== 'assert'
-            || !isset($node->children['args'])
-            || !isset($node->children['args']->children[0])
+        if ($name !== 'assert') {
+            return $this->context;
+        }
+        $args = $node->children['args'];
+        if (!isset($node->children['args']->children[0])
             || !($node->children['args']->children[0] instanceof Node)
         ) {
             return $this->context;
@@ -785,7 +786,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
         return (new ConditionVisitor(
             $this->code_base,
             $this->context
-        ))($node->children['args']->children[0]);
+        ))($args->children[0]);
     }
 
     /**

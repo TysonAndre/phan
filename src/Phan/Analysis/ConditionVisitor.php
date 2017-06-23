@@ -176,7 +176,7 @@ class ConditionVisitor extends KindVisitorImplementation
                     if (\is_null($variable)) {
                         return $context;
                     }
-                    assert(!\is_null($variable));  // redundant annotation for phan.
+                    \assert(!\is_null($variable));  // redundant annotation for phan.
 
                     // Make a copy of the variable
                     $variable = clone($variable);
@@ -308,7 +308,7 @@ class ConditionVisitor extends KindVisitorImplementation
                 }
             }
             if (self::isArgumentListWithVarAsFirstArgument($args)) {
-                $function_name = strtolower(ltrim($negatedNode->children['expr']->children['name'], '\\'));
+                $function_name = \strtolower(\ltrim($negatedNode->children['expr']->children['name'], '\\'));
                 if (count($args) !== 1 && $function_name !== 'is_a') {
                     return $this->context;
                 }
@@ -542,7 +542,7 @@ class ConditionVisitor extends KindVisitorImplementation
             if (\is_null($variable)) {
                 return $context;
             }
-            assert(!\is_null($variable));  // redundant annotation for phan.
+            \assert(!\is_null($variable));  // redundant annotation for phan.
 
             $union_type = $variable->getUnionType();
             if (!$should_filter_cb($union_type)) {
@@ -651,7 +651,7 @@ class ConditionVisitor extends KindVisitorImplementation
             if (\is_null($variable)) {
                 return $context;
             }
-            assert(!\is_null($variable));  // redundant annotation for phan.
+            \assert(!\is_null($variable));  // redundant annotation for phan.
 
             // Get the type that we're checking it against
             $type = UnionType::fromNode(
@@ -682,7 +682,7 @@ class ConditionVisitor extends KindVisitorImplementation
 
     private static function isArgumentListWithVarAsFirstArgument(array $args) : bool
     {
-        if (count($args) >= 1) {
+        if (\count($args) >= 1) {
             $arg = $args[0];
             return ($arg instanceof Node) && ($arg->kind === \ast\AST_VAR);
         }
@@ -871,7 +871,7 @@ class ConditionVisitor extends KindVisitorImplementation
             if (\is_null($variable)) {
                 return $context;
             }
-            assert(!\is_null($variable));  // redundant annotation for phan.
+            \assert(!\is_null($variable));  // redundant annotation for phan.
 
             if ($variable->getUnionType()->isEmpty()) {
                 $variable->getUnionType()->addType(
@@ -937,7 +937,7 @@ class ConditionVisitor extends KindVisitorImplementation
     public function visitExprList(Node $node) : Context
     {
         $children = $node->children;
-        $count = count($children);
+        $count = \count($children);
         if ($count > 1) {
             foreach ($children as $sub_node) {
                 --$count;
@@ -947,6 +947,6 @@ class ConditionVisitor extends KindVisitorImplementation
             }
         }
         // Only analyze the last expression in the expression list for conditions.
-        return $this(end($node->children));
+        return $this(\end($node->children));
     }
 }

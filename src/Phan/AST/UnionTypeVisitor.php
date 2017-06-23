@@ -438,7 +438,7 @@ class UnionTypeVisitor extends AnalysisVisitor
             case \ast\flags\TYPE_VOID:
                 return VoidType::instance(false)->asUnionType();
             default:
-                assert(
+                \assert(
                     false,
                     "All flags must match. Found "
                     . Debug::astFlagDescription($node->flags ?? 0, $node->kind)
@@ -492,7 +492,7 @@ class UnionTypeVisitor extends AnalysisVisitor
             return null;
         }
         // Otherwise, this is an int/float/string.
-        assert(\is_scalar($node), 'node must be Node or scalar');
+        \assert(\is_scalar($node), 'node must be Node or scalar');
         return Type::fromObject($node)->asUnionType();
     }
 
@@ -525,7 +525,7 @@ class UnionTypeVisitor extends AnalysisVisitor
         // Otherwise, this is an int/float/string.
         // Use the exact same truthiness rules as PHP to check if the conditional is truthy.
         // (e.g. "0" and 0.0 and '' are false)
-        assert(\is_scalar($cond), 'cond must be Node or scalar');
+        \assert(\is_scalar($cond), 'cond must be Node or scalar');
         return (bool)$cond;
     }
 
@@ -668,10 +668,10 @@ class UnionTypeVisitor extends AnalysisVisitor
             }
 
             $element_types =
-                array_values(array_unique($element_types));
+                \array_unique($element_types);
 
-            if (count($element_types) == 1) {
-                return $element_types[0]->asGenericArrayTypes();
+            if (\count($element_types) === 1) {
+                return \reset($element_types)->asGenericArrayTypes();
             }
         }
 
@@ -806,7 +806,7 @@ class UnionTypeVisitor extends AnalysisVisitor
 
         // For any types that are templates, map them to concrete
         // types based on the parameters passed in.
-        return new UnionType(array_map(function (Type $type) use ($node) {
+        return new UnionType(\array_map(function (Type $type) use ($node) {
 
             // Get a fully qualified name for the type
             $fqsen = $type->asFQSEN();
@@ -816,7 +816,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                 return $type;
             }
 
-            assert($fqsen instanceof FullyQualifiedClassName);
+            \assert($fqsen instanceof FullyQualifiedClassName);
 
             // If we don't have the class, we'll catch that problem
             // elsewhere
@@ -843,7 +843,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                 $class->getMethodByName($this->code_base, '__construct');
 
             // Map each argument to its type
-            $arg_type_list = array_map(function($arg_node) {
+            $arg_type_list = \array_map(function($arg_node) {
                 return UnionTypeVisitor::unionTypeFromNode(
                     $this->code_base,
                     $this->context,
@@ -1373,7 +1373,7 @@ class UnionTypeVisitor extends AnalysisVisitor
 
         // Method names can some times turn up being
         // other method calls.
-        assert(
+        \assert(
             \is_string($method_name),
             "Method name must be a string. Something else given."
         );
@@ -1779,7 +1779,7 @@ class UnionTypeVisitor extends AnalysisVisitor
         foreach ($union_type->nonNativeTypes()->getTypeSet() as $class_type) {
             // Get the class FQSEN
             $class_fqsen = $class_type->asFQSEN();
-            assert($class_fqsen instanceof FullyQualifiedClassName, 'Parsing a class node must return a class name fqsen');
+            \assert($class_fqsen instanceof FullyQualifiedClassName, 'Parsing a class node must return a class name fqsen');
 
             // See if the class exists
             if (!$this->code_base->hasClassWithFQSEN($class_fqsen)) {

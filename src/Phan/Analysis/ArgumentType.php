@@ -104,15 +104,15 @@ class ArgumentType
         }
 
         $arglist = $node->children['args'];
-        $argcount = count($arglist->children);
+        $argcount = \count($arglist->children);
 
         // Figure out if any version of this method has any
         // parameters that are variadic
-        $is_varargs = array_reduce(
+        $is_varargs = \array_reduce(
             iterator_to_array($method->alternateGenerator($code_base)),
             function (bool $carry, FunctionInterface $alternate_method) : bool {
                 return $carry || (
-                    array_reduce(
+                    \array_reduce(
                         $alternate_method->getParameterList(),
                         function (bool $carry, $parameter) {
                             return ($carry || $parameter->isVariadic());
@@ -125,7 +125,7 @@ class ArgumentType
         );
 
         // Figure out if any of the arguments are a call to unpack()
-        $is_unpack = array_reduce(
+        $is_unpack = \array_reduce(
             $arglist->children,
             function ($carry, $node) {
                 return ($carry || (
@@ -335,7 +335,7 @@ class ArgumentType
                 }
 
                 $alternate_parameter = $candidate_alternate_parameter;
-                assert($alternate_parameter instanceof Variable);
+                \assert($alternate_parameter instanceof Variable);
 
                 // See if the argument can be cast to the
                 // parameter
@@ -483,7 +483,7 @@ class ArgumentType
         CodeBase $code_base
     ) {
         $arglist = $node->children['args'];
-        $argcount = count($arglist->children);
+        $argcount = \count($arglist->children);
 
         switch ($method->getName()) {
             case 'join':
