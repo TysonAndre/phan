@@ -77,14 +77,14 @@ class UnionType implements \Serializable
             return new UnionType();
         }
 
-        static $memoizeMap = [];
-        $types_set = $memoizeMap[$fully_qualified_string] ?? null;
+        static $memoize_map = [];
+        $types_set = $memoize_map[$fully_qualified_string] ?? null;
 
         if (!isset($types_set)) {
             $types_set = ArraySet::from_list(\array_map(function (string $type_name) {
                 return Type::fromFullyQualifiedString($type_name);
-            }, explode('|', $fully_qualified_string)));
-            $memoizeMap[$fully_qualified_string] = $types_set;
+            }, \explode('|', $fully_qualified_string)));
+            $memoize_map[$fully_qualified_string] = $types_set;
         }
 
         return new UnionType($types_set, true);
@@ -261,7 +261,7 @@ class UnionType implements \Serializable
          * @param string|null $type_name
          * @return UnionType|null
          */
-        $getForGlobalContext = function($type_name) {
+        $get_for_global_context = function($type_name) {
             if (!$type_name) {
                 return null;
             }
@@ -290,13 +290,13 @@ class UnionType implements \Serializable
 
             // Figure out the return type
             $return_type_name = \array_shift($type_name_struct);
-            $return_type = $getForGlobalContext($return_type_name);
+            $return_type = $get_for_global_context($return_type_name);
 
             $name_type_name_map = $type_name_struct;
             $parameter_name_type_map = [];
 
             foreach ($name_type_name_map as $name => $type_name) {
-                $parameter_name_type_map[$name] = $getForGlobalContext($type_name) ?? new UnionType();
+                $parameter_name_type_map[$name] = $get_for_global_context($type_name) ?? new UnionType();
             }
 
             $configurations[] = [
@@ -328,7 +328,7 @@ class UnionType implements \Serializable
      */
     public function addType(Type $type)
     {
-        $this->type_set[runkit_object_id($type)] = $type;
+        $this->type_set[\runkit_object_id($type)] = $type;
     }
 
     /**
@@ -338,7 +338,7 @@ class UnionType implements \Serializable
      */
     public function removeType(Type $type)
     {
-        unset($this->type_set[runkit_object_id($type)]);
+        unset($this->type_set[\runkit_object_id($type)]);
     }
 
     /**
@@ -504,15 +504,14 @@ class UnionType implements \Serializable
      */
     public function hasStaticType() : bool
     {
-        static $static_type;
-        static $static_nullable_type;
-        if ($static_type === null) {
-            $static_type = StaticType::instance(false);
-            $static_nullable_type = StaticType::instance(true);
+        static $static_types = null;
+        if ($static_types === null) {
+            $static_types = [
+                StaticType::instance(false),
+                StaticType::instance(true),
+            ];
         }
-        $type_set = $this->type_set;
-        return ArraySet::contains($type_set, $static_type) ||
-            ArraySet::contains($type_set, $static_nullable_type);
+        return ArraySet::containsAny($this->type_set, $static_types);
     }
 
     /**
@@ -604,13 +603,13 @@ class UnionType implements \Serializable
      */
     public function isEqualTo(UnionType $union_type) : bool
     {
-        $type_set = $this->getTypeSet();
-        $other_type_set = $union_type->getTypeSet();
+        $type_set = $this->type_set;
+        $other_type_set = $union_type->type_set;
         /**
         assert(ArraySet::is_array_set($type_set));
         assert(ArraySet::is_array_set($other_type_set));
          */
-        if (count($type_set) !== count($other_type_set)) {
+        if (\count($type_set) !== \count($other_type_set)) {
             return false;
         }
         foreach ($type_set as $type_id => $type) {
@@ -626,7 +625,7 @@ class UnionType implements \Serializable
      */
     public function containsNullable() : bool
     {
-        foreach ($this->getTypeSet() as $type) {
+        foreach ($this->type_set as $type) {
             if ($type->getIsNullable()) {
                 return true;
             }
@@ -637,7 +636,7 @@ class UnionType implements \Serializable
     public function nonNullableClone() : UnionType
     {
         $result = new UnionType();
-        foreach ($this->getTypeSet() as $type) {
+        foreach ($this->type_set as $type) {
             if (!$type->getIsNullable()) {
                 $result->addType($type);
                 continue;
@@ -654,7 +653,7 @@ class UnionType implements \Serializable
     public function nullableClone() : UnionType
     {
         $result = new UnionType();
-        foreach ($this->getTypeSet() as $type) {
+        foreach ($this->type_set as $type) {
             if ($type->getIsNullable()) {
                 $result->addType($type);
                 continue;
@@ -898,7 +897,7 @@ class UnionType implements \Serializable
      */
     public function typeCount() : int
     {
-        return count($this->type_set);
+        return \count($this->type_set);
     }
 
     /**
@@ -907,7 +906,7 @@ class UnionType implements \Serializable
      */
     public function isEmpty() : bool
     {
-        return ($this->typeCount() < 1);
+        return \count($this->type_set) === 0;
     }
 
     /**
@@ -1053,6 +1052,7 @@ class UnionType implements \Serializable
             return false;
         }
 
+        // TODO: change check to "any", not "each"?
         return !ArraySet::exists($this->type_set, function (Type $type) : bool {
             return !$type->isArrayLike();
         });
@@ -1069,6 +1069,7 @@ class UnionType implements \Serializable
             return false;
         }
 
+        // TODO: change check to "any", not "each"?
         return ArraySet::exists($this->type_set, function (Type $type) : bool {
             return $type->isArrayAccess();
         });
@@ -1086,14 +1087,9 @@ class UnionType implements \Serializable
             return false;
         }
 
-        return \array_reduce($this->type_set,
-            function (bool $is_exclusively_array, Type $type) : bool {
-                return (
-                    $is_exclusively_array
-                    && $type->isArrayLike()
-                    && !$type->getIsNullable()
-                );
-            }, true);
+        return !ArraySet::exists($this->type_set, function (Type $type) : bool {
+            return !$type->isArrayLike() || $type->getIsNullable();
+        });
     }
 
     /**
@@ -1107,16 +1103,9 @@ class UnionType implements \Serializable
             return false;
         }
 
-        return \array_reduce($this->getTypeSet(),
-            function (bool $is_exclusively_array, Type $type) : bool {
-                return (
-                    $is_exclusively_array
-                    && (
-                        $type === ArrayType::instance(false)
-                        || $type->isGenericArray()
-                    )
-                );
-            }, true);
+        return !ArraySet::exists($this->type_set, function (Type $type) : bool {
+            return $type !== ArrayType::instance(false) && !$type->isGenericArray();
+        });
     }
 
     /**
@@ -1135,11 +1124,11 @@ class UnionType implements \Serializable
      * If this the filter preserves everything, calls clone() instead.
      */
     public function makeFromFilter(\Closure $cb) : UnionType {
-        $newTypeSet = array_filter($this->type_set, $cb);
-        if (count($newTypeSet) === count($this->type_set)) {
+        $new_type_set = \array_filter($this->type_set, $cb);
+        if (\count($new_type_set) === \count($this->type_set)) {
             return clone($this);
         }
-        return new UnionType($newTypeSet, true);
+        return new UnionType($new_type_set, true);
     }
 
     /**
@@ -1171,7 +1160,7 @@ class UnionType implements \Serializable
     ) {
         // Iterate over each viable class type to see if any
         // have the constant we're looking for
-        foreach ($this->nonNativeTypes()->getTypeSet() as $class_type) {
+        foreach ($this->nonNativeTypes()->type_set as $class_type) {
 
             // Get the class FQSEN
             $class_fqsen = $class_type->asFQSEN();
@@ -1223,11 +1212,11 @@ class UnionType implements \Serializable
     ) {
         // Iterate over each viable class type to see if any
         // have the constant we're looking for
-        foreach ($this->nonNativeTypes()->getTypeSet() as $class_type) {
+        foreach ($this->nonNativeTypes()->type_set as $class_type) {
 
             // Get the class FQSEN
             $class_fqsen = $class_type->asFQSEN();
-            assert($class_fqsen instanceof FullyQualifiedClassName);
+            \assert($class_fqsen instanceof FullyQualifiedClassName);
 
             if ($class_type->isStaticType()) {
                 if (!$context->isInClassScope()) {
@@ -1317,14 +1306,16 @@ class UnionType implements \Serializable
      */
     public function scalarTypes() : UnionType
     {
-        $types = $this->makeFromFilter(function (Type $type) : bool {
+        $types = \array_filter($this->type_set, function (Type $type) : bool {
             return $type->isScalar();
         });
-        $nullType = NullType::instance(false);
-        if (!$types->hasType($nullType) && $this->containsNullable()) {
-            $types->addType($nullType);
+        $null_type = NullType::instance(false);
+        $null_type_id = \runkit_object_id($null_type);
+        if (!\array_key_exists($null_type_id, $types) && $this->containsNullable()) {
+            // E.g. if this has `?stdClass`, add `null` to the resulting set of scalar types.
+            $types[\runkit_object_id($null_type)] = $null_type;
         }
-        return $types;
+        return new UnionType($types, true);
     }
 
     /**
@@ -1527,7 +1518,7 @@ class UnionType implements \Serializable
     {
         // Create a new array containing the string
         // representations of each type
-        $types = $this->getTypeSet();
+        $types = $this->type_set;
         $type_name_list =
             \array_map(function (Type $type) : string {
                 return (string)$type;

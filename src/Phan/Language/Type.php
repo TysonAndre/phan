@@ -783,7 +783,7 @@ class Type
 
     /**
      * @var Type[][] - Maps runkit_object_id() to an array containing the type for that object id.
-     *                 The object id doesn't change as long as there's one reference to that object (including singletonMap)
+     *                 The object id doesn't change as long as there's one reference to that object (including singleton_map)
      * Note: this is static instead of instance because some subclasses can be cloned (e.g. ClosureType)
      */
     private static $singleton_map = [];
@@ -794,7 +794,7 @@ class Type
      */
     public function asUnionType() : UnionType
     {
-        $object_id = runkit_object_id($this);
+        $object_id = \runkit_object_id($this);
         $types_set = self::$singleton_map[$object_id] ?? null;
         if ($types_set === null) {
             $types_set = [$object_id => $this];  // same as ArraySet::singleton, but why bother recomputing object id.
@@ -804,7 +804,7 @@ class Type
         /**
         if (!ArraySet::is_array_set($types_set)) {
             printf("Assertion failed: %s %s %d %s %s %s\n", $this, json_encode($this instanceof StringType), $object_id, $old_hash, spl_object_hash($this), var_export($types_set, true));
-            debug_zval_dump([self::$singletonMap[$object_id], $types_set]);
+            debug_zval_dump([self::$singleton_map[$object_id], $types_set]);
             debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
         }
          */

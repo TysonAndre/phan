@@ -10,8 +10,8 @@ use Phan\Language\Type;
  */
 final class ArraySet {
     // This is a collection of utilities. It cannot be instantiated.
-    private function __construct() {
-    }
+    private function __construct() { }
+
     /**
      * @param Type $object
      * @return Type[]
@@ -19,7 +19,7 @@ final class ArraySet {
     public static function singleton($object) : array
     {
         return [
-            runkit_object_id($object) => $object,
+            \runkit_object_id($object) => $object,
         ];
     }
 
@@ -31,9 +31,9 @@ final class ArraySet {
     {
         $result = [];
         foreach ($object_list ?? [] as $object) {
-            assert(is_object($object),
+            \assert(\is_object($object),
                    'ArraySet should contain only objects');
-            $result[runkit_object_id($object)] = $object;
+            $result[\runkit_object_id($object)] = $object;
         }
         return $result;
     }
@@ -72,7 +72,7 @@ final class ArraySet {
      */
     public static function containsAny(array $object_set, array $candidate_type_list) : bool {
         foreach ($candidate_type_list as $type) {
-            if (isset($object_set[runkit_object_id($type)])) {
+            if (isset($object_set[\runkit_object_id($type)])) {
                 return true;
             }
         }
@@ -85,7 +85,7 @@ final class ArraySet {
      * @param \Closure $cb
      */
     public static function filter(array $object_set, \Closure $cb) : array {
-        return array_filter($object_set, $cb);
+        return \array_filter($object_set, $cb);
     }
 
     /**
@@ -96,10 +96,10 @@ final class ArraySet {
     public static function map(array $object_set, \Closure $cb) : array {
         $result = [];
         foreach ($object_set as $object) {
-            $newObject = $cb($object);
-            assert(is_object($newObject),
+            $new_object = $cb($object);
+            \assert(\is_object($new_object),
                    'ArraySet should contain only objects');
-            $result[runkit_object_id($newObject)] = $newObject;
+            $result[\runkit_object_id($new_object)] = $new_object;
         }
         return $result;
     }
@@ -110,7 +110,7 @@ final class ArraySet {
      * @return bool
      */
     public static function contains(array $object_set, $object) : bool {
-        return isset($object_set[runkit_object_id($object)]);
+        return isset($object_set[\runkit_object_id($object)]);
     }
 
     /**
@@ -118,12 +118,12 @@ final class ArraySet {
      * @return Type[] - A set of Type made for efficient lookup
      */
     public static function unionAll(array $sets) {
-        if (count($sets) === 1) {
-            return reset($sets);
+        if (\count($sets) === 1) {
+            return \reset($sets);
         }
         $result = [];
         foreach ($sets as $set) {
-            if (count($result) === 0) {
+            if (\count($result) === 0) {
                 $result = $set;
             } else {
                 $result += $set;
@@ -139,7 +139,7 @@ final class ArraySet {
      */
     public static function is_array_set(array $object_set) {
         foreach ($object_set as $key => $object) {
-            if (!is_object($object) || runkit_object_id($object) !== $key) {
+            if (!\is_object($object) || \runkit_object_id($object) !== $key) {
                 return false;
             }
         }
