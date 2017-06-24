@@ -669,7 +669,7 @@ class Config
     /**
      * @return mixed
      */
-    public function getValue(string $name)
+    public static function getValue(string $name)
     {
         return self::$configuration[$name];
     }
