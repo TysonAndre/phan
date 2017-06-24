@@ -735,3 +735,6 @@ class Config
         ]);
     }
 }
+
+// Call init() to trigger the magic setters.
+Config::get();
