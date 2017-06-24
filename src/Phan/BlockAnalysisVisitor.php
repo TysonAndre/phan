@@ -120,28 +120,6 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
         return $context;
     }
 
-    private function recurse(Context $context, Node $node, Node $child_node) : Context
-    {
-        $fn_name = Element::VISIT_LOOKUP_TABLE[$child_node->kind] ?? null;
-        $old_context = $this->context;
-        $old_parent_node = $this->parent_node;
-        $old_depth = $this->depth++;
-        $this->context = $context;
-        $this->parent_node = $node;
-        try {
-            if (is_string($fn_name)) {
-                return $this->{$fn_name}($child_node);
-            } else {
-                Debug::printNode($child_node);
-                assert(false, 'All node kinds must match');
-            }
-        } finally {
-            $this->context = $old_context;
-            $this->parent_node = $old_parent_node;
-            $this->depth = $old_depth;
-        }
-    }
-
     /**
      * This is an abstraction for getting a new, updated context for a child node.
      *
