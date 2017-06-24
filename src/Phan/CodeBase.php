@@ -619,7 +619,7 @@ class CodeBase
      */
     public function getMethodSetByName(string $name) : Set
     {
-        \assert(Config::get()->dead_code_detection,
+        \assert(Config::get_dead_code_detection(),
             __METHOD__ . ' can only be called when dead code '
             . ' detection is enabled.'
         );

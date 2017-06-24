@@ -583,10 +583,10 @@ class Config
      *
      * @return void
      */
-    public function setProjectRootDirectory(
+    public static function setProjectRootDirectory(
         string $project_root_directory
     ) {
-        $this->project_root_directory = $project_root_directory;
+        self::$project_root_directory = $project_root_directory;
     }
 
     /**
@@ -613,7 +613,7 @@ class Config
     {
         // Trigger magic setters
         foreach (self::$configuration as $name => $v) {
-            $this->{$name} = $v;
+            self::setValue($name, $v);
         }
     }
 
@@ -624,14 +624,6 @@ class Config
     public function toArray() : array
     {
         return self::$configuration;
-    }
-
-    /**
-     * @return mixed
-     */
-    public static function getValue(string $name)
-    {
-        return self::$configuration[$name];
     }
 
     public static function get_null_casts_as_any_type() : bool
@@ -665,8 +657,19 @@ class Config
         return self::$quick_mode;
     }
 
-    /** @return mixed */
+    /**
+     * @return mixed
+     * @deprecated
+     */
     public function __get(string $name)
+    {
+        return self::getValue($name);
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getValue(string $name)
     {
         return self::$configuration[$name];
     }
@@ -674,8 +677,20 @@ class Config
     /**
      * @param string $name
      * @param mixed $value
+     * @return void
+     * @deprecated
      */
     public function __set(string $name, $value)
+    {
+        self::setValue($name, $value);
+    }
+
+    /**
+     * @param string $name
+     * @param mixed $value
+     * @return void
+     */
+    public static function setValue(string $name, $value)
     {
         switch ($name) {
         case 'null_casts_as_any_type':
