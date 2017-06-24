@@ -166,11 +166,9 @@ class Variable extends TypedElement
     public static function isHardcodedGlobalVariableWithName(
         string $name
     ) : bool {
-        return (
-            self::isSuperglobalVariableWithName($name)
-            || \array_key_exists($name, self::_BUILTIN_GLOBAL_TYPES)
-            || \array_key_exists($name, Config::getValue('globals_type_map'))
-        );
+        return self::isSuperglobalVariableWithName($name) ||
+            \array_key_exists($name, self::_BUILTIN_GLOBAL_TYPES) ||
+            \array_key_exists($name, Config::getValue('globals_type_map'));
     }
 
     /**

@@ -20,7 +20,7 @@ class ParentConstructorCalledAnalyzer
     ) {
         // Only look at classes configured to require a call
         // to its parent constructor
-        if (!in_array(
+        if (!\in_array(
             $clazz->getName(),
             Config::getValue('parent_constructor_required')
         )

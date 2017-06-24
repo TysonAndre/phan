@@ -196,7 +196,6 @@ class Phan implements IgnoredFilesFilterInterface {
         // lets us only need to do hydrate a subset of classes.
         $code_base->setShouldHydrateRequestedElements(true);
 
-
         // TODO: consider filtering if Config::getValue('include_analysis_file_list') is set
         // most of what needs considering is that Analysis::analyzeClasses() and Analysis:analyzeFunctions() have side effects
         // these side effects don't matter in daemon mode, but they do matter with this other form of incremental analysis
@@ -204,7 +203,7 @@ class Phan implements IgnoredFilesFilterInterface {
         $path_filter = isset($request) ? array_flip($analyze_file_path_list) : null;
 
         // Tie class aliases together with the source class
-        if (Config::get()->enable_class_alias_support) {
+        if (Config::getValue('enable_class_alias_support')) {
             $code_base->resolveClassAliases();
         }
 
@@ -384,9 +383,9 @@ class Phan implements IgnoredFilesFilterInterface {
                 fprintf(STDERR, "Daemon mode will not work with grpc extension enabled in 1.4.0-dev (1.3.2 should work), quitting. See Issue #889\n");
                 exit(EXIT_FAILURE);
             }
-            if (Config::get()->processes > 1) {
+            if (Config::getValue('processes') > 1) {
                 fprintf(STDERR, "Multi-process analysis will not work with grpc extension enabled in 1.4.0-dev (1.3.2 should work), limiting analysis to a single process. See Issue #889\n");
-                Config::get()->processes = 1;
+                Config::setValue('processes', 1);
             }
         }
     }
@@ -486,7 +485,7 @@ class Phan implements IgnoredFilesFilterInterface {
      * @return void
      */
     private static function checkForSlowPHPOptions() {
-        if (Config::get()->skip_slow_php_options_warning) {
+        if (Config::getValue('skip_slow_php_options_warning')) {
             return;
         }
         $warned = false;
