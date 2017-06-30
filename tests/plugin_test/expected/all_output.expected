@@ -12,14 +12,14 @@ src/000_plugins.php:55 UnusedSuppression Element \testUnusedSuppressionPlugin su
 src/000_plugins.php:61 PhanUnreferencedFunction Possibly zero references to function \testUnreferencedFunction
 src/000_plugins.php:66 PhanUnreferencedClass Possibly zero references to class \__autoload
 src/000_plugins.php:67 PhanUnreferencedConstant Possibly zero references to constant \__autoload
-src/001_dead_code.php:8 PhanUnreferencedMethod Possibly zero references to method \duplicateFnB
+src/001_dead_code.php:8 PhanUnreferencedFunction Possibly zero references to function \duplicateFnB
 src/001_dead_code.php:19 PhanUnreferencedProperty Possibly zero references to property \DuplicateClass001::static_prop2
 src/001_dead_code.php:22 PhanUnreferencedProperty Possibly zero references to property \DuplicateClass001::instance_prop2
 src/001_dead_code.php:25 PhanUnreferencedMethod Possibly zero references to method \DuplicateClass001::f2
 src/001_dead_code.php:26 PhanUnreferencedMethod Possibly zero references to method \DuplicateClass001::f3
 src/001_dead_code.php:29 PhanRedefineFunction Function duplicateFnA defined at src/001_dead_code.php:29 was previously defined at src/001_dead_code.php:4
 src/001_dead_code.php:33 PhanRedefineFunction Function duplicateFnB defined at src/001_dead_code.php:33 was previously defined at src/001_dead_code.php:8
-src/001_dead_code.php:33 PhanUnreferencedMethod Possibly zero references to method \duplicateFnB,1
+src/001_dead_code.php:33 PhanUnreferencedFunction Possibly zero references to function \duplicateFnB,1
 src/001_dead_code.php:37 PhanUnreferencedConstant Possibly zero references to constant \Const1B
 src/001_dead_code.php:39 PhanRedefineClass Class \DuplicateClass001 defined at src/001_dead_code.php:39 was previously defined as Class \DuplicateClass001 at src/001_dead_code.php:15
 src/001_dead_code.php:41 PhanUnreferencedConstant Possibly zero references to constant \DuplicateClass001,1::D
