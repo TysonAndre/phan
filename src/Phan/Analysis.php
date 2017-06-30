@@ -52,12 +52,12 @@ class Analysis
             if (\is_string($override_contents)) {
                 $node = \ast\parse_code(
                     $override_contents,
-                    Config::getValue('ast_version')
+                    Config::AST_VERSION
                 );
             } else {
                 $node = \ast\parse_file(
                     Config::projectPath($file_path),
-                    Config::getValue('ast_version')
+                    Config::AST_VERSION
                 );
             }
         } catch (\ParseError $parse_error) {
@@ -297,7 +297,7 @@ class Analysis
         // in mind that the results here are just a guess and
         // we can't tell with certainty that anything is
         // definitely unreferenced.
-        if (!Config::get_dead_code_detection()) {
+        if (!Config::getValue('dead_code_detection')) {
             return;
         }
 
@@ -331,12 +331,12 @@ class Analysis
             if (\is_string($file_contents_override)) {
                 $node = \ast\parse_code(
                     $file_contents_override,
-                    Config::getValue('ast_version')
+                    Config::AST_VERSION
                 );
             } else {
                 $node = \ast\parse_file(
                     Config::projectPath($file_path),
-                    Config::getValue('ast_version')
+                    Config::AST_VERSION
                 );
             }
         } catch (\ParseError $parse_error) {

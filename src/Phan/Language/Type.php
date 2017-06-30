@@ -952,7 +952,6 @@ class Type
         return $this;
     }
 
-
     /**
      * @return bool
      * True if this is a native type (like int, string, etc.)
@@ -1360,7 +1359,7 @@ class Type
             // A nullable type cannot cast to a non-nullable type (Except when null_casts_as_any_type is true)
             if (Config::get_null_casts_as_any_type()) {
                 return true;
-            } else if (Config::getValue('null_casts_as_array') && $type->isArrayLike()) {
+            } else if (Config::get_null_casts_as_array() && $type->isArrayLike()) {
                 return true;
             } else if ($type->isScalar() && (
                     Config::getValue('scalar_implicit_cast') ||

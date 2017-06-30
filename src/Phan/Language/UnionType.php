@@ -35,7 +35,7 @@ class UnionType implements \Serializable
         . '(\|' . Type::type_regex . ')*';
 
     /**
-     * @var Type[]
+     * @var Type[] - [int $type_object_id => Type $type]
      */
     private $type_set;
 
@@ -348,7 +348,7 @@ class UnionType implements \Serializable
      */
     public function hasType(Type $type) : bool
     {
-        return ArraySet::contains($this->type_set, $type);
+        return isset($this->type_set[\runkit_object_id($type)]);
     }
 
     /**
@@ -573,11 +573,12 @@ class UnionType implements \Serializable
      */
     public function isType(Type $type) : bool
     {
-        if ($this->typeCount() != 1) {
+        $type_set = $this->type_set;
+        if (\count($type_set) !== 1) {
             return false;
         }
 
-        return ArraySet::contains($this->type_set, $type);
+        return \reset($type_set) === $type;
     }
 
     /**
@@ -618,6 +619,22 @@ class UnionType implements \Serializable
             }
         }
         return true;
+    }
+
+    /**
+     * @return bool
+     * True iff this union contains a type that's also in
+     * the other union type.
+     */
+    public function hasCommonType(UnionType $union_type) : bool
+    {
+        $other_type_set = $union_type->type_set;
+        foreach ($this->type_set as $type_id => $type) {
+            if (isset($other_type_set[$type_id])) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -671,7 +688,7 @@ class UnionType implements \Serializable
      */
     public function containsFalsey() : bool
     {
-        foreach ($this->getTypeSet() as $type) {
+        foreach ($this->type_set as $type) {
             if ($type->getIsPossiblyFalsey()) {
                 return true;
             }
@@ -682,7 +699,7 @@ class UnionType implements \Serializable
     public function nonFalseyClone() : UnionType
     {
         $result = new UnionType();
-        foreach ($this->getTypeSet() as $type) {
+        foreach ($this->type_set as $type) {
             if (!$type->getIsPossiblyFalsey()) {
                 $result->addType($type);
                 continue;
@@ -705,7 +722,7 @@ class UnionType implements \Serializable
      */
     public function containsTruthy() : bool
     {
-        foreach ($this->getTypeSet() as $type) {
+        foreach ($this->type_set as $type) {
             if ($type->getIsPossiblyTruthy()) {
                 return true;
             }
@@ -716,7 +733,7 @@ class UnionType implements \Serializable
     public function nonTruthyClone() : UnionType
     {
         $result = new UnionType();
-        foreach ($this->getTypeSet() as $type) {
+        foreach ($this->type_set as $type) {
             if (!$type->getIsPossiblyTruthy()) {
                 $result->addType($type);
                 continue;
@@ -737,7 +754,7 @@ class UnionType implements \Serializable
      */
     public function containsFalse() : bool
     {
-        foreach ($this->getTypeSet() as $type) {
+        foreach ($this->type_set as $type) {
             if ($type->getIsPossiblyFalse()) {
                 return true;
             }
@@ -750,7 +767,7 @@ class UnionType implements \Serializable
      */
     public function containsTrue() : bool
     {
-        foreach ($this->getTypeSet() as $type) {
+        foreach ($this->type_set as $type) {
             if ($type->getIsPossiblyTrue()) {
                 return true;
             }
@@ -761,7 +778,7 @@ class UnionType implements \Serializable
     public function nonFalseClone() : UnionType
     {
         $result = new UnionType();
-        foreach ($this->getTypeSet() as $type) {
+        foreach ($this->type_set as $type) {
             if (!$type->getIsPossiblyFalse()) {
                 $result->addType($type);
                 continue;
@@ -780,7 +797,7 @@ class UnionType implements \Serializable
     public function nonTrueClone() : UnionType
     {
         $result = new UnionType();
-        foreach ($this->getTypeSet() as $type) {
+        foreach ($this->type_set as $type) {
             if (!$type->getIsPossiblyTrue()) {
                 $result->addType($type);
                 continue;
@@ -963,13 +980,24 @@ class UnionType implements \Serializable
             return true;
         }
 
-        // T === T
-        if ($this->isEqualTo($target)) {
+        // T overlaps with T, a future call to Type->canCastToType will pass.
+        if ($this->hasCommonType($target)) {
             return true;
+        }
+        static $float_type;
+        static $int_type;
+        static $mixed_type;
+        static $null_type;
+        if ($null_type === null) {
+            $int_type   = IntType::instance(false);
+            $float_type = FloatType::instance(false);
+            $mixed_type = MixedType::instance(false);
+            $null_type  = NullType::instance(false);
         }
 
         if (Config::get_null_casts_as_any_type()) {
             // null <-> null
+            // (this fork has weaker type casting rules than etsy/phan, using hasType instead of isType)
             if ($this->hasType(NullType::instance(false))
                 || $target->isType(NullType::instance(false))
             ) {
@@ -984,15 +1012,15 @@ class UnionType implements \Serializable
         }
 
         // mixed <-> mixed
-        if ($target->hasType(MixedType::instance(false))
-            || $this->hasType(MixedType::instance(false))
+        if ($target->hasType($mixed_type)
+            || $this->hasType($mixed_type)
         ) {
             return true;
         }
 
         // int -> float
-        if ($this->isType(IntType::instance(false))
-            && $target->isType(FloatType::instance(false))
+        if ($this->hasType($int_type)
+            && $target->hasType($float_type)
         ) {
             return true;
         }
@@ -1001,17 +1029,7 @@ class UnionType implements \Serializable
         // type combinations and see if any can cast to
         // any.
         foreach ($this->type_set as $source_type) {
-            // TODO Noop?
-            if (empty($source_type)) {
-                continue;
-            }
-
             foreach ($target->type_set as $target_type) {
-                // TODO noop?
-                if (empty($target_type)) {
-                    continue;
-                }
-
                 if ($source_type->canCastToType($target_type)) {
                     return true;
                 }
@@ -1295,8 +1313,10 @@ class UnionType implements \Serializable
     }
 
     /**
-     * Takes "MyClass|int|?bool|array|?object" and returns "int|?bool"
-     * Takes "?MyClass" and returns "null"
+     * Returns the types for which is_scalar($x) would be true.
+     * This means null/nullable is removed.
+     * Takes "MyClass|int|?bool|array|?object" and returns "int|bool"
+     * Takes "?MyClass" and returns an empty union type.
      *
      * @return UnionType
      * A UnionType with known object types kept, other types filtered out.
@@ -1306,15 +1326,10 @@ class UnionType implements \Serializable
      */
     public function scalarTypes() : UnionType
     {
+        // TODO: is_scalar(null) is false, account for that in analysis.
         $types = \array_filter($this->type_set, function (Type $type) : bool {
-            return $type->isScalar();
+            return $type->isScalar() && !($type instanceof NullType);
         });
-        $null_type = NullType::instance(false);
-        $null_type_id = \runkit_object_id($null_type);
-        if (!\array_key_exists($null_type_id, $types) && $this->containsNullable()) {
-            // E.g. if this has `?stdClass`, add `null` to the resulting set of scalar types.
-            $types[\runkit_object_id($null_type)] = $null_type;
-        }
         return new UnionType($types, true);
     }
 
@@ -1331,7 +1346,7 @@ class UnionType implements \Serializable
     {
 
         return new UnionType(
-            array_filter($this->type_set,
+            \array_filter($this->type_set,
                 function (Type $type) : bool {
                     return !$type->isGenericArray()
                         && $type !== ArrayType::instance(false);

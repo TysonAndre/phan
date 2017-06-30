@@ -4,7 +4,7 @@ Phan NEWS
 
 New Features (Analysis)
 + Automatically inherit `@param` and `@return` types from parent methods.
-  This is controlled by the boolean config `enable_phpdoc_types`, which is true by default.
+  This is controlled by the boolean config `inherit_phpdoc_types`, which is true by default.
   `analyze_signature_compatibility` must also be set to true (default is true) for this step to be performed.
 + Better analysis of calls to parent::__construct(). (Issue #852)
 + Warn with `PhanAccessOwnConstructor` if directly invoking self::__construct or static::__construct in some cases (partial).
@@ -26,6 +26,8 @@ New Features (Analysis)
 + Create `PhanTypeMagicVoidWithReturn` to warn if `void` methods such as `__construct`, `__set`, etc return a value that would be ignored. (Issue #913)
 + Add check for `PhanTypeMissingReturn` within closures. Properly emit `PhanTypeMissingReturn` in functions/methods containing closures. (Issue #599)
 + Improved checking for `PhanUndeclaredVariable` in array keys and conditional conditions. (Issue #912)
++ Improved warnings and inferences about internal function references for functions such as `sort`, `preg_match` (Issue #871, #958)
+  Phan is now aware of many internal functions which normally ignore the original values of references passed in (E.g. `preg_match`)
 
 New Features (CLI, Configs)
 + Create `check_docblock_signature_param_type_match` (similar to `check_docblock_signature_return_type_match`) config setting
@@ -40,14 +42,20 @@ New Features (CLI, Configs)
   NOTE: this is still experimental.
 + Warn to stderr about running Phan analysis with XDebug (Issue #116)
   The warning can be disabled by the Phan config setting `skip_slow_php_options_warning` to true.
++ Add a config setting 'scalar_implicit_partial' to allow moving away from 'scalar_implicit_cast' (Issue #541)
+  This allows users to list out (and gradually remove) permitted scalar type casts.
++ Add `null_casts_as_array` and `array_casts_as_null` settings, which can be used while migrating away from `null_casts_as_any_type`.
+  These will be checked if one of the types has a union type of `null`, as well as when checking if a nullable array can cast to a regular array.
 
 Maintenance
 + Reduce memory usage by around 15% by using a more efficient representation of union types (PR #729).
   The optional extension https://github.com/runkit7/runkit_object_id can be installed to boost performance by around 10%.
++ Check method signatures compatibility against all overridden methods (e.g. interfaces with the same methods), not just the first ones (Issue #925)
 
 Bug Fixes
 + Work around known bugs in current releases of two PECL extensions (Issue #888, #889)
 + Fix typo - Change `PhanParamSignatureRealMismatch` to `PhanParamSignatureRealMismatchReturnType`
++ Consistently exit with non-zero exit code if there are multiple processes, and any process failed to return valid results. (Issue #868)
 
 Backwards Incompatible Changes
 

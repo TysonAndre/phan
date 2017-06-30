@@ -206,14 +206,14 @@ class ConditionVisitor extends KindVisitorImplementation
     {
         $var_name = $var_node->children['name'] ?? null;
         $context = $this->context;
-        if (is_string($var_name)) {
+        if (\is_string($var_name)) {
             try {
                 if ($expr instanceof Node && $expr->kind === \ast\AST_CONST) {
                     $exprNameNode = $expr->children['name'];
                     if ($exprNameNode->kind === \ast\AST_NAME) {
                         // Currently, only add this inference when we're absolutely sure this is a check rejecting null/false/true
                         $exprName = $exprNameNode->children['name'];
-                        switch(strtolower($exprName)) {
+                        switch(\strtolower($exprName)) {
                         case 'null':
                             return $this->removeNullFromVariable($var_node, $context);
                         case 'false':
@@ -307,10 +307,14 @@ class ConditionVisitor extends KindVisitorImplementation
                     $this->checkVariablesDefined($arg);
                 }
             }
+
             if (self::isArgumentListWithVarAsFirstArgument($args)) {
-                $function_name = \strtolower(\ltrim($negatedNode->children['expr']->children['name'], '\\'));
-                if (count($args) !== 1 && $function_name !== 'is_a') {
-                    return $this->context;
+                $function_name = strtolower(ltrim($negatedNode->children['expr']->children['name'], '\\'));
+                if (\count($args) !== 1) {
+                    if (\strcasecmp($function_name, 'is_a') === 0) {
+                        return $this->analyzeNegationOfVariableIsA($args, $context);
+                    }
+                    return $context;
                 }
                 static $map;
                 if ($map === null) {
@@ -321,11 +325,17 @@ class ConditionVisitor extends KindVisitorImplementation
                 // TODO: Make this generic so that it can be used in the 'else' branches?
                 $callback = $map[$function_name] ?? null;
                 if ($callback === null) {
-                    return $this->context;
+                    return $context;
                 }
-                return $callback($this, $args[0], $this->context);
+                return $callback($this, $args[0], $context);
             }
         }
+        return $context;
+    }
+
+    private function analyzeNegationOfVariableIsA(array $args, Context $context) : Context
+    {
+        // TODO: implement
         return $context;
     }
 
@@ -341,9 +351,9 @@ class ConditionVisitor extends KindVisitorImplementation
         };
 
         // Remove any Types from UnionType that are subclasses of $base_class_name
-        $make_basic_negated_assertion_callback = function(string $base_class_name) : \Closure
+        $make_basic_negated_assertion_callback = static function(string $base_class_name) : \Closure
         {
-            return function(ConditionVisitor $cv, Node $var_node, Context $context) use($base_class_name) : Context {
+            return static function(ConditionVisitor $cv, Node $var_node, Context $context) use($base_class_name) : Context {
                 return $cv->updateVariableWithConditionalFilter(
                     $var_node,
                     $context,
@@ -362,6 +372,7 @@ class ConditionVisitor extends KindVisitorImplementation
                                 $hasNull = $hasNull || $type->getIsNullable();
                                 continue;
                             }
+                            assert($type instanceof Type);
                             $hasOtherNullableTypes = $hasOtherNullableTypes || $type->getIsNullable();
                             $new_type->addType($type);
                         }
@@ -376,6 +387,38 @@ class ConditionVisitor extends KindVisitorImplementation
         };
         $remove_float_callback = $make_basic_negated_assertion_callback(FloatType::class);
         $remove_int_callback = $make_basic_negated_assertion_callback(IntType::class);
+        $remove_scalar_callback = static function(ConditionVisitor $cv, Node $var_node, Context $context) : Context {
+            return $cv->updateVariableWithConditionalFilter(
+                $var_node,
+                $context,
+                // if (!is_scalar($x)) removes scalar types from $x, but $x can still be null.
+                function(UnionType $union_type) : bool {
+                    return $union_type->hasTypeMatchingCallback(function(Type $type) : bool {
+                        return ($type instanceof ScalarType) && !($type instanceof NullType);
+                    });
+                },
+                function(UnionType $union_type) : UnionType {
+                    $new_type = new UnionType();
+                    $hasNull = false;
+                    $hasOtherNullableTypes = false;
+                    // Add types which are
+                    foreach ($union_type->getTypeSet() as $type) {
+                        if ($type instanceof ScalarType && !($type instanceof NullType)) {
+                            $hasNull = $hasNull || $type->getIsNullable();
+                            continue;
+                        }
+                        assert($type instanceof Type);
+                        $hasOtherNullableTypes = $hasOtherNullableTypes || $type->getIsNullable();
+                        $new_type->addType($type);
+                    }
+                    // Add Null if some of the rejected types were were nullable, and none of the accepted types were nullable
+                    if ($hasNull && !$hasOtherNullableTypes) {
+                        $new_type->addType(NullType::instance(false));
+                    }
+                    return $new_type;
+                }
+            );
+        };
 
         return [
             'empty' => $remove_empty_cb,
@@ -394,7 +437,7 @@ class ConditionVisitor extends KindVisitorImplementation
             // TODO 'is_object' => $remove_object_callback,
             'is_real' => $remove_float_callback,
             'is_resource' => $make_basic_negated_assertion_callback(ResourceType::class),
-            'is_scalar' => $make_basic_negated_assertion_callback(ScalarType::class),
+            'is_scalar' => $remove_scalar_callback,
             'is_string' => $make_basic_negated_assertion_callback(StringType::class),
         ];
     }
@@ -690,6 +733,29 @@ class ConditionVisitor extends KindVisitorImplementation
     }
 
     /**
+     * @param Variable $variable (Node argument in a call to is_object)
+     * @return void
+     */
+    private static function analyzeIsObjectAssertion(Variable $variable)
+    {
+        // Change the type to match is_object relationship
+        // If we already have the `object` type or generic object types, then keep those
+        // (E.g. T|false becomes T, object|T[]|iterable|null becomes object)
+        // TODO: Convert `iterable` to `Traversable`?
+        // TODO: move to UnionType?
+        $newType = $variable->getUnionType()->objectTypes();
+        if ($newType->isEmpty()) {
+            $newType->addType(ObjectType::instance(false));
+        } else {
+            // Convert inferred ?MyClass to MyClass, ?object to object
+            if ($newType->containsNullable()) {
+                $newType = $newType->nonNullableClone();
+            }
+        }
+        $variable->setUnionType($newType);
+    }
+
+    /**
      * This function is called once, and returns closures to modify the types of variables.
      *
      * This contains Phan's logic for inferring the resulting union types of variables, e.g. in \is_array($x).
@@ -698,14 +764,14 @@ class ConditionVisitor extends KindVisitorImplementation
      */
     private static function initTypeModifyingClosuresForVisitCall() : array
     {
-        $make_basic_assertion_callback = function(string $union_type_string) : \Closure
+        $make_basic_assertion_callback = static function(string $union_type_string) : \Closure
         {
             $type = UnionType::fromFullyQualifiedString(
                 $union_type_string
             );
 
             /** @return void */
-            return function(Variable $variable, array $args) use($type)
+            return static function(Variable $variable, array $args) use($type)
             {
                 // Otherwise, overwrite the type for any simple
                 // primitive types.
@@ -714,7 +780,7 @@ class ConditionVisitor extends KindVisitorImplementation
         };
 
         /** @return void */
-        $array_callback = function(Variable $variable, array $args)
+        $array_callback = static function(Variable $variable, array $args)
         {
             // Change the type to match the is_a relationship
             // If we already have generic array types, then keep those
@@ -732,7 +798,7 @@ class ConditionVisitor extends KindVisitorImplementation
         };
 
         /** @return void */
-        $object_callback = function(Variable $variable, array $args)
+        $object_callback = static function(Variable $variable, array $args)
         {
             // Change the type to match the is_a relationship
             // If we already have the `object` type or generic object types, then keep those
@@ -766,18 +832,19 @@ class ConditionVisitor extends KindVisitorImplementation
             $class_type = Type::fromStringInContext($class_name, new Context(), Type::FROM_NODE);
             $variable->setUnionType($class_type->asUnionType());
         };
+
         /** @return void */
-        $scalar_callback = function(Variable $variable, array $args)
+        $scalar_callback = static function(Variable $variable, array $args)
         {
             // Change the type to match the is_a relationship
             // If we already have possible scalar types, then keep those
             // (E.g. T|false becomes bool, T becomes int|float|bool|string|null)
             $newType = $variable->getUnionType()->scalarTypes();
-            if ($newType->isEmpty() || $newType->isType(NullType::instance(false))) {
+            if ($newType->isEmpty()) {
                 // If there are no inferred types, or the only type we saw was 'null',
                 // assume there this can be any possible scalar.
                 // (Excludes `resource`, which is technically a scalar)
-                $newType = UnionType::fromFullyQualifiedString('int|float|bool|string|null');
+                $newType = UnionType::fromFullyQualifiedString('int|float|bool|string');
             }
             $variable->setUnionType($newType);
         };
@@ -845,11 +912,16 @@ class ConditionVisitor extends KindVisitorImplementation
         assert(\is_string($raw_function_name));
         $args = $node->children['args']->children;
         // Only look at things of the form
-        // `is_string($variable)`
+        // `\is_string($variable)`
         if (!self::isArgumentListWithVarAsFirstArgument($args)) {
             return $this->context;
         }
 
+        if (\count($args) !== 1) {
+            if (!(\strcasecmp($raw_function_name, 'is_a') === 0 && \count($args) === 2)) {
+                return $this->context;
+            }
+        }
         // Translate the function name into the UnionType it asserts
         static $map = null;
 
@@ -868,6 +940,7 @@ class ConditionVisitor extends KindVisitorImplementation
         try {
             // Get the variable we're operating on
             $variable = $this->getVariableFromScope($args[0]);
+
             if (\is_null($variable)) {
                 return $context;
             }

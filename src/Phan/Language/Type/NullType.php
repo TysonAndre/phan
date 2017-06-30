@@ -72,12 +72,11 @@ class NullType extends ScalarType
             if (Config::getValue('scalar_implicit_cast')) {
                 return true;
             }
-            $partial_cast_types = Config::getValue('scalar_implicit_partial');
-            if (count($partial_cast_types) > 0) {
-                // check if $type->getName() is in the list of permitted types $this->getName() can cast to.
-                if ($type->isScalar() && in_array($type->getName(), $partial_cast_types[$this->getName()] ?? [])) {
-                    return true;
-                }
+            $scalar_implicit_partial = Config::getValue('scalar_implicit_partial');
+            // check if $type->getName() is in the list of permitted types $this->getName() can cast to.
+            if (\count($scalar_implicit_partial) > 0 &&
+                \in_array($type->getName(), $scalar_implicit_partial['null'] ?? [], true)) {
+                return true;
             }
         }
 

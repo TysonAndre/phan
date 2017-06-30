@@ -292,7 +292,7 @@ class CLI
                     Config::setValue('dead_code_detection', true);
                     break;
                 case 'print-memory-usage-summary':
-                    Config::get()->print_memory_usage_summary = true;
+                    Config::setValue('print_memory_usage_summary', true);
                     break;
                 case 'markdown-issue-messages':
                     Config::setValue('markdown_issue_messages', true);
