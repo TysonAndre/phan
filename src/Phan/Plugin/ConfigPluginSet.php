@@ -8,6 +8,11 @@ use Phan\Language\Element\Clazz;
 use Phan\Language\Element\Func;
 use Phan\Language\Element\Method;
 use Phan\Plugin;
+use Phan\PluginV2\LegacyPreAnalyzeNodeCapability;
+use Phan\PluginV2\AnalyzeClassCapability;
+use Phan\PluginV2\AnalyzeFunctionCapability;
+use Phan\PluginV2\AnalyzeMethodCapability;
+use Phan\PluginV2\LegacyAnalyzeNodeCapability;
 use ast\Node;
 
 /**
@@ -17,9 +22,24 @@ use ast\Node;
  * (Note: This is called almost once per each AST node being analyzed.
  * Speed is preferred over using Phan\Memoize.)
  */
-class ConfigPluginSet extends Plugin {
+final class ConfigPluginSet extends Plugin {
     /** @var Plugin[]|null - Cached plugin set for this instance. Lazily generated. */
     private $pluginSet;
+
+    /** @var LegacyPreAnalyzeNodeCapability[]|null */
+    private $preAnalyzeNodePluginSet;
+
+    /** @var LegacyAnalyzeNodeCapability[]|null */
+    private $analyzeNodePluginSet;
+
+    /** @var AnalyzeClassCapability[]|null */
+    private $analyzeClassPluginSet;
+
+    /** @var AnalyzeFunctionCapability[]|null */
+    private $analyzeFunctionPluginSet;
+
+    /** @var AnalyzeMethodCapability[]|null */
+    private $analyzeMethodPluginSet;
 
     /**
      * Call `ConfigPluginSet::instance()` instead.
@@ -35,7 +55,7 @@ class ConfigPluginSet extends Plugin {
         static $instance = null;
         if ($instance === null) {
             $instance = new self;
-            $instance->getPlugins();
+            $instance->ensurePluginsExist();
         }
         return $instance;
     }
@@ -59,7 +79,7 @@ class ConfigPluginSet extends Plugin {
         Context $context,
         Node $node
     ) {
-        foreach ($this->pluginSet as $plugin) {
+        foreach ($this->preAnalyzeNodePluginSet as $plugin) {
             $plugin->preAnalyzeNode(
                 $code_base,
                 $context,
@@ -91,7 +111,7 @@ class ConfigPluginSet extends Plugin {
         Node $node,
         Node $parent_node = null
     ) {
-        foreach ($this->pluginSet as $plugin) {
+        foreach ($this->analyzeNodePluginSet as $plugin) {
             $plugin->analyzeNode(
                 $code_base,
                 $context,
@@ -114,7 +134,7 @@ class ConfigPluginSet extends Plugin {
         CodeBase $code_base,
         Clazz $class
     ) {
-        foreach ($this->pluginSet as $plugin) {
+        foreach ($this->analyzeClassPluginSet as $plugin) {
             $plugin->analyzeClass(
                 $code_base,
                 $class
@@ -135,7 +155,7 @@ class ConfigPluginSet extends Plugin {
         CodeBase $code_base,
         Method $method
     ) {
-        foreach ($this->pluginSet as $plugin) {
+        foreach ($this->analyzeMethodPluginSet as $plugin) {
             $plugin->analyzeMethod(
                 $code_base,
                 $method
@@ -156,7 +176,7 @@ class ConfigPluginSet extends Plugin {
         CodeBase $code_base,
         Func $function
     ) {
-        foreach ($this->getPlugins() as $plugin) {
+        foreach ($this->analyzeFunctionPluginSet as $plugin) {
             $plugin->analyzeFunction(
                 $code_base,
                 $function
@@ -170,28 +190,52 @@ class ConfigPluginSet extends Plugin {
         return \count($this->pluginSet) > 0;
     }
 
+    /** @return void */
+    private function ensurePluginsExist()
+    {
+        if (!\is_null($this->pluginSet)) {
+            return;
+        }
+        $plugin_set = array_map(
+            function (string $plugin_file_name) : Plugin {
+                $plugin_instance =
+                    require($plugin_file_name);
+
+                \assert(!empty($plugin_instance),
+                    "Plugins must return an instance of the plugin. The plugin at $plugin_file_name does not.");
+
+                \assert($plugin_instance instanceof Plugin,
+                    "Plugins must extend \Phan\Plugin. The plugin at $plugin_file_name does not.");
+
+                return $plugin_instance;
+            },
+            Config::getValue('plugins')
+        );
+        $this->pluginSet = $plugin_set;
+
+        $this->preAnalyzeNodePluginSet      = self::filterByClass($plugin_set, LegacyPreAnalyzeNodeCapability::class);
+        $this->analyzeNodePluginSet         = self::filterByClass($plugin_set, LegacyAnalyzeNodeCapability::class);
+        $this->analyzeMethodPluginSet       = self::filterByClass($plugin_set, AnalyzeMethodCapability::class);
+        $this->analyzeFunctionPluginSet     = self::filterByClass($plugin_set, AnalyzeFunctionCapability::class);
+        $this->analyzeClassPluginSet        = self::filterByClass($plugin_set, AnalyzeClassCapability::class);
+    }
+
+    private static function filterByClass(array $plugin_set, string $interface_name) : array {
+        $result = [];
+        foreach ($plugin_set as $plugin) {
+            if ($plugin instanceof $interface_name) {
+                $result[] = $plugin;
+            }
+        }
+        return $result;
+    }
+
+
     /**
      * @return Plugin[]
      */
     private function getPlugins() : array
     {
-        if (\is_null($this->pluginSet)) {
-            $this->pluginSet = array_map(
-                function (string $plugin_file_name) : Plugin {
-                    $plugin_instance =
-                        require($plugin_file_name);
-
-                    \assert(!empty($plugin_instance),
-                        "Plugins must return an instance of the plugin. The plugin at $plugin_file_name does not.");
-
-                    \assert($plugin_instance instanceof Plugin,
-                        "Plugins must extend \Phan\Plugin. The plugin at $plugin_file_name does not.");
-
-                    return $plugin_instance;
-                },
-                Config::getValue('plugins')
-            );
-        }
         return $this->pluginSet;
     }
 
