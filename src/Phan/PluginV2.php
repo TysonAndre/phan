@@ -2,9 +2,7 @@
 namespace Phan;
 
 use Phan\Language\Context;
-use Phan\Language\Element\Clazz;
-use Phan\Language\Element\Method;
-use Phan\Language\Element\Func;
+use Phan\PluginV2\IssueEmitter;
 use ast\Node;
 
 /**
@@ -12,73 +10,58 @@ use ast\Node;
  * their hooks called at appropriate times during analysis
  * of each file, class, method and function.
  *
- * Plugins must extends this class and return an instance
- * of themselves.
+ * Plugins must extends this class
+ * (And at least one of the interfaces corresponding to plugin capabilities)
+ * and return an instance of themselves.
+ *
+ * List of capabilities which a plugin may implement:
+ *
+ *  1. public function analyzeClass(CodeBase $code_base, Clazz $class)
+ *     Analyze (and modify) a class definition, after parsing and before analyzing.
+ *     (implement \Phan\PluginV2\AnalyzeClassCapability)
+ *
+ *  2. public function analyzeFunction(CodeBase $code_base, Func $function)
+ *     Analyze (and modify) a function definition, after parsing and before analyzing.
+ *     (implement \Phan\PluginV2\AnalyzeFunctionCapability)
+ *
+ *  3. public function analyzeMethod(CodeBase $code_base, Method $method)
+ *     Analyze (and modify) a method definition, after parsing and before analyzing.
+ *     (implement \Phan\PluginV2\AnalyzeMethodCapability)
+ *
+ *  4. public static function getAnalyzeNodeVisitorClassName() : string
+ *     Returns the name of a class extending PluginAwareAnalysisVisitor, which will be used to analyze nodes in the analysis phase.
+ *     (implement \Phan\PluginV2\AnalyzeNodeCapability)
+ *
+ *  5. public static function getPreAnalyzeNodeVisitorClassName() : string
+ *     Returns the name of a class extending PluginAwarePreAnalysisVisitor, which will be used to pre-analyze nodes in the analysis phase.
+ *     (implement \Phan\PluginV2\PreAnalyzeNodeCapability)
+ *
+ * List of deprecated legacy capabilities
+ *
+ *  1. public static function analyzeNode(CodeBase $code_base, Context $context, Node $node, Node $parent_node = null)
+ *     Analyzes $node
+ *     (implement \Phan\PluginV2\LegacyAnalyzeNodeCapability)
+ *     (Deprecated in favor of \Phan\PluginV2\AnalyzeNodeCapability, which is faster)
+ *
+ *  2. public static function preAnalyzeNode(CodeBase $code_base, Context $context, Node $node)
+ *     Pre-analyzes $node
+ *     (implement \Phan\PluginV2\LegacyPreAnalyzeNodeCapability)
+ *     (Deprecated in favor of \Phan\PluginV2\PreAnalyzeNodeCapability, which is faster)
  */
 abstract class PluginV2 {
-
     /**
-     * Emit an issue if it is not suppressed
-     *
-     * @param CodeBase $code_base
-     * The code base in which the issue was found
-     *
-     * @param Context $context
-     * The context in which the issue was found
-     *
-     * @param string $issue_type
-     * A name for the type of issue such as 'PhanPluginMyIssue'
-     *
-     * @param string $issue_message_fmt
-     * The complete issue message format string to emit such as
-     * 'class with fqsen {CLASS} is broken in some fashion' (preferred)
-     * or 'class with fqsen %s is broken in some fashion'
-     * The list of placeholders for between braces can be found
-     * in \Phan\Issue::uncolored_format_string_for_template.
-     *
-     * @param string[] $issue_message_args
-     * The arguments for this issue format.
-     * If this array is empty, $issue_message_args is kept in place
-     *
-     * @param int $severity
-     * A value from the set {Issue::SEVERITY_LOW,
-     * Issue::SEVERITY_NORMAL, Issue::SEVERITY_HIGH}.
-     *
-     * @param int $remediation_difficulty
-     * A guess at how hard the issue will be to fix from the
-     * set {Issue:REMEDIATION_A, Issue:REMEDIATION_B, ...
-     * Issue::REMEDIATION_F} with F being the hardest.
+     * public function emitIssue(
+     *     CodeBase $code_base,
+     *     Context $context,
+     *     string $issue_type,
+     *     string $issue_message_fmt,
+     *     array $issue_message_args = [],
+     *     int $severity = Issue::SEVERITY_NORMAL,
+     *     int $remediation_difficulty = Issue::REMEDIATION_B,
+     *     int $issue_type_id = Issue::TYPE_ID_UNKNOWN
+     * )
      */
-    public function emitIssue(
-        CodeBase $code_base,
-        Context $context,
-        string $issue_type,
-        string $issue_message_fmt,
-        array $issue_message_args = [],
-        int $severity = Issue::SEVERITY_NORMAL,
-        int $remediation_difficulty = Issue::REMEDIATION_B,
-        int $issue_type_id = Issue::TYPE_ID_UNKNOWN
-    ) {
-        $issue = new Issue(
-            $issue_type,
-            Issue::CATEGORY_PLUGIN,
-            $severity,
-            $issue_message_fmt,
-            $remediation_difficulty,
-            $issue_type_id
-        );
-
-        $issue_instance = new IssueInstance(
-            $issue,
-            $context->getFile(),
-            $context->getLineNumberStart(),
-            $issue_message_args
-        );
-
-        Issue::maybeEmitInstance(
-            $code_base,
-            $context,
-            $issue_instance
-        );
+    use IssueEmitter {
+        emitPluginIssue as emitIssue;
     }
 }

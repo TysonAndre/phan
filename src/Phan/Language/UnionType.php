@@ -1233,8 +1233,7 @@ class UnionType implements \Serializable
         foreach ($this->nonNativeTypes()->type_set as $class_type) {
 
             // Get the class FQSEN
-            $class_fqsen = $class_type->asFQSEN();
-            \assert($class_fqsen instanceof FullyQualifiedClassName);
+            $class_fqsen = $class_type->asClassFQSEN();
 
             if ($class_type->isStaticType()) {
                 if (!$context->isInClassScope()) {
@@ -1319,7 +1318,7 @@ class UnionType implements \Serializable
      * Takes "?MyClass" and returns an empty union type.
      *
      * @return UnionType
-     * A UnionType with known object types kept, other types filtered out.
+     * A UnionType with known scalar types kept, other types filtered out.
      *
      * @see nonGenericArrayTypes
      * @see genericArrayElementTypes
@@ -1329,6 +1328,27 @@ class UnionType implements \Serializable
         // TODO: is_scalar(null) is false, account for that in analysis.
         $types = \array_filter($this->type_set, function (Type $type) : bool {
             return $type->isScalar() && !($type instanceof NullType);
+        });
+        return new UnionType($types, true);
+    }
+
+    /**
+     * Returns the types for which is_callable($x) would be true.
+     * TODO: Check for __invoke()?
+     * Takes "Closure|false" and returns "Closure"
+     * Takes "?MyClass" and returns an empty union type.
+     *
+     * @return UnionType
+     * A UnionType with known callable types kept, other types filtered out.
+     *
+     * @see nonGenericArrayTypes
+     * @see genericArrayElementTypes
+     */
+    public function callableTypes() : UnionType
+    {
+        // TODO: is_scalar(null) is false, account for that in analysis.
+        $types = \array_filter($this->type_set, function (Type $type) : bool {
+            return $type->isCallable();
         });
         return new UnionType($types, true);
     }

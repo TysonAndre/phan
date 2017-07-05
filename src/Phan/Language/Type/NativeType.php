@@ -7,6 +7,7 @@ abstract class NativeType extends Type
 {
     const NAME = '';
 
+    /** @phan-override */
     const KEY_PREFIX = '!';
 
     /**

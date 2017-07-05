@@ -573,6 +573,8 @@ class ParseVisitor extends ScopeVisitor
 
             $constant->setIsDeprecated($comment->isDeprecated());
             $constant->setIsNSInternal($comment->isNSInternal());
+            $constant->setIsOverrideIntended($comment->isOverrideIntended());
+            $constant->setSuppressIssueList($comment->getSuppressIssueList());
 
             $constant->setFutureUnionType(
                 new FutureUnionType(

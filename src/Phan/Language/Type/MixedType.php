@@ -6,8 +6,9 @@ use Phan\Language\Context;
 use Phan\Language\Type;
 use Phan\Language\UnionType;
 
-class MixedType extends NativeType
+final class MixedType extends NativeType
 {
+    /** @phan-override */
     const NAME = 'mixed';
 
     // mixed or ?mixed can cast to/from anything.
