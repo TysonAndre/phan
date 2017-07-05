@@ -12,7 +12,9 @@ use Phan\Language\Element\Parameter;
 use Phan\Language\FQSEN\FullyQualifiedClassName;
 use Phan\Language\Type\IterableType;
 use Phan\Language\Type\MixedType;
+use Phan\Language\Type\NullType;
 use Phan\Language\Type\TemplateType;
+use Phan\Language\UnionType;
 
 class ParameterTypesAnalyzer
 {
@@ -754,13 +756,51 @@ class ParameterTypesAnalyzer
                 }
                 // TODO: test edge cases of variadic signatures
                 if ($is_exclusively_narrowed && Config::getValue('prefer_narrowed_phpdoc_param_type')) {
-                    $param_to_modify = $method->getParameterList()[$i] ?? null;
-                    if ($param_to_modify) {
-                        $param_to_modify->setUnionType($phpdoc_param_union_type);
+                    if (self::shouldAllowNarrowingParamType($phpdoc_param_union_type, $resolved_real_param_type)) {
+                        $param_to_modify = $method->getParameterList()[$i] ?? null;
+                        if ($param_to_modify) {
+                            $param_to_modify->setUnionType($phpdoc_param_union_type);
+                        }
                     }
                 }
             }
         }
+    }
+
+    /**
+     * Forbid these two types of narrowing:
+     * 1. Forbid inferring a type of null from "(at)param null $x" for foo(?int $x = null)
+     *    The phpdoc is probably nonsense.
+     * 2. Forbid inferring a type of `T` from "(at)param T $x" for foo(?T $x = null)
+     *    The phpdoc is probably shorthand.
+     *
+     * Annotations may be added in the future to support this, e.g. "(at)param T $x (at)phan-not-null"
+     *
+     * @return bool true if Phan should proceed using phpdoc type instead of real types.
+     */
+    private static function shouldAllowNarrowingParamType(UnionType $phpdoc_param_union_type, UnionType $real_param_type) : bool
+    {
+        // "@param null $x" is almost always a mistake. Forbid it for now.
+        // But allow "@param T|null $x"
+        if ($phpdoc_param_union_type->isType(NullType::instance(false))) {
+            return false;
+        }
+        if (!$real_param_type->containsNullable()) {
+            return true;
+        }
+        foreach ($phpdoc_param_union_type->getTypeSet() as $type) {
+            if ($type instanceof NullType) {
+                continue;
+            }
+            if (!$type->getIsNullable()) {
+                if ($real_param_type->hasType($type->withIsNullable(true))) {
+                    // Check if this would attempt to narrow `?T` to `T`, reject if that is the case.
+                    // (Usually, if this is seen, it's due to boilerplate, and not actually attempting to treat a nullable as non-nullable)
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     /**
