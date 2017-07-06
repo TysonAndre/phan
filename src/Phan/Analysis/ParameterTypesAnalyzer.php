@@ -756,10 +756,26 @@ class ParameterTypesAnalyzer
                 }
                 // TODO: test edge cases of variadic signatures
                 if ($is_exclusively_narrowed && Config::getValue('prefer_narrowed_phpdoc_param_type')) {
-                    if (self::shouldAllowNarrowingParamType($phpdoc_param_union_type, $resolved_real_param_type)) {
+                    $normalized_phpdoc_param_union_type = self::normalizeNarrowedParamType($phpdoc_param_union_type, $real_param_type);
+                    if ($normalized_phpdoc_param_union_type) {
                         $param_to_modify = $method->getParameterList()[$i] ?? null;
                         if ($param_to_modify) {
-                            $param_to_modify->setUnionType($phpdoc_param_union_type);
+                            $param_to_modify->setUnionType($normalized_phpdoc_param_union_type);
+                        }
+                    } else {
+                        // This check isn't urgent to fix, and is specific to nullable casting rules,
+                        // so use a different issue type.
+                        if (!$method->hasSuppressIssue(Issue::TypeMismatchDeclaredParamNullable)) {
+                            Issue::maybeEmit(
+                                $code_base,
+                                $context,
+                                Issue::TypeMismatchDeclaredParamNullable,
+                                $context->getLineNumberStart(),
+                                $parameter->getName(),
+                                $method->getName(),
+                                $phpdoc_param_union_type->__toString(),
+                                $real_param_type->__toString()
+                            );
                         }
                     }
                 }
@@ -776,31 +792,32 @@ class ParameterTypesAnalyzer
      *
      * Annotations may be added in the future to support this, e.g. "(at)param T $x (at)phan-not-null"
      *
-     * @return bool true if Phan should proceed using phpdoc type instead of real types.
+     * @return ?UnionType
+     *         - normalized version of $phpdoc_param_union_type (possibly same object)
+     *           if Phan should proceed using phpdoc type instead of real types. (Converting T|null to ?T)
+     *         - null if the type is an invalid narrowing, and Phan should warn.
      */
-    private static function shouldAllowNarrowingParamType(UnionType $phpdoc_param_union_type, UnionType $real_param_type) : bool
+    private static function normalizeNarrowedParamType(UnionType $phpdoc_param_union_type, UnionType $real_param_type)
     {
         // "@param null $x" is almost always a mistake. Forbid it for now.
         // But allow "@param T|null $x"
-        if ($phpdoc_param_union_type->isType(NullType::instance(false))) {
-            return false;
+        $has_null = $phpdoc_param_union_type->hasType(NullType::instance(false));
+        if ($has_null && $phpdoc_param_union_type->typeCount() === 1) {
+            // "@param null"
+            return null;
         }
-        if (!$real_param_type->containsNullable()) {
-            return true;
+        if (!$real_param_type->containsNullable() || $phpdoc_param_union_type->containsNullable()) {
+            // We already validated that the other casts were supported.
+            return $phpdoc_param_union_type;
         }
-        foreach ($phpdoc_param_union_type->getTypeSet() as $type) {
-            if ($type instanceof NullType) {
-                continue;
-            }
-            if (!$type->getIsNullable()) {
-                if ($real_param_type->hasType($type->withIsNullable(true))) {
-                    // Check if this would attempt to narrow `?T` to `T`, reject if that is the case.
-                    // (Usually, if this is seen, it's due to boilerplate, and not actually attempting to treat a nullable as non-nullable)
-                    return false;
-                }
-            }
+        if (!$has_null) {
+            // Attempting to narrow nullable to non-nullable is usually a mistake, currently not supported.
+            return null;
         }
-        return true;
+        // Create a clone, converting "T|S|null" to "T|S"
+        $phpdoc_param_union_type = $phpdoc_param_union_type->nullableClone();
+        $phpdoc_param_union_type->removeType(NullType::instance(false));
+        return $phpdoc_param_union_type;
     }
 
     /**
