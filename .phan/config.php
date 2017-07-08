@@ -31,10 +31,6 @@ return [
     // error message.
     "allow_missing_properties" => false,
 
-    // Allow null to be cast as any array-like type and for any
-    // array-like type to be cast to null. More granular than null_casts_as_any_type.
-    'null_casts_as_array' => false,
-
     // Allow null to be cast as any type and for any
     // type to be cast to null.
     "null_casts_as_any_type" => false,
