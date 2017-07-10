@@ -428,7 +428,7 @@ class ASTSimplifier {
     }
 
     public static function applyStatic(Node $node, string $filename = 'unknown') : Node {
-        $rewriter = new self($filename);
+        $rewriter = new self(new \SplObjectStorage(), $filename);
         $nodes = $rewriter->apply($node);
         \assert(\count($nodes) === 1);
         return $nodes[0];
