@@ -16,9 +16,9 @@ class ASTSimplifier {
     /** @var string - for debugging purposes */
     private $filename;
 
-    public function __construct(string $filename = 'unknown')
+    public function __construct(\SplObjectStorage $exit_status_cache, string $filename = 'unknown')
     {
-        $this->block_checker = new BlockExitStatusChecker($filename);
+        $this->block_checker = new BlockExitStatusChecker($exit_status_cache, $filename);
         $this->filename = $filename;
     }
 

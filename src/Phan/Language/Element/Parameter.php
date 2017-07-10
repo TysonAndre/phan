@@ -521,11 +521,11 @@ class Parameter extends Variable
 
         $string .= "\${$this->getName()}";
 
-        if ($this->hasDefaultValue()) {
+        if ($this->hasDefaultValue() && !$this->isVariadic()) {
             if ($this->getDefaultValue() instanceof \ast\Node) {
                 $string .= ' = null';
             } else {
-                $string .= ' = ' . (string)$this->getDefaultValue();
+                $string .= ' = ' . var_export($this->getDefaultValue(), true);
             }
         }
 
