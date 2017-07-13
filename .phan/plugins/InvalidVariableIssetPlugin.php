@@ -63,11 +63,18 @@ class InvalidVariableIssetVisitor extends PluginAwareAnalysisVisitor {
                 "undeclared variables in isset()",
                 []
             );
-        } elseif ($argument->kind !== ast\AST_DIM){
+        } elseif ($argument->kind !== ast\AST_VAR) {
             // emit issue if argument is not array access
             $this->emit(
                 'PhanPluginInvalidVariableIsset',
                 "non array access in isset()",
+                []
+            );
+        } else if (!is_string($name)) {
+            // emit issue if argument is not array access
+            $this->emit(
+                'PhanPluginComplexVariableInIsset',
+                "Unanalyzable complex variable expression in isset",
                 []
             );
         }
