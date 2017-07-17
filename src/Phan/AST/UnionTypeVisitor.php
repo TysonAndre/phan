@@ -139,7 +139,7 @@ class UnionTypeVisitor extends AnalysisVisitor
      * Default visitor for node kinds that do not have
      * an overriding method
      *
-     * @param Node $node
+     * @param Node $node (@phan-unused-param)
      * An AST node we'd like to determine the UnionType
      * for
      *
@@ -260,7 +260,7 @@ class UnionTypeVisitor extends AnalysisVisitor
     /**
      * Visit a node with kind `\ast\AST_EMPTY`
      *
-     * @param Node $node
+     * @param Node $node (@phan-unused-param)
      * A node of the type indicated by the method name that we'd
      * like to figure out the type that it produces.
      *
@@ -276,7 +276,7 @@ class UnionTypeVisitor extends AnalysisVisitor
     /**
      * Visit a node with kind `\ast\AST_ISSET`
      *
-     * @param Node $node
+     * @param Node $node (@phan-unused-param)
      * A node of the type indicated by the method name that we'd
      * like to figure out the type that it produces.
      *
@@ -292,7 +292,7 @@ class UnionTypeVisitor extends AnalysisVisitor
     /**
      * Visit a node with kind `\ast\AST_INCLUDE_OR_EVAL`
      *
-     * @param Node $node
+     * @param Node $node (@phan-unused-param)
      * A node of the type indicated by the method name that we'd
      * like to figure out the type that it produces.
      *
@@ -349,7 +349,7 @@ class UnionTypeVisitor extends AnalysisVisitor
     /**
      * Visit a node with kind `\ast\AST_SHELL_EXEC`
      *
-     * @param Node $node
+     * @param Node $node (@phan-unused-param)
      * A node of the type indicated by the method name that we'd
      * like to figure out the type that it produces.
      *
@@ -454,12 +454,8 @@ class UnionTypeVisitor extends AnalysisVisitor
             case \ast\flags\TYPE_VOID:
                 return VoidType::instance(false)->asUnionType();
             default:
-                \assert(
-                    false,
-                    "All flags must match. Found "
-                    . Debug::astFlagDescription($node->flags ?? 0, $node->kind)
-                );
-                break;
+                throw new \AssertionError("All flags must match. Found "
+                    . Debug::astFlagDescription($node->flags ?? 0, $node->kind));
         }
     }
 
@@ -832,8 +828,6 @@ class UnionTypeVisitor extends AnalysisVisitor
                 return $type;
             }
 
-            \assert($fqsen instanceof FullyQualifiedClassName);
-
             // If we don't have the class, we'll catch that problem
             // elsewhere
             if (!$this->code_base->hasClassWithFQSEN($fqsen)) {
@@ -898,7 +892,8 @@ class UnionTypeVisitor extends AnalysisVisitor
         UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $node->children['expr']);
         try {
             // Confirm that the right-side exists
-            $union_type = $this->visitClassNode(
+            // Compute the union type but don't use it.
+            $this->visitClassNode(
                 $node->children['class']
             );
         } catch (TypeException $exception) {
@@ -1089,7 +1084,7 @@ class UnionTypeVisitor extends AnalysisVisitor
     /**
      * Visit a node with kind `\ast\AST_ENCAPS_LIST`
      *
-     * @param Node $node
+     * @param Node $node (@phan-unused-param)
      * A node of the type indicated by the method name that we'd
      * like to figure out the type that it produces.
      *
@@ -1370,13 +1365,10 @@ class UnionTypeVisitor extends AnalysisVisitor
         );
 
         try {
-            $class_fqsen = null;
             foreach ($this->classListFromNode(
                     $node->children['class'] ?? $node->children['expr']
                 ) as $class
             ) {
-                $class_fqsen = $class->getFQSEN();
-
                 if (!$class->hasMethodWithName(
                     $this->code_base,
                     $method_name
@@ -1385,10 +1377,9 @@ class UnionTypeVisitor extends AnalysisVisitor
                 }
 
                 try {
-                    $method = $class->getMethodByNameInContext(
+                    $method = $class->getMethodByName(
                         $this->code_base,
-                        $method_name,
-                        $this->context
+                        $method_name
                     );
 
                     $union_type = $method->getUnionType();

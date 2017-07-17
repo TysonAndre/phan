@@ -3,7 +3,9 @@ namespace Phan;
 
 use Phan\AST\AnalysisVisitor;
 use Phan\AST\Visitor\Element;
+use Phan\Analysis\BlockExitStatusChecker;
 use Phan\Analysis\ConditionVisitor;
+use Phan\Analysis\NegatedConditionVisitor;
 use Phan\Analysis\ContextMergeVisitor;
 use Phan\Analysis\PostOrderAnalysisVisitor;
 use Phan\Analysis\PreOrderAnalysisVisitor;
@@ -192,7 +194,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
         // With a context that is inside of the node passed
         // to this method, we analyze all children of the
         // node.
-        foreach ($node->children ?? [] as $node_key => $child_node) {
+        foreach ($node->children ?? [] as $child_node) {
             // Skip any non Node children.
             if (!($child_node instanceof Node)) {
                 continue;
@@ -393,7 +395,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
         \assert(!empty($context), 'Context cannot be null');
 
         $condition_node = $node->children['cond'];
-        if ($condition_node && $condition_node instanceof Node) {
+        if ($condition_node instanceof Node) {
             $context = $this->analyzeAndGetUpdatedContext(
                 $context->withLineNumberStart($condition_node->lineno ?? 0),
                 $node,
@@ -506,7 +508,86 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
      */
     public function visitIf(Node $node) : Context
     {
-        return $this->visitBranchedContext($node);
+        $context = $this->context->withLineNumberStart(
+            $node->lineno ?? 0
+        );
+
+        $context = $this->preOrderAnalyze($context, $node);
+
+        \assert(!empty($context), 'Context cannot be null');
+
+        // We collect all child context so that the
+        // PostOrderAnalysisVisitor can optionally operate on
+        // them
+        $child_context_list = [];
+
+        $fallthrough_context = $context;
+
+        $child_nodes = $node->children ?? [];
+        $excluded_elem_count = 0;
+
+        // With a context that is inside of the node passed
+        // to this method, we analyze all children of the
+        // node.
+        foreach ($child_nodes as $child_node) {
+            // The conditions need to communicate to the outter
+            // scope for things like assigning veriables.
+            $child_context = clone($fallthrough_context);
+
+            assert($child_node->kind === \ast\AST_IF_ELEM);
+
+            $child_context->withLineNumberStart(
+                $child_node->lineno ?? 0
+            );
+
+            // Step into each child node and get an
+            // updated context for the node
+            $child_context = $this->analyzeAndGetUpdatedContext($child_context, $node, $child_node);
+
+            // Issue #406: We can improve analysis of `if` blocks by using
+            // a BlockExitStatusChecker to avoid propogating invalid inferences.
+            // TODO: we may wish to check for a try block between this line's scope
+            // and the parent function's (or global) scope,
+            // to reduce false positives.
+            // (Variables will be available in `catch` and `finally`)
+            // This is mitigated by finally and catch blocks being unaware of new variables from try{} blocks.
+            if (BlockExitStatusChecker::willUnconditionallySkipRemainingStatements($child_node->children['stmts'])) {
+                // e.g. "if (!is_string($x)) { return; }"
+                $excluded_elem_count++;
+            } else {
+                $child_context_list[] = $child_context;
+            }
+
+            $cond_node = $child_node->children['cond'];
+            if ($cond_node instanceof Node) {
+                $fallthrough_context = (new NegatedConditionVisitor($this->code_base, $fallthrough_context))($cond_node);
+            }
+            // If cond_node was null, it would be an else statement.
+        }
+
+        if ($excluded_elem_count === count($child_nodes)) {
+            // If all of the AST_IF_ELEM bodies would unconditionally throw or return,
+            // then analyze the remaining statements with the negation of all of the conditions.
+            $context = $fallthrough_context;
+        } else {
+            // For if statements, we need to merge the contexts
+            // of all child context into a single scope based
+            // on any possible branching structure
+
+            // ContextMergeVisitor will include the incoming scope($context) if the if elements aren't comprehensive
+            $context = (new ContextMergeVisitor(
+                $this->code_base,
+                $context,
+                $child_context_list
+            ))($node);
+        }
+
+        $context = $this->postOrderAnalyze($context, $node);
+
+        // When coming out of a scoped element, we pop the
+        // context to be the incoming context. Otherwise,
+        // we pass our new context up to our parent
+        return $context;
     }
 
     /**

@@ -61,7 +61,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * Default visitor for node kinds that do not have
      * an overriding method
      *
-     * @param Node $node
+     * @param Node $node (@phan-unused-param)
      * A node to parse
      *
      * @return Context
@@ -134,7 +134,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     }
 
     /**
-     * @param Node $node
+     * @param Node $node (@phan-unused-param)
      * A node to parse
      *
      * @return Context
@@ -147,7 +147,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     }
 
     /**
-     * @param Node $node
+     * @param Node $node (@phan-unused-param)
      * A node to parse
      *
      * @return Context
@@ -266,7 +266,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     }
 
     /**
-     * @param Node $node
+     * @param Node $node (@phan-unused-param)
      * A node to parse
      *
      * @return Context
@@ -716,7 +716,6 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             );
             return;
         }
-        \assert($node instanceof Node);
         $kind = $node->kind;
         if ($kind === \ast\AST_CONDITIONAL) {
             yield from self::deduplicateUnionTypes($this->getReturnTypesOfConditional($context, $node));
@@ -846,7 +845,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     }
 
     /**
-     * @param Node $node
+     * @param Node $node (@phan-unused-param)
      * A node to parse
      *
      * @return Context
@@ -869,20 +868,23 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     public function visitCall(Node $node) : Context
     {
         $expression = $node->children['expr'];
-        $function_list_generator = (new ContextNode(
-            $this->code_base,
-            $this->context,
-            $expression
-        ))->getFunctionFromNode();
-
-        foreach ($function_list_generator as $function) {
-            assert($function instanceof FunctionInterface);
-            // Check the call for paraemter and argument types
-            $this->analyzeCallToMethod(
+        try {
+            $function_list_generator = (new ContextNode(
                 $this->code_base,
-                $function,
-                $node
-            );
+                $this->context,
+                $expression
+            ))->getFunctionFromNode();
+
+            foreach ($function_list_generator as $function) {
+                assert($function instanceof FunctionInterface);
+                // Check the call for parameter and argument types
+                $this->analyzeCallToMethod(
+                    $function,
+                    $node
+                );
+            }
+        } catch (CodeBaseException $e) {
+            // ignore it.
         }
 
         return $this->context;
@@ -951,7 +953,6 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             }
 
             $this->analyzeCallToMethod(
-                $this->code_base,
                 $method,
                 $node
             );
@@ -1007,7 +1008,8 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     public function visitInstanceof(Node $node) : Context
     {
         try {
-            $class_list = (new ContextNode(
+            // Fetch the class list, and emit warnings as a side effect.
+            (new ContextNode(
                 $this->code_base,
                 $this->context,
                 $node->children['class']
@@ -1124,14 +1126,12 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             }
 
             $this->analyzeMethodVisibility(
-                $this->code_base,
                 $method,
                 $node
             );
 
             // Make sure the parameters look good
             $this->analyzeCallToMethod(
-                $this->code_base,
                 $method,
                 $node
             );
@@ -1448,14 +1448,12 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         }
 
         $this->analyzeMethodVisibility(
-            $this->code_base,
             $method,
             $node
         );
 
-        // Check the call for paraemter and argument types
+        // Check the call for parameter and argument types
         $this->analyzeCallToMethod(
-            $this->code_base,
             $method,
             $node
         );
@@ -1475,10 +1473,10 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      */
     public function visitDim(Node $node) : Context
     {
-        // Check the array type to trigger
-        // TypeArraySuspicious
+        // Check the array type to trigger TypeArraySuspicious
         try {
-            $array_type = UnionTypeVisitor::unionTypeFromNode(
+            /* $array_type = */
+            UnionTypeVisitor::unionTypeFromNode(
                 $this->code_base,
                 $this->context,
                 $node,
@@ -1490,7 +1488,8 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             // Detect this elsewhere, e.g. want to detect PhanUndeclaredVariableDim but not PhanUndeclaredVariable
         }
         // Check the dimension type to trigger PhanUndeclaredVariable, etc.
-        $dim_type = UnionTypeVisitor::unionTypeFromNode(
+        /* $dim_type = */
+        UnionTypeVisitor::unionTypeFromNode(
             $this->code_base,
             $this->context,
             $node->children['dim'],
@@ -1601,14 +1600,12 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     /**
      * Analyze whether a method is callable
      *
-     * @param CodeBase $code_base
      * @param Method $method
      * @param Node $node
      *
      * @return void
      */
     private function analyzeMethodVisibility(
-        CodeBase $code_base,
         Method $method,
         Node $node
     ) {
@@ -1639,7 +1636,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                         $method->getClassFQSEN()->asType()
                     )
                     && !$this->context->getClassFQSEN()->asType()->isSubclassOf(
-                        $code_base,
+                        $this->code_base,
                         $method->getDefiningClassFQSEN()->asType()
                     )
                 )
@@ -1664,14 +1661,12 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * Analyze the parameters and arguments for a call
      * to the given method or function
      *
-     * @param CodeBase $code_base
      * @param FunctionInterface $method
      * @param Node $node
      *
      * @return void
      */
     private function analyzeCallToMethod(
-        CodeBase $code_base,
         FunctionInterface $method,
         Node $node
     ) {
@@ -1711,7 +1706,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                         // We don't do anything with it; just create it
                         // if it doesn't exist
                         try {
-                            $property = (new ContextNode(
+                            (new ContextNode(
                                 $this->code_base,
                                 $this->context,
                                 $argument
@@ -1855,16 +1850,13 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         // Re-analyze the method with the types of the arguments
         // being passed in.
         $this->analyzeMethodWithArgumentTypes(
-            $code_base, $node->children['args'], $method
+            $node->children['args'], $method
         );
     }
 
     /**
      * Replace the method's parameter types with the argument
      * types and re-analyze the method.
-     *
-     * @param CodeBase $code_base
-     * The code base in which the method call was found
      *
      * @param Node $argument_list_node
      * An AST node listing the arguments
@@ -1875,7 +1867,6 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * @return void
      */
     private function analyzeMethodWithArgumentTypes(
-        CodeBase $code_base,
         Node $argument_list_node,
         FunctionInterface $method
     ) {
@@ -1972,7 +1963,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         // Now that we know something about the parameters used
         // to call the method, we can reanalyze the method with
         // the types of the parameter
-        $method->analyzeWithNewParams($method->getContext(), $code_base, $parameter_list);
+        $method->analyzeWithNewParams($method->getContext(), $this->code_base, $parameter_list);
 
         // Reset to the original parameter scope after
         // having tested the parameters with the types passed in
@@ -2119,13 +2110,9 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * is the throw an exception
      *
      * @return bool
-     * True when the decl can only throw an exception
+     * True when the decl can only throw an exception or return or exit()
      */
-    private function declOnlyThrows(Decl $node) {
-        $stmts = $node->children['stmts'] ?? null;
-        return isset($stmts)
-            && $stmts->kind === \ast\AST_STMT_LIST
-            && \count($stmts->children) === 1
-            && $stmts->children[0]->kind === \ast\AST_THROW;
+    private function declOnlyThrows(Decl $node) : bool {
+        return BlockExitStatusChecker::willUnconditionallyThrowOrReturn($node->children['stmts']);
     }
 }

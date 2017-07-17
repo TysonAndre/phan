@@ -21,6 +21,7 @@ use Phan\Language\FQSEN\FullyQualifiedPropertyName;
 use Phan\Language\Scope\ClassScope;
 use Phan\Language\Scope\GlobalScope;
 use Phan\Language\Type;
+use Phan\Language\Type\IterableType;
 use Phan\Language\Type\StringType;
 use Phan\Language\Type\TemplateType;
 use Phan\Language\UnionType;
@@ -168,16 +169,17 @@ class Clazz extends AddressableElement
 
         $context = new Context;
 
+        $class_name = $class->getName();
         $class_fqsen = FullyQualifiedClassName::fromStringInContext(
-            $class->getName(),
+            $class_name,
             $context
         );
 
         // Build a base class element
         $clazz = new Clazz(
             $context,
-            $class->getName(),
-            UnionType::fromStringInContext($class->getName(), $context, Type::FROM_TYPE),
+            $class_name,
+            UnionType::fromStringInContext($class_name, $context, Type::FROM_TYPE),
             $flags,
             $class_fqsen
         );
@@ -194,6 +196,11 @@ class Clazz extends AddressableElement
             $parent_type = $parent_class_fqsen->asType();
 
             $clazz->setParentType($parent_type);
+        }
+
+        if ($class_name === "Traversable") {
+            // Make sure that canCastToExpandedUnionType() works as expected for Traversable and its subclasses
+            $clazz->getUnionType()->addType(IterableType::instance(false));
         }
 
         // Note: If there are multiple calls to Clazz->addProperty(),
@@ -1220,7 +1227,6 @@ class Clazz extends AddressableElement
         if ($method->getHasYield()) {
             // There's no phpdoc standard for template types of Generators at the moment.
             $newType = UnionType::fromFullyQualifiedString('\\Generator');
-            $oldType = $method->getUnionType();
             if (!$newType->canCastToUnionType($method->getUnionType())) {
                 $method->setUnionType($newType);
             }
@@ -1272,23 +1278,6 @@ class Clazz extends AddressableElement
         CodeBase $code_base,
         string $name
     ) : Method {
-        return $this->getMethodByNameInContext(
-            $code_base,
-            $name,
-            $this->getContext()
-        );
-    }
-
-    /**
-     * @return Method
-     * The method with the given name
-     */
-    public function getMethodByNameInContext(
-        CodeBase $code_base,
-        string $name,
-        Context $context
-    ) : Method {
-
         $method_fqsen = FullyQualifiedMethodName::make(
             $this->getFQSEN(),
             $name
@@ -1299,8 +1288,8 @@ class Clazz extends AddressableElement
                 // Create a default constructor if its requested
                 // but doesn't exist yet
                 $default_constructor =
-                    Method::defaultConstructorForClassInContext(
-                        $this, $context, $code_base
+                    Method::defaultConstructorForClass(
+                        $this, $code_base
                     );
 
                 $this->addMethod($code_base, $default_constructor, $this->getParentTypeOption());
@@ -1682,13 +1671,9 @@ class Clazz extends AddressableElement
     }
 
     /**
-     * @param CodeBase $code_base
-     * The entire code base from which we'll find ancestor
-     * details
-     *
      * @return FullyQualifiedClassName[]
      */
-    public function getNonParentAncestorFQSENList(CodeBase $code_base)
+    public function getNonParentAncestorFQSENList()
     {
         return \array_merge(
             $this->getInterfaceFQSENList(),
@@ -1699,9 +1684,9 @@ class Clazz extends AddressableElement
     /**
      * @return FullyQualifiedClassName[]
      */
-    public function getAncestorFQSENList(CodeBase $code_base)
+    public function getAncestorFQSENList()
     {
-        $ancestor_list = $this->getNonParentAncestorFQSENList($code_base);
+        $ancestor_list = $this->getNonParentAncestorFQSENList();
 
         if ($this->hasParentType()) {
             $ancestor_list[] = $this->getParentClassFQSEN();
@@ -1745,39 +1730,7 @@ class Clazz extends AddressableElement
     {
         return $this->getClassListFromFQSENList(
             $code_base,
-            $this->getAncestorFQSENList($code_base)
-        );
-    }
-
-    /**
-     * @return FullyQualifiedClassName[]
-     * The set of FQSENs representing extended classes and traits
-     * for which this class could have overriding methods and
-     * properties.
-     */
-    public function getOverridableAncestorFQSENList(CodeBase $code_base)
-    {
-        $ancestor_list = $this->getTraitFQSENList();
-
-        if ($this->hasParentType()) {
-            $ancestor_list[] = $this->getParentClassFQSEN();
-        }
-
-        return $ancestor_list;
-    }
-
-    /**
-     * @param CodeBase $code_base
-     * The entire code base from which we'll find ancestor
-     * details
-     *
-     * @return Clazz[]
-     */
-    public function getOverridableAncestorClassList(CodeBase $code_base)
-    {
-        return $this->getClassListFromFQSENList(
-            $code_base,
-            $this->getOverridableAncestorFQSENList($code_base)
+            $this->getAncestorFQSENList()
         );
     }
 
@@ -2024,7 +1977,7 @@ class Clazz extends AddressableElement
             // If you import a trait's private method, it becomes private **to the class which used the trait** in PHP code.
             // (But preserving the defining FQSEN is fine for this)
             if ($is_trait && Flags::bitVectorHasState($method->getFlags(), \ast\flags\MODIFIER_PRIVATE)) {
-                $method = $method->createUseAlias($this, $code_base, $method->getName(), \ast\flags\MODIFIER_PRIVATE);
+                $method = $method->createUseAlias($this, $method->getName(), \ast\flags\MODIFIER_PRIVATE);
             }
             $this->addMethod(
                 $code_base,
@@ -2072,7 +2025,6 @@ class Clazz extends AddressableElement
             $source_method = $class->getMethodByName($code_base, $source_method_name);
             $alias_method = $source_method->createUseAlias(
                 $class,
-                $code_base,
                 $alias_method_name,
                 $original_trait_alias_source->getAliasVisibilityFlags()
             );
@@ -2245,7 +2197,7 @@ class Clazz extends AddressableElement
      */
     protected function hydrateOnce(CodeBase $code_base)
     {
-        foreach ($this->getAncestorFQSENList($code_base) as $fqsen) {
+        foreach ($this->getAncestorFQSENList() as $fqsen) {
             if ($code_base->hasClassWithFQSEN($fqsen)) {
                 $code_base->getClassByFQSEN(
                     $fqsen

@@ -33,6 +33,7 @@ use Phan\Language\Type\NullType;
 use Phan\Language\Type\ObjectType;
 use Phan\Language\Type\StringType;
 use Phan\Language\UnionType;
+use Phan\Library\FileCache;
 use Phan\Library\None;
 use Phan\Library\Some;
 use ast\Node;
@@ -313,14 +314,12 @@ class ContextNode
         }
 
         $node = $this->node;
-        $parent = $node;
 
         while (($node instanceof \ast\Node)
             && ($node->kind != \ast\AST_VAR)
             && ($node->kind != \ast\AST_STATIC)
             && ($node->kind != \ast\AST_MAGIC_CONST)
         ) {
-            $parent = $node;
             $node = \array_values($node->children ?? [])[0];
         }
 
@@ -521,10 +520,9 @@ class ContextNode
         // looking for
         foreach ($class_list as $i => $class) {
             if ($class->hasMethodWithName($this->code_base, $method_name, $is_direct)) {
-                return $class->getMethodByNameInContext(
+                return $class->getMethodByName(
                     $this->code_base,
-                    $method_name,
-                    $this->context
+                    $method_name
                 );
             } else if (!$is_static && $class->allowsCallingUndeclaredInstanceMethod($this->code_base)) {
                 return $class->getCallMethod($this->code_base);
@@ -653,10 +651,9 @@ class ContextNode
                     continue;
                 }
 
-                $method = $class->getMethodByNameInContext(
+                $method = $class->getMethodByName(
                     $this->code_base,
-                    '__invoke',
-                    $this->context
+                    '__invoke'
                 );
 
                 // Check the call for parameter and argument types
@@ -1482,11 +1479,10 @@ class ContextNode
                 || $temp->kind == \ast\AST_NAME
             )
         ) {
-            $ftemp = new \SplFileObject($this->context->getFile());
-            $ftemp->seek($this->node->lineno-1);
-            $line = $ftemp->current();
+            $cache_entry = FileCache::getOrReadEntry($this->context->getFile());
+            $line = $cache_entry->getLine($this->node->lineno);
             \assert(\is_string($line));
-            unset($ftemp);
+            unset($cache_entry);
             if (strpos($line, '}[') === false
                 || strpos($line, ']}') === false
                 || strpos($line, '>{') === false

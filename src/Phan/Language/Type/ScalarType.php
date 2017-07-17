@@ -40,9 +40,9 @@ abstract class ScalarType extends NativeType
     }
 
     /**
-     * @param CodeBase $code_base
+     * @param CodeBase $code_base (@phan-unused-param)
      *
-     * @param Type $parent
+     * @param Type $parent (@phan-unused-param)
      *
      * @return bool
      * True if this type represents a class which is a sub-type of
@@ -80,6 +80,17 @@ abstract class ScalarType extends NativeType
     /**
      * @override
      */
+    public function isExclusivelyNarrowedFormOrEquivalentTo(
+        UnionType $union_type,
+        Context $unused_context,
+        CodeBase $unused_code_base
+    ) : bool {
+        return $union_type->hasType($this) || $this->asUnionType()->canCastToUnionType($union_type);
+    }
+
+    /**
+     * @override
+     */
     public function asFQSENString() : string
     {
         return $this->name;
@@ -96,16 +107,5 @@ abstract class ScalarType extends NativeType
     {
         // Subclasses of ScalarType all have false values within their types.
         return $this;
-    }
-
-    /**
-     * @override
-     */
-    public function isExclusivelyNarrowedFormOrEquivalentTo(
-        UnionType $union_type,
-        Context $context,
-        CodeBase $code_base
-    ) : bool {
-        return $union_type->hasType($this) || $this->asUnionType()->canCastToUnionType($union_type);
     }
 }

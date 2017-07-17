@@ -438,6 +438,7 @@ class Type
             'E_ALL'                 => $int,
             'E_STRICT'              => $int,
             '__COMPILER_HALT_OFFSET__' => $int,
+            '__LINE__'              => $int,
             'TRUE'                  => $true,
             'FALSE'                 => $false,
             'NULL'                  => $null,
@@ -530,10 +531,7 @@ class Type
                 return StaticType::instance($is_nullable);
         }
 
-        \assert(
-            false,
-            "No internal type with name $type_name"
-        );
+        throw new \AssertionError("No internal type with name $type_name");
     }
 
     /**
@@ -1447,6 +1445,9 @@ class Type
         }
         // A matrix of allowable type conversions
         static $matrix = [
+            '\Generator' => [
+                'iterable' => true,
+            ],
             '\Traversable' => [
                 'iterable' => true,
             ],
