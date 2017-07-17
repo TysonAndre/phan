@@ -2165,7 +2165,7 @@ class Clazz extends AddressableElement
         $stub .= " {\n";
 
         $stub .= "    // constants\n";
-        $stub .= implode("\n", array_map(function (ClassConstant $constant) use ($code_base) {
+        $stub .= implode("\n", array_map(function (ClassConstant $constant) {
             return $constant->toStub();
         }, $this->getConstantMap($code_base)));
         $stub .= "\n    // properties\n";

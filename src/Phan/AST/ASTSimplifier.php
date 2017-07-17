@@ -18,8 +18,8 @@ class ASTSimplifier {
 
     public function __construct(string $filename = 'unknown')
     {
-        $this->_blockChecker = new BlockExitStatusChecker();
-        $this->_filename = $filename;
+        $this->block_checker = new BlockExitStatusChecker();
+        $this->filename = $filename;
     }
 
     /**

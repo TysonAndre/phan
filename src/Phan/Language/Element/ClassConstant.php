@@ -76,7 +76,7 @@ class ClassConstant extends ClassElement implements ConstantInterface
         );
     }
 
-    public function toStub(\Phan\CodeBase $code_base) : string {
+    public function toStub() : string {
         $string = '    ';
 
         if ($this->isPublic()) {
