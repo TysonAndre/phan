@@ -56,7 +56,7 @@ final class UnreachableCodeVisitor extends PluginAwareAnalysisVisitor {
 
     const DECL_KIND_SET = [
         \ast\AST_CLASS      => true,
-        \ast\AST_FUNCTION   => true,
+        \ast\AST_FUNC_DECL  => true,
         \ast\AST_CONST      => true,
     ];
 
@@ -91,7 +91,7 @@ final class UnreachableCodeVisitor extends PluginAwareAnalysisVisitor {
                     continue;
                 }
                 if (array_key_exists($next_node->kind, self::DECL_KIND_SET)) {
-                    if ($context->isInGlobalScope()) {
+                    if ($this->context->isInGlobalScope()) {
                         continue;
                     }
                 }
