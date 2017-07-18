@@ -5,11 +5,12 @@ use Phan\AST\ContextNode;
 use Phan\CodeBase;
 use Phan\Config;
 use Phan\Language\Context;
+use Phan\Language\FileRef;
 use Phan\Language\Type;
 use Phan\Language\UnionType;
 use ast\Node;
 
-class Variable extends TypedElement
+class Variable extends UnaddressableTypedElement
 {
     /**
      * @access private
@@ -44,8 +45,8 @@ class Variable extends TypedElement
     ];
 
     /**
-     * @param Context $context
-     * The context in which the structural element lives
+     * @param FileRef $file_ref
+     * The file and lines in which the unaddressable element lives
      *
      * @param string $name
      * The name of the typed structural element
@@ -61,13 +62,13 @@ class Variable extends TypedElement
      * a certain kind has a meaningful flags value.
      */
     public function __construct(
-        Context $context,
+        FileRef $file_ref,
         string $name,
         UnionType $type,
         int $flags
     ) {
         parent::__construct(
-            $context,
+            $file_ref,
             $name,
             $type,
             $flags

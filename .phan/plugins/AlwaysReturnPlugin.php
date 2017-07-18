@@ -116,7 +116,7 @@ final class AlwaysReturnPlugin extends PluginV2 implements
             return;
         }
         if (!BlockExitStatusChecker::willUnconditionallyThrowOrReturn($stmts_list)) {
-            if (!$method->hasSuppressIssue('PhanPluginAlwaysReturnFunction')) {
+            if (!$function->hasSuppressIssue('PhanPluginAlwaysReturnFunction')) {
                 $this->emitIssue(
                     $code_base,
                     $function->getContext(),
