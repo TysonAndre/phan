@@ -1923,6 +1923,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         }
 
         foreach ($parameter_list as $i => $parameter_clone) {
+            assert($parameter_clone instanceof Parameter);
             // Add the parameter to the scope
             $method->getInternalScope()->addVariable(
                 $parameter_clone
