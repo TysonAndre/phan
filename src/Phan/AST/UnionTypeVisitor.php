@@ -1396,7 +1396,11 @@ class UnionTypeVisitor extends AnalysisVisitor
                         $method_name
                     );
 
-                    $union_type = $method->getUnionType();
+                    if ($method->hasDependentReturnType()) {
+                        $union_type = $method->getDependentReturnType($this->code_base, $this->context, $node->children['args']);
+                    } else {
+                        $union_type = $method->getUnionType();
+                    }
 
                     // Map template types to concrete types
                     if ($union_type->hasTemplateType()) {

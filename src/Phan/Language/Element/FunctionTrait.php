@@ -8,6 +8,7 @@ use Phan\Language\Context;
 use Phan\Language\Type\MixedType;
 use Phan\Language\Type\NullType;
 use Phan\Language\UnionType;
+use ast\Node;
 use ast\Node\Decl;
 
 trait FunctionTrait {
@@ -118,6 +119,11 @@ trait FunctionTrait {
      * This does not change after initialization.
      */
     private $real_return_type;
+
+    /**
+     * @var \Closure|null (CodeBase, Context, Node $arg_list) => UnionType (Bound to $this)
+     */
+    private $return_type_callback = null;
 
     /**
      * @return int
@@ -724,4 +730,27 @@ trait FunctionTrait {
     public abstract function analyze(Context $context, CodeBase $code_base) : Context;
 
     public abstract function getRecursionDepth() : int;
+
+    /**
+     * Returns true if the return type depends on the argument, and a plugin makes Phan aware of that.
+     */
+    public function hasDependentReturnType() : bool
+    {
+        return $this->return_type_callback !== null;
+    }
+
+    /**
+     * Returns a union type based on $args_node and $context
+     */
+    public function getDependentReturnType(CodeBase $code_base, Context $context, Node $args_node) : UnionType
+    {
+        return ($this->return_type_callback)($code_base, $context, $args_node);  // TODO: pass method FQSEN
+    }
+
+    /**
+     * @return void
+     */
+    public function setDependentReturnTypeClosure(\Closure $closure) {
+        $this->return_type_callback = $closure->bindTo($this);
+    }
 }
