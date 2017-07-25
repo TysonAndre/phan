@@ -216,6 +216,8 @@ class Phan implements IgnoredFilesFilterInterface {
         // state in memory
         Analysis::analyzeFunctions($code_base, $path_filter);
 
+        Analysis::loadMethodPlugins($code_base);
+
         // Filter out any files that are to be excluded from
         // analysis
         $analyze_file_path_list = array_filter(
