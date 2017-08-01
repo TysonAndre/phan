@@ -219,17 +219,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
             // updated context for the node
             $child_context = $this->analyzeAndGetUpdatedContext($child_context, $node, $child_node);
 
-            /**
-            // TODO: This is slow when quick_mode => false. Cache it in $node->flags instead for `if` statements.
-            // TODO: Actually use weaker statuses, e.g. when analyzing variables effectively limited to a loop,
-            // or if there are no try blocks in the parent scope.
-            $skip = Config::get()->simplify_ast &&
-                $node->kind === \ast\AST_IF &&
-                $this->block_exit_status_checker->check($child_node) === BlockExitStatusChecker::STATUS_RETURN;
-
-            if (!$skip) { */
             $child_context_list[] = $child_context;
-            /* } */
         }
 
         // For if statements, we need to merge the contexts
