@@ -10,15 +10,11 @@ use ast\Node;
  * The original \ast\Node objects are not modified.
  */
 class ASTSimplifier {
-    /** @var BlockExitStatusChecker */
-    private $block_checker;
-
     /** @var string - for debugging purposes */
     private $filename;
 
     public function __construct(string $filename = 'unknown')
     {
-        $this->block_checker = new BlockExitStatusChecker();
         $this->filename = $filename;
     }
 
@@ -404,7 +400,6 @@ class ASTSimplifier {
         $new_catches->children = $new_list;
         return $new_catches;
     }
-
 
     /**
      * Recurses on a try/catch/finally node, applying simplifications(catch/finally are optional)
