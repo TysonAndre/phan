@@ -13,7 +13,10 @@ New Features (CLI, Configs)
   which will use only the phpdoc return types for inferences, if they're narrowed.
   This config is enabled by default, and requires `check_docblock_signature_return_type_match` to be enabled.
 
-?? ??? 2017, Phan 0.9.4 (dev)
+?? ??? 2017, Phan 0.9.5 (dev)
+-----------------------
+
+15 Aug 2017, Phan 0.9.4
 -----------------------
 
 New Features (Analysis)
@@ -59,6 +62,7 @@ Bug Fixes
   so that method visibility checks work properly.
   Additionally, fix false positive warnings about visibility of method aliases from traits.
 + Warn about instantiation of class with inaccessible constructor (Issue #1043)
++ Fix rare uncaught exceptions (Various)
 
 Changes In Emitted Issues
 + Improve `InvalidVariableIssetPlugin`. Change the names and messages for issue types.
