@@ -9,7 +9,6 @@ use Phan\Language\Type\MixedType;
 use Phan\Language\Type\NullType;
 use Phan\Language\UnionType;
 use ast\Node;
-use ast\Node\Decl;
 
 trait FunctionTrait {
 
@@ -471,7 +470,7 @@ trait FunctionTrait {
      *
      * @param CodeBase $code_base
      *
-     * @param Decl $node
+     * @param Node $node
      * An AST node representing a method
      *
      * @param FunctionInterface $function - A Func or Method to add params to the local scope of.
@@ -483,7 +482,7 @@ trait FunctionTrait {
     public static function addParamsToScopeOfFunctionOrMethod(
         Context $context,
         CodeBase $code_base,
-        Decl $node,
+        Node $node,
         FunctionInterface $function,
         Comment $comment
     ) {
@@ -538,7 +537,7 @@ trait FunctionTrait {
     public static function addParamToScopeOfFunctionOrMethod(
         Context $context,
         CodeBase $code_base,
-        Decl $node,
+        Node $node,
         FunctionInterface $function,
         Comment $comment,
         int $parameter_offset,

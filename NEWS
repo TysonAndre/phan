@@ -13,8 +13,15 @@ New Features (CLI, Configs)
   which will use only the phpdoc return types for inferences, if they're narrowed.
   This config is enabled by default, and requires `check_docblock_signature_return_type_match` to be enabled.
 
-?? ??? 2017, Phan 0.9.5 (dev)
+?? ??? 2017, Phan 0.10.0 (dev)
 -----------------------
+
+Maintenance
++ Increased minimum `ext-ast` version constraint to 0.1.5, switched to AST version 50.
+
+Plugins
++ Increased minimum `ext-ast` version constraint to 0.1.5, switched to AST version 50.
+  Third party plugins will need to create a different version, Decls were changed into regular Nodes
 
 15 Aug 2017, Phan 0.9.4
 -----------------------
