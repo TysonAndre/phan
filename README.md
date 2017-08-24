@@ -4,7 +4,8 @@ Phan looks for common issues and will verify type compatibility on various opera
 information is available or can be deduced. Phan does not have a strong understanding of flow control
 and does not attempt to track values.
 
-[![Code Climate](https://codeclimate.com/github/etsy/phan/badges/gpa.svg)](https://codeclimate.com/github/etsy/phan) [![Build Status](https://travis-ci.org/etsy/phan.svg?branch=master)](https://travis-ci.org/etsy/phan) [![Gitter](https://badges.gitter.im/etsy/phan.svg)](https://gitter.im/etsy/phan?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+[![Code Climate](https://codeclimate.com/github/etsy/phan/badges/gpa.svg)](https://codeclimate.com/github/etsy/phan) [![Build Status](https://travis-ci.org/etsy/phan.svg?branch=master)](https://travis-ci.org/etsy/phan) [![Build Status (Windows)](https://ci.appveyor.com/api/projects/status/github/etsy/phan?branch=master&svg=true)](https://ci.appveyor.com/project/morria/phan/branch/master)
+[![Gitter](https://badges.gitter.im/etsy/phan.svg)](https://gitter.im/etsy/phan?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 [![Latest Stable Version](https://poser.pugx.org/etsy/phan/v/stable)](https://packagist.org/packages/etsy/phan)
 [![License](https://poser.pugx.org/etsy/phan/license)](https://github.com/etsy/phan/blob/master/LICENSE)
 
@@ -19,7 +20,8 @@ composer require --dev etsy/phan
 With Phan installed, you'll want to [create a `.phan/config.php` file](https://github.com/etsy/phan/wiki/Getting-Started#creating-a-config-file) in
 your project to tell Phan how to analyze your source code. Once configured, you can run it via `./vendor/bin/phan`.
 
-This version (branch) of Phan depends on PHP 7.1.x with the [php-ast](https://github.com/nikic/php-ast) extension and supports PHP version 7.1+ syntax.
+This version (branch) of Phan depends on PHP 7.1.x with the [php-ast](https://github.com/nikic/php-ast) extension (0.1.5 or newer, uses AST version 50) and supports PHP version 7.1+ syntax.
+The 0.9.x releases work with older versions of php-ast (0.1.4 or newer, Phan uses AST version 40. Use this if third party integrations (e.g. plugins) are still expecting AST version 40 (`\ast\Node\Decl`)).
 For PHP 7.0.x use the [0.8 branch](https://github.com/etsy/phan/tree/0.8).
 Having PHP's `pcntl` extension installed is strongly recommended (not available on Windows), in order to support using parallel processes for analysis (or to support daemon mode).
 

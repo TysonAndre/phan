@@ -11,9 +11,9 @@ class Config
     /**
      * The version of the AST (defined in php-ast) that we're using.
      * Other versions are likely to have edge cases we no longer support,
-     * and version 45 will probably get rid of Decl.
+     * and version 50 got rid of Decl.
      */
-    const AST_VERSION = 40;
+    const AST_VERSION = 50;
 
     /**
      * The version of the Phan plugin system.
@@ -733,7 +733,15 @@ class Config
     public static function projectPath(string $relative_path)
     {
         // Make sure its actually relative
-        if (DIRECTORY_SEPARATOR == \substr($relative_path, 0, 1)) {
+        if (DIRECTORY_SEPARATOR === \substr($relative_path, 0, 1)) {
+            return $relative_path;
+        }
+        // Check for absolute path in windows, e.g. C:\
+        if (DIRECTORY_SEPARATOR === "\\" &&
+                strlen($relative_path) > 3 &&
+                ctype_alpha($relative_path[0]) &&
+                $relative_path[1] === ':' &&
+                strspn($relative_path, '/\\', 2, 1)) {
             return $relative_path;
         }
 

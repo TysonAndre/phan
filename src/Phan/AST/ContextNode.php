@@ -37,7 +37,6 @@ use Phan\Library\FileCache;
 use Phan\Library\None;
 use Phan\Library\Some;
 use ast\Node;
-use ast\Node\Decl;
 
 /**
  * Methods for an AST node in context
@@ -51,7 +50,7 @@ class ContextNode
     /** @var Context */
     private $context;
 
-    /** @var Decl|Node|string|null */
+    /** @var Node|string|null */
     private $node;
 
     /**
@@ -335,7 +334,16 @@ class ContextNode
         if ($name_node instanceof \ast\Node) {
             // This is nonsense. Give up, but check if it's a type other than int/string.
             // (e.g. to catch typos such as $$this->foo = bar;)
-            $name_node_type = (new UnionTypeVisitor($this->code_base, $this->context, true))($name_node);
+            try {
+                $name_node_type = (new UnionTypeVisitor($this->code_base, $this->context, true))($name_node);
+            } catch (IssueException $exception) {
+                Issue::maybeEmitInstance(
+                    $this->code_base,
+                    $this->context,
+                    $exception->getIssueInstance()
+                );
+                return '';
+            }
             static $int_or_string_type;
             if ($int_or_string_type === null) {
                 $int_or_string_type = new UnionType();

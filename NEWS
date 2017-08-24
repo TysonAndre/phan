@@ -1,6 +1,16 @@
 Phan NEWS
 
-?? ??? 2017, Phan 0.9.4 (dev)
+?? ??? 2017, Phan 0.10.0 (dev)
+-----------------------
+
+Maintenance
++ Increased minimum `ext-ast` version constraint to 0.1.5, switched to AST version 50.
+
+Plugins
++ Increased minimum `ext-ast` version constraint to 0.1.5, switched to AST version 50.
+  Third party plugins will need to create a different version, Decls were changed into regular Nodes
+
+15 Aug 2017, Phan 0.9.4
 -----------------------
 
 New Features (Analysis)
@@ -45,6 +55,8 @@ Bug Fixes
   Act as though the class which used a trait is the place where the method was defined,
   so that method visibility checks work properly.
   Additionally, fix false positive warnings about visibility of method aliases from traits.
++ Warn about instantiation of class with inaccessible constructor (Issue #1043)
++ Fix rare uncaught exceptions (Various)
 
 Changes In Emitted Issues
 + Improve `InvalidVariableIssetPlugin`. Change the names and messages for issue types.
