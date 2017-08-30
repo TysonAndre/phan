@@ -2,6 +2,7 @@
 namespace Phan;
 
 use Phan\AST\ASTSimplifier;
+use Phan\AST\UnionTypeVisitor;
 use Phan\Analysis\DuplicateFunctionAnalyzer;
 use Phan\Analysis\ParameterTypesAnalyzer;
 use Phan\Analysis\ReturnTypesAnalyzer;
@@ -10,6 +11,10 @@ use Phan\Language\Context;
 use Phan\Language\Element\Clazz;
 use Phan\Language\Element\Func;
 use Phan\Language\Element\Method;
+use Phan\Language\FQSEN\FullyQualifiedFunctionName;
+use Phan\Language\FQSEN\FullyQualifiedMethodName;
+use Phan\Language\Type\NullType;
+use Phan\Language\UnionType;
 use Phan\Library\FileCache;
 use Phan\Parse\ParseVisitor;
 use Phan\Plugin\ConfigPluginSet;
@@ -219,6 +224,7 @@ class Analysis
     /**
      * Take a pass over all functions verifying various
      * states.
+     * @suppress PhanTypeArraySuspicious https://github.com/etsy/phan/issues/642
      *
      * @return void
      */
@@ -277,6 +283,31 @@ class Analysis
                     $plugin_set->analyzeMethod(
                         $code_base, $function_or_method
                     );
+                }
+            }
+        }
+    }
+
+    /**
+     * @return void
+     */
+    public static function loadMethodPlugins(CodeBase $code_base)
+    {
+        $plugin_set = ConfigPluginSet::instance();
+        foreach ($plugin_set->getReturnTypeOverrides($code_base) as $fqsen_string => $closure) {
+            if (stripos($fqsen_string, '::') !== false) {
+                // This is an override of a method.
+                $fqsen = FullyQualifiedMethodName::fromFullyQualifiedString($fqsen_string);
+                if ($code_base->hasMethodWithFQSEN($fqsen)) {
+                    $method = $code_base->getMethodByFQSEN($fqsen);
+                    $method->setDependentReturnTypeClosure($closure);
+                }
+            } else {
+                // This is an override of a function.
+                $fqsen = FullyQualifiedFunctionName::fromFullyQualifiedString($fqsen_string);
+                if ($code_base->hasFunctionWithFQSEN($fqsen)) {
+                    $function = $code_base->getFunctionByFQSEN($fqsen);
+                    $function->setDependentReturnTypeClosure($closure);
                 }
             }
         }

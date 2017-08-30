@@ -573,6 +573,7 @@ class Method extends ClassElement implements FunctionInterface
      */
     public function __toString() : string {
         $string = '';
+        // TODO: include visibility
 
         $string .= 'function ';
         if ($this->returnsRef()) {
@@ -607,6 +608,37 @@ class Method extends ClassElement implements FunctionInterface
 
         if (!$this->getRealReturnType()->isEmpty()) {
             $string .= ' : ' . (string)$this->getRealReturnType();
+        }
+
+        return $string;
+    }
+
+    public function toStub(CodeBase $code_base) : string {
+        // TODO: Include whether or not it is abstract
+        $string = '    ';
+        if ($this->isPrivate()) {
+            $string .= 'private ';
+        } else if ($this->isProtected()) {
+            $string .= 'protected ';
+        } else {
+            $string .= 'public ';
+        }
+
+        $string .= 'function ';
+        if ($this->returnsRef()) {
+            $string .= '&';
+        }
+        $string .= $this->getName();
+
+        $string .= '(' . implode(', ', $this->getRealParameterList()) . ')';
+
+        if (!$this->getRealReturnType()->isEmpty()) {
+            $string .= ' : ' . (string)$this->getRealReturnType();
+        }
+        if ($this->isAbstract()) {
+            $string .= ';';
+        } else {
+            $string .= ' {}';
         }
 
         return $string;

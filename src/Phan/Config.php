@@ -22,7 +22,7 @@ class Config
      * PluginV2 will correspond to 2.x.y, PluginV3 will correspond to 3.x.y, etc.
      * New features increment minor versions, and bug fixes increment patch versions.
      */
-    const PHAN_PLUGIN_VERSION = '2.0.0';
+    const PHAN_PLUGIN_VERSION = '2.1.0';
 
     /**
      * @var string|null
@@ -291,6 +291,26 @@ class Config
         // @var, @suppress, @deprecated) and only rely on
         // types expressed in code.
         'read_type_annotations' => true,
+
+        // If disabled, Phan will not read docblock type
+        // annotation comments for @property.
+        // @property-read and @property-write are treated exactly the
+        // same as @property for now.
+        // Note: read_type_annotations must also be enabled.
+        // TODO: Disable this by default, but enable it for a unit test.
+        // TODO: How do you override specific config in a unit test?
+        'read_magic_property_annotations' => true,
+
+        // Note:
+        // Case insensitive type to support custom UnionTypes.
+        // Ignore(or remap) these unionTypes(s) when they show up in a UnionType of @param, @return, @var, @property, etc.
+        // Matches the entire string, not part of the string.
+        //
+        // (They will still show up if they are used outside of doc comments).
+        // (Does not check if classes with these names exist)
+        //
+        // E.g. ['unknown' => '', 'char' => 'string', 'long' => 'int']
+        'experimental_invalid_phpdoc_types' => [ ],
 
         // Set to true in order to ignore issue suppression.
         // This is useful for testing the state of your code, but

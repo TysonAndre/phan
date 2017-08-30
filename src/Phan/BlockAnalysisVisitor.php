@@ -34,6 +34,8 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
      */
     private $depth;
 
+    // TODO: restore block_exit_status_checker (or cache the status in $node->flags, for node types with no flags)
+
     /**
      * @param CodeBase $code_base
      * The code base within which we're operating
@@ -216,17 +218,22 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
             // Step into each child node and get an
             // updated context for the node
             $child_context = $this->analyzeAndGetUpdatedContext($child_context, $node, $child_node);
+
             $child_context_list[] = $child_context;
         }
 
         // For if statements, we need to merge the contexts
         // of all child context into a single scope based
         // on any possible branching structure
-        $context = (new ContextMergeVisitor(
-            $this->code_base,
-            $context,
-            $child_context_list
-        ))($node);
+        // (If they unconditionally return, we (generally) don't need to do this.
+        // TODO: `finally` blocks break this assumption. context may need to track catch blocks.)
+        if (count($child_context_list) > 0) {
+            $context = (new ContextMergeVisitor(
+                $this->code_base,
+                $context,
+                $child_context_list
+            ))($node);
+        }
 
         $context = $this->postOrderAnalyze($context, $node);
 
@@ -668,6 +675,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
             $child_context = $this->analyzeAndGetUpdatedContext($false_context, $node, $false_node);
             $child_context_list[] = $child_context;
         }
+
         if (\count($child_context_list) >= 1) {
             $context = (new ContextMergeVisitor(
                 $this->code_base,

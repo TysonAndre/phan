@@ -311,4 +311,23 @@ class Func extends AddressableElement implements FunctionInterface
         );
     }
 
+    public function toStub() {
+        $stub = 'function ';
+        if ($this->returnsRef()) {
+            $stub .= '&';
+        }
+        $stub .= $this->getName();
+        $stub .= '(' . implode(', ', $this->getRealParameterList()) . ')';
+        if ($this->real_return_type && !$this->getRealReturnType()->isEmpty()) {
+            $stub .= ' : ' . (string)$this->getRealReturnType();
+        }
+
+        $stub .= ' {}' . "\n";
+
+        $namespace = ltrim($this->getFQSEN()->getNamespace(), '\\');
+        $namespace_text = $namespace === '' ? '' : "$namespace ";
+        $stub = sprintf("namespace %s{\n%s}\n", $namespace_text, $stub);
+
+        return $stub;
+    }
 }

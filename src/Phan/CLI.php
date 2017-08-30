@@ -520,6 +520,9 @@ Usage: {$argv[0]} [options] [files...]
   Analyze signatures for methods that are overrides to ensure
   compatibility with what they're overriding.
 
+ --disable-plugins
+  Don't run any plugins. Slightly faster.
+
  -s, --daemonize-socket </path/to/file.sock>
   Unix socket for Phan to listen for requests on, in daemon mode.
 
@@ -554,8 +557,8 @@ Extended help:
   This uses a method signature format similar to FunctionSignatureMap.php.
 
  --print-memory-usage-summary
-  Emit JSON serialized signatures to the given file.
-  This uses a method signature format similar to FunctionSignatureMap.php.
+  Prints a summary of memory usage and maximum memory usage.
+  This is accurate when there is one analysis process.
 
  --markdown-issue-messages
   Emit issue messages with markdown formatting.

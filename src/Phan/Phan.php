@@ -215,6 +215,8 @@ class Phan implements IgnoredFilesFilterInterface {
         // state in memory
         Analysis::analyzeFunctions($code_base, $path_filter);
 
+        Analysis::loadMethodPlugins($code_base);
+
         // Filter out any files that are to be excluded from
         // analysis
         $analyze_file_path_list = array_filter(
@@ -314,6 +316,11 @@ class Phan implements IgnoredFilesFilterInterface {
 
         // Collect all issues, blocking
         self::display();
+
+        if (Config::get()->print_memory_usage_summary) {
+            self::printMemoryUsageSummary();
+        }
+
         if ($request instanceof Request) {
             $request->respondWithIssues($issue_count);
             exit(EXIT_SUCCESS);

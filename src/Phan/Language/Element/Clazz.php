@@ -2118,6 +2118,84 @@ class Clazz extends AddressableElement
         return $string;
     }
 
+    private function toStubSignature() : string
+    {
+        $string = '';
+
+        if ($this->isFinal()) {
+            $string .= 'final ';
+        }
+
+        if ($this->isAbstract() && !$this->isInterface()) {
+            $string .= 'abstract ';
+        }
+
+        if ($this->isInterface()) {
+            $string .= 'interface ';
+        } elseif ($this->isTrait()) {
+            $string .= 'trait ';
+        } else {
+            $string .= 'class ';
+        }
+
+        $string .= (string)$this->getFQSEN()->getName();
+        $parent_type_option = $this->getParentTypeOption();
+
+        $extend_types = [];
+        $implements_types = [];
+        if ($parent_type_option->isDefined()) {
+            $extend_types[] = $this->parent_type->asFQSEN();
+        }
+
+        if (count($this->interface_fqsen_list) > 0) {
+            if ($this->isInterface()) {
+                $extend_types = array_merge($extend_types, $this->interface_fqsen_list);
+            } else {
+                $implements_types = $this->interface_fqsen_list;
+            }
+        }
+        if (count($extend_types) > 0) {
+            $string .= ' extends ' . implode(', ', $extend_types);
+        }
+        if (count($implements_types) > 0) {
+            $string .= ' implements ' . implode(', ', $implements_types);
+        }
+        return $string;
+    }
+
+    public function toStub(CodeBase $code_base) : string
+    {
+        $signature = $this->toStubSignature();
+
+        $stub = $signature;
+
+        $stub .= " {\n";
+
+        $stub .= "    // constants\n";
+        $stub .= implode("\n", array_map(function (ClassConstant $constant) {
+            return $constant->toStub();
+        }, $this->getConstantMap($code_base)));
+        $stub .= "\n    // properties\n";
+
+        $stub .= implode("\n", array_map(function (Property $property) use ($code_base) {
+            return $property->toStub();
+        }, $this->getPropertyMap($code_base)));
+        $stub .= "\n    // methods\n";
+
+        $stub .= implode("\n", array_map(function (Method $method) use ($code_base) {
+            return $method->toStub($code_base);
+        }, array_filter($this->getMethodMap($code_base), function(Method $method) : bool {
+            return !$method->getFQSEN()->isAlternate();
+        })));
+
+        $stub .= "\n}\n";
+        $namespace = ltrim($this->getFQSEN()->getNamespace(), '\\');
+        $namespace_text = $namespace === '' ? '' : "$namespace ";
+        $stub = sprintf("namespace %s{\n%s}\n", $namespace_text, $stub);
+
+        return $stub;
+    }
+
     /**
      * This method must be called before analysis
      * begins.

@@ -730,6 +730,7 @@ class ParseVisitor extends ScopeVisitor
                                   ->setNumberOfOptionalParameters(999999);
                 }
             } else if ($function_name === 'define') {
+                // TODO: infer constant type from literal, string concatenation operators, etc?
                 $args = $node->children['args'];
                 if ($args->kind === \ast\AST_ARG_LIST
                     && isset($args->children[0])

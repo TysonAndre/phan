@@ -634,6 +634,13 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         // (For traits, lower the false positive rate by comparing against the real return type instead of the phpdoc type (#800))
         $method_return_type = $is_trait ? $method->getRealReturnType() : $method->getUnionType();
 
+        /*
+        if (!array_key_exists('expr', $node->children)) {
+            var_export($node);
+            var_export($this->context->getFile());
+            exit(1);
+        }
+         */
         // Figure out what is actually being returned
         foreach ($this->getReturnTypes($this->context, $node->children['expr']) as $expression_type) {
             if ($method->getHasYield()) {  // Function that is syntactically a Generator.
@@ -819,6 +826,8 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             && $node->children[0] instanceof Node
             && $node->children[0]->kind == \ast\AST_ARRAY_ELEM
         ) {
+            $element_types = [];
+
             // Check the first 5 (completely arbitrary) elements
             // and assume the rest are the same type
             for ($i=0; $i<5; $i++) {
@@ -1634,22 +1643,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 $method->getFileRef()->getFile(),
                 (string)$method->getFileRef()->getLineNumberStart()
             );
-        } else if (
-            $method->isProtected()
-            && (
-                !$this->context->isInClassScope()
-                || (
-                    !$this->context->getClassFQSEN()->asType()->canCastToType(
-                        $method->getClassFQSEN()->asType()
-                    )
-                    && !$this->context->getClassFQSEN()->asType()->isSubclassOf(
-                        $this->code_base,
-                        $method->getDefiningClassFQSEN()->asType()
-                    )
-                )
-                && $this->context->getClassFQSEN() != $method->getDefiningClassFQSEN()
-            )
-        ) {
+        } else if ($method->isProtected() && !$this->canAccessProtectedMethodFromContext($method)) {
             $has_call_magic_method = !$method->isStatic()
                 && $method->getDefiningClass($this->code_base)->hasMethodWithName($this->code_base, '__call');
 
@@ -1662,6 +1656,32 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 (string)$method->getFileRef()->getLineNumberStart()
             );
         }
+    }
+
+    private function canAccessProtectedMethodFromContext(Method $method) : bool
+    {
+        $context = $this->context;
+        if (!$context->isInClassScope()) {
+            return false;
+        }
+        $class_fqsen = $context->getClassFQSEN();
+        $class_fqsen_type = $class_fqsen->asType();
+        $method_class_fqsen_type = $method->getClassFQSEN()->asType();
+        if ($class_fqsen_type->canCastToType($method_class_fqsen_type)) {
+            return true;
+        }
+        $method_defining_class_fqsen = $method->getDefiningClassFQSEN();
+        if ($class_fqsen === $method_defining_class_fqsen) {
+            return true;
+        }
+        $method_defining_class_fqsen_type = $method_defining_class_fqsen->asType();
+        if ($class_fqsen_type->isSubclassOf($this->code_base, $method_defining_class_fqsen_type)) {
+            return true;
+        }
+        if ($method_defining_class_fqsen_type->isSubclassOf($this->code_base, $class_fqsen_type)) {
+            return true;
+        }
+        return false;
     }
 
     /**

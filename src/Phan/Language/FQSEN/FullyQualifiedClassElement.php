@@ -286,8 +286,7 @@ abstract class FullyQualifiedClassElement extends AbstractFQSEN
         string $name,
         int $alternate_id
     ) : string {
-        $fqsen_string = (string)$fqsen;
-        $fqsen_string .= '::' . $name;
+        $fqsen_string = ((string)$fqsen) . '::' . $name;
 
         if ($alternate_id) {
             $fqsen_string .= ",$alternate_id";

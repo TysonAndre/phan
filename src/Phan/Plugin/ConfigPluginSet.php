@@ -20,6 +20,7 @@ use Phan\PluginV2\LegacyAnalyzeNodeCapability;
 use Phan\PluginV2\LegacyPreAnalyzeNodeCapability;
 use Phan\PluginV2\PluginAwareAnalysisVisitor;
 use Phan\PluginV2\PluginAwarePreAnalysisVisitor;
+use Phan\PluginV2\ReturnTypeOverrideCapability;
 use ast\Node;
 
 /**
@@ -34,7 +35,8 @@ final class ConfigPluginSet extends PluginV2 implements
     AnalyzeFunctionCapability,
     AnalyzeMethodCapability,
     LegacyAnalyzeNodeCapability,
-    LegacyPreAnalyzeNodeCapability {
+    LegacyPreAnalyzeNodeCapability,
+    ReturnTypeOverrideCapability {
 
     /** @var Plugin[]|null - Cached plugin set for this instance. Lazily generated. */
     private $pluginSet;
@@ -53,6 +55,9 @@ final class ConfigPluginSet extends PluginV2 implements
 
     /** @var AnalyzeMethodCapability[]|null */
     private $analyzeMethodPluginSet;
+
+    /** @var ReturnTypeOverrideCapability[]|null */
+    private $returnTypeOverridePluginSet;
 
     /**
      * Call `ConfigPluginSet::instance()` instead.
@@ -225,6 +230,19 @@ final class ConfigPluginSet extends PluginV2 implements
         return \count($this->analyzeMethodPluginSet) > 0;
     }
 
+    /**
+     * @return \Closure[] maps FQSEN string to closure
+     */
+    public function getReturnTypeOverrides(CodeBase $code_base) : array
+    {
+        $result = [];
+        \assert(!\is_null($this->pluginSet));
+        foreach ($this->returnTypeOverridePluginSet as $plugin) {
+            $result += $plugin->getReturnTypeOverrides($code_base);
+        }
+        return $result;
+    }
+
     /** @return void */
     private function ensurePluginsExist()
     {
@@ -253,6 +271,7 @@ final class ConfigPluginSet extends PluginV2 implements
         $this->analyzeMethodPluginSet       = self::filterOutEmptyMethodBodies(self::filterByClass($plugin_set, AnalyzeMethodCapability::class), 'analyzeMethod');
         $this->analyzeFunctionPluginSet     = self::filterOutEmptyMethodBodies(self::filterByClass($plugin_set, AnalyzeFunctionCapability::class), 'analyzeFunction');
         $this->analyzeClassPluginSet        = self::filterOutEmptyMethodBodies(self::filterByClass($plugin_set, AnalyzeClassCapability::class), 'analyzeClass');
+        $this->returnTypeOverridePluginSet  = self::filterByClass($plugin_set, ReturnTypeOverrideCapability::class);
     }
 
     /**
