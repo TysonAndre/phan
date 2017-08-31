@@ -10,12 +10,13 @@ use Phan\Language\Type;
 use Phan\Library\FileCache;
 use Phan\Output\IssuePrinterInterface;
 use Phan\Output\PrinterFactory;
+use Phan\Request\AnalysisRequest;
 use Symfony\Component\Console\Output\BufferedOutput;
 
 /**
  * Represents the state of a client request to a daemon, and contains methods for sending formatted responses.
  */
-class Request {
+class Request implements AnalysisRequest {
     const METHOD_ANALYZE_FILES = 'analyze_files';  // has shorthand analyze_file with param 'file'
 
     const PARAM_METHOD = 'method';
@@ -83,6 +84,7 @@ class Request {
 
     /**
      * Respond with issues in the requested format
+     * @return void
      */
     public function respondWithIssues(int $issueCount) {
         $rawIssues = $this->bufferedOutput->fetch();
@@ -101,6 +103,9 @@ class Request {
         ]);
     }
 
+    /**
+     * @return void
+     */
     public function respondWithNoFilesToAnalyze() {
         // The mentioned file wasn't in .phan/config.php's list of files to analyze.
         // TODO: Send the client that list of files.
