@@ -91,14 +91,21 @@ class UnionTypeTest extends BaseTest
     {
         $this->assertEquals($type_name, $this->typeStringFromCode('<?php ' . $code_stub . ';'));
     }
+
     /**
      * @return string
      * A string representation of the union type begotten from
      * the first statement in the statement list in the given
      * code.
      */
-    private function typeStringFromCode($code)
-    {
-        return UnionType::fromNode($this->context, $this->code_base, \ast\parse_code($code, Config::get()->ast_version)->children[0])->asExpandedTypes($this->code_base)->__toString();
+    private function typeStringFromCode(string $code) : string {
+        return UnionType::fromNode(
+            $this->context,
+            $this->code_base,
+            \ast\parse_code(
+                $code,
+                Config::AST_VERSION
+            )->children[0]
+        )->asExpandedTypes($this->code_base)->__toString();
     }
 }

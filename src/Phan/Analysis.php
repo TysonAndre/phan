@@ -4,6 +4,7 @@ namespace Phan;
 use Phan\AST\ASTSimplifier;
 use Phan\Analysis\DuplicateFunctionAnalyzer;
 use Phan\Analysis\ParameterTypesAnalyzer;
+use Phan\Analysis\ReturnTypesAnalyzer;
 use Phan\Analysis\ReferenceCountsAnalyzer;
 use Phan\Language\Context;
 use Phan\Language\Element\Clazz;
@@ -48,15 +49,15 @@ class Analysis
         // before passing it on to the recursive version
         // of this method
         try {
-            if (is_string($override_contents)) {
+            if (\is_string($override_contents)) {
                 $node = \ast\parse_code(
                     $override_contents,
-                    Config::get()->ast_version
+                    Config::AST_VERSION
                 );
             } else {
                 $node = \ast\parse_file(
                     Config::projectPath($file_path),
-                    Config::get()->ast_version
+                    Config::AST_VERSION
                 );
             }
         } catch (\ParseError $parse_error) {
@@ -74,7 +75,7 @@ class Analysis
             return $context;
         }
 
-        if (Config::get()->dump_ast) {
+        if (Config::getValue('dump_ast')) {
             echo $file_path . "\n"
                 . str_repeat("\u{00AF}", strlen($file_path))
                 . "\n";
@@ -128,7 +129,7 @@ class Analysis
     /**
      * @see self::parseNodeInContext
      */
-    private static function parseNodeInContextInner(CodeBase $code_base, Context $context, Node $node) {
+    private static function parseNodeInContextInner(CodeBase $code_base, Context $context, Node $node) : Context {
         // Save a reference to the outer context
         $outer_context = $context;
 
@@ -141,7 +142,7 @@ class Analysis
             $context->withLineNumberStart($node->lineno ?? 0)
         ))($node);
 
-        assert(!empty($context), 'Context cannot be null');
+        \assert(!empty($context), 'Context cannot be null');
         $kind = $node->kind;
 
         // \ast\AST_GROUP_USE has \ast\AST_USE as a child.
@@ -164,7 +165,7 @@ class Analysis
             // updated context for the node
             $child_context = self::parseNodeInContextInner($code_base, $child_context, $child_node);
 
-            assert(!empty($child_context), 'Context cannot be null');
+            \assert(!empty($child_context), 'Context cannot be null');
         }
 
         // For closed context elements (that have an inner scope)
@@ -192,7 +193,7 @@ class Analysis
     public static function analyzeFunctions(CodeBase $code_base, array $file_filter = null)
     {
         $plugin_set = ConfigPluginSet::instance();
-        $has_plugins = $plugin_set->hasPlugins();
+        $has_function_or_method_plugins = $plugin_set->hasAnalyzeFunctionPlugins() || $plugin_set->hasAnalyzeMethodPlugins();
         $function_count = count($code_base->getFunctionAndMethodSet());
         $show_progress = CLI::shouldShowProgress();
         $i = 0;
@@ -208,9 +209,10 @@ class Analysis
             }
 
             // If there is an array limiting the set of files, skip this file if it's not in the list,
-            if (is_array($file_filter) && !isset($file_filter[$function_or_method->getContext()->getFile()])) {
+            if (\is_array($file_filter) && !isset($file_filter[$function_or_method->getContext()->getFile()])) {
                 continue;
             }
+
             DuplicateFunctionAnalyzer::analyzeDuplicateFunction(
                 $code_base, $function_or_method
             );
@@ -220,12 +222,16 @@ class Analysis
             ParameterTypesAnalyzer::analyzeParameterTypes(
                 $code_base, $function_or_method
             );
+
+            ReturnTypesAnalyzer::analyzeReturnTypes(
+                $code_base, $function_or_method
+            );
             // Let any plugins analyze the methods or functions
             // XXX: Add a way to run plugins on all functions/methods, this was limited for speed.
             // Assumes that the given plugins will emit an issue in the same file as the function/method,
             // which isn't necessarily the case.
             // 0.06
-            if ($has_plugins) {
+            if ($has_function_or_method_plugins) {
                 if ($function_or_method instanceof Func) {
                     $plugin_set->analyzeFunction(
                         $code_base, $function_or_method
@@ -248,7 +254,7 @@ class Analysis
     public static function analyzeClasses(CodeBase $code_base, array $path_filter = null)
     {
         $classes = self::getUserDefinedClasses($code_base);
-        if (is_array($path_filter)) {
+        if (\is_array($path_filter)) {
             // If a list of files is provided, then limit analysis to classes defined in those files.
             $old_classes = $classes;
             $classes = [];
@@ -290,7 +296,7 @@ class Analysis
         // in mind that the results here are just a guess and
         // we can't tell with certainty that anything is
         // definitely unreferenced.
-        if (!Config::get()->dead_code_detection) {
+        if (!Config::getValue('dead_code_detection')) {
             return;
         }
 
@@ -321,15 +327,15 @@ class Analysis
         // before passing it on to the recursive version
         // of this method
         try {
-            if (is_string($file_contents_override)) {
+            if (\is_string($file_contents_override)) {
                 $node = \ast\parse_code(
                     $file_contents_override,
-                    Config::get()->ast_version
+                    Config::AST_VERSION
                 );
             } else {
                 $node = \ast\parse_file(
                     Config::projectPath($file_path),
-                    Config::get()->ast_version
+                    Config::AST_VERSION
                 );
             }
         } catch (\ParseError $parse_error) {
@@ -355,7 +361,7 @@ class Analysis
             return $context;
         }
 
-        if (Config::get()->simplify_ast) {
+        if (Config::getValue('simplify_ast')) {
             try {
                 $newNode = ASTSimplifier::applyStatic($node);  // Transform the original AST, leaving the original unmodified.
                 $node = $newNode;  // Analyze the new AST instead.

@@ -2,6 +2,7 @@
 namespace Phan\Language\Element;
 
 use Phan\CodeBase;
+use Phan\Config;
 use Phan\Language\Context;
 use Phan\Language\FQSEN;
 use Phan\Language\FQSEN\FullyQualifiedGlobalStructuralElement;
@@ -68,7 +69,7 @@ abstract class AddressableElement extends TypedElement implements AddressableEle
      * structural element
      */
     public function getFQSEN() {
-        assert(!empty($this->fqsen), "FQSEN must be defined");
+        \assert(!empty($this->fqsen), "FQSEN must be defined");
         return $this->fqsen;
     }
 
@@ -158,11 +159,8 @@ abstract class AddressableElement extends TypedElement implements AddressableEle
         CodeBase $code_base,
         Context $context
     ) : bool {
-        $element_fqsen = $this->getFQSEN();
-        assert($element_fqsen instanceof FullyQualifiedGlobalStructuralElement);
-
         // Figure out which namespace this element is within
-        $element_namespace = $element_fqsen->getNamespace();
+        $element_namespace = $this->getElementNamespace($code_base);
 
         // Get our current namespace from the context
         $context_namespace = $context->getNamespace();
@@ -181,7 +179,9 @@ abstract class AddressableElement extends TypedElement implements AddressableEle
      */
     public function addReference(FileRef $file_ref)
     {
-        $this->reference_list[] = $file_ref;
+        if (Config::get_track_references()) {
+            $this->reference_list[] = $file_ref;
+        }
     }
 
     /**
@@ -230,5 +230,14 @@ abstract class AddressableElement extends TypedElement implements AddressableEle
     protected function hydrateOnce(CodeBase $code_base)
     {
         // Do nothing unless overridden
+    }
+
+    public function getElementNamespace(CodeBase $code_base) : string
+    {
+        $element_fqsen = $this->getFQSEN();
+        \assert($element_fqsen instanceof FullyQualifiedGlobalStructuralElement);
+
+        // Figure out which namespace this element is within
+        return $element_fqsen->getNamespace();
     }
 }

@@ -84,7 +84,7 @@ abstract class AbstractFQSEN implements FQSEN
      */
     public static function canonicalLookupKey(string $name) : string
     {
-        return strtolower($name);
+        return \strtolower($name);
     }
 
     /**

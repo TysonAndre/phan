@@ -25,7 +25,7 @@ class CSVPrinterTest extends BaseTest
         $this->assertEquals(0, $fields["line"]);
         $this->assertEquals(10, $fields["severity_ord"]);
         $this->assertEquals("critical", $fields["severity_name"]);
-        $this->assertEquals("UndefError", $fields["category"]);
+        $this->assertEquals("Syntax", $fields["category"]);
         $this->assertEquals("PhanSyntaxError", $fields["check_name"]);
         $this->assertEquals("foo", $fields["message"]);
     }
@@ -42,9 +42,9 @@ class CSVPrinterTest extends BaseTest
         $printer->configureOutput($output);
         $printer->print_(new IssueInstance(Issue::fromType(Issue::SyntaxError), 'test.php', 0, [$string]));
         $printer->flush();
-        $expected = 'test.php,0,10,critical,UndefError,PhanSyntaxError,' . $messageExpected;
-        $actual = explode("\n", $output->fetch())[1];
-        // Ignore header
+
+        $expected = 'test.php,0,10,critical,Syntax,PhanSyntaxError,' . $messageExpected;
+        $actual = explode("\n", $output->fetch())[1]; // Ignore header
         $this->assertEquals($expected, $actual);
     }
     public function specialCharacterCasesProvider()

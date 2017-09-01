@@ -37,10 +37,20 @@ class ContextTest extends BaseTest
         $this->assertTrue(!empty($context_class));
         $this->assertTrue(!empty($context_method));
     }
-    public function testClassContext()
-    {
-        $code = "<?php\n            class C {\n                private function f() {\n                    return 42;\n                }\n            }";
-        $stmt_list_node = \ast\parse_code($code, Config::get()->ast_version);
+
+    public function testClassContext() {
+        $code = "<?php
+            class C {
+                private function f() {
+                    return 42;
+                }
+            }";
+
+        $stmt_list_node = \ast\parse_code(
+            $code,
+            Config::AST_VERSION
+        );
+
         $class_node = $stmt_list_node->children[0];
         $context = new Context();
         $context_visitor = new ParseVisitor($this->code_base, $context);

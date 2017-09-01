@@ -138,14 +138,14 @@ class Element
     public static function acceptNodeAndKindVisitor(Node $node, KindVisitor $visitor)
     {
         $fn_name = self::VISIT_LOOKUP_TABLE[$node->kind] ?? null;
-        if (is_string($fn_name)) {
+        if (\is_string($fn_name)) {
             return $visitor->{$fn_name}($node);
         } else {
             Debug::printNode($node);
             // This is normally an integer.
             // But php-parser-to-php-ast has "TODO:<PHP-Parser class name>" instead.
             $kind = $node->kind;
-            assert(false, "All node kinds must match, but saw a node of kind $kind");
+            \assert(false, "All node kinds must match, but saw a node of kind $kind");
         }
     }
 
@@ -207,7 +207,7 @@ class Element
             case \ast\flags\BINARY_IS_GREATER_OR_EQUAL:
                 return $visitor->visitBinaryIsGreaterOrEqual($this->node);
             default:
-                assert(
+                \assert(
                     false,
                     "All flags must match. Found "
                     . self::flagDescription($this->node)
@@ -236,7 +236,7 @@ class Element
             case \ast\flags\CLASS_ANONYMOUS:
                 return $visitor->visitClassAnonymous($this->node);
             default:
-                assert(
+                \assert(
                     false,
                     "All flags must match. Found "
                     . self::flagDescription($this->node)
@@ -261,7 +261,7 @@ class Element
             case \ast\flags\NAME_RELATIVE:
                 return $visitor->visitNameRelative($this->node);
             default:
-                assert(
+                \assert(
                     false,
                     "All flags must match. Found "
                     . self::flagDescription($this->node)
@@ -284,7 +284,7 @@ class Element
             case \ast\flags\PARAM_VARIADIC:
                 return $visitor->visitParamVariadic($this->node);
             default:
-                assert(
+                \assert(
                     false,
                     "All flags must match. Found "
                     . self::flagDescription($this->node)
@@ -319,7 +319,7 @@ class Element
             case \ast\flags\TYPE_STRING:
                 return $visitor->visitUnionTypeString($this->node);
             default:
-                assert(
+                \assert(
                     false,
                     "All flags must match. Found "
                     . self::flagDescription($this->node)
@@ -348,7 +348,7 @@ class Element
             case \ast\flags\UNARY_SILENCE:
                 return $visitor->visitUnarySilence($this->node);
             default:
-                assert(
+                \assert(
                     false,
                     "All flags must match. Found "
                     . self::flagDescription($this->node)
@@ -377,7 +377,7 @@ class Element
             case \ast\flags\EXEC_REQUIRE_ONCE:
                 return $visitor->visitExecRequireOnce($this->node);
             default:
-                assert(
+                \assert(
                     false,
                     "All flags must match. Found "
                     . self::flagDescription($this->node)
@@ -412,7 +412,7 @@ class Element
             case \ast\flags\MAGIC_TRAIT:
                 return $visitor->visitMagicTrait($this->node);
             default:
-                assert(
+                \assert(
                     false,
                     "All flags must match. Found "
                     . self::flagDescription($this->node)
@@ -437,7 +437,7 @@ class Element
             case \ast\flags\USE_NORMAL:
                 return $visitor->visitUseNormal($this->node);
             default:
-                assert(
+                \assert(
                     false,
                     "All flags must match. Found "
                     . self::flagDescription($this->node)
@@ -596,7 +596,7 @@ class Element
             case \ast\flags\USE_NORMAL:
                 return $visitor->visitUseNormal($this->node);
             default:
-                assert(
+                \assert(
                     false,
                     "All flags must match. Found "
                     . self::flagDescription($this->node)

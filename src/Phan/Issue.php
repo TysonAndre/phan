@@ -8,10 +8,11 @@ use Phan\Language\Context;
  */
 class Issue
 {
+    // Issue::CATEGORY_SYNTAX
     const SyntaxError               = 'PhanSyntaxError';
 
     // Issue::CATEGORY_UNDEFINED
-    const AmbiguousTraitAliasSource = 'AmbiguousTraitAliasSource';
+    const AmbiguousTraitAliasSource = 'PhanAmbiguousTraitAliasSource';
     const ClassContainsAbstractMethodInternal = 'PhanClassContainsAbstractMethodInternal';
     const ClassContainsAbstractMethod = 'PhanClassContainsAbstractMethod';
     const EmptyFile                 = 'PhanEmptyFile';
@@ -19,11 +20,12 @@ class Issue
     const RequiredTraitNotAdded     = 'PhanRequiredTraitNotAdded';
     const TraitParentReference      = 'PhanTraitParentReference';
     const UndeclaredAliasedMethodOfTrait = 'PhanUndeclaredAliasedMethodOfTrait';
+    const UndeclaredClass           = 'PhanUndeclaredClass';
+    const UndeclaredClassAliasOriginal = 'PhanUndeclaredClassAliasOriginal';
     const UndeclaredClassCatch      = 'PhanUndeclaredClassCatch';
     const UndeclaredClassConstant   = 'PhanUndeclaredClassConstant';
     const UndeclaredClassInstanceof = 'PhanUndeclaredClassInstanceof';
     const UndeclaredClassMethod     = 'PhanUndeclaredClassMethod';
-    const UndeclaredClass           = 'PhanUndeclaredClass';
     const UndeclaredClassReference  = 'PhanUndeclaredClassReference';
     const UndeclaredClosureScope    = 'PhanUndeclaredClosureScope';
     const UndeclaredConstant        = 'PhanUndeclaredConstant';
@@ -36,8 +38,10 @@ class Issue
     const UndeclaredStaticProperty  = 'PhanUndeclaredStaticProperty';
     const UndeclaredTrait           = 'PhanUndeclaredTrait';
     const UndeclaredTypeParameter   = 'PhanUndeclaredTypeParameter';
+    const UndeclaredTypeReturnType  = 'PhanUndeclaredTypeReturnType';
     const UndeclaredTypeProperty    = 'PhanUndeclaredTypeProperty';
     const UndeclaredVariable        = 'PhanUndeclaredVariable';
+    const UndeclaredVariableDim     = 'PhanUndeclaredVariableDim';
 
     // Issue::CATEGORY_TYPE
     const NonClassMethodCall        = 'PhanNonClassMethodCall';
@@ -52,6 +56,7 @@ class Issue
     const TypeInvalidClosureScope   = 'PhanTypeInvalidClosureScope';
     const TypeInvalidLeftOperand    = 'PhanTypeInvalidLeftOperand';
     const TypeInvalidRightOperand   = 'PhanTypeInvalidRightOperand';
+    const TypeMagicVoidWithReturn   = 'PhanTypeMagicVoidWithReturn';
     const TypeMismatchArgument      = 'PhanTypeMismatchArgument';
     const TypeMismatchArgumentInternal = 'PhanTypeMismatchArgumentInternal';
     const TypeMismatchDefault       = 'PhanTypeMismatchDefault';
@@ -61,6 +66,7 @@ class Issue
     const TypeMismatchProperty      = 'PhanTypeMismatchProperty';
     const TypeMismatchReturn        = 'PhanTypeMismatchReturn';
     const TypeMismatchDeclaredReturn = 'PhanTypeMismatchDeclaredReturn';
+    const TypeMismatchDeclaredParam = 'PhanTypeMismatchDeclaredParam';
     const TypeMissingReturn         = 'PhanTypeMissingReturn';
     const TypeNonVarPassByRef       = 'PhanTypeNonVarPassByRef';
     const TypeParentConstructorCalled = 'PhanTypeParentConstructorCalled';
@@ -68,6 +74,7 @@ class Issue
 
     // Issue::CATEGORY_ANALYSIS
     const Unanalyzable              = 'PhanUnanalyzable';
+    const UnanalyzableInheritance   = 'PhanUnanalyzableInheritance';
 
     // Issue::CATEGORY_VARIABLE
     const VariableUseClause         = 'PhanVariableUseClause';
@@ -101,26 +108,36 @@ class Issue
     const ParamSignatureMismatchInternal = 'PhanParamSignatureMismatchInternal';
     const ParamRedefined            = 'PhanParamRedefined';
 
-    const ParamSignatureRealMismatchReturnType                        = 'PhanParamSignatureRealMismatch';
-    const ParamSignatureRealMismatchReturnTypeInternal                = 'PhanParamSignatureRealMismatchInternal';
+    const ParamSignatureRealMismatchReturnType                        = 'PhanParamSignatureRealMismatchReturnType';
+    const ParamSignatureRealMismatchReturnTypeInternal                = 'PhanParamSignatureRealMismatchReturnTypeInternal';
+    const ParamSignaturePHPDocMismatchReturnType                      = 'PhanParamSignaturePHPDocMismatchReturnType';
     const ParamSignatureRealMismatchTooManyRequiredParameters         = 'PhanParamSignatureRealMismatchTooManyRequiredParameters';
     const ParamSignatureRealMismatchTooManyRequiredParametersInternal = 'PhanParamSignatureRealMismatchTooManyRequiredParametersInternal';
+    const ParamSignaturePHPDocMismatchTooManyRequiredParameters       = 'PhanParamSignaturePHPDocMismatchTooManyRequiredParameters';
     const ParamSignatureRealMismatchTooFewParameters                  = 'PhanParamSignatureRealMismatchTooFewParameters';
     const ParamSignatureRealMismatchTooFewParametersInternal          = 'PhanParamSignatureRealMismatchTooFewParametersInternal';
+    const ParamSignaturePHPDocMismatchTooFewParameters                = 'PhanParamSignaturePHPDocMismatchTooFewParameters';
     const ParamSignatureRealMismatchHasParamType                      = 'PhanParamSignatureRealMismatchHasParamType';
     const ParamSignatureRealMismatchHasParamTypeInternal              = 'PhanParamSignatureRealMismatchHasParamTypeInternal';
+    const ParamSignaturePHPDocMismatchHasParamType                    = 'PhanParamSignaturePHPDocMismatchHasParamType';
     const ParamSignatureRealMismatchHasNoParamType                    = 'PhanParamSignatureRealMismatchHasNoParamType';
     const ParamSignatureRealMismatchHasNoParamTypeInternal            = 'PhanParamSignatureRealMismatchHasNoParamTypeInternal';
+    const ParamSignaturePHPDocMismatchHasNoParamType                  = 'PhanParamSignaturePHPDocMismatchHasNoParamType';
     const ParamSignatureRealMismatchParamIsReference                  = 'PhanParamSignatureRealMismatchParamIsReference';
     const ParamSignatureRealMismatchParamIsReferenceInternal          = 'PhanParamSignatureRealMismatchParamIsReferenceInternal';
+    const ParamSignaturePHPDocMismatchParamIsReference                = 'PhanParamSignaturePHPDocMismatchParamIsReference';
     const ParamSignatureRealMismatchParamIsNotReference               = 'PhanParamSignatureRealMismatchParamIsNotReference';
     const ParamSignatureRealMismatchParamIsNotReferenceInternal       = 'PhanParamSignatureRealMismatchParamIsNotReferenceInternal';
+    const ParamSignaturePHPDocMismatchParamIsNotReference             = 'PhanParamSignaturePHPDocMismatchParamIsNotReference';
     const ParamSignatureRealMismatchParamVariadic                     = 'PhanParamSignatureRealMismatchParamVariadic';
     const ParamSignatureRealMismatchParamVariadicInternal             = 'PhanParamSignatureRealMismatchParamVariadicInternal';
+    const ParamSignaturePHPDocMismatchParamVariadic                   = 'PhanParamSignaturePHPDocMismatchParamVariadic';
     const ParamSignatureRealMismatchParamNotVariadic                  = 'PhanParamSignatureRealMismatchParamNotVariadic';
     const ParamSignatureRealMismatchParamNotVariadicInternal          = 'PhanParamSignatureRealMismatchParamNotVariadicInternal';
+    const ParamSignaturePHPDocMismatchParamNotVariadic                = 'PhanParamSignaturePHPDocMismatchParamNotVariadic';
     const ParamSignatureRealMismatchParamType                         = 'PhanParamSignatureRealMismatchParamType';
     const ParamSignatureRealMismatchParamTypeInternal                 = 'PhanParamSignatureRealMismatchParamTypeInternal';
+    const ParamSignaturePHPDocMismatchParamType                       = 'PhanParamSignaturePHPDocMismatchParamType';
 
     // Issue::CATEGORY_NOOP
     const NoopArray                 = 'PhanNoopArray';
@@ -129,12 +146,14 @@ class Issue
     const NoopProperty              = 'PhanNoopProperty';
     const NoopVariable              = 'PhanNoopVariable';
     const UnreferencedClass         = 'PhanUnreferencedClass';
+    const UnreferencedFunction      = 'PhanUnreferencedFunction';
     const UnreferencedMethod        = 'PhanUnreferencedMethod';
     const UnreferencedProperty      = 'PhanUnreferencedProperty';
     const UnreferencedConstant      = 'PhanUnreferencedConstant';
 
     // Issue::CATEGORY_REDEFINE
     const RedefineClass             = 'PhanRedefineClass';
+    const RedefineClassAlias        = 'PhanRedefineClassAlias';
     const RedefineClassInternal     = 'PhanRedefineClassInternal';
     const RedefineFunction          = 'PhanRedefineFunction';
     const RedefineFunctionInternal  = 'PhanRedefineFunctionInternal';
@@ -155,12 +174,21 @@ class Issue
     const AccessClassConstantPrivate     = 'PhanAccessClassConstantPrivate';
     const AccessClassConstantProtected   = 'PhanAccessClassConstantProtected';
     const AccessPropertyStaticAsNonStatic = 'PhanAccessPropertyStaticAsNonStatic';
+    const AccessPropertyNonStaticAsStatic = 'PhanAccessPropertyNonStaticAsStatic';
+    const AccessOwnConstructor = 'PhanAccessOwnConstructor';
 
     const AccessConstantInternal    = 'PhanAccessConstantInternal';
     const AccessClassInternal       = 'PhanAccessClassInternal';
     const AccessClassConstantInternal = 'PhanAccessClassConstantInternal';
     const AccessPropertyInternal    = 'PhanAccessPropertyInternal';
     const AccessMethodInternal      = 'PhanAccessMethodInternal';
+    const AccessWrongInheritanceCategory = 'PhanAccessWrongInheritanceCategory';
+    const AccessWrongInheritanceCategoryInternal = 'PhanAccessWrongInheritanceCategoryInternal';
+    const AccessExtendsFinalClass                = 'PhanAccessExtendsFinalClass';
+    const AccessExtendsFinalClassInternal        = 'PhanAccessExtendsFinalClassInternal';
+    const AccessOverridesFinalMethod             = 'PhanAccessOverridesFinalMethod';
+    const AccessOverridesFinalMethodInternal     = 'PhanAccessOverridesFinalMethodInternal';
+    const AccessOverridesFinalMethodPHPDoc     = 'PhanAccessOverridesFinalMethodPHPDoc';
 
     // Issue::CATEGORY_COMPATIBLE
     const CompatibleExpressionPHP7  = 'PhanCompatibleExpressionPHP7';
@@ -180,6 +208,8 @@ class Issue
     const UnextractableAnnotationPart      = 'PhanUnextractableAnnotationPart';
     const CommentParamWithoutRealParam     = 'PhanCommentParamWithoutRealParam';
     const CommentParamOnEmptyParamList     = 'PhanCommentParamOnEmptyParamList';
+    const CommentOverrideOnNonOverrideMethod = 'PhanCommentOverrideOnNonOverrideMethod';
+    const CommentOverrideOnNonOverrideConstant = 'PhanCommentOverrideOnNonOverrideConstant';
 
 
     const CATEGORY_ACCESS            = 1 << 1;
@@ -198,6 +228,7 @@ class Issue
     const CATEGORY_GENERIC           = 1 << 14;
     const CATEGORY_INTERNAL          = 1 << 15;
     const CATEGORY_COMMENT           = 1 << 16;
+    const CATEGORY_SYNTAX            = 1 << 17;
 
     const CATEGORY_NAME = [
         self::CATEGORY_ACCESS            => 'AccessError',
@@ -215,6 +246,7 @@ class Issue
         self::CATEGORY_PLUGIN            => 'Plugin',
         self::CATEGORY_GENERIC           => 'Generic',
         self::CATEGORY_INTERNAL          => 'Internal',
+        self::CATEGORY_SYNTAX            => 'Syntax',
     ];
 
     const SEVERITY_LOW      = 0;
@@ -235,6 +267,7 @@ class Issue
     // Keep sorted and in sync with Colorizing::default_color_for_template
     const uncolored_format_string_for_template = [
         'CLASS'         => '%s',
+        'CLASSLIKE'     => '%s',
         'COMMENT'       => '%s',
         'CONST'         => '%s',
         'COUNT'         => '%d',
@@ -248,6 +281,7 @@ class Issue
         'ISSUETYPE_NORMAL' => '%s',  // for normal issues
         'LINE'          => '%d',
         'METHOD'        => '%s',
+        'NAMESPACE'     => '%s',
         'PARAMETER'     => '%s',
         'PROPERTY'      => '%s',
         'TYPE'          => '%s',
@@ -307,7 +341,7 @@ class Issue
         /** @param string[] $matches */
         return preg_replace_callback('/{([A-Z_]+)}/', function(array $matches) use($template): string {
             $key = $matches[1];
-            $replacement_exists = array_key_exists($key, self::uncolored_format_string_for_template);
+            $replacement_exists = \array_key_exists($key, self::uncolored_format_string_for_template);
             if (!$replacement_exists) {
                 error_log(sprintf("No coloring info for issue message (%s), key {%s}. Valid template types: %s",
                     $template, $key, implode(', ', array_keys(self::uncolored_format_string_for_template))));
@@ -335,13 +369,14 @@ class Issue
          * If new type ids are added, existing ones should not be changed.
          */
         $error_list = [
+            // Issue::CATEGORY_SYNTAX
             new Issue(
                 self::SyntaxError,
-                self::CATEGORY_UNDEFINED,
+                self::CATEGORY_SYNTAX,
                 self::SEVERITY_CRITICAL,
                 "%s",
                 self::REMEDIATION_A,
-                1
+                17000
             ),
 
             // Issue::CATEGORY_UNDEFINED
@@ -351,7 +386,7 @@ class Issue
                 self::SEVERITY_LOW,
                 "Empty file {FILE}",
                 self::REMEDIATION_B,
-                1000
+                11000
             ),
             new Issue(
                 self::ParentlessClass,
@@ -359,7 +394,7 @@ class Issue
                 self::SEVERITY_CRITICAL,
                 "Reference to parent of class {CLASS} that does not extend anything",
                 self::REMEDIATION_B,
-                1001
+                11001
             ),
             new Issue(
                 self::UndeclaredClass,
@@ -367,7 +402,7 @@ class Issue
                 self::SEVERITY_CRITICAL,
                 "Reference to undeclared class {CLASS}",
                 self::REMEDIATION_B,
-                1002
+                11002
             ),
             new Issue(
                 self::UndeclaredExtendedClass,
@@ -375,15 +410,15 @@ class Issue
                 self::SEVERITY_CRITICAL,
                 "Class extends undeclared class {CLASS}",
                 self::REMEDIATION_B,
-                1003
+                11003
             ),
             new Issue(
                 self::UndeclaredInterface,
                 self::CATEGORY_UNDEFINED,
                 self::SEVERITY_CRITICAL,
-                "Class implements undeclared interface {CLASS}",
+                "Class implements undeclared interface {INTERFACE}",
                 self::REMEDIATION_B,
-                1004
+                11004
             ),
             new Issue(
                 self::UndeclaredTrait,
@@ -391,7 +426,7 @@ class Issue
                 self::SEVERITY_CRITICAL,
                 "Class uses undeclared trait {TRAIT}",
                 self::REMEDIATION_B,
-                1005
+                11005
             ),
             new Issue(
                 self::UndeclaredClassCatch,
@@ -399,7 +434,7 @@ class Issue
                 self::SEVERITY_CRITICAL,
                 "Catching undeclared class {CLASS}",
                 self::REMEDIATION_B,
-                1006
+                11006
             ),
             new Issue(
                 self::UndeclaredClassConstant,
@@ -407,7 +442,7 @@ class Issue
                 self::SEVERITY_CRITICAL,
                 "Reference to constant {CONST} from undeclared class {CLASS}",
                 self::REMEDIATION_B,
-                1007
+                11007
             ),
             new Issue(
                 self::UndeclaredClassInstanceof,
@@ -415,7 +450,7 @@ class Issue
                 self::SEVERITY_CRITICAL,
                 "Checking instanceof against undeclared class {CLASS}",
                 self::REMEDIATION_B,
-                1008
+                11008
             ),
             new Issue(
                 self::UndeclaredClassMethod,
@@ -423,7 +458,7 @@ class Issue
                 self::SEVERITY_CRITICAL,
                 "Call to method {METHOD} from undeclared class {CLASS}",
                 self::REMEDIATION_B,
-                1009
+                11009
             ),
             new Issue(
                 self::UndeclaredClassReference,
@@ -431,7 +466,7 @@ class Issue
                 self::SEVERITY_NORMAL,
                 "Reference to undeclared class {CLASS}",
                 self::REMEDIATION_B,
-                1010
+                11010
             ),
             new Issue(
                 self::UndeclaredConstant,
@@ -439,7 +474,7 @@ class Issue
                 self::SEVERITY_NORMAL,
                 "Reference to undeclared constant {CONST}",
                 self::REMEDIATION_B,
-                1011
+                11011
             ),
             new Issue(
                 self::UndeclaredFunction,
@@ -447,7 +482,7 @@ class Issue
                 self::SEVERITY_CRITICAL,
                 "Call to undeclared function {FUNCTION}",
                 self::REMEDIATION_B,
-                1012
+                11012
             ),
             new Issue(
                 self::UndeclaredMethod,
@@ -455,7 +490,7 @@ class Issue
                 self::SEVERITY_NORMAL,
                 "Call to undeclared method {METHOD}",
                 self::REMEDIATION_B,
-                1013
+                11013
             ),
             new Issue(
                 self::UndeclaredStaticMethod,
@@ -463,7 +498,7 @@ class Issue
                 self::SEVERITY_NORMAL,
                 "Static call to undeclared method {METHOD}",
                 self::REMEDIATION_B,
-                1014
+                11014
             ),
             new Issue(
                 self::UndeclaredProperty,
@@ -471,7 +506,7 @@ class Issue
                 self::SEVERITY_NORMAL,
                 "Reference to undeclared property {PROPERTY}",
                 self::REMEDIATION_B,
-                1015
+                11015
             ),
             new Issue(
                 self::UndeclaredStaticProperty,
@@ -479,7 +514,7 @@ class Issue
                 self::SEVERITY_CRITICAL,
                 "Static property '{PROPERTY}' on {CLASS} is undeclared",
                 self::REMEDIATION_B,
-                1016
+                11016
             ),
             new Issue(
                 self::TraitParentReference,
@@ -487,7 +522,7 @@ class Issue
                 self::SEVERITY_LOW,
                 "Reference to parent from trait {TRAIT}",
                 self::REMEDIATION_B,
-                1017
+                11017
             ),
             new Issue(
                 self::UndeclaredVariable,
@@ -495,7 +530,7 @@ class Issue
                 self::SEVERITY_NORMAL,
                 "Variable \${VARIABLE} is undeclared",
                 self::REMEDIATION_B,
-                1018
+                11018
             ),
             new Issue(
                 self::UndeclaredTypeParameter,
@@ -503,7 +538,7 @@ class Issue
                 self::SEVERITY_NORMAL,
                 "Parameter of undeclared type {TYPE}",
                 self::REMEDIATION_B,
-                1019
+                11019
             ),
             new Issue(
                 self::UndeclaredTypeProperty,
@@ -511,15 +546,15 @@ class Issue
                 self::SEVERITY_NORMAL,
                 "Property {PROPERTY} has undeclared type {TYPE}",
                 self::REMEDIATION_B,
-                1020
+                11020
             ),
             new Issue(
                 self::UndeclaredClosureScope,
                 self::CATEGORY_UNDEFINED,
                 self::SEVERITY_NORMAL,
-                "Reference to undeclared class {CLASS} in PhanClosureScope",
+                "Reference to undeclared class {CLASS} in @phan-closure-scope",
                 self::REMEDIATION_B,
-                1021
+                11021
             ),
             new Issue(
                 self::ClassContainsAbstractMethod,
@@ -527,7 +562,7 @@ class Issue
                 self::SEVERITY_NORMAL,
                 "non-abstract class {CLASS} contains abstract method {METHOD} declared at {FILE}:{LINE}",
                 self::REMEDIATION_B,
-                1022
+                11022
             ),
             new Issue(
                 self::ClassContainsAbstractMethodInternal,
@@ -535,7 +570,7 @@ class Issue
                 self::SEVERITY_NORMAL,
                 "non-abstract class {CLASS} contains abstract internal method {METHOD}",
                 self::REMEDIATION_B,
-                1023
+                11023
             ),
             new Issue(
                 self::UndeclaredAliasedMethodOfTrait,
@@ -543,7 +578,7 @@ class Issue
                 self::SEVERITY_CRITICAL,
                 "Alias {METHOD} was defined for a method {METHOD} which does not exist in trait {TRAIT}",
                 self::REMEDIATION_B,
-                1024
+                11024
             ),
             new Issue(
                 self::RequiredTraitNotAdded,
@@ -551,7 +586,7 @@ class Issue
                 self::SEVERITY_NORMAL,
                 "Required trait {TRAIT} for trait adaptation was not added to class",
                 self::REMEDIATION_B,
-                1025
+                11025
             ),
             new Issue(
                 self::AmbiguousTraitAliasSource,
@@ -559,7 +594,31 @@ class Issue
                 self::SEVERITY_NORMAL,
                 "Trait alias {METHOD} has an ambiguous source method {METHOD} with more than one possible source trait. Possibilities: {TRAIT}",
                 self::REMEDIATION_B,
-                1026
+                11026
+            ),
+            new Issue(
+                self::UndeclaredVariableDim,
+                self::CATEGORY_UNDEFINED,
+                self::SEVERITY_LOW,
+                "Variable \${VARIABLE} was undeclared, but array fields are being added to it.",
+                self::REMEDIATION_B,
+                11027
+            ),
+            new Issue(
+                self::UndeclaredTypeReturnType,
+                self::CATEGORY_UNDEFINED,
+                self::SEVERITY_NORMAL,
+                "Return type of {METHOD} is undeclared type {TYPE}",
+                self::REMEDIATION_B,
+                11028
+            ),
+            new Issue(
+                self::UndeclaredClassAliasOriginal,
+                self::CATEGORY_UNDEFINED,
+                self::SEVERITY_CRITICAL,
+                "Reference to undeclared class {CLASS} for the original class of a class_alias for {CLASS}",
+                self::REMEDIATION_B,
+                11029
             ),
 
             // Issue::CATEGORY_ANALYSIS
@@ -570,6 +629,14 @@ class Issue
                 "Expression is unanalyzable or feature is unimplemented. Please create an issue at https://github.com/etsy/phan/issues/new.",
                 self::REMEDIATION_B,
                 2000
+            ),
+            new Issue(
+                self::UnanalyzableInheritance,
+                self::CATEGORY_ANALYSIS,
+                self::SEVERITY_LOW,
+                "Unable to determine the method(s) which {METHOD} overrides, but Phan inferred that it did override something earlier. Please create an issue at https://github.com/etsy/phan/issues/new with a test case.",
+                self::REMEDIATION_B,
+                2001
             ),
 
             // Issue::CATEGORY_TYPE
@@ -603,7 +670,7 @@ class Issue
                 self::SEVERITY_LOW,
                 "{PARAMETER} is not variadic in comment, but variadic in param ({PARAMETER})",
                 self::REMEDIATION_B,
-                10022
+                10023
             ),
             new Issue(
                 self::TypeMismatchArgument,
@@ -633,9 +700,17 @@ class Issue
                 self::TypeMismatchDeclaredReturn,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                "Doc-block declares return type {TYPE} which is incompatible with the return type {TYPE} declared in the signature",
+                "Doc-block of {METHOD} contains declared return type {TYPE} which is incompatible with the return type {TYPE} declared in the signature",
                 self::REMEDIATION_B,
                 10020
+            ),
+            new Issue(
+                self::TypeMismatchDeclaredParam,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Doc-block of \${VARIABLE} in {METHOD} contains phpdoc param type {TYPE} which is incompatible with the param type {TYPE} declared in the signature",
+                self::REMEDIATION_B,
+                10022
             ),
             new Issue(
                 self::TypeMissingReturn,
@@ -697,7 +772,7 @@ class Issue
                 self::TypeInstantiateAbstract,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                "Instantiation of abstract class {TYPE}",
+                "Instantiation of abstract class {CLASS}",
                 self::REMEDIATION_B,
                 10013
             ),
@@ -713,9 +788,9 @@ class Issue
                 self::TypeInvalidClosureScope,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                "Invalid PhanClosureScope: expected a class name, got {TYPE}",
+                "Invalid @phan-closure-scope: expected a class name, got {TYPE}",
                 self::REMEDIATION_B,
-                10023
+                10024
             ),
             new Issue(
                 self::TypeInvalidRightOperand,
@@ -771,7 +846,15 @@ class Issue
                 self::SEVERITY_NORMAL,
                 'Indirect variable ${(expr)} has invalid inner expression type {TYPE}, expected string/integer',
                 self::REMEDIATION_B,
-                10023
+                10025
+            ),
+            new Issue(
+                self::TypeMagicVoidWithReturn,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_LOW,
+                'Found a return statement with a value in the implementation of the magic method {METHOD}, expected void return type',
+                self::REMEDIATION_B,
+                10026
             ),
 
             // Issue::CATEGORY_VARIABLE
@@ -979,6 +1062,14 @@ class Issue
                 7014
             ),
             new Issue(
+                self::ParamSignaturePHPDocMismatchReturnType,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_LOW,
+                "Declaration of real/@method {METHOD} should be compatible with real/@method {METHOD} (method returning '{TYPE}' cannot override method returning '{TYPE}') defined in {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                7033
+            ),
+            new Issue(
                 self::ParamSignatureRealMismatchParamType,
                 self::CATEGORY_PARAMETER,
                 self::SEVERITY_NORMAL,
@@ -993,6 +1084,14 @@ class Issue
                 "Declaration of {METHOD} should be compatible with internal {METHOD} (parameter #{INDEX} of type '{TYPE}' cannot replace original parameter of type '{TYPE}')",
                 self::REMEDIATION_B,
                 7016
+            ),
+            new Issue(
+                self::ParamSignaturePHPDocMismatchParamType,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_LOW,
+                "Declaration of real/@method {METHOD} should be compatible with real/@method {METHOD} (parameter #{INDEX} of type '{TYPE}' cannot replace original parameter of type '{TYPE}') defined in {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                7034
             ),
             new Issue(
                 self::ParamSignatureRealMismatchHasParamType,
@@ -1011,6 +1110,14 @@ class Issue
                 7018
             ),
             new Issue(
+                self::ParamSignaturePHPDocMismatchHasParamType,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_LOW,
+                "Declaration of real/@method {METHOD} should be compatible with real/@method {METHOD} (parameter #{INDEX} of has type '{TYPE}' cannot replace original parameter with no type) defined in {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                7035
+            ),
+            new Issue(
                 self::ParamSignatureRealMismatchHasNoParamType,
                 self::CATEGORY_PARAMETER,
                 self::SEVERITY_NORMAL,
@@ -1025,6 +1132,14 @@ class Issue
                 "Declaration of {METHOD} should be compatible with internal {METHOD} (parameter #{INDEX} with no type cannot replace original parameter with type '{TYPE}')",
                 self::REMEDIATION_B,
                 7020
+            ),
+            new Issue(
+                self::ParamSignaturePHPDocMismatchHasNoParamType,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_LOW,
+                "Declaration of real/@method {METHOD} should be compatible with real/@method {METHOD} (parameter #{INDEX} with no type cannot replace original parameter with type '{TYPE}') defined in {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                7036
             ),
             new Issue(
                 self::ParamSignatureRealMismatchParamVariadic,
@@ -1043,6 +1158,14 @@ class Issue
                 7022
             ),
             new Issue(
+                self::ParamSignaturePHPDocMismatchParamVariadic,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_LOW,
+                "Declaration of real/@method {METHOD} should be compatible with real/@method {METHOD} (parameter #{INDEX} is a variadic parameter replacing a non-variadic parameter) defined in {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                7037
+            ),
+            new Issue(
                 self::ParamSignatureRealMismatchParamNotVariadic,
                 self::CATEGORY_PARAMETER,
                 self::SEVERITY_NORMAL,
@@ -1057,6 +1180,14 @@ class Issue
                 "Declaration of {METHOD} should be compatible with internal {METHOD} (parameter #{INDEX} is a non-variadic parameter replacing a variadic parameter)",
                 self::REMEDIATION_B,
                 7024
+            ),
+            new Issue(
+                self::ParamSignaturePHPDocMismatchParamNotVariadic,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_LOW,
+                "Declaration of real/@method {METHOD} should be compatible with real/@method {METHOD} (parameter #{INDEX} is a non-variadic parameter replacing a variadic parameter) defined in {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                7038
             ),
             new Issue(
                 self::ParamSignatureRealMismatchParamIsReference,
@@ -1075,6 +1206,14 @@ class Issue
                 7026
             ),
             new Issue(
+                self::ParamSignaturePHPDocMismatchParamIsReference,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_LOW,
+                "Declaration of real/@method {METHOD} should be compatible with real/@method {METHOD} (parameter #{INDEX} is a reference parameter overriding a non-reference parameter) defined in {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                7039
+            ),
+            new Issue(
                 self::ParamSignatureRealMismatchParamIsNotReference,
                 self::CATEGORY_PARAMETER,
                 self::SEVERITY_NORMAL,
@@ -1089,6 +1228,14 @@ class Issue
                 "Declaration of {METHOD} should be compatible with internal {METHOD} (parameter #{INDEX} is a non-reference parameter overriding a reference parameter)",
                 self::REMEDIATION_B,
                 7028
+            ),
+            new Issue(
+                self::ParamSignaturePHPDocMismatchParamIsNotReference,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_LOW,
+                "Declaration of real/@method {METHOD} should be compatible with real/@method {METHOD} (parameter #{INDEX} is a non-reference parameter overriding a reference parameter) defined in {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                7040
             ),
             new Issue(
                 self::ParamSignatureRealMismatchTooFewParameters,
@@ -1107,6 +1254,14 @@ class Issue
                 7030
             ),
             new Issue(
+                self::ParamSignaturePHPDocMismatchTooFewParameters,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_LOW,
+                "Declaration of real/@method {METHOD} should be compatible with real/@method {METHOD} (the method override accepts {COUNT} parameter(s), but the overridden method can accept {COUNT}) defined in {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                7041
+            ),
+            new Issue(
                 self::ParamSignatureRealMismatchTooManyRequiredParameters,
                 self::CATEGORY_PARAMETER,
                 self::SEVERITY_NORMAL,
@@ -1121,6 +1276,14 @@ class Issue
                 "Declaration of {METHOD} should be compatible with internal {METHOD} (the method override requires {COUNT} parameter(s), but the overridden method requires only {COUNT})",
                 self::REMEDIATION_B,
                 7032
+            ),
+            new Issue(
+                self::ParamSignaturePHPDocMismatchTooManyRequiredParameters,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_LOW,
+                "Declaration of real/@method {METHOD} should be compatible with real/@method {METHOD} (the method override requires {COUNT} parameter(s), but the overridden method requires only {COUNT}) defined in {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                7042
             ),
 
             // Issue::CATEGORY_NOOP
@@ -1196,6 +1359,14 @@ class Issue
                 self::REMEDIATION_B,
                 6008
             ),
+            new Issue(
+                self::UnreferencedFunction,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_NORMAL,
+                "Possibly zero references to function {FUNCTION}",
+                self::REMEDIATION_B,
+                6009
+            ),
 
             // Issue::CATEGORY_REDEFINE
             new Issue(
@@ -1245,6 +1416,14 @@ class Issue
                 "Declaration of {METHOD} must be compatible with {METHOD} in {FILE} on line {LINE}",
                 self::REMEDIATION_B,
                 8005
+            ),
+            new Issue(
+                self::RedefineClassAlias,
+                self::CATEGORY_REDEFINE,
+                self::SEVERITY_NORMAL,
+                "{CLASS} aliased at {FILE}:{LINE} was previously defined as {CLASS} at {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                8006
             ),
 
             // Issue::CATEGORY_ACCESS
@@ -1332,9 +1511,17 @@ class Issue
                 self::AccessPropertyStaticAsNonStatic,
                 self::CATEGORY_ACCESS,
                 self::SEVERITY_CRITICAL,
-                "Accessing static property %s as non static",
+                "Accessing static property {PROPERTY} as non static",
                 self::REMEDIATION_B,
                 1010
+            ),
+            new Issue(
+                self::AccessOwnConstructor,
+                self::CATEGORY_ACCESS,
+                self::SEVERITY_NORMAL,
+                "Accessing own constructor directly via {CLASS}::__construct",
+                self::REMEDIATION_B,
+                1020
             ),
             new Issue(
                 self::AccessMethodProtectedWithCallMagicMethod,
@@ -1351,6 +1538,70 @@ class Issue
                 "Cannot access private method {METHOD} defined at {FILE}:{LINE} (if this call should be handled by __call, consider adding a @method tag to the class)",
                 self::REMEDIATION_B,
                 1012
+            ),
+            new Issue(
+                self::AccessWrongInheritanceCategory,
+                self::CATEGORY_ACCESS,
+                self::SEVERITY_CRITICAL,
+                "Attempting to inherit {CLASSLIKE} defined at {FILE}:{LINE} as if it were a {CLASSLIKE}",
+                self::REMEDIATION_B,
+                1013
+            ),
+            new Issue(
+                self::AccessWrongInheritanceCategoryInternal,
+                self::CATEGORY_ACCESS,
+                self::SEVERITY_CRITICAL,
+                "Attempting to inherit internal {CLASSLIKE} as if it were a {CLASSLIKE}",
+                self::REMEDIATION_B,
+                1014
+            ),
+            new Issue(
+                self::AccessExtendsFinalClass,
+                self::CATEGORY_ACCESS,
+                self::SEVERITY_CRITICAL,
+                "Attempting to extend from final class {CLASS} defined at {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                1015
+            ),
+            new Issue(
+                self::AccessExtendsFinalClassInternal,
+                self::CATEGORY_ACCESS,
+                self::SEVERITY_CRITICAL,
+                "Attempting to extend from final internal class {CLASS}",
+                self::REMEDIATION_B,
+                1016
+            ),
+            new Issue(
+                self::AccessOverridesFinalMethod,
+                self::CATEGORY_ACCESS,
+                self::SEVERITY_CRITICAL,
+                "Declaration of method {METHOD} overrides final method {METHOD} defined in {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                1017
+            ),
+            new Issue(
+                self::AccessOverridesFinalMethodInternal,
+                self::CATEGORY_ACCESS,
+                self::SEVERITY_CRITICAL,
+                "Declaration of method {METHOD} overrides final internal method {METHOD}",
+                self::REMEDIATION_B,
+                1018
+            ),
+            new Issue(
+                self::AccessOverridesFinalMethodPHPDoc,
+                self::CATEGORY_ACCESS,
+                self::SEVERITY_LOW,
+                "Declaration of phpdoc method {METHOD} is an unnecessary override of final method {METHOD} defined in {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                1019
+            ),
+            new Issue(
+                self::AccessPropertyNonStaticAsStatic,
+                self::CATEGORY_ACCESS,
+                self::SEVERITY_CRITICAL,
+                "Accessing non static property {PROPERTY} as static",
+                self::REMEDIATION_B,
+                1021
             ),
 
             // Issue::CATEGORY_COMPATIBLE
@@ -1418,7 +1669,7 @@ class Issue
                 self::AccessConstantInternal,
                 self::CATEGORY_INTERNAL,
                 self::SEVERITY_NORMAL,
-                "Cannot access internal constant {CONST} defined at {FILE}:{LINE}",
+                "Cannot access internal constant {CONST} of namepace {NAMESPACE} defined at {FILE}:{LINE} from namespace {NAMESPACE}",
                 self::REMEDIATION_B,
                 15000
             ),
@@ -1442,7 +1693,7 @@ class Issue
                 self::AccessPropertyInternal,
                 self::CATEGORY_INTERNAL,
                 self::SEVERITY_NORMAL,
-                "Cannot access internal property {PROPERTY} defined at {FILE}:{LINE}",
+                "Cannot access internal property {PROPERTY} of namespace {NAMESPACE} defined at {FILE}:{LINE} from namespace {NAMESPACE}",
                 self::REMEDIATION_B,
                 15003
             ),
@@ -1450,7 +1701,7 @@ class Issue
                 self::AccessMethodInternal,
                 self::CATEGORY_INTERNAL,
                 self::SEVERITY_NORMAL,
-                "Cannot access internal method {METHOD} defined at {FILE}:{LINE}",
+                "Cannot access internal method {METHOD} of namespace {NAMESPACE} defined at {FILE}:{LINE} from namespace {NAMESPACE}",
                 self::REMEDIATION_B,
                 15004
             ),
@@ -1468,7 +1719,7 @@ class Issue
                 self::MisspelledAnnotation,
                 self::CATEGORY_COMMENT,
                 self::SEVERITY_LOW,
-                "Saw misspelled annotation {COMMENT}, should be {COMMENT}",
+                "Saw misspelled annotation {COMMENT}, should be one of {COMMENT}",
                 self::REMEDIATION_B,
                 16001
             ),
@@ -1504,17 +1755,67 @@ class Issue
                 self::REMEDIATION_B,
                 16005
             ),
+            new Issue(
+                self::CommentOverrideOnNonOverrideMethod,
+                self::CATEGORY_COMMENT,
+                self::SEVERITY_LOW,
+                "Saw an @override annotation for method {METHOD}, but could not find an overridden method and it is not a magic method",
+                self::REMEDIATION_B,
+                16006
+            ),
+            new Issue(
+                self::CommentOverrideOnNonOverrideConstant,
+                self::CATEGORY_COMMENT,
+                self::SEVERITY_LOW,
+                "Saw an @override annotation for class constant {CONST}, but could not find an overridden constant",
+                self::REMEDIATION_B,
+                16007
+            ),
         ];
 
-        $error_map = [];
-        foreach ($error_list as $i => $error) {
+        self::sanityCheckErrorList($error_list);
+        // Verified the error meets preconditions, now add it.
+        foreach ($error_list as $error) {
             $error_type = $error->getType();
-            assert(!array_key_exists($error_type, $error_map), "Issue of type $error_type has multiple definitions");
             $error_map[$error_type] = $error;
         }
 
         return $error_map;
     }
+
+    /**
+     * @param Issue[] $error_list
+     * @return void
+     */
+    private static function sanityCheckErrorList(array $error_list)
+    {
+        $error_map = [];
+        $unique_type_id_set = [];
+        foreach ($error_list as $error) {
+            $error_type = $error->getType();
+            \assert(!\array_key_exists($error_type, $error_map), "Issue of type $error_type has multiple definitions");
+            \assert(\strncmp($error_type, 'Phan', 4) === 0, "Issue of type $error_type should begin with 'Phan'");
+
+            $error_type_id = $error->getTypeId();
+            \assert(!\array_key_exists($error_type_id, $unique_type_id_set), "Multiple issues exist with pylint error id $error_type_id");
+            $unique_type_id_set[$error_type_id] = $error;
+            $category = $error->getCategory();
+            $expected_category_for_type_id_bitpos = (int)floor($error_type_id / 1000);
+            $expected_category_for_type_id = 1 << $expected_category_for_type_id_bitpos;
+            if ($category !== $expected_category_for_type_id) {
+                assert(false, sprintf(
+                    "Expected error %s of type %d to be category %d(1<<%d), got 1<<%d\n",
+                    $error_type,
+                    $error_type_id,
+                    $category,
+                    (int)round(log($category, 2)),
+                    $expected_category_for_type_id_bitpos
+                ));
+            }
+            $error_map[$error_type] = $error;
+        }
+    }
+
 
     /**
      * @return string
@@ -1621,7 +1922,7 @@ class Issue
     {
         $error_map = self::issueMap();
 
-        assert(
+        \assert(
             !empty($error_map[$type]),
             "Undefined error type $type"
         );
@@ -1723,17 +2024,16 @@ class Issue
         // If this issue type has been suppressed in
         // the config, ignore it
 
-        $config = Config::get();
-        if (!$config->disable_suppression) {
+        if (!Config::getValue('disable_suppression')) {
             if (in_array($issue_instance->getIssue()->getType(),
-                    $config->suppress_issue_types ?? [])
+                    Config::getValue('suppress_issue_types') ?? [])
             ) {
                 return;
             }
 
             // If a white-list of allowed issue types is defined,
             // only emit issues on the white-list
-            $whitelist_issue_types = $config->whitelist_issue_types ?? [];
+            $whitelist_issue_types = Config::getValue('whitelist_issue_types') ?? [];
             if (count($whitelist_issue_types) > 0
                 && !in_array($issue_instance->getIssue()->getType(),
                         $whitelist_issue_types)
@@ -1813,23 +2113,23 @@ class Issue
     ) {
         // If this issue type has been suppressed in
         // the config, ignore it
-        if (!Config::get()->disable_suppression
+        if (!Config::getValue('disable_suppression')
             && in_array($issue_type,
-            Config::get()->suppress_issue_types ?? [])
+            Config::getValue('suppress_issue_types') ?? [])
         ) {
             return;
         }
         // If a white-list of allowed issue types is defined,
         // only emit issues on the white-list
-        if (!Config::get()->disable_suppression
-            && count(Config::get()->whitelist_issue_types) > 0
+        if (!Config::getValue('disable_suppression')
+            && count(Config::getValue('whitelist_issue_types')) > 0
             && !in_array($issue_type,
-                Config::get()->whitelist_issue_types ?? [])
+                Config::getValue('whitelist_issue_types') ?? [])
         ) {
             return;
         }
 
-        if (!Config::get()->disable_suppression
+        if (!Config::getValue('disable_suppression')
             && $context->hasSuppressIssue($code_base, $issue_type)
         ) {
             return;

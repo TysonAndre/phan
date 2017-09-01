@@ -45,7 +45,7 @@ abstract class AbstractPhanFileTest extends BaseTest implements CodeBaseAwareTes
         parent::tearDown();
         // Reinstate the original config
         foreach ($this->original_config as $key => $value) {
-            Config::get()->__set($key, $value);
+            Config::setValue($key, $value);
         }
     }
     /**
@@ -84,8 +84,8 @@ abstract class AbstractPhanFileTest extends BaseTest implements CodeBaseAwareTes
         }
         // Overlay any test-specific config modifiers
         if ($config_file_path) {
-            foreach (require $config_file_path as $key => $value) {
-                Config::get()->__set($key, $value);
+            foreach (require($config_file_path) as $key => $value) {
+                Config::setValue($key, $value);
             }
         }
         $stream = new BufferedOutput();

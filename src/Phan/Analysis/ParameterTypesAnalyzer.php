@@ -3,6 +3,7 @@ namespace Phan\Analysis;
 
 use Phan\CodeBase;
 use Phan\Config;
+use Phan\Exception\CodeBaseException;
 use Phan\Issue;
 use Phan\Language\Element\Clazz;
 use Phan\Language\Element\FunctionInterface;
@@ -25,6 +26,10 @@ class ParameterTypesAnalyzer
         CodeBase $code_base,
         FunctionInterface $method
     ) {
+        if (Config::getValue('check_docblock_signature_param_type_match')) {
+            self::analyzeParameterTypesDocblockSignaturesMatch($code_base, $method);
+        }
+
         // Look at each parameter to make sure their types
         // are valid
         foreach ($method->getParameterList() as $parameter) {
@@ -35,7 +40,7 @@ class ParameterTypesAnalyzer
 
                 // If its a native type or a reference to
                 // self, its OK
-                if ($type->isNativeType() || $type->isSelfType()) {
+                if ($type->isNativeType() || ($method instanceof Method && ($type->isSelfType() || $type->isStaticType()))) {
                     continue;
                 }
 
@@ -54,7 +59,7 @@ class ParameterTypesAnalyzer
                 } else {
                     // Make sure the class exists
                     $type_fqsen = $type->asFQSEN();
-                    assert($type_fqsen instanceof FullyQualifiedClassName, 'non-native types must be class names');
+                    \assert($type_fqsen instanceof FullyQualifiedClassName, 'non-native types must be class names');
                     if (!$code_base->hasClassWithFQSEN($type_fqsen)) {
                         Issue::maybeEmit(
                             $code_base,
@@ -83,7 +88,7 @@ class ParameterTypesAnalyzer
         CodeBase $code_base,
         Method $method
     ) {
-        if (!Config::get()->analyze_signature_compatibility) {
+        if (!Config::getValue('analyze_signature_compatibility')) {
             return;
         }
 
@@ -97,12 +102,75 @@ class ParameterTypesAnalyzer
 
         // Make sure we're actually overriding something
         // TODO(in another PR): check that signatures of magic methods are valid, if not done already (e.g. __get expects one param, most can't define return types, etc.)?
-        if (!$method->getIsOverride()) {
+        $is_actually_override = $method->getIsOverride();
+
+        if (!$is_actually_override && $method->isOverrideIntended()) {
+            self::analyzeOverrideComment($code_base, $method);
+        }
+
+        if (!$is_actually_override) {
             return;
         }
 
-        // Get the method that is being overridden
-        $o_method = $method->getOverriddenMethod($code_base);
+        // Get the method(s) that are being overridden
+        // E.g. if the subclass, the parent class, and an interface the subclass implements implement a method,
+        //      then this has to check two different overrides (Subclass overriding parent class, and subclass overriding abstract method in interface)
+        try {
+            $o_method_list = $method->getOverriddenMethods($code_base);
+        } catch(CodeBaseException $e) {
+            // TODO: Remove if no edge cases are seen.
+            Issue::maybeEmit(
+                $code_base,
+                $method->getContext(),
+                Issue::UnanalyzableInheritance,
+                $method->getFileRef()->getLineNumberStart(),
+                $method->getFQSEN()
+            );
+            return;
+        }
+        foreach ($o_method_list as $o_method) {
+            self::analyzeOverrideSignatureForOverriddenMethod($code_base, $method, $class, $o_method);
+        }
+    }
+
+    /**
+     * @return void
+     */
+    private static function analyzeOverrideComment(CodeBase $code_base, Method $method) {
+        if ($method->getIsMagic()) {
+            return;
+        }
+        // Only emit this issue on the base class, not for the subclass which inherited it
+        if ($method->getDefiningFQSEN() !== $method->getFQSEN()) {
+            return;
+        }
+        if ($method->hasSuppressIssue(Issue::CommentOverrideOnNonOverrideMethod)) {
+            return;
+        }
+        Issue::maybeEmit(
+            $code_base,
+            $method->getContext(),
+            Issue::CommentOverrideOnNonOverrideMethod,
+            $method->getFileRef()->getLineNumberStart(),
+            $method->getFQSEN()
+        );
+    }
+
+    /**
+     * Make sure signatures line up between methods and a method it overrides.
+     *
+     * @see https://en.wikipedia.org/wiki/Liskov_substitution_principle
+     */
+    private static function analyzeOverrideSignatureForOverriddenMethod(
+        CodeBase $code_base,
+        Method $method,
+        Clazz $class,
+        Method $o_method
+    ) {
+        if ($o_method->isFinal()) {
+            // Even if it is a constructor, verify that a method doesn't override a final method.
+            self::warnOverridingFinalMethod($code_base, $method, $class, $o_method);
+        }
 
         // Unless it is an abstract constructor,
         // don't worry about signatures lining up on
@@ -141,7 +209,7 @@ class ParameterTypesAnalyzer
         // template type parameters we may have
         if ($type_option->isDefined()) {
             $o_parameter_list =
-                array_map(function (Parameter $parameter) use ($type_option, $code_base) : Parameter {
+                \array_map(function (Parameter $parameter) use ($type_option, $code_base) : Parameter {
 
                     if (!$parameter->getUnionType()->hasTemplateType()) {
                         return $parameter;
@@ -279,14 +347,16 @@ class ParameterTypesAnalyzer
 
         if (!$signatures_match) {
             if ($o_method->isPHPInternal()) {
-                Issue::maybeEmit(
-                    $code_base,
-                    $method->getContext(),
-                    Issue::ParamSignatureMismatchInternal,
-                    $method->getFileRef()->getLineNumberStart(),
-                    $method,
-                    $o_method
-                );
+                if (!$method->hasSuppressIssue(Issue::ParamSignatureMismatchInternal)) {
+                    Issue::maybeEmit(
+                        $code_base,
+                        $method->getContext(),
+                        Issue::ParamSignatureMismatchInternal,
+                        $method->getFileRef()->getLineNumberStart(),
+                        $method,
+                        $o_method
+                    );
+                }
             } else {
                 Issue::maybeEmit(
                     $code_base,
@@ -306,25 +376,29 @@ class ParameterTypesAnalyzer
             || $o_method->isPublic() && !$method->isPublic()
         ) {
             if ($o_method->isPHPInternal()) {
-                Issue::maybeEmit(
-                    $code_base,
-                    $method->getContext(),
-                    Issue::AccessSignatureMismatchInternal,
-                    $method->getFileRef()->getLineNumberStart(),
-                    $method,
-                    $o_method
-                );
+                if (!$method->hasSuppressIssue(Issue::AccessSignatureMismatchInternal)) {
+                    Issue::maybeEmit(
+                        $code_base,
+                        $method->getContext(),
+                        Issue::AccessSignatureMismatchInternal,
+                        $method->getFileRef()->getLineNumberStart(),
+                        $method,
+                        $o_method
+                    );
+                }
             } else {
-                Issue::maybeEmit(
-                    $code_base,
-                    $method->getContext(),
-                    Issue::AccessSignatureMismatch,
-                    $method->getFileRef()->getLineNumberStart(),
-                    $method,
-                    $o_method,
-                    $o_method->getFileRef()->getFile(),
-                    $o_method->getFileRef()->getLineNumberStart()
-                );
+                if (!$method->hasSuppressIssue(Issue::AccessSignatureMismatch)) {
+                    Issue::maybeEmit(
+                        $code_base,
+                        $method->getContext(),
+                        Issue::AccessSignatureMismatch,
+                        $method->getFileRef()->getLineNumberStart(),
+                        $method,
+                        $o_method,
+                        $o_method->getFileRef()->getFile(),
+                        $o_method->getFileRef()->getLineNumberStart()
+                    );
+                }
             }
 
         }
@@ -371,6 +445,7 @@ class ParameterTypesAnalyzer
                 $o_method,
                 Issue::ParamSignatureRealMismatchTooManyRequiredParameters,
                 Issue::ParamSignatureRealMismatchTooManyRequiredParametersInternal,
+                Issue::ParamSignaturePHPDocMismatchTooManyRequiredParameters,
                 $method->getNumberOfRequiredRealParameters(),
                 $o_method->getNumberOfRequiredRealParameters()
             );
@@ -384,12 +459,15 @@ class ParameterTypesAnalyzer
                 $o_method,
                 Issue::ParamSignatureRealMismatchTooFewParameters,
                 Issue::ParamSignatureRealMismatchTooFewParametersInternal,
+                Issue::ParamSignaturePHPDocMismatchTooFewParameters,
                 $method->getNumberOfRealParameters(),
                 $o_method->getNumberOfRealParameters()
             );
             return;
             // If parameter counts match, check their types
         }
+        $is_possibly_compatible = true;
+
         foreach ($method->getRealParameterList() as $i => $parameter) {
             $offset = $i + 1;
             // TODO: check if variadic
@@ -410,8 +488,10 @@ class ParameterTypesAnalyzer
                     $o_method,
                     ($is_reference ? Issue::ParamSignatureRealMismatchParamIsReference         : Issue::ParamSignatureRealMismatchParamIsNotReference),
                     ($is_reference ? Issue::ParamSignatureRealMismatchParamIsReferenceInternal : Issue::ParamSignatureRealMismatchParamIsNotReferenceInternal),
+                    ($is_reference ? Issue::ParamSignaturePHPDocMismatchParamIsReference       : Issue::ParamSignaturePHPDocMismatchParamIsNotReference),
                     $offset
                 );
+                $is_possibly_compatible = false;
                 return;
             }
 
@@ -425,8 +505,10 @@ class ParameterTypesAnalyzer
                     $o_method,
                     ($is_variadic ? Issue::ParamSignatureRealMismatchParamVariadic         : Issue::ParamSignatureRealMismatchParamNotVariadic),
                     ($is_variadic ? Issue::ParamSignatureRealMismatchParamVariadicInternal : Issue::ParamSignatureRealMismatchParamNotVariadicInternal),
+                    ($is_variadic ? Issue::ParamSignaturePHPDocMismatchParamVariadic       : Issue::ParamSignaturePHPDocMismatchParamNotVariadic),
                     $offset
                 );
+                $is_possibly_compatible = false;
                 return;
             }
 
@@ -434,6 +516,7 @@ class ParameterTypesAnalyzer
             $o_parameter_union_type = $o_parameter->getUnionType();
             $parameter_union_type = $parameter->getUnionType();
             if ($parameter_union_type->isEmpty() != $o_parameter_union_type->isEmpty()) {
+                $is_possibly_compatible = false;
                 if ($parameter_union_type->isEmpty()) {
                     self::emitSignatureRealMismatchIssue(
                         $code_base,
@@ -441,10 +524,11 @@ class ParameterTypesAnalyzer
                         $o_method,
                         Issue::ParamSignatureRealMismatchHasNoParamType,
                         Issue::ParamSignatureRealMismatchHasNoParamTypeInternal,
+                        Issue::ParamSignaturePHPDocMismatchHasNoParamType,
                         $offset,
                         (string)$o_parameter_union_type
                     );
-                    return;
+                    continue;
                 } else {
                     self::emitSignatureRealMismatchIssue(
                         $code_base,
@@ -452,10 +536,11 @@ class ParameterTypesAnalyzer
                         $o_method,
                         Issue::ParamSignatureRealMismatchHasParamType,
                         Issue::ParamSignatureRealMismatchHasParamTypeInternal,
+                        Issue::ParamSignaturePHPDocMismatchHasParamType,
                         $offset,
                         (string)$parameter_union_type
                     );
-                    return;
+                    continue;
                 }
             }
 
@@ -474,17 +559,19 @@ class ParameterTypesAnalyzer
                          $parameter_union_type->hasType(IterableType::instance(false)) && !$o_parameter_union_type->containsNullable());
 
                     if (!$is_exception_to_rule) {
+                        $is_possibly_compatible = false;
                         self::emitSignatureRealMismatchIssue(
                             $code_base,
                             $method,
                             $o_method,
                             Issue::ParamSignatureRealMismatchParamType,
                             Issue::ParamSignatureRealMismatchParamTypeInternal,
+                            Issue::ParamSignaturePHPDocMismatchParamType,
                             $offset,
                             (string)$parameter_union_type,
                             (string)$o_parameter_union_type
                         );
-                        return;
+                        continue;
                     }
                 }
             }
@@ -498,16 +585,60 @@ class ParameterTypesAnalyzer
                 $o_return_union_type->containsNullable() && !($o_return_union_type->nonNullableClone()->isEqualTo($return_union_type)))
                 )) {
 
+                $is_possibly_compatible = false;
+
                 self::emitSignatureRealMismatchIssue(
                     $code_base,
                     $method,
                     $o_method,
                     Issue::ParamSignatureRealMismatchReturnType,
                     Issue::ParamSignatureRealMismatchReturnTypeInternal,
+                    Issue::ParamSignaturePHPDocMismatchReturnType,
                     (string)$return_union_type,
                     (string)$o_return_union_type
                 );
-                return;
+            }
+        }
+        if ($is_possibly_compatible) {
+            if (Config::getValue('inherit_phpdoc_types')) {
+                self::inheritPHPDoc($method, $o_method);
+            }
+        }
+    }
+
+    /**
+     * Inherit any missing phpdoc types for (at)return and (at)param of $method from $o_method.
+     * This is the default behaviour, see https://www.phpdoc.org/docs/latest/guides/inheritance.html
+     *
+     * @return void
+     */
+    private static function inheritPHPDoc(
+        Method $method,
+        Method $o_method
+    ) {
+        // Get the parameters for that method
+        $phpdoc_parameter_list = $method->getParameterList();
+        $o_phpdoc_parameter_list = $o_method->getParameterList();
+        foreach ($phpdoc_parameter_list as $i => $parameter) {
+            $parameter_type = $parameter->getUnionType();
+            if (!$parameter_type->isEmpty()) {
+                continue;
+            }
+            $parent_parameter = $o_phpdoc_parameter_list[$i] ?? null;
+            if ($parent_parameter) {
+                $parent_parameter_type = $parent_parameter->getUnionType();
+                if ($parent_parameter_type->isEmpty()) {
+                    continue;
+                }
+                $parameter->setUnionType(clone($parent_parameter_type));
+            }
+        }
+
+        $phpdoc_return_type = $method->getUnionType();
+        if ($phpdoc_return_type->isEmpty()) {
+            $parent_phpdoc_return_type = $o_method->getUnionType();
+            if (!$parent_phpdoc_return_type->isEmpty()) {
+                $method->setUnionType(clone($parent_phpdoc_return_type));
             }
         }
     }
@@ -521,9 +652,30 @@ class ParameterTypesAnalyzer
      * @param string $issue_type the ParamSignatureRealMismatch* (issue type if overriding user-defined method)
      * @param string $internal_issue_type the ParamSignatureRealMismatch* (issue type if overriding internal method)
      * @param int|string ...$args
+     * @return void
      */
-    private static function emitSignatureRealMismatchIssue(CodeBase $code_base, Method $method, Method $o_method, string $issue_type, string $internal_issue_type, ...$args) {
-        if ($o_method->isPHPInternal()) {
+    private static function emitSignatureRealMismatchIssue(CodeBase $code_base, Method $method, Method $o_method, string $issue_type, string $internal_issue_type, string $phpdoc_issue_type, ...$args) {
+        if ($method->isFromPHPDoc() || $o_method->isFromPHPDoc()) {
+            // TODO: for overriding methods defined in phpdoc, going to need to add issue suppressions from the class phpdoc?
+            if ($method->hasSuppressIssue($phpdoc_issue_type)) {
+                return;
+            }
+            Issue::maybeEmit(
+                $code_base,
+                $method->getContext(),
+                $phpdoc_issue_type,
+                $method->getFileRef()->getLineNumberStart(),
+                $method->toRealSignatureString(),
+                $o_method->toRealSignatureString(),
+                ...array_merge($args, [
+                    $o_method->getFileRef()->getFile(),
+                    $o_method->getFileRef()->getLineNumberStart(),
+                ])
+            );
+        } else if ($o_method->isPHPInternal()) {
+            if ($method->hasSuppressIssue($internal_issue_type)) {
+                return;
+            }
             Issue::maybeEmit(
                 $code_base,
                 $method->getContext(),
@@ -534,6 +686,9 @@ class ParameterTypesAnalyzer
                 ...$args
             );
         } else {
+            if ($method->hasSuppressIssue($issue_type)) {
+                return;
+            }
             Issue::maybeEmit(
                 $code_base,
                 $method->getContext(),
@@ -545,6 +700,115 @@ class ParameterTypesAnalyzer
                     $o_method->getFileRef()->getFile(),
                     $o_method->getFileRef()->getLineNumberStart(),
                 ])
+            );
+        }
+    }
+
+    /**
+     * @return void
+     */
+    private static function analyzeParameterTypesDocblockSignaturesMatch(
+        CodeBase $code_base,
+        FunctionInterface $method
+    ) {
+        $phpdoc_parameter_map = $method->getPHPDocParameterTypeMap();
+        if (count($phpdoc_parameter_map) === 0) {
+            // nothing to check.
+            return;
+        }
+        $real_parameter_list = $method->getRealParameterList();
+        foreach ($real_parameter_list as $i => $parameter) {
+            $real_param_type = $parameter->getNonVariadicUnionType();
+            if ($real_param_type->isEmpty()) {
+                continue;
+            }
+            $phpdoc_param_union_type = $phpdoc_parameter_map[$parameter->getName()] ?? null;
+            if ($phpdoc_param_union_type) {
+                $context = $method->getContext();
+                $resolved_real_param_type = $real_param_type->withStaticResolvedInContext($context);
+                $is_exclusively_narrowed = true;
+                foreach ($phpdoc_param_union_type->getTypeSet() as $phpdoc_type) {
+                    // Make sure that the commented type is a narrowed
+                    // or equivalent form of the syntax-level declared
+                    // return type.
+                    if (!$phpdoc_type->isExclusivelyNarrowedFormOrEquivalentTo(
+                            $resolved_real_param_type,
+                            $context,
+                            $code_base
+                        )
+                    ) {
+                        $is_exclusively_narrowed = false;
+                        if (!$method->hasSuppressIssue(Issue::TypeMismatchDeclaredParam)) {
+                            Issue::maybeEmit(
+                                $code_base,
+                                $context,
+                                Issue::TypeMismatchDeclaredParam,
+                                $context->getLineNumberStart(),
+                                $parameter->getName(),
+                                $method->getName(),
+                                $phpdoc_type->__toString(),
+                                $real_param_type->__toString()
+                            );
+                        }
+                    }
+                }
+                // TODO: test edge cases of variadic signatures
+                if ($is_exclusively_narrowed && Config::getValue('prefer_narrowed_phpdoc_param_type')) {
+                    $param_to_modify = $method->getParameterList()[$i] ?? null;
+                    if ($param_to_modify) {
+                        $param_to_modify->setUnionType($phpdoc_param_union_type);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Warns if a method is overriding a final method
+     * @return void
+     */
+    private static function warnOverridingFinalMethod(CodeBase $code_base, Method $method, Clazz $class, Method $o_method)
+    {
+        if ($method->isFromPHPDoc()) {
+            // TODO: Track phpdoc methods separately from real methods
+            if ($method->hasSuppressIssue(Issue::AccessOverridesFinalMethodPHPDoc) || $class->hasSuppressIssue(Issue::AccessOverridesFinalMethodPHPDoc)) {
+                return;
+            }
+            Issue::maybeEmit(
+                $code_base,
+                $method->getContext(),
+                Issue::AccessOverridesFinalMethodPHPDoc,
+                $method->getFileRef()->getLineNumberStart(),
+                $method->getFQSEN(),
+                $o_method->getFQSEN(),
+                $o_method->getFileRef()->getFile(),
+                $o_method->getFileRef()->getLineNumberStart()
+            );
+        } else if ($o_method->isPHPInternal()) {
+            if ($method->hasSuppressIssue(Issue::AccessOverridesFinalMethodInternal)) {
+                return;
+            }
+            Issue::maybeEmit(
+                $code_base,
+                $method->getContext(),
+                Issue::AccessOverridesFinalMethodInternal,
+                $method->getFileRef()->getLineNumberStart(),
+                $method->getFQSEN(),
+                $o_method->getFQSEN()
+            );
+        } else {
+            if ($method->hasSuppressIssue(Issue::AccessOverridesFinalMethod)) {
+                return;
+            }
+            Issue::maybeEmit(
+                $code_base,
+                $method->getContext(),
+                Issue::AccessOverridesFinalMethod,
+                $method->getFileRef()->getLineNumberStart(),
+                $method->getFQSEN(),
+                $o_method->getFQSEN(),
+                $o_method->getFileRef()->getFile(),
+                $o_method->getFileRef()->getLineNumberStart()
             );
         }
     }

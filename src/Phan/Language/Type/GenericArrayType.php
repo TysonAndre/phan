@@ -3,7 +3,7 @@ namespace Phan\Language\Type;
 
 use Phan\Language\Type;
 
-class GenericArrayType extends ArrayType
+final class GenericArrayType extends ArrayType
 {
     const NAME = 'array';
 
@@ -66,9 +66,9 @@ class GenericArrayType extends ArrayType
             return true;
         }
 
-        $d = strtolower((string)$type);
+        $d = \strtolower((string)$type);
         if ($d[0] == '\\') {
-            $d = substr($d, 1);
+            $d = \substr($d, 1);
         }
         if ($d === 'callable') {
             return true;
