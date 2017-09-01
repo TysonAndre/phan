@@ -13,8 +13,6 @@
         }
     ],
     "config": {
-        "disable-tls": true,
-        "secure-http": false,
         "sort-packages": true
     },
     "require": {

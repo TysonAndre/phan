@@ -1,10 +1,8 @@
-<?php
+<?php declare(strict_types=1);
 
-/*
- * This code has been transpiled via TransPHPile. For more information, visit https://github.com/jaytaph/transphpile
- */
 namespace Phan\Tests;
 
+use PHPUnit\Framework\TestCase;
 /**
  * Any common initialization or configuration should go here
  * (E.g. this changes https://phpunit.de/manual/current/en/fixtures.html#fixtures.global-state for some classes)
