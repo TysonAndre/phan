@@ -141,7 +141,8 @@ class FunctionFactory {
         $method->setIsDeprecated($reflection_method->isDeprecated());
         // https://github.com/etsy/phan/issues/888 - Reflection for that class's parameters causes php to throw/hang
         if ($class_name !== 'ServerResponse') {
-            $method->setRealReturnType(UnionType::fromReflectionType($reflection_method->getReturnType()));
+            // Patch to run in php5.6
+            $method->setRealReturnType(method_exists($reflection_method, 'getReturnType') ? UnionType::fromReflectionType($reflection_method->getReturnType()) : new UnionType());
             $method->setRealParameterList(Parameter::listFromReflectionParameterList($reflection_method->getParameters()));
         }
 

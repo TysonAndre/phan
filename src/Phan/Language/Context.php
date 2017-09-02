@@ -479,8 +479,8 @@ class Context extends FileRef
 
         // Increment the suppression use count
         if ($has_suppress_issue) {
-            ++$this->getElementInScope($code_base)
-                ->getSuppressIssueList()[$issue_name];
+            $this->getElementInScope($code_base)
+                ->recordSuppressIssueUsage($issue_name);
         }
 
         return $has_suppress_issue;

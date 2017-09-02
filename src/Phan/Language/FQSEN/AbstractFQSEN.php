@@ -32,9 +32,11 @@ abstract class AbstractFQSEN implements FQSEN
      *
      * @return FQSEN
      */
-    abstract public static function fromFullyQualifiedString(
+    public static function fromFullyQualifiedString(
         string $fully_qualified_string
-    );
+    ) {
+        throw new \BadMethodCallException('fromFullyQualifiedString should have been implemented in subclasses');
+    }
 
     /**
      * @param Context $context
@@ -46,10 +48,12 @@ abstract class AbstractFQSEN implements FQSEN
      *
      * @return FQSEN
      */
-    abstract public static function fromStringInContext(
+    public static function fromStringInContext(
         string $string,
         Context $context
-    );
+    ) {
+        throw new \BadMethodCallException('fromStringInContext should have been implemented in subclasses');
+    }
 
     /**
      * @return string

@@ -20,7 +20,7 @@ final class CodeClimatePrinter implements BufferedPrinterInterface
     private $messages = [];
 
     /** @param IssueInstance $instance */
-    public function print(IssueInstance $instance)
+    public function print_(IssueInstance $instance)
     {
         $this->messages[] = [
             'type' => 'issue',

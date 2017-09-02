@@ -359,6 +359,7 @@ return [
         'tests/Phan',
         'vendor/phpunit/phpunit/src',
         'vendor/symfony/console',
+        'vendor/nikic/php-parser/lib',
         '.phan/plugins',
         '.phan/stubs',
     ],

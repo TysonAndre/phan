@@ -112,7 +112,7 @@ class Phan implements IgnoredFilesFilterInterface {
         $code_base->setCurrentParsedFile(null);
         foreach ($file_path_list as $i => $file_path) {
             $code_base->setCurrentParsedFile($file_path);
-            CLI::progress('parse', ($i + 1) / $file_count);
+            CLI::progress('parse', (float)(($i + 1) / $file_count));
 
             // Kick out anything we read from the former version
             // of this file
@@ -137,6 +137,9 @@ class Phan implements IgnoredFilesFilterInterface {
             } catch (\Throwable $throwable) {
                 // Catch miscellaneous errors such as $throwable and print their stack traces.
                 error_log("While parsing $file_path, caught: " . $throwable . "\n");
+                $code_base->recordUnparseableFile($file_path);
+            } catch (\Exception $throwable) {
+                error_log($file_path . ' ' . $throwable->getMessage() . "\n");
                 $code_base->recordUnparseableFile($file_path);
             }
         }
@@ -254,7 +257,7 @@ class Phan implements IgnoredFilesFilterInterface {
          */
         $analysis_worker = function($i, $file_path)
             use ($file_count, $code_base, $temporary_file_mapping) {
-                CLI::progress('analyze', ($i + 1) / $file_count);
+                CLI::progress('analyze', (float)(($i + 1) / $file_count));
                 Analysis::analyzeFile($code_base, $file_path, $temporary_file_mapping[$file_path] ?? null);
             };
 
@@ -364,7 +367,7 @@ class Phan implements IgnoredFilesFilterInterface {
 
         CLI::progress('dependencies', 0.0);  // trigger UI update of 0%
         foreach ($file_path_list as $i => $file_path) {
-            CLI::progress('dependencies', ($i + 1) / $file_count);
+            CLI::progress('dependencies', (float)(($i + 1) / $file_count));
 
             // Add the file itself to the list
             $dependency_file_path_list[] = $file_path;
@@ -439,7 +442,7 @@ class Phan implements IgnoredFilesFilterInterface {
         $printer = self::$printer;
 
         foreach ($collector->getCollectedIssues() as $issue) {
-            $printer->print($issue);
+            $printer->print_($issue);
         }
 
         if ($collector instanceof BufferingCollector) {

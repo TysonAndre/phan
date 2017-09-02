@@ -8,8 +8,9 @@ ini_set("memory_limit", '-1');
 
 // Add the root to the include path
 define('CLASS_DIR', __DIR__ . '/../');
-set_include_path(get_include_path().PATH_SEPARATOR.CLASS_DIR);
-
+set_include_path(get_include_path() . PATH_SEPARATOR . CLASS_DIR);
+// Add the php-ast stubs
+require_once CLASS_DIR . 'astshim.php';
 // Use the composer autoloader
 foreach ([
     __DIR__.'/../../vendor/autoload.php',          // autoloader is in this project
@@ -36,7 +37,8 @@ assert_options(ASSERT_QUIET_EVAL, false);
 assert_options(ASSERT_CALLBACK, '');  // Can't explicitly set ASSERT_CALLBACK to null?
 
 // Print more of the backtrace than is done by default
-set_exception_handler(function (Throwable $throwable) {
+/** @param Exception $throwable */
+set_exception_handler(function ($throwable) {
     error_log("$throwable\n");
     exit(EXIT_FAILURE);
 });
@@ -49,12 +51,13 @@ set_exception_handler(function (Throwable $throwable) {
  */
 function phan_error_handler($errno, $errstr, $errfile, $errline)
 {
-    error_log("$errfile:$errline [$errno] $errstr\n");
     if (error_reporting() === 0) {
         // https://secure.php.net/manual/en/language.operators.errorcontrol.php
         // Don't make Phan terminate if the @-operator was being used on an expression.
         return false;
     }
+    // The transphpiler is suppressing notices, e.g. with @$array['key']
+    error_log("$errfile:$errline [$errno] $errstr\n");
 
     ob_start();
     debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);

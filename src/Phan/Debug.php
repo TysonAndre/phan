@@ -55,7 +55,7 @@ class Debug
      *
      * @suppress PhanUnreferencedMethod
      */
-    public static function print(string $message, int $indent = 0)
+    public static function print_(string $message, int $indent = 0)
     {
         print str_repeat("\t", $indent);
         print $message . "\n";
@@ -112,6 +112,9 @@ class Debug
         }
 
         $string .= \ast\get_kind_name($node->kind);
+        if (!is_int($node->kind)) {
+            fwrite(STDERR, 'Unexpected node kind in node: ' . var_export($node, true));
+        }
 
         $string .= ' ['
             . self::astFlagDescription($node->flags ?? 0, $node->kind)

@@ -1,13 +1,8 @@
-<?php declare(strict_types = 1);
+<?php
 
 assert(
-    (int)phpversion()[0] >= 7,
-    'Phan requires PHP version 7 or greater. See https://github.com/etsy/phan#getting-it-running for more details.'
-);
-
-assert(
-    extension_loaded('ast'),
-    'The php-ast extension must be loaded in order for Phan to work. See https://github.com/etsy/phan#getting-it-running for more details.'
+    PHP_VERSION_ID >= 50600,
+    'Phan with slow php 5.6 backport requires PHP version 5.6 or greater. See https://github.com/etsy/phan#getting-it-running for more details.'
 );
 
 assert(
