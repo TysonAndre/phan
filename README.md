@@ -6,8 +6,8 @@ and does not attempt to track values.
 
 [![Build Status (fork)](https://travis-ci.org/TysonAndre/phan.svg?branch=master)](https://travis-ci.org/TysonAndre/phan) [![Build Status](https://travis-ci.org/etsy/phan.svg?branch=master)](https://travis-ci.org/etsy/phan)
 [![Gitter](https://badges.gitter.im/etsy/phan.svg)](https://gitter.im/etsy/phan?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
-[![Latest Stable Version (upstream)](https://poser.pugx.org/etsy/phan/v/stable)](https://packagist.org/packages/etsy/phan)
-[![License](https://poser.pugx.org/etsy/phan/license)](https://github.com/etsy/phan/blob/master/LICENSE)
+[![Latest Stable Version](https://poser.pugx.org/etsy/phan/v/stable)](https://packagist.org/packages/etsy/phan)
+[![License](https://poser.pugx.org/etsy/phan/license)](https://github.com/phan/phan/blob/master/LICENSE)
 
 # About this fork
 
@@ -32,6 +32,7 @@ With Phan installed, you'll want to [create a `.phan/config.php` file](https://g
 your project to tell Phan how to analyze your source code. Once configured, you can run it via `./vendor/bin/phan`.
 
 This version (branch) of Phan depends on PHP 7.1.x with the [php-ast](https://github.com/nikic/php-ast) extension (0.1.5 or newer, uses AST version 50) and supports PHP version 7.1+ syntax.
+Installation instructions for php-ast can be found [here](https://github.com/nikic/php-ast#installation).
 The 0.9.x releases work with older versions of php-ast (0.1.4 or newer, Phan uses AST version 40. Use this if third party integrations (e.g. plugins) are still expecting AST version 40 (`\ast\Node\Decl`)).
 For PHP 7.0.x use the [0.8 branch](https://github.com/phan/phan/tree/0.8).
 Having PHP's `pcntl` extension installed is strongly recommended (not available on Windows), in order to support using parallel processes for analysis (or to support daemon mode).
@@ -254,7 +255,7 @@ Phan reads and understands most [PHPDoc](http://www.phpdoc.org/docs/latest/guide
 type annotations including [Union Types](https://github.com/phan/phan/wiki/About-Union-Types)
 (like `int|MyClass|string|null`) and generic array types (like `int[]` or `string[]|MyClass[]`).
 
-Take a look at [Annotating Your Source Code](https://github.com/etsy/phan/wiki/Annotating-Your-Source-Code)
+Take a look at [Annotating Your Source Code](https://github.com/phan/phan/wiki/Annotating-Your-Source-Code)
 and [About Union Types](https://github.com/phan/phan/wiki/About-Union-Types) for some help
 getting started with defining types in your code.
 
