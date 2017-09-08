@@ -571,10 +571,10 @@ class Config
         // (e.g. PHP is compiled with --enable-debug or when using XDebug)
         'skip_slow_php_options_warning' => false,
 
-        // By default as of 0.10.0/0.9.5, Phan will warn for all global functions that aren't defined, even those which it has signatures for.
-        // Set this to true to emit PhanUndeclaredFunction issues for functions
-        // that aren't available in the codebase, or the internal functions used to run phan (may lead to false positives if an extension isn't loaded)
-        'ignore_undeclared_functions_with_known_signatures' => false,
+        // Set this to false to emit PhanUndeclaredFunction issues for internal functions that Phan has signatures for,
+        // but aren't available in the codebase, or the internal functions used to run phan (may lead to false positives if an extension isn't loaded)
+        // If this is true(default), then Phan will not warn.
+        'ignore_undeclared_functions_with_known_signatures' => true,
 
         // Path to a unix socket for a daemon to listen to files to analyze. Use command line option instead.
         'daemonize_socket' => false,
