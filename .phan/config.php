@@ -396,8 +396,8 @@ return [
     // Set this to false to emit PhanUndeclaredFunction issues for internal functions that Phan has signatures for,
     // but aren't available in the codebase, or the internal functions used to run phan (may lead to false positives if an extension isn't loaded)
     // If this is true(default), then Phan will not warn.
-    // (Overridden to false for phan self-analysis)
-    'ignore_undeclared_functions_with_known_signatures' => false,
+    // (Would like to override to false for phan self-analysis, but Windows self-tests would fail)
+    'ignore_undeclared_functions_with_known_signatures' => true,
 
     // A list of plugin files to execute
     'plugins' => [
