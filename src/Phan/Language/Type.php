@@ -1321,7 +1321,7 @@ class Type
                 : $clazz->getUnionType()
         );
 
-        // Resurse up the tree to include all types
+        // Recurse up the tree to include all types
         $recursive_union_type = new UnionType();
         foreach ($union_type->getTypeSet() as $clazz_type) {
             if ((string)$clazz_type != (string)$this) {
@@ -1347,6 +1347,7 @@ class Type
                     : $alias_fqsen->asUnionType()
             );
         }
+        // TODO: Investigate caching this and returning clones after analysis is done.
 
         return $recursive_union_type;
     }
