@@ -890,7 +890,7 @@ class Issue
                 self::TypeMismatchDimAssignment,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                'When appending to a value of type {TYPE}, found an array access index of type {TYPE}, but expected index to be of type {TYPE}',
+                'When appending to a value of type {TYPE}, found an array access index of type {TYPE}, but expected the index to be of type {TYPE}',
                 self::REMEDIATION_B,
                 10030
             ),
@@ -898,7 +898,7 @@ class Issue
                 self::TypeMismatchDimEmpty,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                'Assigning to an empty array index of a value of type {TYPE}, but expected index to be of type {TYPE}',
+                'Assigning to an empty array index of a value of type {TYPE}, but expected the index to exist and be of type {TYPE}',
                 self::REMEDIATION_B,
                 10031
             ),
@@ -906,7 +906,7 @@ class Issue
                 self::TypeMismatchDimFetch,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                'When fetching an array index from a value of type {TYPE}, found an array index of type {TYPE}, but expected index to be of type {TYPE}',
+                'When fetching an array index from a value of type {TYPE}, found an array index of type {TYPE}, but expected the index to be of type {TYPE}',
                 self::REMEDIATION_B,
                 10032
             ),

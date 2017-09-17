@@ -4,10 +4,13 @@ namespace Phan\Plugin;
 use Phan\AST\Visitor\Element;
 use Phan\CodeBase;
 use Phan\Config;
+use Phan\Exception\IssueException;
+use Phan\Issue;
 use Phan\Language\Context;
 use Phan\Language\Element\Clazz;
 use Phan\Language\Element\Func;
 use Phan\Language\Element\Method;
+use Phan\Language\Element\Property;
 use Phan\Plugin;
 use Phan\Plugin\PluginImplementation;
 use Phan\PluginV2;
@@ -15,7 +18,9 @@ use Phan\PluginV2\AnalyzeNodeCapability;
 use Phan\PluginV2\PreAnalyzeNodeCapability;
 use Phan\PluginV2\AnalyzeClassCapability;
 use Phan\PluginV2\AnalyzeFunctionCapability;
+use Phan\PluginV2\AnalyzePropertyCapability;
 use Phan\PluginV2\AnalyzeMethodCapability;
+use Phan\PluginV2\FinalizeProcessCapability;
 use Phan\PluginV2\LegacyAnalyzeNodeCapability;
 use Phan\PluginV2\LegacyPreAnalyzeNodeCapability;
 use Phan\PluginV2\PluginAwareAnalysisVisitor;
@@ -34,6 +39,8 @@ final class ConfigPluginSet extends PluginV2 implements
     AnalyzeClassCapability,
     AnalyzeFunctionCapability,
     AnalyzeMethodCapability,
+    AnalyzePropertyCapability,
+    FinalizeProcessCapability,
     LegacyAnalyzeNodeCapability,
     LegacyPreAnalyzeNodeCapability,
     ReturnTypeOverrideCapability {
@@ -53,8 +60,14 @@ final class ConfigPluginSet extends PluginV2 implements
     /** @var AnalyzeFunctionCapability[]|null */
     private $analyzeFunctionPluginSet;
 
+    /** @var AnalyzePropertyCapability[]|null */
+    private $analyzePropertyPluginSet;
+
     /** @var AnalyzeMethodCapability[]|null */
     private $analyzeMethodPluginSet;
+
+    /** @var FinalizeProcessCapability[]|null */
+    private $finalizeProcessPluginSet;
 
     /** @var ReturnTypeOverrideCapability[]|null */
     private $returnTypeOverridePluginSet;
@@ -92,6 +105,7 @@ final class ConfigPluginSet extends PluginV2 implements
      * The php-ast Node being analyzed.
      *
      * @return void
+     * @override
      */
     public function preAnalyzeNode(
         CodeBase $code_base,
@@ -124,6 +138,7 @@ final class ConfigPluginSet extends PluginV2 implements
      * The parent node of the given node (if one exists).
      *
      * @return void
+     * @override
      */
     public function analyzeNode(
         CodeBase $code_base,
@@ -150,6 +165,7 @@ final class ConfigPluginSet extends PluginV2 implements
      * A class being analyzed
      *
      * @return void
+     * @override
      */
     public function analyzeClass(
         CodeBase $code_base,
@@ -161,6 +177,11 @@ final class ConfigPluginSet extends PluginV2 implements
                 $class
             );
         }
+        if ($this->hasAnalyzePropertyPlugins()) {
+            foreach ($class->getPropertyList($code_base) as $property) {
+                $this->analyzeProperty($code_base, $property);
+            }
+        }
     }
 
     /**
@@ -171,6 +192,7 @@ final class ConfigPluginSet extends PluginV2 implements
      * A method being analyzed
      *
      * @return void
+     * @override
      */
     public function analyzeMethod(
         CodeBase $code_base,
@@ -192,6 +214,7 @@ final class ConfigPluginSet extends PluginV2 implements
      * A function being analyzed
      *
      * @return void
+     * @override
      */
     public function analyzeFunction(
         CodeBase $code_base,
@@ -202,6 +225,55 @@ final class ConfigPluginSet extends PluginV2 implements
                 $code_base,
                 $function
             );
+        }
+    }
+
+    /**
+     * @param CodeBase $code_base
+     * The code base in which the property exists
+     *
+     * @param Property $property
+     * A property being analyzed
+     *
+     * (Called by analyzeClass())
+     *
+     * @return void
+     * @override
+     */
+    public function analyzeProperty(
+        CodeBase $code_base,
+        Property $property
+    ) {
+        foreach ($this->analyzePropertyPluginSet as $plugin) {
+            try {
+                $plugin->analyzeProperty(
+                    $code_base,
+                    $property
+                );
+            } catch (IssueException $exception) {
+                // e.g. getUnionType() can throw, PropertyTypesAnalyzer is probably emitting duplicate issues
+                Issue::maybeEmitInstance(
+                    $code_base,
+                    $property->getContext(),
+                    $exception->getIssueInstance()
+                );
+                continue;
+            }
+        }
+    }
+
+    /**
+     * @param CodeBase $code_base
+     * The code base used for previous analysis steps
+     *
+     * @return void
+     * @override
+     */
+    public function finalizeProcess(
+        CodeBase $code_base
+    ) {
+        foreach ($this->finalizeProcessPluginSet as $plugin) {
+            $plugin->finalizeProcess($code_base);
         }
     }
 
@@ -243,6 +315,15 @@ final class ConfigPluginSet extends PluginV2 implements
         return $result;
     }
 
+    /**
+     * Returns true if analyzeProperty() will execute any plugins.
+     */
+    private function hasAnalyzePropertyPlugins() : bool
+    {
+        \assert(!\is_null($this->pluginSet));
+        return \count($this->analyzePropertyPluginSet) > 0;
+    }
+
     /** @return void */
     private function ensurePluginsExist()
     {
@@ -270,7 +351,9 @@ final class ConfigPluginSet extends PluginV2 implements
         $this->analyzeNodePluginSet         = self::filterAnalysisPlugins($plugin_set);
         $this->analyzeMethodPluginSet       = self::filterOutEmptyMethodBodies(self::filterByClass($plugin_set, AnalyzeMethodCapability::class), 'analyzeMethod');
         $this->analyzeFunctionPluginSet     = self::filterOutEmptyMethodBodies(self::filterByClass($plugin_set, AnalyzeFunctionCapability::class), 'analyzeFunction');
+        $this->analyzePropertyPluginSet     = self::filterOutEmptyMethodBodies(self::filterByClass($plugin_set, AnalyzePropertyCapability::class), 'analyzeProperty');
         $this->analyzeClassPluginSet        = self::filterOutEmptyMethodBodies(self::filterByClass($plugin_set, AnalyzeClassCapability::class), 'analyzeClass');
+        $this->finalizeProcessPluginSet     = self::filterOutEmptyMethodBodies(self::filterByClass($plugin_set, FinalizeProcessCapability::class), 'finalizeProcess');
         $this->returnTypeOverridePluginSet  = self::filterByClass($plugin_set, ReturnTypeOverrideCapability::class);
     }
 
@@ -292,7 +375,6 @@ final class ConfigPluginSet extends PluginV2 implements
 
     /**
      * @return \Closure[] - [function(CodeBase $code_base, Context $context, Node $node, Node $parent_node = null): void]
-     * @suppress PhanNonClassMethodCall
      */
     private static function filterPreAnalysisPlugins(array $plugin_set) : array
     {
@@ -348,7 +430,6 @@ final class ConfigPluginSet extends PluginV2 implements
     /**
      * @return \Closure[] - [function(CodeBase $code_base, Context $context, Node $node, Node $parent_node = null): void]
      * @var \Closure[][] $closures_for_kind
-     * @suppress PhanNonClassMethodCall
      */
     private static function filterAnalysisPlugins(array $plugin_set) : array
     {

@@ -767,8 +767,8 @@ class AssignmentVisitor extends AnalysisVisitor
                 $this->emitIssue(
                     Issue::TypeMismatchDimAssignment,
                     $node->lineno ?? 0,
-                    (string)$dim_type,
                     (string)$assign_type,
+                    (string)$dim_type,
                     (string)$int_or_string_type
                 );
             }
@@ -787,8 +787,8 @@ class AssignmentVisitor extends AnalysisVisitor
                 $this->emitIssue(
                     Issue::TypeMismatchDimAssignment,
                     $node->lineno ?? 0,
-                    (string)$dim_type,
                     (string)$assign_type,
+                    (string)$dim_type,
                     (string)$int_type
                 );
             } else {

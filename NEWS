@@ -20,13 +20,28 @@ New Features (CLI, Configs)
   which will use only the phpdoc return types for inferences, if they're narrowed.
   This config is enabled by default, and requires `check_docblock_signature_return_type_match` to be enabled.
 
+New Features(Analysis)
++ Check types of dimensions when using array access syntax (#406, #1093)
+  (E.g. for an `array`, check that the array dimension can cast to `int|string`)
++ Add option `ignore_undeclared_functions_with_known_signatures` which can be set to `false`
+  to always warn about global functions Phan has signatures for
+  but are unavailable in the current PHP process (and enabled extensions, and the project being analyzed) (#1080)
+  The default was/is to not warn, to reduce false positives.
+
 Maintenance
 + Increased minimum `ext-ast` version constraint to 0.1.5, switched to AST version 50.
 + Update links to project from github.com/etsy/phan to github.com/phan/phan.
++ Use the native `spl_object_id` function if it is available for the union type implementation.
+  This will make phan 10% faster in PHP 7.2.
+  (for PHP 7.1, https://github.com/runkit7/runkit_object_id 1.1.0+ also provides a native implementation of `spl_object_id`)
 
 Plugins
 + Increased minimum `ext-ast` version constraint to 0.1.5, switched to AST version 50.
   Third party plugins will need to create a different version, Decls were changed into regular Nodes
++ Implement `AnalyzePropertyCapability` and `FinalizeProcessCapability`.
+  Make `UnusedSuppressionPlugin` start using `AnalyzePropertyCapability` and `FinalizeProcessCapability`.
+  Fix bug where `UnusedSuppressionPlugin` could run before the suppressed issues would be emitted,
+  making it falsely emit that suppressions were unused.
 
 Bug Fixes
 + Fix a few incorrect property names for Phan's signatures of internal classes (#1085)
@@ -78,6 +93,7 @@ Bug Fixes
   Additionally, fix false positive warnings about visibility of method aliases from traits.
 + Warn about instantiation of class with inaccessible constructor (Issue #1043)
 + Fix rare uncaught exceptions (Various)
++ Make issues and plugin issues on properties consistently use suppressions from the plugin doc comment.
 
 Changes In Emitted Issues
 + Improve `InvalidVariableIssetPlugin`. Change the names and messages for issue types.
