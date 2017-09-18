@@ -19,7 +19,7 @@ class DebugUnionType extends UnionType
      */
     public function addType(Type $type)
     {
-        printf("%x: Adding type %s to %s", \runkit_object_id($this), (string)$type, (string)$this);
+        printf("%x: Adding type %s to %s", \spl_object_id($this), (string)$type, (string)$this);
         debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
         parent::addType($type);
     }
@@ -31,7 +31,7 @@ class DebugUnionType extends UnionType
      */
     public function addUnionType(UnionType $union_type)
     {
-        printf("%x: Adding union type %s to %s", \runkit_object_id($this), (string)$union_type, (string)$this);
+        printf("%x: Adding union type %s to %s", \spl_object_id($this), (string)$union_type, (string)$this);
         debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
         parent::addUnionType($union_type);
     }
