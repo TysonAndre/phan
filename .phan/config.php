@@ -161,6 +161,7 @@ return [
     // Add any issue types (such as 'PhanUndeclaredMethod')
     // here to inhibit them from being reported
     'suppress_issue_types' => [
+        'PhanPluginMixedKeyNoKey',
         // 'PhanUndeclaredMethod',
     ],
 
@@ -407,7 +408,7 @@ return [
         '.phan/plugins/DollarDollarPlugin.php',
         '.phan/plugins/UnreachableCodePlugin.php',
         // NOTE: src/Phan/Language/Internal/FunctionSignatureMap.php mixes value without key as return type with values having keys deliberately.
-        // '.phan/plugins/DuplicateArrayKeyPlugin.php',
+        '.phan/plugins/DuplicateArrayKeyPlugin.php',
 
         // NOTE: This plugin only produces correct results when
         //       Phan is run on a single core (-j1).

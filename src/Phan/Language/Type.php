@@ -416,7 +416,6 @@ class Type
             'PEAR_INSTALL_DIR'      => $string,
             'PEAR_EXTENSION_DIR'    => $string,
             'PHP_EXTENSION_DIR'     => $string,
-            'PEAR_EXTENSION_DIR'    => $string,
             'PHP_PREFIX'            => $string,
             'PHP_BINDIR'            => $string,
             'PHP_BINARY'            => $string,

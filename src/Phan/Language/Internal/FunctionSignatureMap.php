@@ -229,6 +229,7 @@ return [
 'array_product' => ['int|float', 'input'=>'array'],
 'array_push' => ['int', '&rw_stack'=>'array', '...='=>''],
 'array_rand' => ['', 'input'=>'array', 'num_req='=>'int'],
+'array_rand\'1' => ['int|string|int[]|string[]', 'input'=>'array', 'num_req'=>'int'],
 'array_reduce' => ['', 'input'=>'array', 'callback'=>'callable', 'initial='=>''],
 'array_replace' => ['array', 'arr1'=>'array', 'arr2'=>'array', '...='=>'array'],
 'array_replace_recursive' => ['array', 'arr1'=>'array', 'arr2'=>'array', '...='=>'array'],
