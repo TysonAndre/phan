@@ -54,8 +54,9 @@ abstract class UnaddressableTypedElement
 
     /**
      * @param FileRef $file_ref
-     * The context or FileRef in which the structural element lives
-     * (Will be converted to FileRef, to avoid reference cycle that can't be garbage collected)
+     * The Context or FileRef in which the structural element lives
+     * (Will be converted to FileRef, to avoid creating a reference
+     * cycle that can't be garbage collected)
      *
      * @param string $name
      * The name of the typed structural element
