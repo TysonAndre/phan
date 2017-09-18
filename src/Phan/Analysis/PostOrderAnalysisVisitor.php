@@ -633,13 +633,6 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         // (For traits, lower the false positive rate by comparing against the real return type instead of the phpdoc type (#800))
         $method_return_type = $is_trait ? $method->getRealReturnType() : $method->getUnionType();
 
-        /*
-        if (!array_key_exists('expr', $node->children)) {
-            var_export($node);
-            var_export($this->context->getFile());
-            exit(1);
-        }
-         */
         // Figure out what is actually being returned
         foreach ($this->getReturnTypes($this->context, $node->children['expr']) as $expression_type) {
             if ($method->getHasYield()) {  // Function that is syntactically a Generator.
@@ -825,8 +818,6 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             && $node->children[0] instanceof Node
             && $node->children[0]->kind == \ast\AST_ARRAY_ELEM
         ) {
-            $element_types = [];
-
             // Check the first 5 (completely arbitrary) elements
             // and assume the rest are the same type
             for ($i=0; $i<5; $i++) {

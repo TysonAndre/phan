@@ -33,8 +33,6 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
      */
     private $depth;
 
-    // TODO: restore block_exit_status_checker (or cache the status in $node->flags, for node types with no flags)
-
     /**
      * @param CodeBase $code_base
      * The code base within which we're operating
@@ -762,7 +760,6 @@ class BlockAnalysisVisitor extends AnalysisVisitor {
             $child_context = $this->analyzeAndGetUpdatedContext($false_context, $node, $false_node);
             $child_context_list[] = $child_context;
         }
-
         if (\count($child_context_list) >= 1) {
             $context = (new ContextMergeVisitor(
                 $this->code_base,
