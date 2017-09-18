@@ -293,15 +293,6 @@ class Config
         // types expressed in code.
         'read_type_annotations' => true,
 
-        // If disabled, Phan will not read docblock type
-        // annotation comments for @property.
-        // @property-read and @property-write are treated exactly the
-        // same as @property for now.
-        // Note: read_type_annotations must also be enabled.
-        // TODO: Disable this by default, but enable it for a unit test.
-        // TODO: How do you override specific config in a unit test?
-        'read_magic_property_annotations' => true,
-
         // Note:
         // Case insensitive type to support custom UnionTypes.
         // Ignore(or remap) these unionTypes(s) when they show up in a UnionType of @param, @return, @var, @property, etc.
