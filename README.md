@@ -6,8 +6,8 @@ and does not attempt to track values.
 
 [![Build Status (fork)](https://travis-ci.org/TysonAndre/phan.svg?branch=master)](https://travis-ci.org/TysonAndre/phan) [![Build Status](https://travis-ci.org/etsy/phan.svg?branch=master)](https://travis-ci.org/etsy/phan)
 [![Gitter](https://badges.gitter.im/etsy/phan.svg)](https://gitter.im/etsy/phan?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
-[![Latest Stable Version](https://poser.pugx.org/etsy/phan/v/stable)](https://packagist.org/packages/etsy/phan)
-[![License](https://poser.pugx.org/etsy/phan/license)](https://github.com/phan/phan/blob/master/LICENSE)
+[![Latest Stable Version](https://poser.pugx.org/phan/phan/v/stable)](https://packagist.org/packages/phan/phan)
+[![License](https://poser.pugx.org/phan/phan/license)](https://github.com/phan/phan/blob/master/LICENSE)
 
 # About this fork
 
@@ -25,7 +25,7 @@ see [.phan/config.php](.phan/config.php) and [src/phan/Config.php](src/phan/Conf
 The easiest way to use Phan is via Composer.
 
 ```
-composer require --dev etsy/phan
+composer require --dev phan/phan
 ```
 
 With Phan installed, you'll want to [create a `.phan/config.php` file](https://github.com/phan/phan/wiki/Getting-Started#creating-a-config-file) in
@@ -336,7 +336,7 @@ Take a look at [Developer's Guide to Phan](https://github.com/phan/phan/wiki/Dev
 
 When you find an issue, please take the time to create a tiny reproducing code snippet that illustrates
 the bug. And once you have done that, fix it. Then turn your code snippet into a test and add it to
-[tests][tests] then `./test` and send a PR with your fix and test. Alternatively, you can open an Issue with
+[tests](tests) then `./test` and send a PR with your fix and test. Alternatively, you can open an Issue with
 details.
 
 To run Phan's tests, just run `./test`.

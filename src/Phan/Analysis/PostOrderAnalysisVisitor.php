@@ -1706,14 +1706,18 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             // or create it if it doesn't.
             if ($parameter->isPassByReference()) {
                 if ($argument->kind == \ast\AST_VAR) {
-                    // We don't do anything with it; just create it
-                    // if it doesn't exist
-                    $variable = (new ContextNode(
-                        $this->code_base,
-                        $this->context,
-                        $argument
-                    ))->getOrCreateVariable();
-
+                    try {
+                        // We don't do anything with it; just create it
+                        // if it doesn't exist
+                        $variable = (new ContextNode(
+                            $this->code_base,
+                            $this->context,
+                            $argument
+                        ))->getOrCreateVariable();
+                    } catch (NodeException $e) {
+                        // E.g. `function_accepting_reference(${$varName})` - Phan can't analyze outer type of ${$varName}
+                        continue;
+                    }
                 } elseif ($argument->kind == \ast\AST_STATIC_PROP
                     || $argument->kind == \ast\AST_PROP
                 ) {
@@ -1779,11 +1783,16 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             $variable = null;
             if ($parameter->isPassByReference()) {
                 if ($argument->kind == \ast\AST_VAR) {
-                    $variable = (new ContextNode(
-                        $this->code_base,
-                        $this->context,
-                        $argument
-                    ))->getOrCreateVariable();
+                    try {
+                        $variable = (new ContextNode(
+                            $this->code_base,
+                            $this->context,
+                            $argument
+                        ))->getOrCreateVariable();
+                    } catch (NodeException $e) {
+                        // E.g. `function_accepting_reference(${$varName})` - Phan can't analyze outer type of ${$varName}
+                        continue;
+                    }
                 } elseif ($argument->kind == \ast\AST_STATIC_PROP
                     || $argument->kind == \ast\AST_PROP
                 ) {

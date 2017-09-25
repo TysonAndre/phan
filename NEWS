@@ -1,6 +1,7 @@
 Phan NEWS
-?? ??? 2017, Phan 0.10.0 (dev)
-------------------------
+
+24 Sep 2017, Phan 0.10.0
+-----------------------
 
 New Features(Analysis)
 + Check (the first 5) elements of returned arrays against the declared return union types, individually(#935)
@@ -19,6 +20,9 @@ New Features (CLI, Configs)
 + Add CLI flag `--use-fallback-parser` (Experimental).  If this flags is provided, then when Phan analyzes a syntactically invalid file,
   it will try again with a parser which tolerates a few types of errors, and analyze the statements that could be parsed.
   Useful in combination with daemon mode.
++ Add `phpdoc_type_mapping` config setting.
+  Projects can override this to make Phan ignore or substitute non-standard phpdoc2 types and common typos (#294)
+  (E.g. `'phpdoc_type_mapping' => ['the' => '', 'unknown_type' => '', 'number' => 'int|float']`)
 
 Maintenance
 + Increased minimum `ext-ast` version constraint to 0.1.5, switched to AST version 50.
@@ -40,6 +44,9 @@ Plugins
 Bug Fixes
 + Fix a few incorrect property names for Phan's signatures of internal classes (#1085)
 + Fix bugs in lookup of relative and non-fully qualified class and function names (#1097)
++ Fix a bug affecting analysis of code when `simplify_ast` is true.
++ Fix uncaught NodeException when analyzing complex variables as references (#1116),
+  e.g. `function_expecting_reference($$x)`.
 
 15 Aug 2017, Phan 0.9.4
 -----------------------
