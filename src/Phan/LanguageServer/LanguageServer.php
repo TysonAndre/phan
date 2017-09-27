@@ -2,7 +2,9 @@
 namespace Phan\LanguageServer;
 
 use AdvancedJsonRpc;
+use Closure;
 use Phan\CodeBase;
+use Phan\Daemon\Request;
 use Phan\LanguageServer\Protocol\ClientCapabilities;
 use Phan\LanguageServer\Protocol\Diagnostic;
 use Phan\LanguageServer\Protocol\DiagnosticSeverity;
@@ -82,7 +84,22 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher {
      */
     public $textDocument;
 
-    public function __construct(ProtocolReader $reader, ProtocolWriter $writer) {
+    /**
+     * @var Request|null
+     */
+    protected $most_recent_request;
+
+    /**
+     * @var CodeBase
+     */
+    protected $code_base;
+
+    /**
+     * @var Closure
+     */
+    protected $file_path_lister;
+
+    public function __construct(ProtocolReader $reader, ProtocolWriter $writer, CodeBase $code_base, Closure $file_path_lister) {
         parent::__construct($this, '/');
         $this->protocolReader = $reader;
         $reader->on('close', function() {
@@ -134,6 +151,10 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher {
         $this->client = new LanguageClient($reader, $writer);
         // We create a workspace to receive change notifications.
         $this->workspace = new Server\Workspace($this->client, $this);
+
+        // Phan specific code
+        $this->code_base = $code_base;
+        $this->file_path_lister = $file_path_lister;
     }
 
     /**
@@ -159,6 +180,14 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher {
         \assert($code_base->isUndoTrackingEnabled());
 
         $receivedSignal = false;
+        $make_language_server = function(ProtocolStreamReader $in, ProtocolStreamWriter $out) use ($code_base, $file_path_lister) : LanguageServer {
+            return new LanguageServer(
+                $in,
+                $out,
+                $code_base,
+                $file_path_lister
+            );
+        };
         // example requests over TCP
         // Assumes that clients send and close the their requests quickly, then wait for a response.
 
@@ -224,13 +253,11 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher {
                 exit(1);
             }
             stream_set_blocking($socket, false);
-            $ls = new LanguageServer(
-                new ProtocolStreamReader($socket),
-                new ProtocolStreamWriter($socket)
-            );
+            $ls = $make_language_server(new ProtocolStreamReader($socket), new ProtocolStreamWriter($socket));
             Logger::logInfo("Connected to $address to receive requests");
             Loop\run();
             Logger::logInfo("Finished connecting to $address to receive requests");
+            return $ls->most_recent_request;
         } else if (!empty($options['tcp-server'])) {
             // Run a TCP Server
             $address = $options['tcp-server'];
@@ -262,23 +289,23 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher {
                         $reader->on('close', function () {
                             fwrite(STDOUT, "Connection closed\n");
                         });
-                        $ls = new LanguageServer($reader, $writer);
+                        $ls = $make_language_server($reader, $writer);
                         Logger::logInfo("Worker started accepting requests on $address");
                         Loop\run();
                         Logger::logInfo("Worker finished accepting requests on $address");
-                        // Just for safety
-                        exit(0);
+                        return $ls->most_recent_request;
                     }
                 } else {
                     // If PCNTL is not available, we only accept one connection.
                     // An exit notification will terminate the server
-                    $ls = new LanguageServer(
+                    $ls = $make_language_server(
                         new ProtocolStreamReader($socket),
                         new ProtocolStreamWriter($socket)
                     );
                     Logger::logInfo("Started listening on stdin");
                     Loop\run();
                     Logger::logInfo("Finished listening on stdin");
+                    return $ls->most_recent_request;
 
                 }
             }
@@ -286,25 +313,31 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher {
             assert($options['stdin'] === true);
             // Use STDIO
             stream_set_blocking(STDIN, false);
-            $ls = new LanguageServer(
+            $ls = $make_language_server(
                 new ProtocolStreamReader(STDIN),
                 new ProtocolStreamWriter(STDOUT)
             );
             Logger::logInfo("Started listening on stdin");
             Loop\run();
             Logger::logInfo("Finished listening on stdin");
+            return $ls->most_recent_request;
         }
     }
 
     public function analyzeFile(string $uri, string $text = null) {
         Logger::logInfo("Called didSave, uri=$uri text=" . json_encode($text, JSON_UNESCAPED_SLASHES));
-        $path = preg_replace('@^file://@', '', $uri);
+        $path_to_analyze = preg_replace('@^file://@', '', $uri);
+        Logger::logInfo("Going to analyze this file list: $path_to_analyze");
+        // TODO: check if $path_to_analyze can be analyzed first.
         $sockets = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
         if (!$sockets) {
             error_log("unable to create stream socket pair");
             exit(EXIT_FAILURE);
         }
         $pid = 0;
+
+        $this->most_recent_request = null;
+
         if (($pid = pcntl_fork()) < 0) {
             error_log(posix_strerror(posix_get_last_error()));
             exit(EXIT_FAILURE);
@@ -330,10 +363,11 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher {
         }
 
         $child_stream = self::streamForChild($sockets);
-        fwrite($child_stream, "Hello\n");
-        stream_socket_shutdown($child_stream, STREAM_SHUT_RDWR);
-        // Loop\abort();
-        exit(0);
+        $this->most_recent_request = Request::makeLanguageServerAnalysisRequest($child_stream, [$path_to_analyze], $this->code_base, $this->file_path_lister);
+        // FIXME update the parsed file lists before and after (e.g. add to analyzeFile). See Daemon\Request::accept()
+        //    TODO: refactor accept() to make it easier to work with.
+        // TODO: add unit tests
+        Loop\stop();  // abort the loop (without closing streams?)
     }
 
     /**

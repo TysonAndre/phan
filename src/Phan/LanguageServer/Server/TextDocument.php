@@ -105,6 +105,7 @@ class TextDocument
      *
      * @param VersionedTextDocumentIdentifier $textDocument
      * @param string|null $text (NOTE: can't use ?T here)
+     * @suppress PhanTypeMismatchArgument
      * @return void
      */
     public function didSave(TextDocumentIdentifier $textDocument, string $text = null) {

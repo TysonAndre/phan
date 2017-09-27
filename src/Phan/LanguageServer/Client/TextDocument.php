@@ -4,7 +4,7 @@ declare(strict_types = 1);
 namespace Phan\LanguageServer\Client;
 
 use Phan\LanguageServer\ClientHandler;
-use Phan\LanguageServer\Protocol\{Message, TextDocumentItem, TextDocumentIdentifier};
+use Phan\LanguageServer\Protocol\{Diagnostic, Message, TextDocumentItem, TextDocumentIdentifier};
 use Sabre\Event\Promise;
 use JsonMapper;
 

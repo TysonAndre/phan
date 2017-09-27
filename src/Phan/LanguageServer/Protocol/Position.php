@@ -21,6 +21,9 @@ class Position
      */
     public $character;
 
+    /**
+     * @suppress PhanTypeMismatchProperty
+     */
     public function __construct(int $line = null, int $character = null)
     {
         $this->line = $line;

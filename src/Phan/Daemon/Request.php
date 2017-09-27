@@ -1,6 +1,7 @@
 <?php declare(strict_types=1);
 namespace Phan\Daemon;
 
+use Closure;
 use Phan\Analysis;
 use Phan\CodeBase;
 use Phan\Config;
@@ -67,6 +68,27 @@ class Request implements AnalysisRequest {
         if ($this->method === self::METHOD_ANALYZE_FILES) {
             $this->files = $config[self::PARAM_FILES];
         }
+    }
+
+    /**
+     * @param resource $conn
+     * @param string[] $filenames absolute path of file(s) to analyze
+     *
+     * TODO: allow providing file contents.
+     */
+    public static function makeLanguageServerAnalysisRequest($conn, array $filenames, CodeBase $code_base, Closure $file_path_lister) : Request {
+        FileCache::clear();
+        Request::reloadFilePathListForDaemon($code_base, $file_path_lister);
+        $result = new self(
+            $conn,
+            [
+                self::PARAM_FORMAT => 'json',
+                self::PARAM_METHOD => self::METHOD_ANALYZE_FILES,
+                self::PARAM_FILES => $filenames,
+            ]
+        );
+        var_dump($result);
+        return $result;
     }
 
     public function getPrinter() : IssuePrinterInterface {

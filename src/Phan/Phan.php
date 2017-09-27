@@ -84,7 +84,7 @@ class Phan implements IgnoredFilesFilterInterface {
         self::checkForSlowPHPOptions();
         $is_daemon_request = Config::getValue('daemonize_socket') || Config::getValue('daemonize_tcp_port');
         $language_server_config = Config::getValue('language_server_config');
-        $is_undoable_request = is_array($language_server_config);
+        $is_undoable_request = is_array($language_server_config) || $is_daemon_request;
         if ($is_undoable_request) {
             $code_base->enableUndoTracking();
         }
@@ -188,10 +188,24 @@ class Phan implements IgnoredFilesFilterInterface {
                 assert(is_array($language_server_config));
                 LanguageServerLogger::setLogFile(STDERR);  // FIXME remove debugging code or add equivalent of `--verbose`
                 LanguageServerLogger::logInfo(sprintf("Starting accepting connections on the language server (pid=%d)", getmypid()));
-                LanguageServer::run($code_base, $file_path_lister, $language_server_config);
-                LanguageServerLogger::logInfo(sprintf("language server not implemented yet, exiting (pid=%d)", getmypid()));
-                exit(1);
+                $request = LanguageServer::run($code_base, $file_path_lister, $language_server_config);
+                if (!$request) {
+                    // TODO: Add a way to cleanly shut down.
+                    error_log("Finished serving requests, exiting");
+                    exit(2);
+                }
+                LanguageServerLogger::logInfo(sprintf("language server accepted connection %d", getmypid()));
 
+                self::$printer = $request->getPrinter();
+
+                // This is the list of all of the parsed files
+                // (Also includes files which don't declare classes/functions/constants)
+                $analyze_file_path_list = $request->filterFilesToAnalyze($code_base->getParsedFilePathList());
+                if (count($analyze_file_path_list) === 0)  {
+                    $request->respondWithNoFilesToAnalyze();  // respond and exit.
+                }
+                // Do this before we stop tracking undo operations.
+                $temporary_file_mapping = $request->getTemporaryFileMapping();
 
                 // FIXME use sabre or some other async code
                 // FIXME implement
