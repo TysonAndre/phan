@@ -5,6 +5,7 @@ use AdvancedJsonRpc;
 use Closure;
 use Phan\CodeBase;
 use Phan\Daemon\Request;
+use Phan\Issue;
 use Phan\LanguageServer\Protocol\ClientCapabilities;
 use Phan\LanguageServer\Protocol\Diagnostic;
 use Phan\LanguageServer\Protocol\DiagnosticSeverity;
@@ -355,10 +356,38 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher {
                     $concatenated .= $buffer;
                 }
             }
-            $range = new Range(new Position(0, 0), new Position(0, 3));
-            $diagnostic = new Diagnostic($concatenated, $range, 42, DiagnosticSeverity::ERROR, 'Phan stub');
-            $this->client->textDocument->publishDiagnostics($uri, [$diagnostic]);
-            printf("Read the following data from the buffer: %s", var_export($concatenated, true));
+            $json_contents = json_decode($concatenated, true);
+            $diagnostics = [];
+            foreach ($json_contents['issues'] as $issue) {
+                if ($issue['type'] !== 'issue') {
+                    continue;
+                }
+                //$check_name = $issue['check_name'];
+                $description = $issue['description'];
+                $severity = $issue['severity'];
+                $start_line = $issue['location']['lines']['begin'];
+                $end_line = $issue['location']['lines']['end'] ?? $start_line;
+                // Language server has 0 based lines and columns, phan has 1-based lines and columns.
+                $range = new Range(new Position($start_line - 1, 0), new Position($start_line, 0));
+                switch ($severity) {
+                case Issue::SEVERITY_LOW:
+                    $diagnostic_severity = DiagnosticSeverity::INFORMATION;
+                    break;
+                case Issue::SEVERITY_NORMAL:
+                    $diagnostic_severity = DiagnosticSeverity::WARNING;
+                    break;
+                case Issue::SEVERITY_CRITICAL:
+                default:
+                    $diagnostic_severity = DiagnosticSeverity::ERROR;
+                    break;
+                }
+                // TODO: copy issue code in 'json' format
+                // TODO: use correct uri
+                $diagnostics[$uri][] = new Diagnostic($description, $range, 42, $diagnostic_severity, 'Phan');
+            }
+            foreach ($diagnostics as $diagnostics_uri => $diagnostics_list) {
+                $this->client->textDocument->publishDiagnostics($diagnostics_uri, $diagnostics_list);
+            }
             return;
         }
 
