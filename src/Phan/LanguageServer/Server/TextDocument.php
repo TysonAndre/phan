@@ -6,6 +6,7 @@ namespace Phan\LanguageServer\Server;
 use Phan\LanguageServer\{
     CompletionProvider, LanguageClient, PhpDocument, PhpDocumentLoader, DefinitionResolver
 };
+use Phan\LanguageServer\LanguageServer;
 use Phan\LanguageServer\Index\ReadableIndex;
 use Phan\LanguageServer\Logger;
 use Phan\LanguageServer\Protocol\{
@@ -100,6 +101,7 @@ class TextDocument
     /**
      * The document save notification is sent from the client to the server when the document was saved in the client.
      * TODO: Should this use willSave instead
+     * TODO: Why is this not triggering on Ctrl+S
      *
      * @param VersionedTextDocumentIdentifier $textDocument
      * @param string|null $text (NOTE: can't use ?T here)
@@ -107,7 +109,7 @@ class TextDocument
      */
     public function didSave(TextDocumentIdentifier $textDocument, string $text = null) {
         Logger::logInfo("Called didSave, uri={$textDocument->uri} text=" . json_encode($text, JSON_UNESCAPED_SLASHES));
-        LanguageServer::analyzeFile($textDocument, $text);
+        LanguageServer::analyzeFile($textDocument->uri, $text);
 
     }
 

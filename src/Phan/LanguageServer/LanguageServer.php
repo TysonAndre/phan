@@ -4,9 +4,14 @@ namespace Phan\LanguageServer;
 use AdvancedJsonRpc;
 use Phan\CodeBase;
 use Phan\LanguageServer\Protocol\ClientCapabilities;
+use Phan\LanguageServer\Protocol\Diagnostic;
+use Phan\LanguageServer\Protocol\DiagnosticSeverity;
 use Phan\LanguageServer\Protocol\InitializeResult;
 use Phan\LanguageServer\Protocol\Message;
+use Phan\LanguageServer\Protocol\Position;
+use Phan\LanguageServer\Protocol\Range;
 use Phan\LanguageServer\Protocol\ServerCapabilities;
+use Phan\LanguageServer\Protocol\TextDocumentIdentifier;
 use Phan\LanguageServer\Protocol\TextDocumentSyncKind;
 use Phan\LanguageServer\Server\TextDocument;
 use Phan\LanguageServer\ProtocolReader;
@@ -103,7 +108,7 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher {
                     // If a ResponseError is thrown, send it back in the Response
                     $error = $e;
                 } catch (\Throwable $e) {
-                    Logger::logInfo('Saw throwable: ' . get_class($e) . ': ' . $e->getMessage());
+                    Logger::logInfo('Saw throwable: ' . get_class($e) . ': ' . $e->getMessage() . "\n" . $e->getTraceAsString());
                     // If an unexpected error occurred, send back an INTERNAL_ERROR error response
                     $error = new AdvancedJsonRpc\Error(
                         (string)$e,
@@ -128,7 +133,7 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher {
         // We create a client to send diagnostics, etc. to the IDE
         $this->client = new LanguageClient($reader, $writer);
         // We create a workspace to receive change notifications.
-        $this->workspace = new Server\Workspace($this->client);
+        $this->workspace = new Server\Workspace($this->client, $this);
     }
 
     /**
@@ -291,8 +296,9 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher {
         }
     }
 
-    public static function analyzeFile(TextDocumentIdentifier $textDocument, string $text = null) {
-        Logger::logInfo("Called didSave, uri={$textDocument->uri} text=" . json_encode($text, JSON_UNESCAPED_SLASHES));
+    public function analyzeFile(string $uri, string $text = null) {
+        Logger::logInfo("Called didSave, uri=$uri text=" . json_encode($text, JSON_UNESCAPED_SLASHES));
+        $path = preg_replace('@^file://@', '', $uri);
         $sockets = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
         if (!$sockets) {
             error_log("unable to create stream socket pair");
@@ -316,16 +322,18 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher {
                     $concatenated .= $buffer;
                 }
             }
+            $range = new Range(new Position(0, 0), new Position(0, 3));
+            $diagnostic = new Diagnostic($concatenated, $range, 42, DiagnosticSeverity::ERROR, 'Phan stub');
+            $this->client->textDocument->publishDiagnostics($uri, [$diagnostic]);
             printf("Read the following data from the buffer: %s", var_export($concatenated, true));
             return;
         }
 
         $child_stream = self::streamForChild($sockets);
         fwrite($child_stream, "Hello\n");
-        stream_socket_shutdown($conn, STREAM_SHUT_RDWR);
+        stream_socket_shutdown($child_stream, STREAM_SHUT_RDWR);
+        // Loop\abort();
         exit(0);
-
-        Loop\abort();
     }
 
     /**

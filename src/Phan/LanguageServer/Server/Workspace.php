@@ -4,7 +4,9 @@ declare(strict_types = 1);
 namespace Phan\LanguageServer\Server;
 
 use Phan\LanguageServer\LanguageClient;
+use Phan\LanguageServer\LanguageServer;
 use Phan\LanguageServer\Protocol\FileChangeType;
+use Phan\LanguageServer\Protocol\FileEvent;
 
 /**
  * Provides method handlers for all workspace/* methods
@@ -17,12 +19,18 @@ class Workspace
     public $client;
 
     /**
+     * @var LanguageServer
+     */
+    public $server;
+
+    /**
      * @param LanguageClient    $client            LanguageClient instance used to signal updated results
      * FIXME: Rewrite to avoid static methods?
      */
-    public function __construct(LanguageClient $client)
+    public function __construct(LanguageClient $client, LanguageServer $server)
     {
         $this->client = $client;
+        $this->server = $server;
     }
 
     /**
@@ -38,6 +46,12 @@ class Workspace
         foreach ($changes as $change) {
             if ($change->type === FileChangeType::DELETED) {
                 $this->client->textDocument->publishDiagnostics($change->uri, []);
+            }
+        }
+        // TODO: more than one file
+        foreach ($changes as $change) {
+            if ($change->type === FileChangeType::CHANGED) {
+                $this->server->analyzeFile($change->uri);
             }
         }
     }
