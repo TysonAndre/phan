@@ -48,6 +48,13 @@ use Throwable;
  */
 class LanguageServer extends AdvancedJsonRpc\Dispatcher {
     /**
+     * Handles workspace/* method calls
+     *
+     * @var Server\Workspace
+     */
+    public $workspace;
+
+    /**
      * @var ProtocolReader
      */
     protected $protocolReader;
@@ -120,6 +127,8 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher {
         $this->protocolWriter = $writer;
         // We create a client to send diagnostics, etc. to the IDE
         $this->client = new LanguageClient($reader, $writer);
+        // We create a workspace to receive change notifications.
+        $this->workspace = new Server\Workspace($this->client);
     }
 
     /**
@@ -216,7 +225,7 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher {
             );
             Logger::logInfo("Connected to $address to receive requests");
             Loop\run();
-            Logger::logInfo("Connected to $address to receive requests");
+            Logger::logInfo("Finished connecting to $address to receive requests");
         } else if (!empty($options['tcp-server'])) {
             // Run a TCP Server
             $address = $options['tcp-server'];
@@ -281,6 +290,86 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher {
             Logger::logInfo("Finished listening on stdin");
         }
     }
+
+    public static function analyzeFile(TextDocumentIdentifier $textDocument, string $text = null) {
+        Logger::logInfo("Called didSave, uri={$textDocument->uri} text=" . json_encode($text, JSON_UNESCAPED_SLASHES));
+        $sockets = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+        if (!$sockets) {
+            error_log("unable to create stream socket pair");
+            exit(EXIT_FAILURE);
+        }
+        $pid = 0;
+        if (($pid = pcntl_fork()) < 0) {
+            error_log(posix_strerror(posix_get_last_error()));
+            exit(EXIT_FAILURE);
+        }
+
+        // Parent
+        // FIXME: make this async as well, and rate limit it.
+        if ($pid > 0) {
+            $is_parent = true;
+            $read_stream = self::streamForParent($sockets);
+            $concatenated = '';
+            while (!feof($read_stream)) {
+                $buffer = fread($read_stream, 1024);
+                if (strlen($buffer) > 0) {
+                    $concatenated .= $buffer;
+                }
+            }
+            printf("Read the following data from the buffer: %s", var_export($concatenated, true));
+            return;
+        }
+
+        $child_stream = self::streamForChild($sockets);
+        fwrite($child_stream, "Hello\n");
+        stream_socket_shutdown($conn, STREAM_SHUT_RDWR);
+        exit(0);
+
+        Loop\abort();
+    }
+
+    /**
+     * Prepare the socket pair to be used in a parent process and
+     * return the stream the parent will use to read results.
+     *
+     * @param resource[] $sockets the socket pair for IPC
+     * @return resource
+     */
+    private static function streamForParent(array $sockets)
+    {
+        list($for_read, $for_write) = $sockets;
+
+        // The parent will not use the write channel, so it
+        // must be closed to prevent deadlock.
+        fclose($for_write);
+
+        // stream_select will be used to read multiple streams, so these
+        // must be set to non-blocking mode.
+        if (!stream_set_blocking($for_read, false)) {
+            error_log('unable to set read stream to non-blocking');
+            exit(EXIT_FAILURE);
+        }
+
+        return $for_read;
+    }
+
+    /**
+     * Prepare the socket pair to be used in a child process and return
+     * the stream the child will use to write results.
+     *
+     * @param resource[] $sockets the socket pair for IPC.
+     * @return resource
+     */
+    private static function streamForChild(array $sockets)
+    {
+        list($for_read, $for_write) = $sockets;
+
+        // The while will not use the read channel, so it must
+        // be closed to prevent deadlock.
+        fclose($for_read);
+        return $for_write;
+    }
+
 
     /**
      * The initialize request is sent as the first request from the client to the server.

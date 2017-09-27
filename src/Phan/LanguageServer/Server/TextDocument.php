@@ -107,6 +107,8 @@ class TextDocument
      */
     public function didSave(TextDocumentIdentifier $textDocument, string $text = null) {
         Logger::logInfo("Called didSave, uri={$textDocument->uri} text=" . json_encode($text, JSON_UNESCAPED_SLASHES));
+        LanguageServer::analyzeFile($textDocument, $text);
+
     }
 
     /**
