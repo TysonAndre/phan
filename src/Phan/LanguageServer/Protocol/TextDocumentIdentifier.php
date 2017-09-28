@@ -7,12 +7,12 @@ class TextDocumentIdentifier
     /**
      * The text document's URI.
      *
-     * @var ?string
+     * @var string|null
      */
     public $uri;
 
     /**
-     * @param ?string $uri The text document's URI.
+     * @param string|null $uri The text document's URI.
      */
     public function __construct(string $uri = null)
     {
