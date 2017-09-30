@@ -13,6 +13,7 @@ use Phan\CLI;
 use Phan\Prep;
 
 if (false) { call_undefined_function(); }
+
 // Create our CLI interface and load arguments
 $cli = new CLI();
 

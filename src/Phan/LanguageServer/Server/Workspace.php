@@ -55,4 +55,9 @@ class Workspace
             }
         }
     }
+
+    // no-op for now.
+    public function didChangeConfiguration($settings)
+    {
+    }
 }

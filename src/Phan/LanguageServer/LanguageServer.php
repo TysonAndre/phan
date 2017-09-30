@@ -494,6 +494,11 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher {
         });
     }
 
+    public function initialized()
+    {
+        Logger::logInfo("Called initialized on language server, currently a no-op");
+    }
+
     /**
      * The shutdown request is sent from the client to the server. It asks the server to shut down, but to not exit
      * (otherwise the response might not be delivered correctly to the client). There is a separate exit notification that
