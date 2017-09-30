@@ -3,6 +3,7 @@ declare(strict_types = 1);
 
 namespace Phan\LanguageServer\Server;
 
+use Phan\LanguageServer\FileMapping;
 use Phan\LanguageServer\LanguageClient;
 use Phan\LanguageServer\LanguageServer;
 use Phan\LanguageServer\Protocol\FileChangeType;
@@ -24,13 +25,22 @@ class Workspace
     public $server;
 
     /**
+     * @var FileMapping
+     */
+    public $file_mapping;
+
+    /**
      * @param LanguageClient    $client            LanguageClient instance used to signal updated results
      * FIXME: Rewrite to avoid static methods?
      */
-    public function __construct(LanguageClient $client, LanguageServer $server)
-    {
+    public function __construct(
+        LanguageClient $client,
+        LanguageServer $server,
+        FileMapping $file_mapping
+    ) {
         $this->client = $client;
         $this->server = $server;
+        $this->file_mapping = $file_mapping;
     }
 
     /**
@@ -41,8 +51,11 @@ class Workspace
      */
     public function didChangeWatchedFiles(array $changes)
     {
-        // TODO invalidate Phan's cache for these files
-        // TODO: convert file:///path/to/file to /path/to/file
+        // invalidate Phan's cache for these files if changed, added, or modified outside of the IDE
+        foreach ($changes as $change) {
+            $this->file_mapping->removeOverrideURI($change->uri);
+        }
+        // Trigger diagnostics. TODO: Is that necessary?
         foreach ($changes as $change) {
             if ($change->type === FileChangeType::DELETED) {
                 $this->client->textDocument->publishDiagnostics($change->uri, []);
@@ -51,7 +64,8 @@ class Workspace
         // TODO: more than one file
         foreach ($changes as $change) {
             if ($change->type === FileChangeType::CHANGED) {
-                $this->server->analyzeFile($change->uri);
+                $uri = $change->uri;
+                $this->server->analyzeURI($uri);
             }
         }
     }

@@ -432,4 +432,6 @@ return [
         // '.phan/plugins/UnusedSuppressionPlugin.php',
     ],
 
+    // useful when debugging the language server.
+    'language_server_debug_level' => 'info',
 ];

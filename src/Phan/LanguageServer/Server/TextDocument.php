@@ -129,7 +129,7 @@ class TextDocument
     public function didSave(TextDocumentIdentifier $textDocument, string $text = null) {
         $this->file_mapping->addOverrideURI($textDocument->uri, $text);
         Logger::logInfo("Called didSave, uri={$textDocument->uri} text=" . json_encode($text, JSON_UNESCAPED_SLASHES));
-        $this->server->analyzeFile($textDocument->uri);
+        $this->server->analyzeURI($textDocument->uri);
     }
 
     /**
@@ -146,7 +146,7 @@ class TextDocument
         }
         Logger::logInfo("Called didChange, uri={$textDocument->uri} version={$textDocument->version}");
         // TODO: Check based on parse and analyze directories and Phan supported file extensions if this file affects Phan's analysis.
-        $this->server->analyzeFile($textDocument->uri);
+        $this->server->analyzeURI($textDocument->uri);
 
         // TODO:   Add functions to quickly check if a relative/absolute path is within the parse or analysis list of a project
         // TODO:   Maybe allow reloading .phan/config, at least the files and directories to parse/analyze

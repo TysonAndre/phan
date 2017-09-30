@@ -3,6 +3,7 @@ declare(strict_types = 1);
 
 namespace Phan\LanguageServer;
 
+use Phan\Config;
 use Phan\LanguageServer\Protocol\Message;
 use AdvancedJsonRpc\Message as MessageBody;
 use Sabre\Event\Emitter;
@@ -13,18 +14,31 @@ class Logger {
     /** @var resource|false */
     public static $file;
 
+    public static function shouldLog() : bool {
+        return Config::getValue('language_server_debug_level') === 'info';
+    }
+
     /** @return void */
     public static function logRequest(array $headers, string $buffer) {
+        if (!self::shouldLog()) {
+            return;
+        }
         self::logInfo(sprintf("Request:\n%s\nData:\n%s\n\n", json_encode($headers), $buffer));
     }
 
     /** @return void */
     public static function logResponse(array $headers, string $buffer) {
+        if (!self::shouldLog()) {
+            return;
+        }
         self::logInfo(sprintf("Response:\n%s\nData:\n%s\n\n", json_encode($headers), $buffer));
     }
 
     /** @return void */
     public static function logInfo(string $msg) {
+        if (!self::shouldLog()) {
+            return;
+        }
         $file = self::getLogFile();
         fwrite($file, $msg . "\n");
     }

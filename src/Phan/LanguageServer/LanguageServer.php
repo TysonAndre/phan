@@ -158,7 +158,7 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher {
         // We create a client to send diagnostics, etc. to the IDE
         $this->client = new LanguageClient($reader, $writer);
         // We create a workspace to receive change notifications.
-        $this->workspace = new Server\Workspace($this->client, $this);
+        $this->workspace = new Server\Workspace($this->client, $this, $this->file_mapping);
 
         // Phan specific code
         $this->code_base = $code_base;
@@ -335,9 +335,9 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher {
     /**
      * @return void
      */
-    public function analyzeFile(string $uri) {
+    public function analyzeURI(string $uri) {
         Logger::logInfo("Called didSave, uri=$uri");
-        $path_to_analyze = FileMapping::convertURIToPath($uri);
+        $path_to_analyze = Utils::uriToPath($uri);
         Logger::logInfo("Going to analyze this file list: $path_to_analyze");
         // TODO: check if $path_to_analyze can be analyzed first.
         $sockets = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
@@ -376,7 +376,10 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher {
                 return;
             }
             $diagnostics = [];
-            $diagnostics[$uri] = [];  // send an empty diagnostic list on failure.
+            // Normalize the uri so that it will be the same as URIs phan would send for diagnostics.
+            // E.g. "file:///path/path%.php" will be normalized to "file:///path/path%25.php"
+            $normalized_requested_uri = Utils::pathToUri(Utils::uriToPath($uri));
+            $diagnostics[$normalized_requested_uri] = [];  // send an empty diagnostic list on failure.
             foreach ($json_contents['issues'] ?? [] as $issue) {
                 [$issue_uri, $diagnostic] = self::generateDiagnostic($issue);
                 if ($diagnostic instanceof Diagnostic) {
@@ -392,7 +395,7 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher {
 
         $child_stream = self::streamForChild($sockets);
         $this->most_recent_request = Request::makeLanguageServerAnalysisRequest($child_stream, [$path_to_analyze], $this->code_base, $this->file_path_lister, $this->file_mapping);
-        // FIXME update the parsed file lists before and after (e.g. add to analyzeFile). See Daemon\Request::accept()
+        // FIXME update the parsed file lists before and after (e.g. add to analyzeURI). See Daemon\Request::accept()
         //    TODO: refactor accept() to make it easier to work with.
         // TODO: add unit tests
         Loop\stop();  // abort the loop (without closing streams?)
@@ -410,7 +413,7 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher {
         $description = $issue['description'];
         $severity = $issue['severity'];
         $path = Config::projectPath($issue['location']['path']);
-        $issue_uri = FileMapping::convertPathToURI($path);
+        $issue_uri = Utils::pathToUri($path);
         $start_line = $issue['location']['lines']['begin'];
         $end_line = $issue['location']['lines']['end'] ?? $start_line;
         // Language server has 0 based lines and columns, phan has 1-based lines and columns.
