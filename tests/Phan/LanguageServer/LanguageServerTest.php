@@ -1,6 +1,7 @@
 <?php declare(strict_types = 1);
 namespace Phan\Tests\LanguageServer;
 
+use Phan\CodeBase;
 use Phan\Tests\BaseTest;
 use Phan\LanguageServer\LanguageServer;
 use Phan\LanguageServer\Protocol\InitializeResult;
@@ -14,7 +15,9 @@ use Phan\LanguageServer\Protocol\TextDocumentSyncKind;
 class LanguageServerTest extends BaseTest
 {
     public function testInitialize() {
-        $server = new LanguageServer(new MockProtocolStream, new MockProtocolStream);
+        $mock_file_path_lister = function() { return []; };
+        $code_base = new CodeBase([], [], [], [], []);
+        $server = new LanguageServer(new MockProtocolStream, new MockProtocolStream, $code_base, $mock_file_path_lister);
         $result = $server->initialize(new ClientCapabilities, __DIR__, getmypid())->wait();
 
         $serverCapabilities = new ServerCapabilities();

@@ -12,8 +12,6 @@ require_once(__DIR__ . '/Phan/Bootstrap.php');
 use Phan\CLI;
 use Phan\Prep;
 
-if (false) { call_undefined_function(); }
-
 // Create our CLI interface and load arguments
 $cli = new CLI();
 
@@ -35,7 +33,6 @@ $visit_node = function(\ast\Node $node, string $file_path) {
                 print "$file_path:{$node->lineno} $name\n";
             }
         }
-
     }
 
 };

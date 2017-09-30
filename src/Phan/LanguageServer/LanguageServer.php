@@ -4,6 +4,7 @@ namespace Phan\LanguageServer;
 use AdvancedJsonRpc;
 use Closure;
 use Phan\CodeBase;
+use Phan\Config;
 use Phan\Daemon\Request;
 use Phan\Issue;
 use Phan\LanguageServer\Protocol\ClientCapabilities;
@@ -100,9 +101,15 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher {
      */
     protected $file_path_lister;
 
+    /**
+     * @var FileMapping
+     */
+    protected $file_mapping;
+
     public function __construct(ProtocolReader $reader, ProtocolWriter $writer, CodeBase $code_base, Closure $file_path_lister) {
         parent::__construct($this, '/');
         $this->protocolReader = $reader;
+        $this->file_mapping = new FileMapping();
         $reader->on('close', function() {
             $this->shutdown();
             $this->exit();
@@ -325,9 +332,12 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher {
         }
     }
 
-    public function analyzeFile(string $uri, string $text = null) {
-        Logger::logInfo("Called didSave, uri=$uri text=" . json_encode($text, JSON_UNESCAPED_SLASHES));
-        $path_to_analyze = preg_replace('@^file://@', '', $uri);
+    /**
+     * @return void
+     */
+    public function analyzeFile(string $uri) {
+        Logger::logInfo("Called didSave, uri=$uri");
+        $path_to_analyze = FileMapping::convertURIToPath($uri);
         Logger::logInfo("Going to analyze this file list: $path_to_analyze");
         // TODO: check if $path_to_analyze can be analyzed first.
         $sockets = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
@@ -357,33 +367,22 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher {
                 }
             }
             $json_contents = json_decode($concatenated, true);
+            if (!\is_array($json_contents)) {
+                Logger::logInfo("Fetched non-json: " . $concatenated);
+                return;
+            }
+            if (!\array_key_exists('issues', $json_contents)) {
+                Logger::logInfo("Failed to fetch 'issues' from JSON:" . $concatenated);
+                return;
+            }
             $diagnostics = [];
-            foreach ($json_contents['issues'] as $issue) {
-                if ($issue['type'] !== 'issue') {
-                    continue;
+            $diagnostics[$uri] = [];  // send an empty diagnostic list on failure.
+            foreach ($json_contents['issues'] ?? [] as $issue) {
+                [$issue_uri, $diagnostic] = self::generateDiagnostic($issue);
+                if ($diagnostic instanceof Diagnostic) {
+                    $diagnostics[$issue_uri][] = $diagnostic;
                 }
-                //$check_name = $issue['check_name'];
-                $description = $issue['description'];
-                $severity = $issue['severity'];
-                $start_line = $issue['location']['lines']['begin'];
-                $end_line = $issue['location']['lines']['end'] ?? $start_line;
-                // Language server has 0 based lines and columns, phan has 1-based lines and columns.
-                $range = new Range(new Position($start_line - 1, 0), new Position($start_line, 0));
-                switch ($severity) {
-                case Issue::SEVERITY_LOW:
-                    $diagnostic_severity = DiagnosticSeverity::INFORMATION;
-                    break;
-                case Issue::SEVERITY_NORMAL:
-                    $diagnostic_severity = DiagnosticSeverity::WARNING;
-                    break;
-                case Issue::SEVERITY_CRITICAL:
-                default:
-                    $diagnostic_severity = DiagnosticSeverity::ERROR;
-                    break;
-                }
-                // TODO: copy issue code in 'json' format
-                // TODO: use correct uri
-                $diagnostics[$uri][] = new Diagnostic($description, $range, 42, $diagnostic_severity, 'Phan');
+
             }
             foreach ($diagnostics as $diagnostics_uri => $diagnostics_list) {
                 $this->client->textDocument->publishDiagnostics($diagnostics_uri, $diagnostics_list);
@@ -392,11 +391,44 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher {
         }
 
         $child_stream = self::streamForChild($sockets);
-        $this->most_recent_request = Request::makeLanguageServerAnalysisRequest($child_stream, [$path_to_analyze], $this->code_base, $this->file_path_lister);
+        $this->most_recent_request = Request::makeLanguageServerAnalysisRequest($child_stream, [$path_to_analyze], $this->code_base, $this->file_path_lister, $this->file_mapping);
         // FIXME update the parsed file lists before and after (e.g. add to analyzeFile). See Daemon\Request::accept()
         //    TODO: refactor accept() to make it easier to work with.
         // TODO: add unit tests
         Loop\stop();  // abort the loop (without closing streams?)
+    }
+
+    /**
+     * @param array $issue
+     * @return null[]|string[]|Diagnostic[] - On success, returns [string $uri, Diagnostic $diagnostic]
+     */
+    private static function generateDiagnostic($issue) {
+        if ($issue['type'] !== 'issue') {
+            return [null, null];
+        }
+        //$check_name = $issue['check_name'];
+        $description = $issue['description'];
+        $severity = $issue['severity'];
+        $path = Config::projectPath($issue['location']['path']);
+        $issue_uri = FileMapping::convertPathToURI($path);
+        $start_line = $issue['location']['lines']['begin'];
+        $end_line = $issue['location']['lines']['end'] ?? $start_line;
+        // Language server has 0 based lines and columns, phan has 1-based lines and columns.
+        $range = new Range(new Position($start_line - 1, 0), new Position($start_line, 0));
+        switch ($severity) {
+        case Issue::SEVERITY_LOW:
+            $diagnostic_severity = DiagnosticSeverity::INFORMATION;
+            break;
+        case Issue::SEVERITY_NORMAL:
+            $diagnostic_severity = DiagnosticSeverity::WARNING;
+            break;
+        case Issue::SEVERITY_CRITICAL:
+        default:
+            $diagnostic_severity = DiagnosticSeverity::ERROR;
+            break;
+        }
+        // TODO: copy issue code in 'json' format
+        return [$issue_uri, new Diagnostic($description, $range, $issue['type_id'], $diagnostic_severity, 'Phan')];
     }
 
     /**
@@ -459,7 +491,9 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher {
             // There would be an asynchronous indexing step, but the startup already did the indexing.
             if ($this->textDocument === null) {
                 $this->textDocument = new TextDocument(
-                    $this->client
+                    $this->client,
+                    $this,
+                    $this->file_mapping
                 );
             }
 

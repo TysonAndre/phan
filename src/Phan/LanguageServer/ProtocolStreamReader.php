@@ -8,6 +8,7 @@ use Phan\LanguageServer\Protocol\Message;
 use AdvancedJsonRpc\Message as MessageBody;
 use Sabre\Event\Loop;
 use Sabre\Event\Emitter;
+use Exception;
 
 /**
  * Source: https://github.com/felixfbecker/php-language-server/tree/master/src/ProtocolStreamReader.php
@@ -60,7 +61,10 @@ class ProtocolStreamReader extends Emitter implements ProtocolReader
                         if (strlen($this->buffer) === $this->contentLength) {
                             Logger::logRequest($this->headers, $this->buffer);
                             // MessageBody::parse can throw an Error, maybe log an error?
-                            $msg = new Message(MessageBody::parse($this->buffer), $this->headers);
+                            try {
+                                $msg = new Message(MessageBody::parse($this->buffer), $this->headers);
+                            } catch (\Exception $e) {
+                            }
                             $this->emit('message', [$msg]);
                             $this->parsingMode = self::PARSE_HEADERS;
                             $this->headers = [];

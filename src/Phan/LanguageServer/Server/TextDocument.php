@@ -1,5 +1,4 @@
-<?php
-declare(strict_types = 1);
+<?php declare(strict_types = 1);
 
 namespace Phan\LanguageServer\Server;
 
@@ -7,8 +6,10 @@ use Phan\LanguageServer\{
     CompletionProvider, LanguageClient, PhpDocument, PhpDocumentLoader, DefinitionResolver
 };
 use Phan\LanguageServer\LanguageServer;
+use Phan\LanguageServer\FileMapping;
 use Phan\LanguageServer\Index\ReadableIndex;
 use Phan\LanguageServer\Logger;
+use Phan\LanguageServer\Protocol\TextDocumentContentChangeEvent;
 use Phan\LanguageServer\Protocol\{
     FormattingOptions,
     Hover,
@@ -20,7 +21,6 @@ use Phan\LanguageServer\Protocol\{
     SymbolDescriptor,
     PackageDescriptor,
     SymbolLocationInformation,
-    TextDocumentContentChangeEvent,
     TextDocumentIdentifier,
     TextDocumentItem,
     VersionedTextDocumentIdentifier
@@ -45,12 +45,30 @@ class TextDocument
     protected $client;
 
     /**
+     * The language client object to call methods on the server
+     *
+     * @var LanguageServer
+     */
+    protected $server;
+
+    /**
+     * Maps paths of files on disk to overrides.
+     * @var FileMapping
+     */
+    protected $file_mapping;
+
+    /**
      * @param LanguageClient $client
+     * @param FileMapping $file_mapping
      */
     public function __construct(
-        LanguageClient $client
+        LanguageClient $client,
+        LanguageServer $server,
+        FileMapping $file_mapping
     ) {
         $this->client = $client;
+        $this->server = $server;
+        $this->file_mapping = $file_mapping;
     }
 
 
@@ -109,9 +127,9 @@ class TextDocument
      * @return void
      */
     public function didSave(TextDocumentIdentifier $textDocument, string $text = null) {
+        $this->file_mapping->addOverrideURI($textDocument->uri, $text);
         Logger::logInfo("Called didSave, uri={$textDocument->uri} text=" . json_encode($text, JSON_UNESCAPED_SLASHES));
-        LanguageServer::analyzeFile($textDocument->uri, $text);
-
+        $this->server->analyzeFile($textDocument->uri);
     }
 
     /**
@@ -123,9 +141,12 @@ class TextDocument
      */
     public function didChange(VersionedTextDocumentIdentifier $textDocument, array $contentChanges)
     {
-        Logger::logInfo("Called didChange");
+        foreach ($contentChanges as $change) {
+            $this->file_mapping->addOverrideURI($textDocument->uri, $change->text);
+        }
         Logger::logInfo("Called didChange, uri={$textDocument->uri} version={$textDocument->version}");
         // TODO: Check based on parse and analyze directories and Phan supported file extensions if this file affects Phan's analysis.
+        $this->server->analyzeFile($textDocument->uri);
 
         // TODO:   Add functions to quickly check if a relative/absolute path is within the parse or analysis list of a project
         // TODO:   Maybe allow reloading .phan/config, at least the files and directories to parse/analyze
@@ -147,9 +168,8 @@ class TextDocument
      */
     public function didClose(TextDocumentIdentifier $textDocument)
     {
+        $this->file_mapping->removeOverrideURI($textDocument->uri);
         Logger::logInfo("Called didClose, uri={$textDocument->uri}");
-        // FIXME implement
-        // $this->documentLoader->close($textDocument->uri);
     }
 
     /**
@@ -165,7 +185,7 @@ class TextDocument
      * @param TextDocumentIdentifier The text document
      * @param Position $position The position
      * @return Promise <CompletionItem[]|CompletionList>
-     * FIXME: reintroduce this after support gets added to Phan
+     * TODO: reintroduce this after support gets added to Phan
      */
     /*
         public function completion(TextDocumentIdentifier $textDocument, Position $position): Promise
