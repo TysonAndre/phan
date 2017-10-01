@@ -1,21 +1,24 @@
 <?php declare(strict_types=1);
 namespace Phan\Daemon;
 
+use Closure;
 use Phan\Analysis;
 use Phan\CodeBase;
 use Phan\Config;
 use Phan\Daemon;
 use Phan\Language\FileRef;
 use Phan\Language\Type;
+use Phan\LanguageServer\FileMapping;
 use Phan\Library\FileCache;
 use Phan\Output\IssuePrinterInterface;
 use Phan\Output\PrinterFactory;
+use Phan\Request\AnalysisRequest;
 use Symfony\Component\Console\Output\BufferedOutput;
 
 /**
  * Represents the state of a client request to a daemon, and contains methods for sending formatted responses.
  */
-class Request {
+class Request implements AnalysisRequest {
     const METHOD_ANALYZE_FILES = 'analyze_files';  // has shorthand analyze_file with param 'file'
 
     const PARAM_METHOD = 'method';
@@ -68,6 +71,30 @@ class Request {
         }
     }
 
+    /**
+     * @param resource $conn
+     * @param string[] $filenames absolute path of file(s) to analyze
+     */
+    public static function makeLanguageServerAnalysisRequest($conn, array $filenames, CodeBase $code_base, Closure $file_path_lister, FileMapping $file_mapping) : Request {
+        FileCache::clear();
+        $file_mapping_contents = self::normalizeFileMappingContents($file_mapping->getOverrides(), $error_message);
+        // Use the temporary contents if they're available
+        Request::reloadFilePathListForDaemon($code_base, $file_path_lister, $file_mapping_contents);
+        if ($error_message !== null) {
+            Daemon::debugf($error_message);
+        };
+        $result = new self(
+            $conn,
+            [
+                self::PARAM_FORMAT => 'json',
+                self::PARAM_METHOD => self::METHOD_ANALYZE_FILES,
+                self::PARAM_FILES => $filenames,
+                self::PARAM_TEMPORARY_FILE_MAPPING_CONTENTS => $file_mapping_contents,
+            ]
+        );
+        return $result;
+    }
+
     public function getPrinter() : IssuePrinterInterface {
         // TODO: check $this->config['format']
         $factory = new PrinterFactory();
@@ -83,6 +110,7 @@ class Request {
 
     /**
      * Respond with issues in the requested format
+     * @return void
      */
     public function respondWithIssues(int $issueCount) {
         $rawIssues = $this->bufferedOutput->fetch();
@@ -101,6 +129,9 @@ class Request {
         ]);
     }
 
+    /**
+     * @return void
+     */
     public function respondWithNoFilesToAnalyze() {
         // The mentioned file wasn't in .phan/config.php's list of files to analyze.
         // TODO: Send the client that list of files.
@@ -224,6 +255,28 @@ class Request {
     }
 
     /**
+     * @param string[] $file_mapping_contents
+     * @param ?string &$error_message
+     */
+    public static function normalizeFileMappingContents($file_mapping_contents, &$error_message) : array {
+        $error_message = null;
+        if (!\is_array($file_mapping_contents)) {
+            $error_message = 'Invalid value of temporary_file_mapping_contents';
+        }
+        $new_file_mapping_contents = [];
+        foreach ($file_mapping_contents ?? [] as $file => $contents) {
+            if (!\is_string($file)) {
+                $error_message = 'Passed non-string in list of files to map';
+                return [];
+            } else if (!\is_string($contents)) {
+                $error_message = 'Passed non-string in as new file contents';
+                return [];
+            }
+            $new_file_mapping_contents[FileRef::getProjectRelativePathForPath($file)] = $contents;
+        }
+        return $new_file_mapping_contents;
+    }
+    /**
      * @param CodeBase $code_base
      * @param \Closure $file_path_lister
      * @param resource $conn
@@ -249,6 +302,7 @@ class Request {
             ]);
             return null;
         }
+        $new_file_mapping_contents = [];
         $method = $request['method'] ?? null;
         switch($method) {
         case 'analyze_all':
@@ -280,19 +334,7 @@ class Request {
             }
             if (\is_null($error_message)) {
                 $file_mapping_contents = $request[self::PARAM_TEMPORARY_FILE_MAPPING_CONTENTS] ?? [];
-                if (!\is_array($file_mapping_contents)) {
-                    $error_message = 'Invalid value of temporary_file_mapping_contents';
-                }
-                $new_file_mapping_contents = [];
-                foreach ($file_mapping_contents ?? [] as $file => $contents) {
-                    $new_file_mapping_contents[FileRef::getProjectRelativePathForPath($file)] = $contents;
-                    if (!\is_string($file)) {
-                        $error_message = 'Passed non-string in list of files to map';
-                        break;
-                    } else if (!\is_string($contents)) {
-                        $error_message = 'Passed non-string in as new file contents';
-                    }
-                }
+                $new_file_mapping_contents = self::normalizeFileMappingContents($file_mapping_contents, $error_message);
                 $request[self::PARAM_TEMPORARY_FILE_MAPPING_CONTENTS] = $new_file_mapping_contents;
             }
             if ($error_message !== null) {
@@ -315,7 +357,7 @@ class Request {
             return null;
         }
 
-        self::reloadFilePathListForDaemon($code_base, $file_path_lister);
+        self::reloadFilePathListForDaemon($code_base, $file_path_lister, $new_file_mapping_contents);
         $receivedSignal = false;
 
         $fork_result = pcntl_fork();
@@ -355,7 +397,7 @@ class Request {
      * Reloads the file path list.
      * @return void
      */
-    private static function reloadFilePathListForDaemon(CodeBase $code_base, \Closure $file_path_lister) {
+    private static function reloadFilePathListForDaemon(CodeBase $code_base, \Closure $file_path_lister, array $file_mapping_contents) {
         $oldCount = $code_base->getParsedFilePathCount();
 
         $file_list = $file_path_lister();
@@ -367,8 +409,8 @@ class Request {
             sort($file_list, SORT_STRING);
         }
 
-        $changed_or_added_files = $code_base->updateFileList($file_list);
-        Daemon::debugf("Parsing modified files: New files = %s", json_encode($changed_or_added_files));
+        $changed_or_added_files = $code_base->updateFileList($file_list, $file_mapping_contents);
+        // Daemon::debugf("Parsing modified files: New files = %s", json_encode($changed_or_added_files));
         if (count($changed_or_added_files) > 0 || $code_base->getParsedFilePathCount() !== $oldCount) {
             // Only clear memoizations if it is determined at least one file to parse was added/removed/modified.
             // - file path count changes if files were deleted or added
@@ -390,7 +432,7 @@ class Request {
             Daemon::debugf("Parsing %s yet again", $file_path);
             try {
                 // Parse the file
-                Analysis::parseFile($code_base, $file_path);
+                Analysis::parseFile($code_base, $file_path, false, $file_mapping_contents[$file_path] ?? null);
             } catch (\Throwable $throwable) {
                 error_log(sprintf("Analysis::parseFile threw %s for %s: %s\n%s", get_class($throwable), $file_path, $throwable->getMessage(), $throwable->getTraceAsString()));
             }

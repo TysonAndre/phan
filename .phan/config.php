@@ -379,8 +379,11 @@ return [
     'directory_list' => [
         'src',
         'tests/Phan',
+        'vendor/felixfbecker/advanced-json-rpc/lib',
+        'vendor/netresearch/jsonmapper/src',
         'vendor/nikic/php-parser/lib',
         'vendor/phpunit/phpunit/src',
+        'vendor/sabre/event/lib',
         'vendor/symfony/console',
         '.phan/plugins',
         '.phan/stubs',
@@ -429,4 +432,6 @@ return [
         // '.phan/plugins/UnusedSuppressionPlugin.php',
     ],
 
+    // useful when debugging the language server.
+    'language_server_debug_level' => 'info',
 ];

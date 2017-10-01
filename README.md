@@ -75,7 +75,8 @@ Phan is able to perform the following kinds of analysis.
 * Supports indicating the class to which a closure will be bound, via `@phan-closure-scope` ([example](tests/files/src/0264_closure_override_context.php))
 * Offers extensive configuration for weakening the analysis to make it useful on large sloppy code bases
 * Can be run on many cores. (requires `pcntl`)
-* [Can run in the background (daemon mode)](https://github.com/phan/phan/wiki/Using-Phan-Daemon-Mode), to then quickly respond to requests to analyze the latest version of a file. (requires `pcntl`)
+* [Can run in the background (daemon mode)](https://github.com/phan/phan/wiki/Using-Phan-Daemon-Mode), to then quickly respond to requests to analyze the latest version of a file.
+* In progress: can use open language server protocol(requires `pcntl`). Parts of the code are based on https://github.com/felixfbecker/php-language-server (requires `pcntl`)
 * Output is emitted in text, checkstyle, json or codeclimate formats.
 * Can run user plugins on source for checks specific to your code.
 
