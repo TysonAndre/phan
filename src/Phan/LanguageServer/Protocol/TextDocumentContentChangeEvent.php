@@ -7,7 +7,7 @@ namespace Phan\LanguageServer\Protocol;
  * the new text is considered to be the full content of the document.
  *
  * Source: https://github.com/felixfbecker/php-language-server/tree/master/src/Protocol/TextDocumentContentChangeEvent.php
- * See ../LICENSE.txt
+ * See ../../../../LICENSE.LANGUAGE_SERVER
  */
 class TextDocumentContentChangeEvent
 {

@@ -6,7 +6,7 @@ namespace Phan\LanguageServer\Protocol;
  * A range in a text document expressed as (zero-based) start and end positions.
  *
  * Source: https://github.com/felixfbecker/php-language-server/tree/master/src/Protocol/Range.php
- * See ../LICENSE.txt
+ * See ../../../../LICENSE.LANGUAGE_SERVER
  */
 class Range
 {

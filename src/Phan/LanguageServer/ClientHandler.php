@@ -8,7 +8,7 @@ use Sabre\Event\Promise;
 
 /**
  * Source: https://github.com/felixfbecker/php-language-server/tree/master/src/ClientHandler.php
- * See ./LICENSE.txt
+ * See ../../../LICENSE.LANGUAGE_SERVER
  */
 class ClientHandler
 {

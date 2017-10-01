@@ -6,7 +6,7 @@ namespace Phan\LanguageServer\Protocol;
  * Defines how the host (editor) should sync document changes to the language server.
  *
  * Source: https://github.com/felixfbecker/php-language-server/tree/master/src/Protocol/TextDocumentSyncKind.php
- * See ../LICENSE.txt
+ * See ../../../../LICENSE.LANGUAGE_SERVER
  */
 abstract class TextDocumentSyncKind
 {

@@ -6,7 +6,7 @@ namespace Phan\LanguageServer\Protocol;
  * The file event type. Enum
  *
  * Source: https://github.com/felixfbecker/php-language-server/tree/master/src/Protocol/FileChangeType.php
- * See ../LICENSE.txt
+ * See ../../../../LICENSE.LANGUAGE_SERVER
  */
 abstract class FileChangeType
 {

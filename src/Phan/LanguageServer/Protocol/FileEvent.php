@@ -6,7 +6,7 @@ namespace Phan\LanguageServer\Protocol;
  * An event describing a file change.
  *
  * Source: https://github.com/felixfbecker/php-language-server/tree/master/src/Protocol/FileEvent.php
- * See ../LICENSE.txt
+ * See ../../../../LICENSE.LANGUAGE_SERVER
  */
 class FileEvent
 {

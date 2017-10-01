@@ -12,7 +12,7 @@ use Sabre\Event\EmitterInterface;
  * Must emit a "close" event when the stream closes
  *
  * Source: https://github.com/felixfbecker/php-language-server/tree/master/src/ProtocolReader.php
- * See LICENSE.txt
+ * See ../../../LICENSE.LANGUAGE_SERVER
  */
 interface ProtocolReader extends EmitterInterface
 {

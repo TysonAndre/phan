@@ -7,7 +7,7 @@ use JsonMapper;
 
 /**
  * Source: https://github.com/felixfbecker/php-language-server/tree/master/src/LanguageClient.php
- * See ./LICENSE.txt
+ * See ../../../LICENSE.LANGUAGE_SERVER
  */
 class LanguageClient
 {
