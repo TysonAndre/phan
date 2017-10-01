@@ -103,7 +103,9 @@ class TextDocument
      */
     public function didOpen(TextDocumentItem $textDocument)
     {
+        $this->file_mapping->addOverrideURI($textDocument->uri, $textDocument->text);
         Logger::logInfo("Called didOpen, uri={$textDocument->uri}");
+        $this->server->analyzeURI($textDocument->uri);
 
         //$document = $this->documentLoader->open($textDocument->uri, $textDocument->text);
         // TODO: make this trigger re-analysis
@@ -128,7 +130,7 @@ class TextDocument
      */
     public function didSave(TextDocumentIdentifier $textDocument, string $text = null) {
         $this->file_mapping->addOverrideURI($textDocument->uri, $text);
-        Logger::logInfo("Called didSave, uri={$textDocument->uri} text=" . json_encode($text, JSON_UNESCAPED_SLASHES));
+        Logger::logInfo("Called didSave, uri={$textDocument->uri} len(text)=" . strlen($text ?? ''));
         $this->server->analyzeURI($textDocument->uri);
     }
 
