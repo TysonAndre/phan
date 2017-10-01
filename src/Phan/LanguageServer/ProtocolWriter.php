@@ -7,7 +7,7 @@ use Phan\LanguageServer\Protocol\Message;
 use Sabre\Event\Promise;
 
 /**
- * Source: https://github.com/felixfbecker/php-language-server/tree/master/src/ProtocolReader.php
+ * Source: https://github.com/felixfbecker/php-language-server/tree/master/src/ProtocolWriter.php
  */
 interface ProtocolWriter
 {

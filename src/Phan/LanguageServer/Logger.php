@@ -9,7 +9,10 @@ use AdvancedJsonRpc\Message as MessageBody;
 use Sabre\Event\Emitter;
 use Sabre\Event\Loop;
 
-// FIXME disable logging by default
+/**
+ * A logger used by Phan for developing or debugging the language server.
+ * Logs to stderr.
+ */
 class Logger {
     /** @var resource|false */
     public static $file;
@@ -48,7 +51,7 @@ class Logger {
      */
     private static function getLogFile() {
         if (self::$file === null) {
-            self::$file = fopen('/tmp/phan-language-server-logs', 'wa');
+            self::$file = STDERR;
         }
         return self::$file;
     }

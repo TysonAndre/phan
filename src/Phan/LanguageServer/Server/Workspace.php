@@ -11,6 +11,9 @@ use Phan\LanguageServer\Protocol\FileEvent;
 
 /**
  * Provides method handlers for all workspace/* methods
+ *
+ * Source: https://github.com/felixfbecker/php-language-server/tree/master/src/Server/Workspace.php
+ * See ../LICENSE.txt
  */
 class Workspace
 {

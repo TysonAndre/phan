@@ -5,6 +5,9 @@ namespace Phan\LanguageServer;
 
 /**
  * Generates unique, incremental IDs for use as request IDs
+ *
+ * Source: https://github.com/felixfbecker/php-language-server/tree/master/src/IdGenerator.php
+ * See ../LICENSE.txt
  */
 class IdGenerator
 {

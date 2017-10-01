@@ -4,6 +4,9 @@ namespace Phan\LanguageServer\Protocol;
 
 /**
  * An item to transfer a text document from the client to the server.
+ *
+ * Source: https://github.com/felixfbecker/php-language-server/tree/master/src/Protocol/TextDocumentItem.php
+ * See ../LICENSE.txt
  */
 class TextDocumentItem
 {

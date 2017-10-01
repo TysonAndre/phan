@@ -186,7 +186,6 @@ class Phan implements IgnoredFilesFilterInterface {
                 $temporary_file_mapping = $request->getTemporaryFileMapping();
             } else {
                 assert(is_array($language_server_config));
-                LanguageServerLogger::setLogFile(STDERR);  // FIXME remove debugging code or add equivalent of `--verbose`
                 LanguageServerLogger::logInfo(sprintf("Starting accepting connections on the language server (pid=%d)", getmypid()));
                 $request = LanguageServer::run($code_base, $file_path_lister, $language_server_config);
                 if (!$request) {

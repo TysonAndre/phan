@@ -2,6 +2,10 @@
 
 namespace Phan\LanguageServer\Protocol;
 
+/**
+ * Source: https://github.com/felixfbecker/php-language-server/tree/master/src/Protocol/VersionedTextDocumentIdentifier.php
+ * See ../LICENSE.txt
+ */
 class VersionedTextDocumentIdentifier extends TextDocumentIdentifier
 {
     /**

@@ -6,6 +6,10 @@ namespace Phan\LanguageServer;
 use AdvancedJsonRpc;
 use Sabre\Event\Promise;
 
+/**
+ * Source: https://github.com/felixfbecker/php-language-server/tree/master/src/ClientHandler.php
+ * See ./LICENSE.txt
+ */
 class ClientHandler
 {
     /**

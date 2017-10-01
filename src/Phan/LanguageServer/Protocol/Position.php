@@ -4,6 +4,9 @@ namespace Phan\LanguageServer\Protocol;
 
 /**
  * Position in a text document expressed as zero-based line and character offset.
+ *
+ * Source: https://github.com/felixfbecker/php-language-server/tree/master/src/Protocol/Position.php
+ * See ../LICENSE.txt
  */
 class Position
 {

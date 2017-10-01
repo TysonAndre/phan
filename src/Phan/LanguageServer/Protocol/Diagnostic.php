@@ -5,6 +5,9 @@ namespace Phan\LanguageServer\Protocol;
 /**
  * Represents a diagnostic, such as a compiler error or warning. Diagnostic objects are only valid in the scope of a
  * resource.
+ *
+ * Source: https://github.com/felixfbecker/php-language-server/tree/master/src/Protocol/Diagnostic.php
+ * See ../LICENSE.txt
  */
 class Diagnostic
 {

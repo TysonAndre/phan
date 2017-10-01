@@ -10,6 +10,9 @@ use JsonMapper;
 
 /**
  * Provides method handlers for all textDocument/* methods
+ *
+ * Source: https://github.com/felixfbecker/php-language-server/tree/master/src/Protocol/TextDocument.php
+ * See ../LICENSE.txt
  */
 class TextDocument
 {
