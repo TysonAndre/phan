@@ -63,6 +63,8 @@ class FunctionFactory {
             - $reflection_function->getNumberOfRequiredParameters()
         );
         $function->setIsDeprecated($reflection_function->isDeprecated());
+        $function->setRealReturnType(UnionType::fromReflectionType($reflection_function->getReturnType()));
+        $function->setRealParameterList(Parameter::listFromReflectionParameterList($reflection_function->getParameters()));
 
         return self::functionListFromFunction($function, $code_base);
     }

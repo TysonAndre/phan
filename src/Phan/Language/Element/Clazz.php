@@ -2122,7 +2122,7 @@ class Clazz extends AddressableElement
         return $string;
     }
 
-    private function toStubSignature() : string
+    private function toStubSignature(CodeBase $code_base) : string
     {
         $string = '';
 
@@ -2143,12 +2143,16 @@ class Clazz extends AddressableElement
         }
 
         $string .= (string)$this->getFQSEN()->getName();
-        $parent_type_option = $this->getParentTypeOption();
 
         $extend_types = [];
         $implements_types = [];
-        if ($parent_type_option->isDefined()) {
-            $extend_types[] = $this->parent_type->asFQSEN();
+        $parent_implements_types = [];
+
+        $parent_type = $this->parent_type;
+        if ($parent_type) {
+            $extend_types[] = $parent_type->asFQSEN();
+            $parent_class = $this->getParentClass($code_base);
+            $parent_implements_types = $parent_class->interface_fqsen_list;
         }
 
         if (count($this->interface_fqsen_list) > 0) {
@@ -2156,6 +2160,9 @@ class Clazz extends AddressableElement
                 $extend_types = array_merge($extend_types, $this->interface_fqsen_list);
             } else {
                 $implements_types = $this->interface_fqsen_list;
+                if (count($parent_implements_types) > 0) {
+                    $implements_types = array_diff($implements_types, $parent_implements_types);
+                }
             }
         }
         if (count($extend_types) > 0) {
@@ -2169,7 +2176,7 @@ class Clazz extends AddressableElement
 
     public function toStub(CodeBase $code_base) : string
     {
-        $signature = $this->toStubSignature();
+        $signature = $this->toStubSignature($code_base);
 
         $stub = $signature;
 

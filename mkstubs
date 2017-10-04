@@ -1,0 +1,30 @@
+#!/usr/bin/env php
+<?php declare(strict_types=1);
+
+assert(
+    (int)phpversion()[0] >= 7,
+    'mkstubs requires PHP version 7 or greater. See https://github.com/etsy/phan#getting-it-running for more details.'
+);
+
+assert(
+    file_exists(__DIR__ . '/vendor/autoload.php') || file_exists(__DIR__ . '/../../../autoload.php'),
+    'Autoloader not found. Make sure you run `composer install` before running Phan. See https://github.com/etsy/phan#getting-it-running for more details.'
+);
+
+require_once(__DIR__ . '/src/Phan/Bootstrap.php');
+
+$code_base = require_once(__DIR__ . '/src/codebase.php');
+
+$class_map = $code_base->getClassMap();
+
+echo "<" . "?php\n";
+
+foreach ($class_map as $fqsen => $class) {
+    print $class->toStub($code_base) . "\n";
+}
+
+$function_map = $code_base->getFunctionMap();
+
+foreach ($function_map as $fqsen => $function) {
+    print $function->toStub($code_base) . "\n";
+}
