@@ -11,12 +11,7 @@ and does not attempt to track values.
 
 # About this fork
 
-This fork supports miscellaneous features which haven't been merged to etsy/phan yet, such as
-
-- rewriting the AST.
-- Ignoring common mistakes in @return/@param annotations
-- Even more gradual strengthening of types (Granular scalar type casting, allowing casting null to/from arrays/scalars but not to/from objects)
-- Daemon mode improvements
+This fork supports miscellaneous features which haven't been merged to etsy/phan yet
 
 see [.phan/config.php](.phan/config.php) and [src/phan/Config.php](src/phan/Config.php) for more details on the new features.
 
