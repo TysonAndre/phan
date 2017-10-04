@@ -2176,6 +2176,15 @@ class Clazz extends AddressableElement
 
     public function toStub(CodeBase $code_base) : string
     {
+        [$namespace, $string] = $this->toStubInfo($code_base);
+        $namespace_text = $namespace === '' ? '' : "$namespace ";
+        $string = sprintf("namespace %s{\n%s}\n", $namespace_text, $string);
+        return $string;
+    }
+
+    /** @return string[] [string $namespace, string $text] */
+    public function toStubInfo(CodeBase $code_base) : array
+    {
         $signature = $this->toStubSignature($code_base);
 
         $stub = $signature;
@@ -2201,10 +2210,7 @@ class Clazz extends AddressableElement
 
         $stub .= "\n}\n";
         $namespace = ltrim($this->getFQSEN()->getNamespace(), '\\');
-        $namespace_text = $namespace === '' ? '' : "$namespace ";
-        $stub = sprintf("namespace %s{\n%s}\n", $namespace_text, $stub);
-
-        return $stub;
+        return [$namespace, $stub];
     }
 
     /**

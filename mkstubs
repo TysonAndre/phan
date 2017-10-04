@@ -28,3 +28,9 @@ $function_map = $code_base->getFunctionMap();
 foreach ($function_map as $fqsen => $function) {
     print $function->toStub($code_base) . "\n";
 }
+
+$const_map = $code_base->getGlobalConstantMap();
+
+foreach ($const_map as $name => $const) {
+    print $const->toStub($code_base) . "\n";
+}

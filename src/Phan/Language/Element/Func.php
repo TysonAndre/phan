@@ -310,7 +310,17 @@ class Func extends AddressableElement implements FunctionInterface
         );
     }
 
-    public function toStub() {
+    public function toStub() : string
+    {
+        [$namespace, $string] = $this->toStubInfo();
+        $namespace_text = $namespace === '' ? '' : "$namespace ";
+        $string = sprintf("namespace %s{\n%s}\n", $namespace_text, $string);
+        return $string;
+    }
+
+    /** @return string[] [string $namespace, string $text] */
+    public function toStubInfo() : array
+    {
         $stub = 'function ';
         if ($this->returnsRef()) {
             $stub .= '&';
@@ -324,9 +334,6 @@ class Func extends AddressableElement implements FunctionInterface
         $stub .= ' {}' . "\n";
 
         $namespace = ltrim($this->getFQSEN()->getNamespace(), '\\');
-        $namespace_text = $namespace === '' ? '' : "$namespace ";
-        $stub = sprintf("namespace %s{\n%s}\n", $namespace_text, $stub);
-
-        return $stub;
+        return [$namespace, $stub];
     }
 }

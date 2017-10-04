@@ -67,4 +67,34 @@ class GlobalConstant extends AddressableElement implements ConstantInterface
             $constant_fqsen
         );
     }
+
+    public function toStub() : string
+    {
+        [$namespace, $string] = $this->toStubInfo();
+        $namespace_text = $namespace === '' ? '' : "$namespace ";
+        $string = sprintf("namespace %s{\n%s}\n", $namespace_text, $string);
+        return $string;
+    }
+
+    /** @return string[] [string $namespace, string $text] */
+    public function toStubInfo() : array
+    {
+        $fqsen = (string)$this->getFQSEN();
+        $pos = \strrpos($fqsen, '\\');
+        if ($pos !== false) {
+            $name = \substr($fqsen, $pos + 1);
+            $namespace = \substr($fqsen, 0, $pos);
+        } else {
+            $name = $fqsen;
+            $namespace = '';
+        }
+        $string = 'const ' . $name . ' = ';
+        $namespace = ltrim($this->getFQSEN()->getNamespace(), '\\');
+        if (\defined($fqsen)) {
+            $string .= var_export(constant($fqsen), true) . ";\n";
+        } else {
+            $string .= "null;  // could not find\n";
+        }
+        return [$namespace, $string];
+    }
 }
