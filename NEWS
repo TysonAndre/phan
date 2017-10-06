@@ -13,6 +13,7 @@ New Features (CLI, Configs)
   along with stubs for Phan to use (instead of ReflectionFunction, etc) if the PHP binary used to run Phan doesn't have those extensions enabled. (#627)
 
   Add a script (`mkstubs`) to output the contents of stubs to use for `autoload_internal_extension_signatures` (#627).
++ By default, automatically restart Phan without xdebug if xdebug is enabled.
 
 Bug Fixes
 + Properly check for undeclared classes in arrays within phpdoc @param, @property, @method, @var, and @return types.
