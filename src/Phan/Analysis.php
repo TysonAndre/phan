@@ -45,19 +45,27 @@ class Analysis
      * If this is not null, this function will act as if $file_path's contents
      * were $override_contents
      *
+     * @param bool $is_php_internal_stub
+     * If this is true, this function will act as though the parsed constants, functions, and classes are actually part of PHP or it's extension's internals.
+     * See autoload_internal_extension_signatures.
+     *
      * @return Context
      */
-    public static function parseFile(CodeBase $code_base, string $file_path, bool $suppress_parse_errors = false, string $override_contents = null) : Context
+    public static function parseFile(CodeBase $code_base, string $file_path, bool $suppress_parse_errors = false, string $override_contents = null, bool $is_php_internal_stub = false) : Context
     {
-
+        $original_file_path = $file_path;
         $code_base->setCurrentParsedFile($file_path);
+        if ($is_php_internal_stub) {
+            /** @see \Phan\Language\FileRef->isPHPInternal() */
+            $file_path = 'internal';
+        }
         $context = (new Context)->withFile($file_path);
 
         // Convert the file to an Abstract Syntax Tree
         // before passing it on to the recursive version
         // of this method
 
-        $real_file_path = Config::projectPath($file_path);
+        $real_file_path = Config::projectPath($original_file_path);
         if (\is_string($override_contents)) {
             $cache_entry = FileCache::addEntry($real_file_path, $override_contents);
         } else {
@@ -65,6 +73,9 @@ class Analysis
         }
         $file_contents = $cache_entry->getContents();
         if ($file_contents === '') {
+            if ($is_php_internal_stub) {
+                throw new \InvalidArgumentException("Unexpected empty php file for autoload_internal_extension_signatures: path=" . json_encode($original_file_path, JSON_UNESCAPED_SLASHES));
+            }
             // php-ast would return null for 0 byte files as an implementation detail.
             // Make Phan consistently emit this warning.
             Issue::maybeEmit(
@@ -72,7 +83,7 @@ class Analysis
                 $context,
                 Issue::EmptyFile,
                 0,
-                $file_path
+                $original_file_path
             );
 
             return $context;
@@ -98,7 +109,7 @@ class Analysis
                 $context,
                 Issue::EmptyFile,
                 0,
-                $file_path
+                $original_file_path
             );
 
             return $context;

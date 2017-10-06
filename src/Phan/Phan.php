@@ -82,6 +82,7 @@ class Phan implements IgnoredFilesFilterInterface {
     ) : bool {
         FileCache::setMaxCacheSize(FileCache::MINIMUM_CACHE_SIZE);
         self::checkForSlowPHPOptions();
+        self::loadConfiguredPHPExtensionStubs($code_base);
         $is_daemon_request = Config::getValue('daemonize_socket') || Config::getValue('daemonize_tcp_port');
         $language_server_config = Config::getValue('language_server_config');
         $is_undoable_request = is_array($language_server_config) || $is_daemon_request;
@@ -533,6 +534,25 @@ class Phan implements IgnoredFilesFilterInterface {
         }
         if ($warned) {
             fwrite(STDERR, "(The above warnings about slow PHP settings can be disabled by setting 'skip_slow_php_options_warning' to true in .phan/config.php)\n");
+        }
+    }
+
+    /**
+     * Loads configured stubs for internal PHP extensions.
+     * @return void
+     */
+    private static function loadConfiguredPHPExtensionStubs(CodeBase $code_base) {
+        $stubs = Config::getValue('autoload_internal_extension_signatures');
+        foreach ($stubs ?: [] as $extension_name => $path_to_extension) {
+            // Prefer using reflection info from the running extension over what's in the stub files.
+            // (The originals were already added to the CodeBase)
+            if (\extension_loaded($extension_name)) {
+                continue;
+            }
+            if (!\is_string($path_to_extension) || !is_file($path_to_extension)) {
+                throw new \InvalidArgumentException("Invalid autoload_internal_extension_signatures: path for $extension_name is: " . var_export($path_to_extension, true));
+            }
+            Analysis::parseFile($code_base, $path_to_extension, false, null, true);
         }
     }
 }
