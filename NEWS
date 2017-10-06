@@ -9,6 +9,10 @@ New Features (CLI, Configs)
   This has the same analysis capabilities provided by [daemon mode](https://github.com/phan/phan/wiki/Using-Phan-Daemon-Mode#using-phan_client-from-an-editor).
   Supporting a standard protocol should make it easier to write extensions supporting Phan in various IDEs.
   See https://github.com/Microsoft/language-server-protocol/blob/master/README.md
++ Add config (`autoload_internal_extension_signatures`) to allow users to specify PHP extensions (modules) used by the analyzed project,
+  along with stubs for Phan to use (instead of ReflectionFunction, etc) if the PHP binary used to run Phan doesn't have those extensions enabled. (#627)
+
+  Add a script (`mkstubs`) to output the contents of stubs to use for `autoload_internal_extension_signatures` (#627).
 
 Bug Fixes
 + Properly check for undeclared classes in arrays within phpdoc @param, @property, @method, @var, and @return types.
