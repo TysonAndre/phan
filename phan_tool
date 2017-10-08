@@ -1,0 +1,69 @@
+#!/usr/bin/env php
+<?php
+call_user_func(function() {
+    $print_help = function(string $message, int $exit_code) {
+        global $argv;
+        $prog_name = $argv[0];
+
+        if ($message !== '') {
+            echo "$message\n";
+        }
+        echo <<<EOT
+Usage: $prog_name {analyze|client|help}
+
+  analyze: analyze [--options]
+    Alias of `phan`. Run $prog_name analyze --help for more help.
+
+  client:
+    Alias of `phan_client`. Run $prog_name client --help for details.
+
+  help:
+    Alias of `$prog_name <tool_name> --help`.
+EOT;
+        exit($exit_code);
+    };
+
+    global $argv;
+    $tool_name = $argv[1] ?? 'help';
+
+    $phan_client_path = __DIR__ . '/phan_client';
+    $phan_analyze_path = __DIR__ . '/phan';
+    switch ($tool_name) {
+    case 'analyze':
+        $argv = array_merge([$phan_analyze_path], array_slice($argv, 2));
+        require __DIR__ . '/src/phan.php';
+        exit(0);
+    case 'client':
+        $argv = array_merge([$phan_client_path], array_slice($argv, 2));
+        require $phan_client_path;
+        exit(0);
+    case 'help':
+        if (count($argv) <= 2) {
+            $print_help('', 0);
+        } else if (count($argv) === 3) {
+            $tool_name_for_help = $argv[2];
+            switch ($tool_name_for_help) {
+            case 'client':
+                $argv = [$phan_client_path, '--help'];
+                require $phan_client_path;
+                break;
+            case 'analyze':
+                $argv = array_merge([$phan_analyze_path], array_slice($argv, 2));
+                require __DIR__ . '/src/phan.php';
+                exit(0);
+                break;
+            case 'help':
+                $print_help('', 0);
+            default:
+                $print_help('phan_tool help: Unknown tool ' . var_export($tool_name_for_help, true) . "\n", 1);
+                break;
+            }
+        } else {
+            $print_help('phan_tool help: too many arguments', 1);
+        }
+        break;
+    default:
+        $print_help('Unknown option ' . var_export($tool_name, true), 1);
+        break;
+    }
+});
