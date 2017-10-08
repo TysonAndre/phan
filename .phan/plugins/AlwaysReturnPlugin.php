@@ -151,14 +151,11 @@ final class AlwaysReturnPlugin extends PluginV2 implements
     private function returnTypeOfFunctionLikeAllowsNullNull(FunctionInterface $func) : bool
     {
         $real_return_type = $func->getRealReturnType();
-        if ($real_return_type instanceof UnionType) {
-            if (!$real_return_type->isEmpty() && !$real_return_type->isType(VoidType::instance(false))) {
-                return false;
-            }
+        if (!$real_return_type->isEmpty() && !$real_return_type->isType(VoidType::instance(false))) {
+            return false;
         }
         $return_type = $func->getUnionType();
-        return $return_type instanceof UnionType &&
-            ($return_type->isEmpty()
+        return ($return_type->isEmpty()
             || $return_type->containsNullable()
             || $return_type->hasType(VoidType::instance(false))
             || $return_type->hasType(NullType::instance(false)));
