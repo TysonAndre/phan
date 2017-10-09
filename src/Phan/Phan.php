@@ -540,6 +540,7 @@ class Phan implements IgnoredFilesFilterInterface {
     /**
      * Loads configured stubs for internal PHP extensions.
      * @return void
+     * @throws \InvalidArgumentException if autoload_internal_extension_signatures has invalid entries
      */
     private static function loadConfiguredPHPExtensionStubs(CodeBase $code_base) {
         $stubs = Config::getValue('autoload_internal_extension_signatures');

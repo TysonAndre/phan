@@ -243,7 +243,6 @@ interface FunctionInterface extends AddressableElementInterface {
     public function hasDependentReturnType() : bool;
 
     /**
-     *
      * Returns a union type based on $args_node and $context
      * @param CodeBase $code_base
      * @param Context $context

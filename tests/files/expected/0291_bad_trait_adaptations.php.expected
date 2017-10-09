@@ -1,0 +1,5 @@
+%s:13 PhanUndeclaredAliasedMethodOfTrait Alias \A291::bar was defined for a method \Trait291::foo which does not exist in trait Trait291
+%s:14 PhanRequiredTraitNotAdded Required trait \Trait291B for trait adaptation was not added to class
+%s:15 PhanRequiredTraitNotAdded Required trait \Trait291C for trait adaptation was not added to class
+%s:22 PhanUndeclaredMethod Call to undeclared method \A291::bar
+%s:23 PhanUndeclaredMethod Call to undeclared method \A291::foo
