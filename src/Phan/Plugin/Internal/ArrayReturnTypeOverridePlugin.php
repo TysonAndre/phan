@@ -6,6 +6,7 @@ use Phan\AST\UnionTypeVisitor;
 use Phan\Issue;
 use Phan\Language\Context;
 use Phan\Language\Element\Func;
+use Phan\Language\Element\FunctionInterface;
 use Phan\Language\FQSEN\FullyQualifiedMethodName;
 use Phan\Language\FQSEN\FullyQualifiedFunctionName;
 use Phan\Language\Type\ArrayType;
@@ -14,12 +15,54 @@ use Phan\Language\Type\MixedType;
 use Phan\Language\UnionType;
 use Phan\PluginV2\ReturnTypeOverrideCapability;
 use Phan\PluginV2;
+use ast\Node;
 
 /**
  * NOTE: This is automatically loaded by phan. Do not include it in a config.
  *
+ * TODO: Refactor this.
  */
-class ArrayReturnTypeOverridePlugin extends PluginV2 implements ReturnTypeOverrideCapability {
+final class ArrayReturnTypeOverridePlugin extends PluginV2 implements ReturnTypeOverrideCapability {
+
+    /**
+     * @param Node[]|int[]|string[] $computed_args
+     * @return void
+     */
+    private static function checkParameterListForCallback(CodeBase $code_base, Context $context, FunctionInterface $function_like, array $computed_args, \Closure $transformation = null)
+    {
+        // TODO: Check for variadic args, both in caller and callee.
+        $expected_parameter_count = \count($computed_args);
+        if ($function_like->getNumberOfParameters() < $expected_parameter_count) {
+            Issue::maybeEmit(
+                $code_base,
+                $context,
+                Issue::ParamTooManyCallable,
+                $context->getLineNumberStart(),
+                $expected_parameter_count,
+                (string)$function_like->getFQSEN(),
+                $function_like->getNumberOfParameters(),
+                $function_like->getFileRef()->getFile(),
+                $function_like->getFileRef()->getLineNumberStart()
+            );
+            return;
+        }
+        if ($function_like->getNumberOfRequiredRealParameters() > $expected_parameter_count) {
+            Issue::maybeEmit(
+                $code_base,
+                $context,
+                Issue::ParamTooFewCallable,
+                $context->getLineNumberStart(),
+                $expected_parameter_count,
+                (string)$function_like->getFQSEN(),
+                $function_like->getNumberOfRequiredRealParameters(),
+                $function_like->getFileRef()->getFile(),
+                $function_like->getFileRef()->getLineNumberStart()
+            );
+            return;
+        }
+        // TODO: Do this, overlapping with of ArgumentType->analyzeParameterList....
+    }
+
     /**
      * @return \Closure[]
      */
@@ -152,26 +195,44 @@ class ArrayReturnTypeOverridePlugin extends PluginV2 implements ReturnTypeOverri
             // 2. [$obj, 'instanceMethodName],
             // 3. 'global_func'
             // 4. 'MyClass::staticFunc'
-            $function_fqsen_list = UnionTypeVisitor::functionLikeFQSENListFromNodeAndContext($code_base, $context, $args[0], true);
-            if (\count($function_fqsen_list) === 0) {
+            $function_like_list = UnionTypeVisitor::functionLikeListFromNodeAndContext($code_base, $context, $args[0], true);
+            if (\count($function_like_list) === 0) {
                 return $array_type->asUnionType();
             }
+            $expected_parameters = \array_slice($args, 1);
             $element_types = new UnionType();
-            foreach ($function_fqsen_list as $fqsen) {
-                if ($fqsen instanceof FullyQualifiedMethodName) {
-                    if (!$code_base->hasMethodWithFQSEN($fqsen)) {
-                        // TODO: error PhanArrayMapClosure
-                        continue;
+            foreach ($function_like_list as $function_like) {
+
+                self::checkParameterListForCallback(
+                    $code_base, $context, $function_like, $expected_parameters, static function(UnionType $type) {
+                        return $type->genericArrayElementTypes();
                     }
-                    $function_like = $code_base->getMethodByFQSEN($fqsen);
-                } else {
-                    assert($fqsen instanceof FullyQualifiedFunctionName);
-                    if (!$code_base->hasFunctionWithFQSEN($fqsen)) {
-                        // TODO: error PhanArrayMapClosure
-                        continue;
-                    }
-                    $function_like = $code_base->getFunctionByFQSEN($fqsen);
-                }
+                );
+                // TODO: dependent union type?
+                $element_types->addUnionType($function_like->getUnionType());
+            }
+            if ($element_types->isEmpty()) {
+                return $array_type->asUnionType();
+            }
+            return $element_types->elementTypesToGenericArray();
+        };
+        $call_user_func_callback = static function(CodeBase $code_base, Context $context, Func $function, array $args) : UnionType {
+            if (\count($args) < 1) {
+                return new UnionType();
+            }
+            // TODO: improve functionLikeFQSENListFromNodeAndContext to include
+            // 1. [MyClass::class, 'staticMethodName'],
+            // 2. [$obj, 'instanceMethodName],
+            // 3. 'global_func'
+            // 4. 'MyClass::staticFunc'
+            $function_like_list = UnionTypeVisitor::functionLikeListFromNodeAndContext($code_base, $context, $args[0], true);
+            if (\count($function_like_list) === 0) {
+                return new UnionType();
+            }
+            $expected_parameters = \array_slice($args, 1);
+            $element_types = new UnionType();
+            foreach ($function_like_list as $function_like) {
+                self::checkParameterListForCallback($code_base, $context, $function_like, $expected_parameters, null);
                 $expected_parameter_count = \count($args) - 1;
                 if ($function_like->getNumberOfRequiredRealParameters() > $expected_parameter_count) {
                     Issue::maybeEmit(
@@ -198,13 +259,9 @@ class ArrayReturnTypeOverridePlugin extends PluginV2 implements ReturnTypeOverri
                         $function_like->getFileRef()->getLineNumberStart()
                     );
                 }
-                // TODO: dependent union type?
                 $element_types->addUnionType($function_like->getUnionType());
             }
-            if ($element_types->isEmpty()) {
-                return $array_type->asUnionType();
-            }
-            return $element_types->elementTypesToGenericArray();
+            return $element_types;
         };
         $array_pad_callback = static function(CodeBase $code_base, Context $context, Func $function, array $args) use($array_type) : UnionType {
             if (\count($args) != 3) {
@@ -262,6 +319,9 @@ class ArrayReturnTypeOverridePlugin extends PluginV2 implements ReturnTypeOverri
             'array_uintersect_assoc'    => $merge_array_types_callback,
             'array_uintersect_uassoc'   => $merge_array_types_callback,
             'array_unique'              => $get_first_array_arg,
+
+            // call
+            'call_user_func' => $call_user_func_callback,
         ];
     }
 
