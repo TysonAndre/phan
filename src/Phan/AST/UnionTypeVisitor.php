@@ -1886,11 +1886,6 @@ class UnionTypeVisitor extends AnalysisVisitor
      */
     public static function functionLikeListFromNodeAndContext(CodeBase $code_base, Context $context, $node, bool $log_error) : array
     {
-        // TODO: improve functionLikeFQSENListFromNodeAndContext to include
-        // 1. [MyClass::class, 'staticMethodName'],
-        // 2. [$obj, 'instanceMethodName],
-        // 3. 'global_func'
-        // 4. 'MyClass::staticFunc'
         $function_fqsens = (new UnionTypeVisitor($code_base, $context, true))->functionLikeFQSENListFromNode($node, $log_error);
         $functions = [];
         foreach ($function_fqsens as $fqsen) {
@@ -1921,11 +1916,6 @@ class UnionTypeVisitor extends AnalysisVisitor
      */
     public static function functionLikeFQSENListFromNodeAndContext(CodeBase $code_base, Context $context, $node, bool $log_error) : array
     {
-        // TODO: improve functionLikeFQSENListFromNodeAndContext to include
-        // 1. [MyClass::class, 'staticMethodName'],
-        // 2. [$obj, 'instanceMethodName],
-        // 3. 'global_func'
-        // 4. 'MyClass::staticFunc'
         return (new UnionTypeVisitor($code_base, $context, true))->functionLikeFQSENListFromNode($node, $log_error);
     }
 

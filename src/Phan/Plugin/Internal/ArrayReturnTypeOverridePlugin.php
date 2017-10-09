@@ -2,6 +2,7 @@
 namespace Phan\Plugin\Internal;
 
 use Phan\CodeBase;
+use Phan\Analysis\ArgumentType;
 use Phan\AST\UnionTypeVisitor;
 use Phan\Issue;
 use Phan\Language\Context;
@@ -61,6 +62,7 @@ final class ArrayReturnTypeOverridePlugin extends PluginV2 implements ReturnType
             return;
         }
         // TODO: Do this, overlapping with of ArgumentType->analyzeParameterList....
+
     }
 
     /**
@@ -134,6 +136,14 @@ final class ArrayReturnTypeOverridePlugin extends PluginV2 implements ReturnType
                 $passed_array_type = UnionTypeVisitor::unionTypeFromNode($code_base, $context, $args[0]);
                 $generic_passed_array_type = $passed_array_type->genericArrayTypes();
                 if (!$generic_passed_array_type->isEmpty()) {
+                    if (\count($args) === 2) {
+                        $filter_function_list = UnionTypeVisitor::functionLikeListFromNodeAndContext($code_base, $context, $args[1], true);
+                        foreach ($filter_function_list as $filter_function) {
+                            // Analyze that the individual elements passed to array_filter()'s callback make sense.
+                            // TODO: analyze ARRAY_FILTER_USE_KEY, ARRAY_FILTER_USE_BOTH
+                            ArgumentType::analyzeParameter($code_base, $context, $filter_function, $generic_passed_array_type->genericArrayElementTypes(), $context->getLineNumberStart(), 0);
+                        }
+                    }
                     // TODO: Analyze if it and the flags are compatible with the arguments to the closure provided.
                     return $generic_passed_array_type;
                 }
@@ -145,31 +155,17 @@ final class ArrayReturnTypeOverridePlugin extends PluginV2 implements ReturnType
             if (\count($args) < 2) {
                 return $mixed_type->asUnionType();
             }
-            $function_fqsen_list = UnionTypeVisitor::functionLikeFQSENListFromNodeAndContext($code_base, $context, $args[1], true);
-            if (\count($function_fqsen_list) === 0) {
+            $function_like_list = UnionTypeVisitor::functionLikeListFromNodeAndContext($code_base, $context, $args[1], true);
+            if (\count($function_like_list) === 0) {
                 return $mixed_type->asUnionType();
             }
             $function_return_types = new UnionType();
-            foreach ($function_fqsen_list as $fqsen) {
-                if ($fqsen instanceof FullyQualifiedMethodName) {
-                    if (!$code_base->hasMethodWithFQSEN($fqsen)) {
-                        // TODO: error PhanArrayMapClosure
-                        continue;
-                    }
-                    $function_like = $code_base->getMethodByFQSEN($fqsen);
-                } else {
-                    assert($fqsen instanceof FullyQualifiedFunctionName);
-                    if (!$code_base->hasFunctionWithFQSEN($fqsen)) {
-                        // TODO: error PhanArrayMapClosure
-                        continue;
-                    }
-                    $function_like = $code_base->getFunctionByFQSEN($fqsen);
-                }
-                // TODO: dependent union type?
+            foreach ($function_like_list as $function_like) {
+                // TODO: Support analysis of map/reduce functions with dependent union types?
                 $function_return_types->addUnionType($function_like->getUnionType());
             }
             if ($function_return_types->isEmpty()) {
-                return $mixed_type->asUnionType();
+                $function_return_types->addType($mixed_type);
             }
             return $function_return_types;
         };
@@ -190,21 +186,16 @@ final class ArrayReturnTypeOverridePlugin extends PluginV2 implements ReturnType
             if (\count($args) < 2) {
                 return $array_type->asUnionType();
             }
-            // TODO: improve functionLikeFQSENListFromNodeAndContext to include
-            // 1. [MyClass::class, 'staticMethodName'],
-            // 2. [$obj, 'instanceMethodName],
-            // 3. 'global_func'
-            // 4. 'MyClass::staticFunc'
             $function_like_list = UnionTypeVisitor::functionLikeListFromNodeAndContext($code_base, $context, $args[0], true);
             if (\count($function_like_list) === 0) {
                 return $array_type->asUnionType();
             }
-            $expected_parameters = \array_slice($args, 1);
+            $arguments = \array_slice($args, 1);
             $element_types = new UnionType();
             foreach ($function_like_list as $function_like) {
 
-                self::checkParameterListForCallback(
-                    $code_base, $context, $function_like, $expected_parameters, static function(UnionType $type) {
+                ArgumentType::analyzeForCallback(
+                    $function_like, $arguments, $context, $code_base, static function(UnionType $type) {
                         return $type->genericArrayElementTypes();
                     }
                 );
@@ -220,11 +211,6 @@ final class ArrayReturnTypeOverridePlugin extends PluginV2 implements ReturnType
             if (\count($args) < 1) {
                 return new UnionType();
             }
-            // TODO: improve functionLikeFQSENListFromNodeAndContext to include
-            // 1. [MyClass::class, 'staticMethodName'],
-            // 2. [$obj, 'instanceMethodName],
-            // 3. 'global_func'
-            // 4. 'MyClass::staticFunc'
             $function_like_list = UnionTypeVisitor::functionLikeListFromNodeAndContext($code_base, $context, $args[0], true);
             if (\count($function_like_list) === 0) {
                 return new UnionType();
