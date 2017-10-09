@@ -463,7 +463,7 @@ class ArgumentType
                 $code_base,
                 $argument
             );
-            self::analyzeParameter($code_base, $context, $method, $argument_type, $context->getLineNumberStart(), $i);
+            self::analyzeParameter($code_base, $context, $method, $argument_type, $node->lineno ?? 0, $i);
         }
     }
 

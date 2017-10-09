@@ -141,7 +141,7 @@ final class ArrayReturnTypeOverridePlugin extends PluginV2 implements ReturnType
                         foreach ($filter_function_list as $filter_function) {
                             // Analyze that the individual elements passed to array_filter()'s callback make sense.
                             // TODO: analyze ARRAY_FILTER_USE_KEY, ARRAY_FILTER_USE_BOTH
-                            ArgumentType::analyzeParameter($code_base, $context, $filter_function, $generic_passed_array_type->genericArrayElementTypes(), $context->getLineNumberStart(), 0);
+                            ArgumentType::analyzeParameter($code_base, $context, $filter_function, $passed_array_type->genericArrayElementTypes(), $context->getLineNumberStart(), 0);
                         }
                     }
                     // TODO: Analyze if it and the flags are compatible with the arguments to the closure provided.

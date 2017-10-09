@@ -3,7 +3,7 @@
 /** @return int[] */
 function test366() : array{
     // Expected string, got int
-    return array_filter([2,42], function(string $x) : bool {
+    return array_filter([new stdClass(), new stdClass()], function(string $x) : bool {
         return strlen($x) > 1;
     });
 }
