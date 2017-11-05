@@ -14,7 +14,7 @@ engines:
       Controversial/CamelCaseVariableName:
         enabled: false
   phan:
-    enabled: false
+    enabled: true
     config:
         file_extensions: "php"
         ignore-undeclared: false
