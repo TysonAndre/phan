@@ -887,7 +887,7 @@ class Type
 
             return static::fromFullyQualifiedString(
                 (string)$context->getClassFQSEN()
-            );
+            )->withIsNullable($is_nullable);
         }
 
         // Merge the current namespace with the given relative
