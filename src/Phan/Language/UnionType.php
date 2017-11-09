@@ -1009,7 +1009,7 @@ class UnionType implements \Serializable
 
         if (Config::get_null_casts_as_any_type()) {
             // null <-> null
-            // (this fork has weaker type casting rules than etsy/phan, using hasType instead of isType)
+            // (this fork has weaker type casting rules than phan/phan, using hasType instead of isType)
             if ($this->hasType(NullType::instance(false))
                 || $target->isType(NullType::instance(false))
             ) {
