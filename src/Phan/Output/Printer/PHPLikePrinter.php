@@ -15,7 +15,8 @@ final class PHPLikePrinter implements IssuePrinterInterface
     public function print(IssueInstance $instance)
     {
         // Same format as `php -l`: "Parse error: %s in %s on line %d
-        $line = sprintf("Phan error: %s: %s: %s in %s on line %d",
+        $line = sprintf(
+            "Phan error: %s: %s: %s in %s on line %d",
             Issue::getNameForCategory($instance->getIssue()->getCategory()),
             $instance->getIssue()->getType(),
             $instance->getMessage(),
