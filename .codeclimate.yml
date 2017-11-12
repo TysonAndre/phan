@@ -21,6 +21,9 @@ engines:
         quick: false
         backward-compatibility-checks: true
         dead-code-detection: true
+  sonar-php:
+    enabled: true
+
 ratings:
   paths:
     - "**.php"
