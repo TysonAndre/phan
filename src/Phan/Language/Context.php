@@ -296,6 +296,22 @@ class Context extends FileRef
     }
 
     /**
+     * Add a variable to this context's scope. Note that
+     * this does not create a new context. You're actually
+     * injecting the variable property into the context.
+     * Use with caution.
+     *
+     * @return void
+     */
+    public function addScopeVariableProperty(
+        string $variable_name,
+        string $property_name,
+        UnionType $type
+    ) {
+        $this->getScope()->addVariablePropertyWithName($variable_name, $property_name, $type);
+    }
+
+    /**
      * @return bool
      * True if this context is currently within a class
      * scope, else false.

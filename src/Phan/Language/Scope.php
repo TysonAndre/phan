@@ -28,6 +28,11 @@ abstract class Scope
     protected $variable_map = [];
 
     /**
+     * @var UnionType[][] [string $var_name => [string $prop_name => []]]
+     */
+    protected $variable_property_map = [];
+
+    /**
      * @var TemplateType[]
      * A map from template type identifiers to the
      * TemplateType that parameterizes the generic class
@@ -162,11 +167,29 @@ abstract class Scope
     }
 
     /**
+     * @return bool
+     * True if a static/instance property with the given name is defined
+     * within this scope
+     */
+    public function hasVariablePropertyWithName(string $variable_name, string $property_name) : bool
+    {
+        return (!empty($this->variable_property_map[$variable_name][$property_name]));
+    }
+
+    /**
      * @return Variable
      */
     public function getVariableByName(string $name) : Variable
     {
         return $this->variable_map[$name];
+    }
+
+    /**
+     * @return Variable
+     */
+    public function getVariablePropertyByName(string $variable_name, string $property_name) : UnionType
+    {
+        return $this->variable_property_map[$variable_name][$property_name];
     }
 
     /**
@@ -197,6 +220,15 @@ abstract class Scope
     public function addVariable(Variable $variable)
     {
         $this->variable_map[$variable->getName()] = $variable;
+        unset($this->variable_property_map[$variable->getName()]);
+    }
+
+    /**
+     * @return void
+     */
+    public function addVariablePropertyWithName(string $variable_name, string $property_name, UnionType $type)
+    {
+        $this->variable_property_map[$variable_name][$property_name] = $type;
     }
 
     /**

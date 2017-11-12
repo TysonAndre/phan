@@ -360,8 +360,20 @@ class AssignmentVisitor extends AnalysisVisitor
     }
 
     /**
+     * @param string $variable_name not yet checked
+     * @param string $property_name
+     * @return void
+     */
+    private function addVariablePropertyWithName($variable_name, string $property_name)
+    {
+        if (\is_scalar($variable_name)) {
+            $this->context->addScopeVariableProperty((string)$variable_name, $property_name, $this->right_type);
+        }
+    }
+
+    /**
      * @param Node $node
-     * A node to parse, for an instance property.
+     * A node to parse, for an instance property assignment.
      *
      * @return Context
      * A new or an unchanged context resulting from
@@ -369,12 +381,19 @@ class AssignmentVisitor extends AnalysisVisitor
      */
     public function visitProp(Node $node) : Context
     {
+        $property_name = $node->children['prop'];
+        $expr_node = $node->children['expr'];
+        if (\is_string($property_name) && $expr_node instanceof Node) {
+            if ($expr_node->kind === ast\AST_VAR) {
+                $this->addVariablePropertyWithName($expr_node->children['name'], $property_name);
+            }
+        }
         // Get class list first, warn if the class list is invalid.
         try {
             $class_list = (new ContextNode(
                 $this->code_base,
                 $this->context,
-                $node->children['expr']
+                $expr_node
             ))->getClassList(false, ContextNode::CLASS_LIST_ACCEPT_OBJECT, Issue::TypeExpectedObjectPropAccess);
         } catch (CodeBaseException $exception) {
             // This really shouldn't happen since the code
@@ -386,8 +405,6 @@ class AssignmentVisitor extends AnalysisVisitor
             // this is, don't worry about it
             return $this->context;
         }
-
-        $property_name = $node->children['prop'];
 
         // Things like $foo->$bar
         if (!\is_string($property_name)) {
