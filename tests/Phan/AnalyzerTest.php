@@ -6,9 +6,6 @@ namespace Phan\Tests;
 $internal_class_name_list = get_declared_classes();
 $internal_interface_name_list = get_declared_interfaces();
 $internal_trait_name_list = get_declared_traits();
-$internal_const_name_list = array_keys(array_merge(...array_values(
-    array_diff_key(get_defined_constants(true), ['user' => []]))
-));
 $internal_function_name_list = get_defined_functions()['internal'];
 
 use Phan\Analysis;
@@ -17,7 +14,8 @@ use Phan\Config;
 use Phan\Language\Context;
 use Phan\Language\FQSEN\FullyQualifiedClassName;
 
-class AnalyzerTest extends BaseTest {
+class AnalyzerTest extends BaseTest
+{
 
     private $class_name_list;
     private $interface_name_list;
@@ -30,7 +28,8 @@ class AnalyzerTest extends BaseTest {
      */
     private $code_base;
 
-    protected function setUp() {
+    protected function setUp()
+    {
         global $internal_class_name_list;
         global $internal_interface_name_list;
         global $internal_trait_name_list;
@@ -39,7 +38,7 @@ class AnalyzerTest extends BaseTest {
         $this->class_name_list = $internal_class_name_list;
         $this->interface_name_list = $internal_interface_name_list;
         $this->trait_name_list = $internal_trait_name_list;
-        $this->const_name_list = $internal_const_name_list;
+        $this->const_name_list = CodeBase::getPHPInternalConstantNameList();
         $this->function_name_list = $internal_function_name_list;
 
 
@@ -51,11 +50,10 @@ class AnalyzerTest extends BaseTest {
                 [], // $this->const_name_list,
                 []  // $this->function_name_list
             );
-
-
     }
 
-    public function testClassInCodeBase() {
+    public function testClassInCodeBase()
+    {
 
         $this->contextForCode("
             Class A {}
@@ -68,7 +66,8 @@ class AnalyzerTest extends BaseTest {
         );
     }
 
-    public function testNamespaceClassInCodeBase() {
+    public function testNamespaceClassInCodeBase()
+    {
         $this->contextForCode("
             namespace A;
             Class B {}
@@ -81,7 +80,8 @@ class AnalyzerTest extends BaseTest {
         );
     }
 
-    public function testMethodInCodeBase() {
+    public function testMethodInCodeBase()
+    {
         $this->contextForCode("
             namespace A;
             Class B {

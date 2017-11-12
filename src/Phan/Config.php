@@ -25,7 +25,7 @@ class Config
      * and the results of version_compare.
      * PluginV2 will correspond to 2.x.y, PluginV3 will correspond to 3.x.y, etc.
      * New features increment minor versions, and bug fixes increment patch versions.
-     * @suppress PhanUnreferencedConstant
+     * @suppress PhanUnreferencedPublicClassConstant
      */
     const PHAN_PLUGIN_VERSION = '2.2.0';
 
@@ -517,8 +517,16 @@ class Config
             // 'PhanUnextractableAnnotationPart',
             // 'PhanUnreferencedClass',
             // 'PhanUnreferencedConstant',
-            // 'PhanUnreferencedMethod',
-            // 'PhanUnreferencedProperty',
+            // 'PhanUnreferencedPublicClassConstant',
+            // 'PhanUnreferencedProtectedClassConstant',
+            // 'PhanUnreferencedPrivateClassConstant',
+            // 'PhanUnreferencedPublicMethod',
+            // 'PhanUnreferencedProtectedMethod',
+            // 'PhanUnreferencedPrivateMethod',
+            // 'PhanUnreferencedPublicMethod',
+            // 'PhanUnreferencedPublicProperty',
+            // 'PhanUnreferencedProtectedProperty',
+            // 'PhanUnreferencedPublicProperty',
             // 'PhanVariableUseClause',
         ],
 
@@ -691,6 +699,8 @@ class Config
         return self::$configuration;
     }
 
+    // @codingStandardsIgnoreStart method naming is deliberate to make these getters easier to search.
+
     public static function get_null_casts_as_any_type() : bool
     {
         return self::$null_casts_as_any_type;
@@ -725,6 +735,7 @@ class Config
     {
         return self::$quick_mode;
     }
+    // @codingStandardsIgnoreEnd
 
     /**
      * @return mixed
@@ -763,34 +774,33 @@ class Config
     {
         self::$configuration[$name] = $value;
         switch ($name) {
-        case 'null_casts_as_any_type':
-            self::$null_casts_as_any_type = $value;
-            break;
-        case 'null_casts_as_array':
-            self::$null_casts_as_array = $value;
-            break;
-        case 'array_casts_as_null':
-            self::$array_casts_as_null = $value;
-            break;
-        case 'dead_code_detection':
-        case 'force_tracking_references':
-            self::$track_references = self::getValue('dead_code_detection') || self::getValue('force_tracking_references');
-            break;
-        case 'backward_compatibility_checks':
-            self::$backward_compatibility_checks = $value;
-            break;
-        case 'quick_mode':
-            self::$quick_mode = $value;
-            break;
+            case 'null_casts_as_any_type':
+                self::$null_casts_as_any_type = $value;
+                break;
+            case 'null_casts_as_array':
+                self::$null_casts_as_array = $value;
+                break;
+            case 'array_casts_as_null':
+                self::$array_casts_as_null = $value;
+                break;
+            case 'dead_code_detection':
+            case 'force_tracking_references':
+                self::$track_references = self::getValue('dead_code_detection') || self::getValue('force_tracking_references');
+                break;
+            case 'backward_compatibility_checks':
+                self::$backward_compatibility_checks = $value;
+                break;
+            case 'quick_mode':
+                self::$quick_mode = $value;
+                break;
         }
-
     }
 
     /**
      * @return string
      * The relative path appended to the project root directory.
      *
-     * @suppress PhanUnreferencedMethod
+     * @suppress PhanUnreferencedPublicMethod
      */
     public static function projectPath(string $relative_path)
     {

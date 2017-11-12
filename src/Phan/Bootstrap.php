@@ -45,7 +45,8 @@ set_exception_handler(function (Throwable $throwable) {
  * @return mixed
  * @suppress PhanPluginUnusedVariable
  */
-function with_disabled_phan_error_handler(Closure $closure) {
+function with_disabled_phan_error_handler(Closure $closure)
+{
     global $__no_echo_phan_errors;
     $__no_echo_phan_errors = true;
     try {
@@ -59,7 +60,7 @@ function with_disabled_phan_error_handler(Closure $closure) {
  * The error handler for PHP notices, etc.
  * This is a named function instead of a closure to make stack traces easier to read.
  *
- * @suppress PhanUnreferencedMethod
+ * @suppress PhanUnreferencedFunction
  */
 function phan_error_handler($errno, $errstr, $errfile, $errline)
 {

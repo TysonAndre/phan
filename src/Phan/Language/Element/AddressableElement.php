@@ -69,7 +69,8 @@ abstract class AddressableElement extends TypedElement implements AddressableEle
      * The fully-qualified structural element name of this
      * structural element
      */
-    public function getFQSEN() {
+    public function getFQSEN()
+    {
         \assert(!empty($this->fqsen), "FQSEN must be defined");
         return $this->fqsen;
     }
@@ -181,6 +182,12 @@ abstract class AddressableElement extends TypedElement implements AddressableEle
     public function addReference(FileRef $file_ref)
     {
         if (Config::get_track_references()) {
+            // Currently, we don't need to track references to PHP-internal methods/functions/constants
+            // such as PHP_VERSION, strlen(), Closure::bind(), etc.
+            // This may change in the future.
+            if ($this->isPHPInternal()) {
+                return;
+            }
             $this->reference_list[(string)$file_ref] = $file_ref;
         }
     }
@@ -230,7 +237,7 @@ abstract class AddressableElement extends TypedElement implements AddressableEle
      * @return void
      * @override
      */
-    public final function hydrate(CodeBase $code_base)
+    final public function hydrate(CodeBase $code_base)
     {
         if (!$this->isFirstExecution(__METHOD__)) {
             return;

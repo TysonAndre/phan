@@ -6,7 +6,8 @@ use Phan\Language\Scope;
 
 // TODO: Warn if __clone() is called, the code is doing something wrong.
 //       the underlying static $global_variable_map isn't cloned, so it's a no-op.
-class GlobalScope extends Scope {
+class GlobalScope extends Scope
+{
 
     /**
      * @var Variable[]
@@ -115,5 +116,4 @@ class GlobalScope extends Scope {
     {
         return $this->getVariableByName($name);
     }
-
 }

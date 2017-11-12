@@ -27,9 +27,6 @@ use Phan\Language\Type\VoidType;
 $internal_class_name_list = get_declared_classes();
 $internal_interface_name_list = get_declared_interfaces();
 $internal_trait_name_list = get_declared_traits();
-$internal_const_name_list = array_keys(array_merge(...array_values(
-    array_diff_key(get_defined_constants(true), ['user' => []])
-)));
 $internal_function_name_list = get_defined_functions()['internal'];
 
 use Phan\CodeBase;
@@ -66,7 +63,6 @@ class UnionTypeTest extends BaseTest
         global $internal_class_name_list;
         global $internal_interface_name_list;
         global $internal_trait_name_list;
-        global $internal_const_name_list;
         global $internal_function_name_list;
 
         if (self::$code_base === null) {
@@ -74,7 +70,7 @@ class UnionTypeTest extends BaseTest
                 $internal_class_name_list,
                 $internal_interface_name_list,
                 $internal_trait_name_list,
-                $internal_const_name_list,
+                CodeBase::getPHPInternalConstantNameList(),
                 $internal_function_name_list
             );
         }
@@ -86,15 +82,18 @@ class UnionTypeTest extends BaseTest
         $this->context = null;
     }
 
-    public static function tearDownAfterClass() {
+    public static function tearDownAfterClass()
+    {
         self::$code_base = null;
     }
 
-    public function testInt() {
+    public function testInt()
+    {
         $this->assertUnionTypeStringEqual('42', 'int');
     }
 
-    public function testString() {
+    public function testString()
+    {
         try {
             $this->assertUnionTypeStringEqual(
                 '"a string"',
@@ -105,36 +104,45 @@ class UnionTypeTest extends BaseTest
         }
     }
 
-    public function testArrayUniform() {
+    public function testArrayUniform()
+    {
         $this->assertUnionTypeStringEqual(
             '[1, 2, 3]',
             'int[]'
         );
     }
 
-    public function testArrayMixed() {
+    public function testArrayMixed()
+    {
         $this->assertUnionTypeStringEqual(
-            '[1, "string"]', 'array'
+            '[1, "string"]',
+            'array'
         );
     }
 
-    public function testArrayEmpty() {
+    public function testArrayEmpty()
+    {
         $this->assertUnionTypeStringEqual(
-            '[]', 'array'
+            '[]',
+            'array'
         );
     }
-    public function testInternalObject() {
+    public function testInternalObject()
+    {
         $this->assertUnionTypeStringEqual(
             'new SplStack();',
             '\\ArrayAccess|\\Countable|\\Iterator|\\Serializable|\\SplDoublyLinkedList|\\SplStack|\\Traversable|iterable'
         );
     }
 
-    public function testGenericArrayType() {
+    public function testGenericArrayType()
+    {
         $type = GenericArrayType::fromElementType(
             GenericArrayType::fromElementType(
-                IntType::instance(false), false
-            ), false
+                IntType::instance(false),
+                false
+            ),
+            false
         );
 
         $this->assertEquals(
@@ -143,7 +151,8 @@ class UnionTypeTest extends BaseTest
         );
     }
 
-    public function testGenericArrayTypeFromString() {
+    public function testGenericArrayTypeFromString()
+    {
         $type = Type::fromFullyQualifiedString("int[][]");
 
         $this->assertEquals(
@@ -164,8 +173,8 @@ class UnionTypeTest extends BaseTest
      */
     private function assertUnionTypeStringEqual(
         string $code_stub,
-        string $type_name)
-    {
+        string $type_name
+    ) {
         $this->assertEquals(
             $type_name,
             $this->typeStringFromCode('<' . '?php ' . $code_stub . ';')
@@ -178,7 +187,8 @@ class UnionTypeTest extends BaseTest
      * the first statement in the statement list in the given
      * code.
      */
-    private function typeStringFromCode(string $code) : string {
+    private function typeStringFromCode(string $code) : string
+    {
         return UnionType::fromNode(
             $this->context,
             self::$code_base,
