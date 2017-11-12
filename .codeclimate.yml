@@ -1,13 +1,28 @@
 ---
 # TODO: Fix https://github.com/phan/phan/issues/826
 engines:
-  phan:
+  duplication:
     enabled: true
+    config:
+      languages:
+        - php
+  fixme:
+    enabled: false
+  phpmd:
+    enabled: true
+    checks:
+      Controversial/CamelCaseVariableName:
+        enabled: false
+  phan:
+    enabled: false
     config:
         file_extensions: "php"
         ignore-undeclared: false
         quick: false
         backward-compatibility-checks: true
         dead-code-detection: true
-exclude_patterns:
+ratings:
+  paths:
+    - "**.php"
+exclude_paths:
   - tests/**/*
