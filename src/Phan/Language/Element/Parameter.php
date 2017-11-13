@@ -494,6 +494,24 @@ class Parameter extends Variable
         return self::REFERENCE_DEFAULT;
     }
 
+    /**
+     * @return void
+     */
+    public function setIsOutputReference()
+    {
+        $this->setPhanFlags(
+            Flags::bitVectorWithState(
+                Flags::bitVectorWithState(
+                    $this->getPhanFlags(),
+                    Flags::IS_READ_REFERENCE,
+                    false
+                ),
+                Flags::IS_WRITE_REFERENCE,
+                true
+            )
+        );
+    }
+
     public function __toString() : string
     {
         $string = '';
@@ -543,11 +561,11 @@ class Parameter extends Variable
         }
 
         $name = $this->getName();
-        if (!\preg_match('@' . Comment::word_regex . '@', $name)) {
+        if (!\preg_match('@' . Comment::WORD_REGEX . '@', $name)) {
             // Some PECL extensions have invalid parameter names.
             // Replace invalid characters with U+FFFD replacement character.
             $name = \preg_replace('@[^a-zA-Z0-9_\x7f-\xff]@', '�', $name);
-            if (!\preg_match('@' . Comment::word_regex . '@', $name)) {
+            if (!\preg_match('@' . Comment::WORD_REGEX . '@', $name)) {
                 $name = '_' . $name;
             }
         }

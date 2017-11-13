@@ -60,7 +60,7 @@ class Comment
      * (e.g. for variable names, magic property names, etc.
      * This does not allow backslashes.
      */
-    const word_regex = '([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)';
+    const WORD_REGEX = '([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)';
 
     /**
      * @var int - contains a subset of flags to set on elements
@@ -298,7 +298,7 @@ class Comment
                 if ($comment_var->getName() !== '' || !\in_array($comment_type, self::FUNCTION_LIKE)) {
                     $variable_list[] = $comment_var;
                 }
-            } elseif (\stripos($line, '@template') !== false) {
+            } elseif (\strpos($line, '@template') !== false) {
                 // Make sure support for generic types is enabled
                 if (Config::getValue('generic_types_enabled')) {
                     $check_compatible('@template', [Comment::ON_CLASS]);
@@ -510,7 +510,9 @@ class Comment
         bool $is_var,
         int $lineno
     ) {
-        if (preg_match('/@(param|var)\b\s*(' . UnionType::union_type_regex . ')?(?:\s*(\.\.\.)?\s*(?:\\$' . self::word_regex . '))?/', $line, $match)) {
+        // Parse https://docs.phpdoc.org/references/phpdoc/tags/param.html
+        // Exceptions: Deliberately allow "&" in "@param int &$x" when documenting references.
+        if (preg_match('/@(param|var)\b\s*(' . UnionType::union_type_regex . ')?(?:\s*(\.\.\.)?\s*&?(?:\\$' . self::WORD_REGEX . '))?/', $line, $match)) {
             if (!isset($match[2])) {
                 return new CommentParameter('', new UnionType());
             }
@@ -523,13 +525,9 @@ class Comment
             } else {
                 $variable_name = $match[17] ?? '';
             }
-            // If the parameter has a type which is labelled as a typo (type maps to ''),
-            // then treat it the same way as a parameter without a type in the doc comment.
-            // Otherwise, continue with the (possibly renamed) type.
+            // Fix typos or non-standard phpdoc tags, according to the user's configuration.
+            // Does nothing by default.
             $type = self::rewritePHPDocType($original_type);
-            if ($type !== $original_type && $type === '') {
-                return new CommentParameter('', new UnionType());
-            }
 
             // If the type looks like a variable name, make it an
             // empty type so that other stuff can match it. We can't
@@ -545,11 +543,14 @@ class Comment
             } else {
                 $union_type = new UnionType();
             }
+            $is_output_parameter = \stripos($line, '@phan-output-reference') !== false;
 
             return new CommentParameter(
                 $variable_name,
                 $union_type,
-                $is_variadic
+                $is_variadic,
+                false,  // has_default_value
+                $is_output_parameter
             );
         } else {
             // Don't warn about @param $x Description of $x goes here
@@ -582,7 +583,7 @@ class Comment
         string $line
     ) {
         $match = [];
-        // TODO: Just use word_regex? Backslashes or nested templates wouldn't make sense.
+        // TODO: Just use WORD_REGEX? Backslashes or nested templates wouldn't make sense.
         if (preg_match('/@template\s+(' . Type::simple_type_regex. ')/', $line, $match)) {
             $template_type_identifier = $match[1];
             return new TemplateType($template_type_identifier);
@@ -631,7 +632,7 @@ class Comment
     private static function suppressIssueFromCommentLine(
         string $line
     ) : string {
-        if (preg_match('/@suppress\s+' . self::word_regex . '/', $line, $match)) {
+        if (preg_match('/@suppress\s+' . self::WORD_REGEX . '/', $line, $match)) {
             return $match[1];
         }
 
@@ -656,7 +657,7 @@ class Comment
         // https://github.com/phpDocumentor/phpDocumentor2/pull/1271/files - phpdoc allows passing an default value.
         // Phan allows `=.*`, to indicate that a parameter is optional
         // TODO: in another PR, check that optional parameters aren't before required parameters.
-        if (preg_match('/^(' . UnionType::union_type_regex . ')?\s*(?:(\.\.\.)\s*)?(?:\$' . self::word_regex . ')?((?:\s*=.*)?)$/', $param_string, $param_match)) {
+        if (preg_match('/^(' . UnionType::union_type_regex . ')?\s*(?:(\.\.\.)\s*)?(?:\$' . self::WORD_REGEX . ')?((?:\s*=.*)?)$/', $param_string, $param_match)) {
             // Note: a magic method parameter can be variadic, but it can't be pass-by-reference? (No support in __call)
             $union_type_string = $param_match[1];
             $union_type = UnionType::fromStringInContext(
@@ -709,7 +710,7 @@ class Comment
         //    Assumes the parameters end at the first ")" after "("
         //    As an exception, allows one level of matching brackets
         //    to support old style arrays such as $x = array(), $x = array(2) (Default values are ignored)
-        if (preg_match('/@method(?:\s+(static))?(?:(?:\s+(' . UnionType::union_type_regex_or_this . '))?)\s+' . self::word_regex . '\s*\(((?:[^()]|\([()]*\))*)\)\s*(.*)/', $line, $match)) {
+        if (preg_match('/@method(?:\s+(static))?(?:(?:\s+(' . UnionType::union_type_regex_or_this . '))?)\s+' . self::WORD_REGEX . '\s*\(((?:[^()]|\([()]*\))*)\)\s*(.*)/', $line, $match)) {
             $is_static = $match[1] === 'static';
             $return_union_type_string = $match[2];
             if ($return_union_type_string !== '') {
@@ -788,7 +789,7 @@ class Comment
         // Note that the type of a property can be left out (@property $myVar) - This is equivalent to @property mixed $myVar
         // TODO: properly handle duplicates...
         // TODO: support read-only/write-only checks elsewhere in the codebase?
-        if (\preg_match('/@(property|property-read|property-write)(?:\s+(' . UnionType::union_type_regex . '))?(?:\s+(?:\\$' . self::word_regex . '))/', $line, $match)) {
+        if (\preg_match('/@(property|property-read|property-write)(?:\s+(' . UnionType::union_type_regex . '))?(?:\s+(?:\\$' . self::WORD_REGEX . '))/', $line, $match)) {
             $type = $match[2] ?? '';
 
             $property_name = $match[16] ?? '';
