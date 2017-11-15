@@ -24,7 +24,7 @@ New Features(Analysis)
   `PhanUnreferencedConst` is now exclusively used for global constants.
 + Analyze compact() for undefined variables (#1089)
 + Add `PhanParamSuspiciousOrder` to warn about mixing up variable and constant/literal arguments in calls to built in string/regex functions
-  (`explode`, `strpos`, `preg_match`, etc.)
+  (`explode`, `strpos`, `mb_strpos`, `preg_match`, etc.)
 + Preserve the closure's function signature in the inferred return value of `Closure::bind()`. (#869)
 + Support indicating that a reference parameter's input value is unused by writing `@phan-output-reference` on the same line as an `@param` annotation.
   This indicates that Phan should not warn about the passed in type, and should not preserve the passed in type after the call to the function/method.
@@ -34,6 +34,8 @@ New Features(Analysis)
 + Add new issue types for places where an object would be expected:
   `PhanTypeExpectedObjectPropAccess`, `PhanTypeExpectedObjectPropAccessButGotNull`, `PhanTypeExpectedObjectStaticPropAccess`,
   `PhanTypeExpectedObject`, and `PhanTypeExpectedObjectOrClassName
++ Emit more accurate line numbers for phpdoc comments, when warning about phpdoc in doc comments being invalid. (#1294)
+  This gives up and uses the element's line number if the phpdoc ends over 10 lines before the start of the element.
 
 New Features (CLI, Configs)
 + Improve default update rate of `--progress-bar` (Update it every 0.10 seconds)
@@ -52,6 +54,7 @@ Bug Fixes
   Also, start warning about a subset of issues from interfaces and abstract classes (e.g. unused interface constants)
 + Properly handle `static::class` as a class name in an array callable, or `static::method_name` in a string callable (#1232)
 + Make `@template` tag for [Generic Types](https://github.com/phan/phan/wiki/Generic-Types) case sensitive. (#1243)
++ Fix a bug causing Phan to infer an empty union type (which can cast to any type) for arrays with elements of empty union types. (#1296)
 
 Plugins
 + Make DuplicateArrayKeyPlugin start warning about duplicate values of known global constants and class constants. (#1139)
