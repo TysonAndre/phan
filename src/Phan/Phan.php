@@ -2,6 +2,7 @@
 namespace Phan;
 
 use Phan\Daemon\Request;
+use Phan\Language\Type;
 use Phan\LanguageServer\LanguageServer;
 use Phan\LanguageServer\Logger as LanguageServerLogger;
 use Phan\Library\FileCache;
@@ -169,6 +170,9 @@ class Phan implements IgnoredFilesFilterInterface
             exit(self::dumpSignaturesToFile($code_base, Config::getValue('dump_signatures_file')));
         }
 
+        // Clear Type->asExpandedTypes(), we may have found more parent classes since these were called.
+        Type::clearAllMemoizations();
+
         $temporary_file_mapping = [];
 
         $request = null;
@@ -314,6 +318,9 @@ class Phan implements IgnoredFilesFilterInterface
         );
 
         $did_fork_pool_have_error = false;
+
+        // Clear Type->asExpandedTypes(), we may have found more parent classes since these were called.
+        Type::clearAllMemoizations();
 
         CLI::progress('analyze', 0.0);
         // Check to see if we're running as multiple processes
