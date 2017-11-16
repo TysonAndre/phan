@@ -250,4 +250,15 @@ class UnionTypeTest extends BaseTest
         $this->assertTrue($parts[0]->isType(self::makePHPDocType('A1')));
         $this->assertTrue($parts[1]->isType(self::makePHPDocType('B2')));
     }
+
+    public function testNormalize()
+    {
+        $union_type = self::makePHPDocUnionType('object|null');
+        $this->assertSame(2, $union_type->typeCount());
+
+        $new_union_type = $union_type->asNormalizedTypes();
+        $this->assertSame('?object', (string)$new_union_type);
+        $type_set = $new_union_type->getTypeSet();
+        $this->assertSame(ObjectType::instance(true), reset($type_set));
+    }
 }

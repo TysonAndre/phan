@@ -5,6 +5,7 @@ use Phan\CodeBase;
 use Phan\Config;
 use Phan\Output\Collector\BufferingCollector;
 use Phan\Output\Printer\PlainTextPrinter;
+use Phan\Language\Type;
 use Phan\Phan;
 use Symfony\Component\Console\Output\BufferedOutput;
 
@@ -51,6 +52,8 @@ abstract class AbstractPhanFileTest extends BaseTest implements CodeBaseAwareTes
         foreach ($this->original_config as $key => $value) {
             Config::setValue($key, $value);
         }
+
+        Type::clearAllMemoizations();
     }
 
     /**
