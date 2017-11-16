@@ -560,8 +560,8 @@ class UnionType implements \Serializable
         }
 
         $type_set = $this->type_set;
-        $has_static_type = ArraySet::contains($type_set, $static_type);
-        $has_static_nullable_type = ArraySet::contains($type_set, $static_nullable_type);
+        $has_static_type = \in_array($static_type, $type_set);
+        $has_static_nullable_type = \in_array($static_type, $type_set);
 
         // If this doesn't reference 'static', there's nothing to do.
         if (!($has_static_type || $has_static_nullable_type)) {
@@ -629,10 +629,6 @@ class UnionType implements \Serializable
     {
         $type_set = $this->type_set;
         $other_type_set = $union_type->type_set;
-        /**
-        assert(ArraySet::is_array_set($type_set));
-        assert(ArraySet::is_array_set($other_type_set));
-         */
         if (\count($type_set) !== \count($other_type_set)) {
             return false;
         }

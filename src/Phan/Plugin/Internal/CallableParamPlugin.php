@@ -14,7 +14,6 @@ use Phan\Language\Element\Method;
 use Phan\Language\Type\CallableType;
 use Phan\Language\Type;
 use Phan\Language\UnionType;
-use Phan\Library\ArraySet;
 use Phan\PluginV2\ReturnTypeOverrideCapability;
 use Phan\PluginV2\AnalyzeFunctionCallCapability;
 use Phan\PluginV2;
