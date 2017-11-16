@@ -1811,7 +1811,7 @@ class UnionType implements \Serializable
                 }
             }
         }
-        return new UnionType($new_type_set);
+        return new UnionType($new_type_set, true);
     }
 
     /**

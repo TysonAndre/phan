@@ -1384,64 +1384,59 @@ class Type
             $recursion_depth < 20,
             "Recursion has gotten out of hand"
         );
+        $union_type = $this->memoize(__METHOD__, function() use ($code_base, $recursion_depth) {
+            $union_type = $this->asUnionType();
 
-        if ($this->isNativeType() && !$this->isGenericArray()) {
-            return $this->asUnionType();
-        }
+            $class_fqsen = $this->asFQSEN();
 
-        $union_type = $this->asUnionType();
-
-        $class_fqsen = $this->isGenericArray()
-            ? $this->genericArrayElementType()->asFQSEN()
-            : $this->asFQSEN();
-
-        if (!($class_fqsen instanceof FullyQualifiedClassName)) {
-            return $union_type;
-        }
-
-        \assert($class_fqsen instanceof FullyQualifiedClassName);
-
-        if (!$code_base->hasClassWithFQSEN($class_fqsen)) {
-            return $union_type;
-        }
-
-        $clazz = $code_base->getClassByFQSEN($class_fqsen);
-
-        $union_type->addUnionType(
-            $this->isGenericArray()
-                ?  $clazz->getUnionType()->asGenericArrayTypes()
-                : $clazz->getUnionType()
-        );
-
-        // Recurse up the tree to include all types
-        $recursive_union_type = new UnionType();
-        foreach ($union_type->getTypeSet() as $clazz_type) {
-            if ((string)$clazz_type != (string)$this) {
-                $recursive_union_type->addUnionType(
-                    $clazz_type->asExpandedTypes(
-                        $code_base,
-                        $recursion_depth + 1
-                    )
-                );
-            } else {
-                $recursive_union_type->addType($clazz_type);
+            if (!($class_fqsen instanceof FullyQualifiedClassName)) {
+                return $union_type;
             }
-        }
 
-        // Add in aliases
-        // (If enable_class_alias_support is false, this will do nothing)
-        $fqsen_aliases = $code_base->getClassAliasesByFQSEN($class_fqsen);
-        foreach ($fqsen_aliases as $alias_fqsen_record) {
-            $alias_fqsen = $alias_fqsen_record->alias_fqsen;
-            $recursive_union_type->addUnionType(
-                $this->isGenericArray()
-                    ? $alias_fqsen->asUnionType()->asGenericArrayTypes()
-                    : $alias_fqsen->asUnionType()
+            \assert($class_fqsen instanceof FullyQualifiedClassName);
+
+            if (!$code_base->hasClassWithFQSEN($class_fqsen)) {
+                return $union_type;
+            }
+
+            $clazz = $code_base->getClassByFQSEN($class_fqsen);
+
+            $union_type->addUnionType(
+                 $clazz->getUnionType()
             );
-        }
-        // TODO: Investigate caching this and returning clones after analysis is done.
 
-        return $recursive_union_type;
+            // Recurse up the tree to include all types
+            $representation = (string)$this;
+            $recursive_union_type = new UnionType();
+            foreach ($union_type->getTypeSet() as $clazz_type) {
+                if ((string)$clazz_type != $representation) {
+                    $recursive_union_type->addUnionType(
+                        $clazz_type->asExpandedTypes(
+                            $code_base,
+                            $recursion_depth + 1
+                        )
+                    );
+                } else {
+                    $recursive_union_type->addType($clazz_type);
+                }
+            }
+
+            // Add in aliases
+            // (If enable_class_alias_support is false, this will do nothing)
+            $fqsen_aliases = $code_base->getClassAliasesByFQSEN($class_fqsen);
+            foreach ($fqsen_aliases as $alias_fqsen_record) {
+                $alias_fqsen = $alias_fqsen_record->alias_fqsen;
+                $recursive_union_type->addUnionType(
+                    $this->isGenericArray()
+                        ? $alias_fqsen->asUnionType()->asGenericArrayTypes()
+                        : $alias_fqsen->asUnionType()
+                );
+            }
+            // TODO: Investigate caching this and returning clones after analysis is done.
+
+            return $recursive_union_type;
+        });
+        return clone($union_type);
     }
 
     /**
@@ -1637,17 +1632,16 @@ class Type
      */
     public function asFQSENString() : string
     {
-        return $this->memoize(__METHOD__, function() {
-            if (!$this->hasNamespace()) {
-                return $this->getName();
-            }
+        $namespace = $this->namespace;
+        if (!$namespace) {
+            return $this->name;
+        }
 
-            if ('\\' === $this->getNamespace()) {
-                return '\\' . $this->getName();
-            }
+        if ('\\' === $namespace) {
+            return '\\' . $this->name;
+        }
 
-            return "{$this->getNamespace()}\\{$this->getName()}";
-        });
+        return "{$namespace}\\{$this->name}";
     }
 
     /**
@@ -1657,17 +1651,19 @@ class Type
      */
     public function __toString()
     {
-        $string = $this->asFQSENString();
+        return $this->memoize(__METHOD__, function() {
+            $string = $this->asFQSENString();
 
-        if (count($this->template_parameter_type_list) > 0) {
-            $string .= $this->templateParameterTypeListAsString();
-        }
+            if (\count($this->template_parameter_type_list) > 0) {
+                $string .= $this->templateParameterTypeListAsString();
+            }
 
-        if ($this->getIsNullable()) {
-            $string = '?' . $string;
-        }
+            if ($this->getIsNullable()) {
+                $string = '?' . $string;
+            }
 
-        return $string;
+            return $string;
+        });
     }
 
     /**
@@ -1700,7 +1696,7 @@ class Type
             'integer'  => 'int',
         ];
 
-        return $map[strtolower($name)] ?? $name;
+        return $map[\strtolower($name)] ?? $name;
     }
 
     /**
