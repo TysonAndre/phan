@@ -39,6 +39,8 @@ abstract class AbstractPhanFileTest extends BaseTest implements CodeBaseAwareTes
         foreach (Config::get()->toArray() as $key => $value) {
             $this->original_config[$key] = $value;
         }
+
+        Type::clearAllMemoizations();
     }
 
     /**

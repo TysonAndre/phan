@@ -176,7 +176,11 @@ class Analysis
         // Visit the given node populating the code base
         // with anything we learn and get a new context
         // indicating the state of the world within the
-        // given node
+        // given node.
+        // NOTE: This is called extremely frequently
+        // (E.g. on a large number of the analyzed project's vendor dependencies,
+        // proportionally to the node count in the files), so code style was sacrificed for performance.
+        // Equivalent to (new ParseVisitor(...))($node), which uses ParseVisitor->__invoke
         $context = (new ParseVisitor(
             $code_base,
             $context->withLineNumberStart($node->lineno ?? 0)

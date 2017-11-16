@@ -1426,9 +1426,7 @@ class Type
             foreach ($fqsen_aliases as $alias_fqsen_record) {
                 $alias_fqsen = $alias_fqsen_record->alias_fqsen;
                 $recursive_union_type->addUnionType(
-                    $this->isGenericArray()
-                        ? $alias_fqsen->asUnionType()->asGenericArrayTypes()
-                        : $alias_fqsen->asUnionType()
+                    $alias_fqsen->asUnionType()
                 );
             }
             // TODO: Investigate caching this and returning clones after analysis is done.

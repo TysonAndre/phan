@@ -161,6 +161,7 @@ final class GenericArrayType extends ArrayType
      * @return UnionType
      * Expands class types to all inherited classes returning
      * a superset of this type.
+     * @override
      */
     public function asExpandedTypes(
         CodeBase $code_base,
