@@ -24,17 +24,12 @@ use Phan\Language\Type\TemplateType;
 use Phan\Language\Type\TrueType;
 use Phan\Language\Type\VoidType;
 use Phan\Language\UnionType;
-use Phan\Library\ArraySet;
 use Phan\Library\None;
 use Phan\Library\Option;
 use Phan\Library\Some;
 use Phan\Library\Tuple4;
 
 use ast\Node;
-
-if (!function_exists('spl_object_id')) {
-    require_once __DIR__ . '/../../spl_object_id.php';
-}
 
 class Type
 {
@@ -918,11 +913,10 @@ class Type
     }
 
     /**
-     * @var Type[][] - Maps spl_object_id() to an array containing the type for that object id.
-     *                 The object id doesn't change as long as there's one reference to that object (including singleton_map)
-     * Note: this is static instead of instance because some subclasses can be cloned (e.g. ClosureType)
+     * @var ?Type[] - [$this]
+     *                The object id doesn't change as long as there's one reference to that object (including singleton_map)
      */
-    private static $singleton_map = [];
+    protected $singleton_type_list;
 
     /**
      * @return UnionType
@@ -930,23 +924,12 @@ class Type
      */
     public function asUnionType() : UnionType
     {
-        $object_id = \spl_object_id($this);
-        $types_set = self::$singleton_map[$object_id] ?? null;
-        if ($types_set === null) {
-            $types_set = [$object_id => $this];  // same as ArraySet::singleton, but why bother recomputing object id.
-            self::$singleton_map[$object_id] = $types_set;
-        }
-        /**
-        if (!ArraySet::is_array_set($types_set)) {
-            printf("Assertion failed: %s %s %d %s %s %s\n", $this, json_encode($this instanceof StringType), $object_id, $old_hash, spl_object_hash($this), var_export($types_set, true));
-            debug_zval_dump([self::$singleton_map[$object_id], $types_set]);
-            debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
-        }
-         */
         // return new UnionType([$this]);
         // Memoize the set of types. The constructed UnionType object can be modified later, so it isn't memoized.
-        // TODO: Figure out why this is buggy
-        return new UnionType($types_set, true);
+        return new UnionType(
+            ($this->singleton_type_list) ?? ($this->singleton_type_list = [$this]),
+            true
+        );
     }
 
     /**
