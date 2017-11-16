@@ -4,6 +4,7 @@ namespace Phan;
 use Phan\AST\ASTSimplifier;
 use Phan\AST\UnionTypeVisitor;
 use Phan\AST\Parser;
+use Phan\AST\Visitor\Element;
 use Phan\Analysis\DuplicateFunctionAnalyzer;
 use Phan\Analysis\ParameterTypesAnalyzer;
 use Phan\Analysis\ReturnTypesAnalyzer;
@@ -179,7 +180,7 @@ class Analysis
         $context = (new ParseVisitor(
             $code_base,
             $context->withLineNumberStart($node->lineno ?? 0)
-        ))($node);
+        ))->{Element::VISIT_LOOKUP_TABLE[$node->kind] ?? 'handleMissingNodeKind'}($node);
 
         \assert(!empty($context), 'Context cannot be null');
         $kind = $node->kind;

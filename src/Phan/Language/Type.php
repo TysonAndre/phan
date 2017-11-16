@@ -1232,7 +1232,7 @@ class Type
      */
     public function isArrayAccess() : bool
     {
-        return (strcasecmp($this->getName(), 'ArrayAccess') === 0
+        return (\strcasecmp($this->getName(), 'ArrayAccess') === 0
             && $this->getNamespace() === '\\');
     }
 
@@ -1610,7 +1610,7 @@ class Type
         Context $context
     ) : Type {
         // TODO: Create SelfType, to go along with StaticType
-        if (strcasecmp($this->name, 'self') !== 0) {
+        if (\strcasecmp($this->name, 'self') !== 0) {
             return $this;
         }
 
