@@ -140,10 +140,18 @@ final class GenericArrayType extends ArrayType
 
     public function __toString() : string
     {
-        $string = "{$this->element_type}[]";
+        $string = (string)$this->element_type;
+        if ($string[0] === '?') {
+            $string = '(' . $string . ')';
+        }
+        $string = "{$string}[]";
 
         if ($this->getIsNullable()) {
-            $string = '?' . $string;
+            if ($string[0] === '?') {
+                $string = "?($string)";
+            } else {
+                $string = '?' . $string;
+            }
         }
 
         return $string;
@@ -222,10 +230,8 @@ final class GenericArrayType extends ArrayType
                 );
             }
             // TODO: Investigate caching this and returning clones after analysis is done.
-
             return $recursive_union_type;
         });
         return clone($union_type);
     }
-
 }

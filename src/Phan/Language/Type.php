@@ -11,6 +11,7 @@ use Phan\Language\Type\ClosureType;
 use Phan\Language\Type\FalseType;
 use Phan\Language\Type\FloatType;
 use Phan\Language\Type\GenericArrayType;
+use Phan\Language\Type\GenericMultiArrayType;
 use Phan\Language\Type\IntType;
 use Phan\Language\Type\IterableType;
 use Phan\Language\Type\MixedType;
@@ -51,84 +52,48 @@ class Type
 
     /**
      * @var string
-     * A regex matching template parameter types such
-     * as '<int,DateTime|null,string>'
-     *
-     * See https://secure.php.net/manual/en/regexp.reference.recursive.php
-     */
-    /*
-    const template_parameter_type_list_regex =
-        '<'
-        . '('
-        . '(' . self::simple_type_regex . '(\[\])*' . ')'
-        . '(' . '\s*,\s*'
-        . '(' . self::simple_type_regex . '(\[\])*' . ')'
-        . ')*'
-        . ')'
-        . '>';
-     */
-
-    /**
-     * @var string
-     * A type with an optional template parameter list
-     * such as 'Set<Datetime>', 'int' or 'Tuple2<int>'.
-     */
-    /*
-    const simple_type_with_template_parameter_list_regex =
-        '(' . self::simple_type_regex . ')'
-        . '(' . self::_template_parameter_type_list_regex_recursive . ')?';
-     */
-
-    /**
-     * @var string
-     * A type with an optional template parameter list
-     * such as 'Set<Datetime>', 'int' or 'Tuple2<int>' or $this
-     */
-    /*
-    const simple_type_with_template_parameter_list_regex_or_this =
-        '(' . self::simple_type_regex_or_this . ')'
-        . '(' . self::_template_parameter_type_list_regex_recursive . ')?';
-     */
-
-    /**
-     * @var string
      * A legal type identifier matching a type optionally with a []
      * indicating that it's a generic typed array (e.g. 'int[]',
      * 'string' or 'Set<DateTime>')
      */
     const type_regex =
         '('
+        . '(?:\??\((?-1)\)|'
         . '(' . self::simple_type_regex . ')'  // 2 patterns
-        . '(?:<'
-          . '('
-            . '(?-4)'
-            . '(\s*,\s*'
-              . '(?-6)'
-            . ')*'
-          . ')'
-        . '>)?'
+        . '(?:'
+          . '<'
+            . '('
+              . '(?-4)(?:\|(?-4))*'
+              . '(\s*,\s*'
+                . '(?-5)(?:\|(?-5))*'
+              . ')*'
+            . ')'
+          . '>)?'
+        . ')'
         . '(\[\])*'
-       .')';
+      . ')';
 
     /**
      * @var string
      * A legal type identifier matching a type optionally with a []
      * indicating that it's a generic typed array (e.g. 'int[]' or '$this[]',
-     * 'string' or 'Set<DateTime>')
+     * 'string' or 'Set<DateTime>' or 'array<int>' or 'array<int|string>')
      */
     const type_regex_or_this =
         '('
-        . '\((?-1)\)|'
         . '('
-          . '(' . self::simple_type_regex_or_this . ')'  // 3 patterns
-          . '(?:<'
-            . '('
-              . '(?-6)'  // We use relative references instead of named references so that more than one one type_regex can be used in a regex.
-              . '(\s*,\s*'
-                . '(?-7)'
-              . ')*'
+          . '(?:'
+            . '\??\((?-1)\)|'
+            . '(' . self::simple_type_regex_or_this . ')'  // 3 patterns
+            . '(?:<'
+              . '('
+                . '(?-6)(?:\|(?-6))*'  // We use relative references instead of named references so that more than one one type_regex can be used in a regex.
+                . '(\s*,\s*'
+                  . '(?-7)(?:\|(?-7))*'
+                . ')*'
+              . ')'
+              . '>)?'
             . ')'
-          . '>)?'
           . '(\[\])*'
         . ')'
        . ')';
@@ -289,7 +254,7 @@ class Type
     protected static function make(
         string $namespace,
         string $type_name,
-        $template_parameter_type_list,
+        array $template_parameter_type_list,
         bool $is_nullable,
         int $source
     ) : Type {
@@ -407,7 +372,7 @@ class Type
      */
     public static function fromType(
         Type $type,
-        $template_parameter_type_list
+        array $template_parameter_type_list
     ) : Type {
         return self::make(
             $type->getNamespace(),
@@ -616,7 +581,7 @@ class Type
     public static function fromNamespaceAndName(
         string $namespace,
         string $type_name,
-        bool  $is_nullable
+        bool $is_nullable
     ) : Type {
         return self::make($namespace, $type_name, [], $is_nullable, Type::FROM_NODE);
     }
@@ -646,6 +611,13 @@ class Type
             !empty($fully_qualified_string),
             "Type cannot be empty"
         );
+        while (\substr($fully_qualified_string, -1) === ')') {
+            if ($fully_qualified_string[0] === '?') {
+                $fully_qualified_string = '?' . \substr($fully_qualified_string, 2, -1);
+            } else {
+                $fully_qualified_string = \substr($fully_qualified_string, 1, -1);
+            }
+        }
         if (\substr($fully_qualified_string, -2) === '[]') {
             if ($fully_qualified_string[0] === '?') {
                 $is_nullable = true;
@@ -678,7 +650,7 @@ class Type
         // Map the names of the types to actual types in the
         // template parameter type list
         $template_parameter_type_list = \array_map(function (string $type_name) {
-            return Type::fromFullyQualifiedString($type_name)->asUnionType();
+            return UnionType::fromFullyQualifiedString($type_name);
         }, $template_parameter_type_name_list);
 
         if (0 !== strpos($namespace, '\\')) {
@@ -722,6 +694,13 @@ class Type
             $string !== '',
             "Type cannot be empty"
         );
+        while (\substr($string, -1) === ')') {
+            if ($string[0] === '?') {
+                $string = '?' . \substr($string, 2, -1);
+            } else {
+                $string = \substr($string, 1, -1);
+            }
+        }
 
         if (\substr($string, -2) === '[]') {
             if ($string[0] === '?') {
@@ -756,7 +735,7 @@ class Type
         // template parameter type list
         $template_parameter_type_list =
             array_map(function (string $type_name) use ($context, $source) {
-                return Type::fromStringInContext($type_name, $context, $source)->asUnionType();
+                return UnionType::fromStringInContext($type_name, $context, $source);
             }, $template_parameter_type_name_list);
 
         // @var bool
@@ -842,6 +821,8 @@ class Type
                         $types = $template_parameter_type_list[$template_count - 1]->getTypeSet();
                         if (\count($types) === 1) {
                             return GenericArrayType::fromElementType(\reset($types), $is_nullable);
+                        } elseif (\count($types) > 1) {
+                            return new GenericMultiArrayType($types, $is_nullable);
                         }
                     }
                 }
@@ -1401,7 +1382,7 @@ class Type
             $clazz = $code_base->getClassByFQSEN($class_fqsen);
 
             $union_type->addUnionType(
-                 $clazz->getUnionType()
+                $clazz->getUnionType()
             );
 
             // Recurse up the tree to include all types
@@ -1722,6 +1703,9 @@ class Type
             if (!isset($match[2])) {
                 // Parse '(X)' as 'X'
                 return self::typeStringComponents(\substr($match[1], 1, -1));
+            } else if (!isset($match[3])) {
+                // Parse '?(X[]) as '?X[]'
+                return self::typeStringComponents('?' . \substr($match[2], 2, -1));
             }
             $type_string = $match[3];
 
@@ -1733,7 +1717,7 @@ class Type
             }
 
             // Recursively parse this
-            $template_parameter_type_name_list = isset($match[6])
+            $template_parameter_type_name_list = ($match[6] ?? '') !== ''
                 ? self::extractTemplateParameterTypeNameList($match[6])
                 : [];
         }

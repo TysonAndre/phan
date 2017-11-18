@@ -1,6 +1,10 @@
 Phan NEWS
 
-?? ??? 2017, Phan 0.10.2 (dev)
+?? ??? 2017, Phan 0.10.3 (dev)
+------------------------
+
+17 Nov 2017, Phan 0.10.2
+------------------------
 
 New Features(Analysis)
 + Enable `simplify_ast` by default.
@@ -36,6 +40,13 @@ New Features(Analysis)
   `PhanTypeExpectedObject`, and `PhanTypeExpectedObjectOrClassName
 + Emit more accurate line numbers for phpdoc comments, when warning about phpdoc in doc comments being invalid. (#1294)
   This gives up and uses the element's line number if the phpdoc ends over 10 lines before the start of the element.
++ Work on allowing union types to be part of template types in doc comments,
+  as well as types with template syntax.
+  (e.g. `array<int|string>` is now equivalent to `int[]|string[]`,
+  and `MyClass<T1|T2,T3|T4>` can now be parsed in doc comments)
++ Disambiguate the nullable parameter in output.
+  E.g. an array of nullable integers will now be printed in error messages as `(?int)[]`
+  A nullable array of integers will continue to be printed in error messages as `?int[]`, and can be specified in PHPDoc as `?(int[])`.
 
 New Features (CLI, Configs)
 + Improve default update rate of `--progress-bar` (Update it every 0.10 seconds)
