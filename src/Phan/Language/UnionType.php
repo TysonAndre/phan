@@ -90,7 +90,7 @@ class UnionType implements \Serializable
             }, self::extractTypeParts($fully_qualified_string)));
 
             // TODO: Support brackets, template types within <>, etc.
-            $type_set = self::getUniqueTypes($types);
+            $type_set = self::getUniqueTypes(self::normalizeGenericMultiArrayTypes($type_set));
             $memoize_map[$fully_qualified_string] = $type_set;
         }
 
@@ -150,7 +150,7 @@ class UnionType implements \Serializable
                     $source
                 );
             },
-            \array_filter(self::extractTypeParts($type_string), function(string $type_name) {
+            \array_filter(self::extractTypeParts($type_string), function (string $type_name) {
                 // Exclude empty type names
                 // Exclude namespaces without type names (e.g. `\`, `\NS\`)
                 return $type_name !== '' && \preg_match('@\\\\[\[\]]*$@', $type_name) === 0;
@@ -216,6 +216,7 @@ class UnionType implements \Serializable
                     $delta = 0;
                     continue;
                 }
+                continue;
             }
             $bracket_count = \substr_count($part, '<') + \substr_count($part, '(');
             if ($bracket_count === 0) {
@@ -355,7 +356,7 @@ class UnionType implements \Serializable
          * @param string|null $type_name
          * @return UnionType|null
          */
-        $get_for_global_context = function($type_name) {
+        $get_for_global_context = function ($type_name) {
             if (!$type_name) {
                 return null;
             }
@@ -1605,8 +1606,7 @@ class UnionType implements \Serializable
                 return $type->genericArrayElementType();
             }, \array_filter($this->type_set, function (Type $type) : bool {
                 return $type->isGenericArray();
-            })
-            )
+            }))
         );
 
         // If array is in there, then it can be any type
@@ -1872,7 +1872,8 @@ class UnionType implements \Serializable
      * @param UnionType[] $union_types
      * @return UnionType union of these UnionTypes
      */
-    public static function merge(array $union_types) : UnionType {
+    public static function merge(array $union_types) : UnionType
+    {
         $new_type_set = [];
         foreach ($union_types as $type) {
             $type_set = $type->type_set;

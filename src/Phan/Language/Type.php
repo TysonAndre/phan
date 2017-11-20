@@ -894,7 +894,6 @@ class Type
 
     /**
      * @var ?Type[] - [$this]
-     *                The object id doesn't change as long as there's one reference to that object (including singleton_map)
      */
     protected $singleton_type_list;
 
@@ -1364,7 +1363,7 @@ class Type
             $recursion_depth < 20,
             "Recursion has gotten out of hand"
         );
-        $union_type = $this->memoize(__METHOD__, function() use ($code_base, $recursion_depth) {
+        $union_type = $this->memoize(__METHOD__, function () use ($code_base, $recursion_depth) {
             $union_type = $this->asUnionType();
 
             $class_fqsen = $this->asFQSEN();
@@ -1633,7 +1632,7 @@ class Type
      */
     public function __toString()
     {
-        return $this->memoize(__METHOD__, function() {
+        return $this->memoize(__METHOD__, function () {
             $string = $this->asFQSENString();
 
             if (\count($this->template_parameter_type_list) > 0) {
@@ -1703,7 +1702,7 @@ class Type
             if (!isset($match[2])) {
                 // Parse '(X)' as 'X'
                 return self::typeStringComponents(\substr($match[1], 1, -1));
-            } else if (!isset($match[3])) {
+            } elseif (!isset($match[3])) {
                 // Parse '?(X[]) as '?X[]'
                 return self::typeStringComponents('?' . \substr($match[2], 2, -1));
             }

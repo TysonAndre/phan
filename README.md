@@ -4,14 +4,14 @@ Phan looks for common issues and will verify type compatibility on various opera
 information is available or can be deduced. Phan has a good (but not comprehensive) understanding of flow control
 and does not attempt to track values.
 
-[![Build Status (fork)](https://travis-ci.org/TysonAndre/phan.svg?branch=master)](https://travis-ci.org/TysonAndre/phan) [![Build Status](https://travis-ci.org/etsy/phan.svg?branch=master)](https://travis-ci.org/etsy/phan) [![Build status (Windows)](https://ci.appveyor.com/api/projects/status/080ocpistks584hu?svg=true)](https://ci.appveyor.com/project/TysonAndre/phan-y8ry7)
-[![Gitter](https://badges.gitter.im/etsy/phan.svg)](https://gitter.im/etsy/phan?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+[![Build Status (fork)](https://travis-ci.org/TysonAndre/phan.svg?branch=master)](https://travis-ci.org/TysonAndre/phan) [![Build Status](https://travis-ci.org/phan/phan.svg?branch=master)](https://travis-ci.org/phan/phan) [![Build status (Windows)](https://ci.appveyor.com/api/projects/status/080ocpistks584hu?svg=true)](https://ci.appveyor.com/project/TysonAndre/phan-y8ry7)
+[![Gitter](https://badges.gitter.im/phan/phan.svg)](https://gitter.im/phan/phan?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 [![Latest Stable Version](https://poser.pugx.org/phan/phan/v/stable)](https://packagist.org/packages/phan/phan)
 [![License](https://poser.pugx.org/phan/phan/license)](https://github.com/phan/phan/blob/master/LICENSE)
 
 # About this fork
 
-This fork supports miscellaneous features which haven't been merged to etsy/phan yet
+This fork supports miscellaneous features which haven't been merged to phan/phan yet
 
 see [.phan/config.php](.phan/config.php) and [src/phan/Config.php](src/phan/Config.php) for more details on the new features.
 
@@ -28,7 +28,6 @@ your project to tell Phan how to analyze your source code. Once configured, you 
 
 This version (branch) of Phan depends on PHP 7.1.x with the [php-ast](https://github.com/nikic/php-ast) extension (0.1.5 or newer, uses AST version 50) and supports PHP version 7.1+ syntax.
 Installation instructions for php-ast can be found [here](https://github.com/nikic/php-ast#installation).
-The 0.9.x releases work with PHP 7.1.x and older versions of php-ast (requires php-ast 0.1.4 or newer, we recommend upgrading to php-ast 0.1.5+ and using Phan 0.10.x or newer.).
 For PHP 7.0.x use the [0.8 branch](https://github.com/phan/phan/tree/0.8).
 Having PHP's `pcntl` extension installed is strongly recommended (not available on Windows), in order to support using parallel processes for analysis (or to support daemon mode).
 
