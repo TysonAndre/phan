@@ -150,7 +150,7 @@ final class GenericArrayType extends ArrayType
             $d = \substr($d, 1);
         }
         if ($d === 'callable') {
-            return true;
+            return $this->key_type !== self::KEY_STRING;
         }
 
         return parent::canCastToNonNullableType($type);
@@ -330,17 +330,28 @@ final class GenericArrayType extends ArrayType
         return $key_types ?: self::KEY_MIXED;
     }
 
+    const CONVERT_KEY_MIXED_TO_EMPTY_UNION_TYPE = 0;
+    const CONVERT_KEY_MIXED_TO_INT_OR_STRING_UNION_TYPE = 1;
     /**
      * @return UnionType
      */
-    public static function unionTypeForKeyType(int $key_type) : UnionType
+    public static function unionTypeForKeyType(int $key_type, int $behavior = self::CONVERT_KEY_MIXED_TO_INT_OR_STRING_UNION_TYPE) : UnionType
     {
+        static $int_type = null;
+        static $string_type = null;
+        if ($int_type === null) {
+            $int_type = IntType::instance(false);
+            $string_type = StringType::instance(false);
+        }
         switch ($key_type) {
             case self::KEY_INT:
-                return IntType::instance(false)->asUnionType();
+                return $int_type->asUnionType();
             case self::KEY_STRING:
-                return StringType::instance(false)->asUnionType();
+                return $string_type->asUnionType();
             default:
+                if ($behavior === self::CONVERT_KEY_MIXED_TO_INT_OR_STRING_UNION_TYPE) {
+                    return new UnionType([$int_type, $string_type], true);
+                }
                 return new UnionType();
         }
     }
@@ -385,21 +396,14 @@ final class GenericArrayType extends ArrayType
     public static function getKeyTypeOfArrayNode(CodeBase $code_base, Context $context, Node $node, bool $should_catch_issue_exception = true) : int
     {
         $children = $node->children;
-        if (!empty($children)
-            && $children[0] instanceof Node
+        if (($children[0] ?? null) instanceof Node
             && $children[0]->kind == \ast\AST_ARRAY_ELEM
         ) {
             $key_type_enum = GenericArrayType::KEY_EMPTY;
-            // Check the first 5 (completely arbitrary) elements
-            // and assume the rest are the same type
-            for ($i=0; $i<5; $i++) {
-                // Check to see if we're out of elements
-                if (empty($children[$i])) {
-                    break;
-                }
-
+            // Check the all elements for key types.
+            foreach ($children as $child) {
                 // Don't bother recursing more than one level to iterate over possible types.
-                $key_node = $children[$i]->children['key'];
+                $key_node = $child->children['key'];
                 if ($key_node instanceof Node) {
                     $key_type_enum |= self::keyTypeFromUnionTypeValues(UnionTypeVisitor::unionTypeFromNode(
                         $code_base,
@@ -410,11 +414,15 @@ final class GenericArrayType extends ArrayType
                 } elseif ($key_node !== null) {
                     if (\is_string($key_node)) {
                         $key_type_enum |= GenericArrayType::KEY_STRING;
-                    } elseif (\is_int($key_node)) {
+                    } elseif (\is_int($key_node) || \is_float($key_node)) {
                         $key_type_enum |= GenericArrayType::KEY_INT;
                     }
                 } else {
                     $key_type_enum |= GenericArrayType::KEY_INT;
+                }
+                // If we already think it's mixed, return immediately.
+                if ($key_type_enum === GenericArrayType::KEY_MIXED) {
+                    return GenericArrayType::KEY_MIXED;
                 }
             }
             return $key_type_enum ?: GenericArrayType::KEY_MIXED;

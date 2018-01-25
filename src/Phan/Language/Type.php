@@ -1314,6 +1314,15 @@ class Type
     }
 
     /**
+     * @return bool - Returns true if this is \Traversable (nullable or not)
+     */
+    public function isTraversable() : bool
+    {
+        return (\strcasecmp($this->getName(), 'Traversable') === 0
+            && $this->getNamespace() === '\\');
+    }
+
+    /**
      * @param string $type_name
      * A non-namespaced type name like 'int[]'
      *
