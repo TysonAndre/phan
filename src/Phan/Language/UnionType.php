@@ -67,13 +67,13 @@ class UnionType implements \Serializable
     }
 
     /** @var UnionType */
-    private static $instance;
+    private static $empty_instance;
 
     /**
      * @return UnionType
      */
     public static function empty() {
-        return self::$instance;
+        return self::$empty_instance;
     }
 
     /**
@@ -81,8 +81,8 @@ class UnionType implements \Serializable
      * @internal
      */
     public static function init() {
-        if (is_null(self::$instance)) {
-            self::$instance = new UnionType();
+        if (is_null(self::$empty_instance)) {
+            self::$empty_instance = new UnionType();
         }
     }
 
@@ -100,7 +100,7 @@ class UnionType implements \Serializable
         string $fully_qualified_string
     ) : UnionType {
         if ($fully_qualified_string === '') {
-            return new UnionType();
+            return self::$empty_instance;
         }
 
         /** @var array<string,UnionType> annotation not read by phan */
@@ -157,7 +157,7 @@ class UnionType implements \Serializable
         int $source
     ) : UnionType {
         if (empty($type_string)) {
-            return new UnionType();
+            return self::$empty_instance;
         }
 
         // If our scope has a generic type identifier defined on it
@@ -310,7 +310,7 @@ class UnionType implements \Serializable
         if ($reflection_type !== null) {
             return Type::fromReflectionType($reflection_type)->asUnionType();
         }
-        return new UnionType();
+        return self::$empty_instance;
     }
 
     /**
@@ -420,7 +420,7 @@ class UnionType implements \Serializable
             $parameter_name_type_map = [];
 
             foreach ($name_type_name_map as $name => $type_name) {
-                $parameter_name_type_map[$name] = $get_for_global_context($type_name) ?? new UnionType();
+                $parameter_name_type_map[$name] = $get_for_global_context($type_name) ?? self::$empty_instance;
             }
 
             $configurations[] = [
