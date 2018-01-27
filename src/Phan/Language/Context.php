@@ -50,10 +50,10 @@ class Context extends FileRef
     private $scope;
 
     /**
-     * @var array<int,UnionType>
+     * @var array<mixed,mixed>
      * caches union types for a given node
      */
-    private $union_type_cache  = [];
+    private $cache  = [];
 
     /**
      * Create a new context
@@ -242,7 +242,7 @@ class Context extends FileRef
     {
         $this->scope = $scope;
         // TODO: Less aggressive? ConditionVisitor creates a lot of scopes
-        $this->union_type_cache = [];
+        $this->cache = [];
     }
 
     /**
@@ -562,7 +562,7 @@ class Context extends FileRef
      */
     public function getUnionTypeOfNodeIfCached(int $node_id)
     {
-        return $this->union_type_cache[$node_id] ?? null;
+        return $this->cache[$node_id] ?? null;
     }
 
     /**
@@ -571,16 +571,16 @@ class Context extends FileRef
      */
     public function setCachedUnionTypeOfNode(int $node_id, UnionType $type)
     {
-        $this->union_type_cache[$node_id] = $type;
+        $this->cache[$node_id] = $type;
     }
 
     /**
-     * @param int $node_id
+     * @param string $node_id
      * @return ?array{0:UnionType,1:Clazz[]} $result
      */
-    public function getCachedClassListOfNode(int $node_id)
+    public function getCachedClassListOfNode(string $node_id)
     {
-        return $this->union_type_cache[-$node_id] ?? null;
+        return $this->cache[$node_id] ?? null;
     }
 
     /**
@@ -588,10 +588,10 @@ class Context extends FileRef
      * @param array{0:UnionType,1:Clazz[]} $result
      * @return void
      */
-    public function setCachedClassListOfNode(int $node_id, array $result)
+    public function setCachedClassListOfNode(string $node_id, array $result)
     {
         // TODO: Rename
-        $this->union_type_cache[-$node_id] = $result;
+        $this->cache[$node_id] = $result;
     }
 
     /**
@@ -599,6 +599,6 @@ class Context extends FileRef
      */
     public function clearCachedUnionTypes()
     {
-        $this->union_type_cache = [];
+        $this->cache = [];
     }
 }
