@@ -40,6 +40,10 @@ use Phan\Library\Some;
 use ast\Node;
 use ast;
 
+if (!\function_exists('spl_object_id')) {
+    require_once __DIR__ . '/../../spl_object_id.php';
+}
+
 /**
  * Methods for an AST node in context
  */
