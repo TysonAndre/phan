@@ -30,7 +30,7 @@ final class CallableParamPlugin extends PluginV2 implements
 {
 
     /**
-     * @param int[] $params
+     * @param array<int,int> $params
      */
     private static function generateClosure(array $params) : \Closure
     {
@@ -72,7 +72,7 @@ final class CallableParamPlugin extends PluginV2 implements
     }
 
     /**
-     * @return \Closure[]
+     * @return array<string,\Closure>
      */
     private function getAnalyzeFunctionCallClosuresStatic(CodeBase $code_base) : array
     {
@@ -123,7 +123,7 @@ final class CallableParamPlugin extends PluginV2 implements
     }
 
     /**
-     * @return \Closure[]
+     * @return array<string,\Closure>
      */
     public function getAnalyzeFunctionCallClosures(CodeBase $code_base) : array
     {
