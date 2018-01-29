@@ -458,8 +458,7 @@ trait FunctionTrait
     public function setRealReturnType(UnionType $union_type)
     {
         // TODO: was `self` properly resolved already? What about in subclasses?
-        // Clone it, since caller has a mutable version of this.
-        $this->real_return_type = clone($union_type);
+        $this->real_return_type = $union_type;
     }
 
     /**
@@ -470,12 +469,11 @@ trait FunctionTrait
     {
         if (!$this->real_return_type) {
             // Incomplete patch for https://github.com/phan/phan/issues/670
-            return new UnionType();
+            return UnionType::empty();
             // throw new \Error(sprintf("Failed to get real return type in %s method %s", (string)$this->getClassFQSEN(), (string)$this));
         }
         // Clone the union type, to be certain it will remain immutable.
-        $union_type = clone($this->real_return_type);
-        return $union_type;
+        return $this->real_return_type;
     }
 
     /**
@@ -690,12 +688,12 @@ trait FunctionTrait
                 return MixedType::instance(false)->asUnionType();
             } elseif ($type instanceof GenericArrayType) {
                 // Ideally should be the **only** type.
-                $normalized_default_type->addType(ArrayType::instance(false));
+                $normalized_default_type = $normalized_default_type->withType(ArrayType::instance(false));
             } elseif ($type instanceof TrueType) {
                 // e.g. for `function myFn($x = true) { }, $x is probably of type bool, but we're less sure about the type of $x from `$x = false`
-                $normalized_default_type->addType(BoolType::instance(false));
+                $normalized_default_type = $normalized_default_type->withType(BoolType::instance(false));
             } else {
-                $normalized_default_type->addType($type);
+                $normalized_default_type = $normalized_default_type->withType($type);
             }
         }
         return $normalized_default_type;

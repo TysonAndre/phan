@@ -60,10 +60,17 @@ New Features(CLI, Configs)
   Keep `PHP-Parser` as a dependency for now for parsing strings.
 
 Maintenance
++ Various performance optimizations, including caching of inferred union types to avoid unnecessary recalculation.
 + Make `phan_client` and the vim snippet in `plugins/vim/phansnippet.vim` more compatible with neovim
 + Upgrade felixfbecker/advanced-json-rpc dependency to ^3.0.0 (#1354)
 + Performance improvements.
   Changed the internal representation of union types to no longer require `spl_object_id` or the polyfill.
+
+Plugins
++ Make UnionType instances immutable.
+  This will affect plugins that used addType/addUnionType/removeType. withType/withUnionType/withoutType should be used instead.
+  To modify the type of elements(properties, method return types, parameters, variables, etc),
+  `Element->setUnionType(plugin_modifier_function(Element->getUnionType()))` should be used.
 
 Bug Fixes
 + Allow `null` to be passed in where a union type of `mixed` was expected.

@@ -50,12 +50,16 @@ class Context extends FileRef
     private $scope;
 
     /**
+     * @var array<mixed,mixed>
+     * caches union types for a given node
+     */
+    private $cache  = [];
+
+    /**
      * Create a new context
      */
     public function __construct()
     {
-        $this->namespace = '';
-        $this->namespace_map = [];
         $this->scope = new GlobalScope;
     }
 
@@ -94,11 +98,11 @@ class Context extends FileRef
         if (count($name_parts) > 1) {
             // We're looking for a namespace if there's more than one part
             // Namespaces are case insensitive.
-            $namespace_map_key = strtolower($name_parts[0]);
+            $namespace_map_key = \strtolower($name_parts[0]);
             $flags = \ast\flags\USE_NORMAL;
         } else {
             if ($flags !== \ast\flags\USE_CONST) {
-                $namespace_map_key = strtolower($name_parts[0]);
+                $namespace_map_key = \strtolower($name_parts[0]);
             } else {
                 // Constants are case sensitive, and stored in a case sensitive manner.
                 $namespace_map_key = $name;
@@ -119,14 +123,14 @@ class Context extends FileRef
 
         // Look for the mapping on the part before a
         // slash
-        $name_parts = explode('\\', $name, 2);
+        $name_parts = \explode('\\', $name, 2);
         if (count($name_parts) > 1) {
-            $name = strtolower($name_parts[0]);
+            $name = \strtolower($name_parts[0]);
             $suffix = $name_parts[1];
             // In php, namespaces, functions, and classes are case insensitive.
             // However, constants are almost always case insensitive.
             if ($flags !== \ast\flags\USE_CONST) {
-                $suffix = strtolower($suffix);
+                $suffix = \strtolower($suffix);
             }
             // The name we're looking for is a namespace(USE_NORMAL).
             // The suffix has type $flags
@@ -135,7 +139,7 @@ class Context extends FileRef
             $suffix = '';
             $map_flags = $flags;
             if ($flags !== \ast\flags\USE_CONST) {
-                $name = strtolower($name);
+                $name = \strtolower($name);
             }
         }
 
@@ -184,7 +188,7 @@ class Context extends FileRef
         FullyQualifiedGlobalStructuralElement $target
     ) : Context {
         if ($flags !== \ast\flags\USE_CONST) {
-            $alias = strtolower($alias);
+            $alias = \strtolower($alias);
         } else {
             $last_part_index = \strrpos($alias, '\\');
             if ($last_part_index !== false) {
@@ -237,6 +241,8 @@ class Context extends FileRef
     public function setScope(Scope $scope)
     {
         $this->scope = $scope;
+        // TODO: Less aggressive? ConditionVisitor creates a lot of scopes
+        $this->cache = [];
     }
 
     /**
@@ -548,5 +554,51 @@ class Context extends FileRef
         }
 
         return $has_suppress_issue;
+    }
+
+    /**
+     * @param int $node_id
+     * @return ?UnionType
+     */
+    public function getUnionTypeOfNodeIfCached(int $node_id)
+    {
+        return $this->cache[$node_id] ?? null;
+    }
+
+    /**
+     * TODO: This may be unsafe? Clear the cache after a function goes out of scope.
+     * @return void
+     */
+    public function setCachedUnionTypeOfNode(int $node_id, UnionType $type)
+    {
+        $this->cache[$node_id] = $type;
+    }
+
+    /**
+     * @param string $node_id
+     * @return ?array{0:UnionType,1:Clazz[]} $result
+     */
+    public function getCachedClassListOfNode(string $node_id)
+    {
+        return $this->cache[$node_id] ?? null;
+    }
+
+    /**
+     * TODO: This may be unsafe? Clear the cache after a function goes out of scope.
+     * @param array{0:UnionType,1:Clazz[]} $result
+     * @return void
+     */
+    public function setCachedClassListOfNode(string $node_id, array $result)
+    {
+        // TODO: Rename
+        $this->cache[$node_id] = $result;
+    }
+
+    /**
+     * @return void
+     */
+    public function clearCachedUnionTypes()
+    {
+        $this->cache = [];
     }
 }
