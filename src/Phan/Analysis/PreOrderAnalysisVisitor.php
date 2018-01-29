@@ -512,7 +512,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
             $expression_union_type->genericArrayElementTypes();
 
         if ($node->children['value']->kind == \ast\AST_ARRAY) {
-            foreach ($node->children['value']->children ?? [] as $child_node) {
+            foreach ($node->children['value']->children as $child_node) {
                 // $key_node = $child_node->children['key'] ?? null;
                 $value_node = $child_node->children['value'] ?? null;
 

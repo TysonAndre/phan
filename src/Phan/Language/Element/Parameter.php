@@ -131,7 +131,7 @@ class Parameter extends Variable
     ) : array {
         $parameter_list = [];
         $is_optional_seen = false;
-        foreach ($node->children ?? [] as $child_node) {
+        foreach ($node->children as $child_node) {
             $parameter =
                 Parameter::fromNode($context, $code_base, $child_node);
 

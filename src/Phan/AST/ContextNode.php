@@ -91,7 +91,7 @@ class ContextNode
                 $this->context,
                 $name_node
             ))->getQualifiedName();
-        }, $this->node->children ?? []);
+        }, $this->node->children);
     }
 
     /**
@@ -121,7 +121,7 @@ class ContextNode
                 $this->context,
                 $name_node
             ))->getTraitFQSEN([]);
-        }, $this->node->children ?? []);
+        }, $this->node->children);
     }
 
     /**
@@ -171,7 +171,7 @@ class ContextNode
             $adaptations_map[\strtolower($trait_fqsen->__toString())] = new TraitAdaptations($trait_fqsen);
         }
 
-        foreach ($this->node->children ?? [] as $adaptation_node) {
+        foreach ($this->node->children as $adaptation_node) {
             \assert($adaptation_node instanceof Node);
             if ($adaptation_node->kind === ast\AST_TRAIT_ALIAS) {
                 $this->handleTraitAlias($adaptations_map, $adaptation_node);
@@ -326,7 +326,7 @@ class ContextNode
             && ($node->kind != ast\AST_STATIC)
             && ($node->kind != ast\AST_MAGIC_CONST)
         ) {
-            $node = \array_values($node->children ?? [])[0];
+            $node = \array_values($node->children)[0];
         }
 
         if (!($node instanceof ast\Node)) {

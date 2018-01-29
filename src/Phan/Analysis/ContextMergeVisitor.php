@@ -90,7 +90,7 @@ class ContextMergeVisitor extends KindVisitorImplementation
         assert($try_scope instanceof Scope);
 
         $catch_scope_list = [];
-        $catch_nodes = $node->children['catches']->children ?? [];
+        $catch_nodes = $node->children['catches']->children;
         foreach ($catch_nodes as $i => $catch_node) {
             if (!BlockExitStatusChecker::willUnconditionallySkipRemainingStatements($catch_node)) {
                 $catch_scope_list[] = $scope_list[((int)$i)+1];
@@ -187,7 +187,7 @@ class ContextMergeVisitor extends KindVisitorImplementation
         }, $this->child_context_list);
 
         $has_else = \array_reduce(
-            $node->children ?? [],
+            $node->children,
             function (bool $carry, $child_node) {
                 return $carry || (
                     $child_node instanceof Node

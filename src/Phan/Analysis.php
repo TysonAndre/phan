@@ -191,7 +191,7 @@ class Analysis
 
         // Recurse into each child node
         $child_context = $context;
-        foreach ($node->children ?? [] as $child_node) {
+        foreach ($node->children as $child_node) {
             // Skip any non Node children.
             if (!($child_node instanceof Node)) {
                 continue;

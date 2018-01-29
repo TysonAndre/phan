@@ -941,7 +941,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                     $this->context,
                     $arg_node
                 );
-            }, $node->children['args']->children ?? []);
+            }, $node->children['args']->children);
 
             // Map each template type o the argument's concrete type
             $template_type_list = [];
@@ -1517,7 +1517,7 @@ class UnionTypeVisitor extends AnalysisVisitor
         foreach ($function_list_generator as $function) {
             assert($function instanceof FunctionInterface);
             if ($function->hasDependentReturnType()) {
-                $function_types = $function->getDependentReturnType($this->code_base, $this->context, $node->children['args']->children ?? []);
+                $function_types = $function->getDependentReturnType($this->code_base, $this->context, $node->children['args']->children);
             } else {
                 $function_types = $function->getUnionType();
             }
@@ -1590,7 +1590,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                     );
 
                     if ($method->hasDependentReturnType()) {
-                        $union_type = $method->getDependentReturnType($this->code_base, $this->context, $node->children['args']->children ?? []);
+                        $union_type = $method->getDependentReturnType($this->code_base, $this->context, $node->children['args']->children);
                     } else {
                         $union_type = $method->getUnionType();
                     }
@@ -1845,7 +1845,7 @@ class UnionTypeVisitor extends AnalysisVisitor
             && $node->kind == \ast\AST_NAME_LIST
         ) {
             $union_type = UnionType::empty();
-            foreach ($node->children ?? [] as $child_node) {
+            foreach ($node->children as $child_node) {
                 $union_type = $union_type->withUnionType(
                     self::unionTypeFromClassNode(
                         $code_base,
