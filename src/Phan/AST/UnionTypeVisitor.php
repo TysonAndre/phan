@@ -123,7 +123,7 @@ class UnionTypeVisitor extends AnalysisVisitor
         }
         $node_id = \spl_object_id($node);
 
-        $cached_union_type = $context->getUnionTypeOfNodeIfCached($node_id);
+        $cached_union_type = $context->getUnionTypeOfNodeIfCached($node_id, $should_catch_issue_exception);
         if ($cached_union_type !== null) {
             return $cached_union_type;
         }
@@ -135,7 +135,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                     $context,
                     $should_catch_issue_exception
                 ))->{Element::VISIT_LOOKUP_TABLE[$node->kind] ?? 'visit'}($node);
-                $context->setCachedUnionTypeOfNode($node_id, $union_type);
+                $context->setCachedUnionTypeOfNode($node_id, $union_type, true);
                 return $union_type;
             } catch (IssueException $exception) {
                 Issue::maybeEmitInstance(
@@ -152,7 +152,8 @@ class UnionTypeVisitor extends AnalysisVisitor
             $context,
             $should_catch_issue_exception
         ))->{Element::VISIT_LOOKUP_TABLE[$node->kind] ?? 'visit'}($node);
-        $context->setCachedUnionTypeOfNode($node_id, $union_type);
+
+        $context->setCachedUnionTypeOfNode($node_id, $union_type, false);
         return $union_type;
     }
 

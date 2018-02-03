@@ -388,12 +388,14 @@ class ContextNode
     public function getClassListInner(bool $ignore_missing_classes)
     {
         $node = $this->node;
-        if (!(\is_string($node) || $node instanceof Node)) {
-            var_export($node);
+        if (!($node instanceof Node)) {
+            if (\is_string($node)) {
+                return [StringType::instance(false)->asUnionType(), []];
+            }
             return [UnionType::empty(), []];
         }
         $context = $this->context;
-        $node_id = \is_string($node) ? 's:' . $node : 'n:' . \spl_object_id($node);
+        $node_id = \spl_object_id($node);
 
         $cached_result = $context->getCachedClassListOfNode($node_id);
         if ($cached_result) {

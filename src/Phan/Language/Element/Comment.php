@@ -367,9 +367,9 @@ class Comment
                         '@return'
                     );
                 } elseif ($type === 'suppress') {
-                    $issue = self::suppressIssueFromCommentLine($line);
-                    if ($issue !== '') {
-                        $suppress_issue_list[] = $issue;
+                    $suppress_issue_type = self::suppressIssueFromCommentLine($line);
+                    if ($suppress_issue_type !== '') {
+                        $suppress_issue_list[] = $suppress_issue_type;
                     }
                 } elseif ($type === 'property') {
                     $check_compatible('@property', [Comment::ON_CLASS], $i, $line);

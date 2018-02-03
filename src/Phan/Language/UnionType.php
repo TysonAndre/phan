@@ -55,8 +55,7 @@ class UnionType implements \Serializable
         . '(\|' . Type::type_regex_or_this . ')*';
 
     /**
-     * This is an immutable list of unique types.
-     * @var array<int,Type>
+     * @var array<int,Type> This is an immutable list of unique types.
      */
     private $type_set;
 
@@ -1649,6 +1648,19 @@ class UnionType implements \Serializable
         return !$this->hasTypeMatchingCallback(function (Type $type) : bool {
             return !$type->isCallable();
         });
+    }
+
+    public function isExclusivelyBoolTypes() : bool
+    {
+        if ($this->isEmpty()) {
+            return false;
+        }
+        foreach ($this->type_set as $type) {
+            if (!$type->getIsInBoolFamily() || $type->getIsNullable()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
