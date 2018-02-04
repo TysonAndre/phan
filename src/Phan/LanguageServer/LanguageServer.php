@@ -119,42 +119,43 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
             $this->exit();
         });
         /** @suppress PhanUndeclaredClassMethod https://github.com/fruux/sabre-event/pull/52 */
-        $reader->on('message', function (Message $msg) {
+        $reader->on('message', function (Message ...$msgs) {
+            \assert(\count($msgs) > 0);
+
             /** @suppress PhanUndeclaredProperty Request->body->id is a request with an id */
-            coroutine(function () use ($msg) {
+            coroutine(function () use ($msgs) {
                 // Ignore responses, this is the handler for requests and notifications
-                if (AdvancedJsonRpc\Response::isResponse($msg->body)) {
-                    return;
-                }
-                Logger::logInfo('Received message in coroutine: ' . (string)$msg->body);
-                $result = null;
-                $error = null;
-                try {
-                    // Invoke the method handler to get a result
-                    $result = yield $this->dispatch($msg->body);
-                } catch (AdvancedJsonRpc\Error $e) {
-                    Logger::logInfo('Saw error: ' . $e->getMessage());
-                    // If a ResponseError is thrown, send it back in the Response
-                    $error = $e;
-                } catch (\Throwable $e) {
-                    Logger::logInfo('Saw throwable: ' . get_class($e) . ': ' . $e->getMessage() . "\n" . $e->getTraceAsString());
-                    // If an unexpected error occurred, send back an INTERNAL_ERROR error response
-                    $error = new AdvancedJsonRpc\Error(
-                        (string)$e,
-                        AdvancedJsonRpc\ErrorCode::INTERNAL_ERROR,
-                        null,
-                        $e
-                    );
-                }
-                // Only send a Response for a Request
-                // Notifications do not send Responses
-                if (AdvancedJsonRpc\Request::isRequest($msg->body)) {
-                    if ($error !== null) {
-                        $responseBody = new AdvancedJsonRpc\ErrorResponse($msg->body->id, $error);
-                    } else {
-                        $responseBody = new AdvancedJsonRpc\SuccessResponse($msg->body->id, $result);
+                foreach (self::deduplicateRequestAndNotificationMsgs($msgs) as $msg) {
+                    Logger::logInfo('Received message in coroutine: ' . (string)$msg->body);
+                    $result = null;
+                    $error = null;
+                    try {
+                        // Invoke the method handler to get a result
+                        $result = yield $this->dispatch($msg->body);
+                    } catch (AdvancedJsonRpc\Error $e) {
+                        Logger::logInfo('Saw error: ' . $e->getMessage());
+                        // If a ResponseError is thrown, send it back in the Response
+                        $error = $e;
+                    } catch (\Throwable $e) {
+                        Logger::logInfo('Saw throwable: ' . get_class($e) . ': ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+                        // If an unexpected error occurred, send back an INTERNAL_ERROR error response
+                        $error = new AdvancedJsonRpc\Error(
+                            (string)$e,
+                            AdvancedJsonRpc\ErrorCode::INTERNAL_ERROR,
+                            null,
+                            $e
+                        );
                     }
-                    $this->protocolWriter->write(new Message($responseBody));
+                    // Only send a Response for a Request
+                    // Notifications do not send Responses
+                    if (AdvancedJsonRpc\Request::isRequest($msg->body)) {
+                        if ($error !== null) {
+                            $responseBody = new AdvancedJsonRpc\ErrorResponse($msg->body->id, $error);
+                        } else {
+                            $responseBody = new AdvancedJsonRpc\SuccessResponse($msg->body->id, $result);
+                        }
+                        $this->protocolWriter->write(new Message($responseBody));
+                    }
                 }
             })->otherwise('\\Phan\\LanguageServer\\Utils::crash');
         });
@@ -167,6 +168,21 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
         // Phan specific code
         $this->code_base = $code_base;
         $this->file_path_lister = $file_path_lister;
+    }
+
+    /**
+     * @param Message[] $msgs 1 or more messages
+     * @return Message[] 0 or messages from $msgs
+     */
+    private static function deduplicateRequestAndNotificationMsgs(array $msgs) {
+        $filtered_msgs = [];
+        foreach ($msgs as $msg) {
+            if (AdvancedJsonRpc\Response::isResponse($msg->body)) {
+                continue;
+            }
+        }
+        // TODO: Actually combine didChange events
+        return $filtered_msgs;
     }
 
     /**
