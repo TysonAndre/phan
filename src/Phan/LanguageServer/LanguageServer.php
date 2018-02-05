@@ -15,9 +15,11 @@ use Phan\LanguageServer\Protocol\InitializeResult;
 use Phan\LanguageServer\Protocol\Message;
 use Phan\LanguageServer\Protocol\Position;
 use Phan\LanguageServer\Protocol\Range;
+use Phan\LanguageServer\Protocol\SaveOptions;
 use Phan\LanguageServer\Protocol\ServerCapabilities;
 use Phan\LanguageServer\Protocol\TextDocumentIdentifier;
 use Phan\LanguageServer\Protocol\TextDocumentSyncKind;
+use Phan\LanguageServer\Protocol\TextDocumentSyncOptions;
 use Phan\LanguageServer\Server\TextDocument;
 use Phan\LanguageServer\ProtocolReader;
 use Phan\LanguageServer\ProtocolWriter;
@@ -513,10 +515,13 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
                 );
             }
 
+
             $serverCapabilities = new ServerCapabilities();
-            // Ask the client to return always return full documents (because we need to rebuild the AST from scratch)
-            // TODO: use the full documents
-            $serverCapabilities->textDocumentSync = TextDocumentSyncKind::FULL;
+
+            // FULL: Ask the client to return always return full documents (because we need to rebuild the AST from scratch)
+            // NONE: Don't sync until the user explitly saves a document.
+            $serverCapabilities->textDocumentSync = $this->makeTextDocumentSyncOptions();
+
             // TODO: Support "Find all symbols"?
             //$serverCapabilities->documentSymbolProvider = true;
             // TODO: Support "Find all symbols in workspace"?
@@ -542,6 +547,18 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
 
             return new InitializeResult($serverCapabilities);
         });
+    }
+
+    private function makeTextDocumentSyncOptions() : TextDocumentSyncOptions
+    {
+        $textDocumentSyncOptions = new TextDocumentSyncOptions();
+        $textDocumentSyncOptions->openClose = true;
+        $textDocumentSyncOptions->change = Config::getValue('language_server_analyze_only_on_save') ? TextDocumentSyncKind::NONE : TextDocumentSyncKind::FULL;
+
+        $saveOptions = new SaveOptions();
+        $saveOptions->includeText = true;
+        $textDocumentSyncOptions->save = $saveOptions;
+        return $textDocumentSyncOptions;
     }
 
     public function initialized()
