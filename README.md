@@ -56,7 +56,7 @@ Phan is able to perform the following kinds of analysis.
   Phan also checks for final classes/methods being overridden, and that the implemented interface is really a interface (and so on).
 * Supports namespaces, traits and variadics.
 * Supports [Union Types](https://github.com/phan/phan/wiki/About-Union-Types)
-* Supports generic arrays such as `int[]`, `UserObject[]`, etc..
+* Supports generic arrays such as `int[]`, `UserObject[]`, `array<int,UserObject>`, etc..
 * Supports phpdoc [type annotations](https://github.com/phan/phan/wiki/Annotating-Your-Source-Code)
 * Supports inheriting phpdoc type annotations
 * Supports checking that phpdoc type annotations are a narrowed form (E.g. subclasses/subtypes) of the real type signatures
@@ -150,13 +150,17 @@ return [
     // A list of plugin files to execute.
     // See https://github.com/phan/phan/tree/master/.phan/plugins for even more.
     // (Pass these in as relative paths.
-    // The upcoming 0.10.2 release will allow passing 'AlwaysReturnPlugin' if referring to a plugin that is bundled with Phan)
+    // The 0.10.2 release will allow passing 'AlwaysReturnPlugin' if referring to a plugin that is bundled with Phan)
     'plugins' => [
         // checks if a function, closure or method unconditionally returns.
-        'vendor/phan/phan/.phan/plugins/AlwaysReturnPlugin.php',
+        'AlwaysReturnPlugin',  // can also be written as 'vendor/phan/phan/.phan/plugins/AlwaysReturnPlugin.php'
         // Checks for syntactically unreachable statements in
         // the global scope or function bodies.
-        'vendor/phan/phan/.phan/plugins/UnreachableCodePlugin.php',
+        'UnreachableCodePlugin',
+        'DollarDollarPlugin',
+        'DuplicateArrayKeyPlugin',
+        'PregRegexCheckerPlugin',
+        'PrintfCheckerPlugin',
     ],
 ];
 ```
@@ -278,16 +282,6 @@ Usage: ./phan [options] [files...]
   (e.g. 'default', which is an alias for port 4846.)
   `phan_client` can be used to communicate with the Phan Daemon.
 
- --language-server-on-stdin
-  Start the language server (For the Language Server protocol).
-  This is a different protocol from --daemonize, clients for various IDEs already exist.
-
- --language-server-tcp-server <addr>
-  Start the language server listening for TCP connections on <addr> (e.g. 127.0.0.1:<port>)
-
- --language-server-tcp-connect <addr>
-  Start the language server and connect to the client listening on <addr> (e.g. 127.0.0.1:<port>)
-
  -v, --version
   Print phan's version number
 
@@ -296,13 +290,14 @@ Usage: ./phan [options] [files...]
 
  --extended-help
   This help information, plus less commonly used flags
+  (E.g. for daemon mode)
 ```
 
 ## Annotating Your Source Code
 
 Phan reads and understands most [PHPDoc](http://www.phpdoc.org/docs/latest/guides/types.html)
 type annotations including [Union Types](https://github.com/phan/phan/wiki/About-Union-Types)
-(like `int|MyClass|string|null`) and generic array types (like `int[]` or `string[]|MyClass[]`).
+(like `int|MyClass|string|null`) and generic array types (like `int[]` or `string[]|MyClass[]` or `array<int,MyClass>`).
 
 Take a look at [Annotating Your Source Code](https://github.com/phan/phan/wiki/Annotating-Your-Source-Code)
 and [About Union Types](https://github.com/phan/phan/wiki/About-Union-Types) for some help
@@ -388,7 +383,9 @@ the bug. And once you have done that, fix it. Then turn your code snippet into a
 [tests](tests) then `./test` and send a PR with your fix and test. Alternatively, you can open an Issue with
 details.
 
-To run Phan's tests, just run `./test`.
+To run Phan's unit tests, just run `./test`.
+
+To run all of Phan's unit tests and integration tests, run `./tests/run_all_tests.sh`
 
 # Code of Conduct
 

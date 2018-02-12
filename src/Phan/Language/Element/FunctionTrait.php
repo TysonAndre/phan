@@ -5,6 +5,7 @@ use Phan\CodeBase;
 use Phan\Config;
 use Phan\Issue;
 use Phan\Language\Context;
+use Phan\Language\Element\Comment;
 use Phan\Language\FQSEN;
 use Phan\Language\Type\ArrayType;
 use Phan\Language\Type\BoolType;
@@ -18,6 +19,17 @@ use ast\Node;
 
 trait FunctionTrait
 {
+    /**
+     * @var Comment|null This is reused when quick mode is off.
+     */
+    protected $comment;
+
+    /**
+     * Did we initialize the inner scope of this method?
+     * Deferred because hydrating parameter defaults requires having all class constants be known
+     * @var bool This is set to null immediately after scope initialization is finished.
+     */
+    protected $is_inner_scope_initialized  = false;
 
     /**
      * @return int
@@ -511,9 +523,6 @@ trait FunctionTrait
      *
      * @param CodeBase $code_base
      *
-     * @param Node $node
-     * An AST node representing a method
-     *
      * @param FunctionInterface $function - A Func or Method to add params to the local scope of.
      *
      * @param Comment $comment - processed doc comment of $node, with params
@@ -523,7 +532,6 @@ trait FunctionTrait
     public static function addParamsToScopeOfFunctionOrMethod(
         Context $context,
         CodeBase $code_base,
-        Node $node,
         FunctionInterface $function,
         Comment $comment
     ) {
@@ -538,7 +546,6 @@ trait FunctionTrait
             self::addParamToScopeOfFunctionOrMethod(
                 $context,
                 $code_base,
-                $node,
                 $function,
                 $comment,
                 $parameter_offset,
@@ -554,7 +561,7 @@ trait FunctionTrait
                     $code_base,
                     $context,
                     count($real_parameter_name_map) > 0 ? Issue::CommentParamWithoutRealParam : Issue::CommentParamOnEmptyParamList,
-                    $node->lineno ?? 0,
+                    $function->getFileRef()->getLineNumberStart(),
                     $comment_parameter_name,
                     (string)$function
                 );
@@ -581,7 +588,6 @@ trait FunctionTrait
     public static function addParamToScopeOfFunctionOrMethod(
         Context $context,
         CodeBase $code_base,
-        Node $node,
         FunctionInterface $function,
         Comment $comment,
         int $parameter_offset,
@@ -610,7 +616,7 @@ trait FunctionTrait
                         $code_base,
                         $context,
                         $parameter->isVariadic() ? Issue::TypeMismatchVariadicParam : Issue::TypeMismatchVariadicComment,
-                        $node->lineno ?? 0,
+                        $function->getFileRef()->getLineNumberStart(),
                         $comment_param->__toString(),
                         $parameter->__toString()
                     );
@@ -637,7 +643,7 @@ trait FunctionTrait
                         $code_base,
                         $context,
                         Issue::TypeMismatchDefault,
-                        $node->lineno ?? 0,
+                        $function->getFileRef()->getLineNumberStart(),
                         (string)$parameter->getUnionType(),
                         $parameter_name,
                         (string)$default_type
@@ -813,6 +819,12 @@ trait FunctionTrait
 
     public abstract function getRecursionDepth() : int;
 
+    /** @return Node|null */
+    public abstract function getNode();
+
+    /** @return Context */
+    public abstract function getContext() : Context;
+
     /**
      * Returns true if the return type depends on the argument, and a plugin makes Phan aware of that.
      */
@@ -870,5 +882,43 @@ trait FunctionTrait
     public function setFunctionCallAnalyzer(\Closure $closure)
     {
         $this->function_call_analyzer_callback = $closure;
+    }
+
+    /**
+     * @return ?Comment - Not set for internal functions/methods
+     */
+    public function getComment()
+    {
+        return $this->comment;
+    }
+
+    /**
+     * @param Comment $comment
+     * @return void
+     */
+    public function setComment(Comment $comment)
+    {
+        $this->comment = $comment;
+    }
+
+    /**
+     * Initialize the inner scope of this method with variables created from the parameters.
+     *
+     * Deferred until the parse phase because getting the UnionType of parameter defaults requires having all class constants be known.
+     *
+     * @return void
+     */
+    public function ensureScopeInitialized(CodeBase $code_base)
+    {
+        if ($this->is_inner_scope_initialized) {
+            return;
+        }
+        $this->is_inner_scope_initialized = true;
+        $comment = $this->comment;
+        // $comment can be null for magic methods from `@method`
+        if ($comment !== null) {
+            \assert($this instanceof FunctionInterface);
+            FunctionTrait::addParamsToScopeOfFunctionOrMethod($this->getContext(), $code_base, $this, $comment);
+        }
     }
 }
