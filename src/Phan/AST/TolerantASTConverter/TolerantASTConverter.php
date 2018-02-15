@@ -6,6 +6,7 @@ use ast;
 use Microsoft\PhpParser;
 use Microsoft\PhpParser\Diagnostic;
 use Microsoft\PhpParser\DiagnosticsProvider;
+use Microsoft\PhpParser\FilePositionMap;
 use Microsoft\PhpParser\InvalidToken;
 use Microsoft\PhpParser\MissingToken;
 use Microsoft\PhpParser\Parser;
@@ -174,7 +175,7 @@ final class TolerantASTConverter
         self::$ast_version = $ast_version;
         self::$decl_id = 0;
         self::$should_add_placeholders = $this->instance_should_add_placeholders;
-        self::$file_position_map = new FilePositionMap($file_contents, $parser_node);
+        self::$file_position_map = new FilePositionMap($file_contents);
         // $file_contents required for looking up line numbers.
         // TODO: Other data structures?
         self::$file_contents = $file_contents;
@@ -551,7 +552,7 @@ final class TolerantASTConverter
                     $return_type,
                     $start_line,
                     self::getEndLine($n),
-                    $n->getDocCommentText()
+                    self::resolveDocCommentForClosure($n)
                 );
                 // FIXME: add a test of ClassQualifiedName to php-ast
             },
@@ -1701,6 +1702,28 @@ Node\SourceFileNode
             $ast_uses[] = new ast\Node(ast\AST_CLOSURE_VAR, $use->byRef ? 1 : 0, ['name' => self::tokenToString($use->variableName)], self::getStartLine($use));
         }
         return new ast\Node(ast\AST_CLOSURE_USES, 0, $ast_uses, $ast_uses[0]->lineno ?? $line);
+    }
+
+    /**
+     * @return ?string
+     */
+    private static function resolveDocCommentForClosure(PhpParser\Node\Expression\AnonymousFunctionCreationExpression $node)
+    {
+        $doc_comment = $node->getDocCommentText();
+        if ($doc_comment) {
+            return $doc_comment;
+        }
+        while ($node = $node->parent) {
+            if ($node instanceof PhpParser\Node\Expression\AssignmentExpression || $node instanceof PhpParser\Node\ArrayElement) {
+                $doc_comment = $node->getDocCommentText();
+                if ($doc_comment) {
+                    return $doc_comment;
+                }
+                continue;
+            }
+            break;
+        }
+        return null;
     }
 
     /**
