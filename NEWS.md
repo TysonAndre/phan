@@ -1,5 +1,42 @@
 Phan NEWS
-?? ??? 2018, Phan 0.10.5 (dev)
+
+?? ??? 2018, Phan 0.10.6 (dev)
+------------------------
+
+New Features(CLI, Configs)
++ Add `--init` CLI flag and CLI options to affect the generated config. (#145)
+  (Options: `--init-level=1..5`, `--init-analyze-dir=path/to/src`, `--init-analyze-file=path/to/file.php`, `--init-no-composer`, `--init-overwrite`)
+
+New Features(Analysis)
++ Add `PhanNoopBinaryOperator` and `PhanNoopUnaryOperator` checks (#1404)
++ Add `PhanCommentParamOutOfOrder` code style check. (#1401)
+  This checks that `@param` annotations appear in the same order as the real parameters.
++ Detect unused imports (Does not parse inline doc comments) (#1095)
+  Added `PhanUnreferencedUseNormal`, `PhanUnreferencedUseFunction`, `PhanUnreferencedUseConstant`.
+
+  (Note that Phan does not parse inline doc comments, which may cause false positives for `PhanUnreferencedUseNormal`)
+
+Language Server
++ Make Phan Language Server analyze new files added to a project (Issue #920)
++ Analyze all of the PHP files that are currently opened in the IDE
+  according to the language server client,
+  instead of just the most recently edited file (Issue #1147)
+  (E.g. analyze other files open in tabs or split windows)
++ When closing or deleting a file, clear the issues that were emitted
+  for that file.
++ If analysis requests (opening files, editing files, etc)
+  are arriving faster than Phan can analyze and generate responses,
+  then buffer the file changes (until end of input)
+  and then begin to generate analysis results.
+
+  Hopefully, this should reduce the necessity for limiting Phan to
+  analyzing only on save.
+
+Bug fixes
++ In files with multiple namespaces, don't use `use` statements from earlier namespaces. (#1096)
++ Fix bugs analyzing code using functions/constants provided by group use statements, in addition to `use function` and `use const` statements.
+
+14 Feb 2018, Phan 0.10.5
 ------------------------
 
 New Features(CLI, Configs)
@@ -19,6 +56,8 @@ Maintenance:
 Bug fixes
 + Fix a bug in `tool/make_stubs` when generating stubs of namespaced global functions.
 + Fix a refactoring bug that caused methods and properties to fail to be inherited (#1456)
++ If `ignore_undeclared_variables_in_global_scope` is true, then analyze `assert()`
+  and conditionals in the global scope as if the variable was defined after the check.
 
 11 Feb 2018, Phan 0.10.4
 ------------------------

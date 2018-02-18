@@ -170,6 +170,8 @@ class Issue
     const NoopConstant              = 'PhanNoopConstant';
     const NoopProperty              = 'PhanNoopProperty';
     const NoopVariable              = 'PhanNoopVariable';
+    const NoopUnaryOperator         = 'PhanNoopUnaryOperator';
+    const NoopBinaryOperator        = 'PhanNoopBinaryOperator';
     const UnreferencedClass         = 'PhanUnreferencedClass';
     const UnreferencedFunction      = 'PhanUnreferencedFunction';
     const UnreferencedPublicMethod  = 'PhanUnreferencedPublicMethod';
@@ -183,6 +185,9 @@ class Issue
     const UnreferencedProtectedClassConstant = 'PhanUnreferencedProtectedClassConstant';
     const UnreferencedPrivateClassConstant = 'PhanUnreferencedPrivateClassConstant';
     const UnreferencedClosure       = 'PhanUnreferencedClosure';
+    const UnreferencedUseNormal = 'PhanUnreferencedUseNormal';
+    const UnreferencedUseFunction = 'PhanUnreferencedUseFunction';
+    const UnreferencedUseConstant = 'PhanUnreferencedUseConstant';
 
     // Issue::CATEGORY_REDEFINE
     const RedefineClass             = 'PhanRedefineClass';
@@ -243,6 +248,7 @@ class Issue
     const CommentParamOnEmptyParamList     = 'PhanCommentParamOnEmptyParamList';
     const CommentOverrideOnNonOverrideMethod = 'PhanCommentOverrideOnNonOverrideMethod';
     const CommentOverrideOnNonOverrideConstant = 'PhanCommentOverrideOnNonOverrideConstant';
+    const CommentParamOutOfOrder           = 'PhanCommentParamOutOfOrder';
 
 
     const CATEGORY_ACCESS            = 1 << 1;
@@ -1559,6 +1565,22 @@ class Issue
                 6004
             ),
             new Issue(
+                self::NoopUnaryOperator,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_LOW,
+                "Unused result of a unary operator",
+                self::REMEDIATION_B,
+                6020
+            ),
+            new Issue(
+                self::NoopBinaryOperator,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_LOW,
+                "Unused result of a binary operator",
+                self::REMEDIATION_B,
+                6021
+            ),
+            new Issue(
                 self::UnreferencedClass,
                 self::CATEGORY_NOOP,
                 self::SEVERITY_NORMAL,
@@ -1661,6 +1683,30 @@ class Issue
                 "Possibly zero references to public class constant {CONST}",
                 self::REMEDIATION_B,
                 6019
+            ),
+            new Issue(
+                self::UnreferencedUseNormal,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_NORMAL,
+                "Possibly zero references to use statement for classlike/namespace {CLASSLIKE} ({CLASSLIKE})",
+                self::REMEDIATION_B,
+                6022
+            ),
+            new Issue(
+                self::UnreferencedUseFunction,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_NORMAL,
+                "Possibly zero references to use statement for function {FUNCTION} ({FUNCTION})",
+                self::REMEDIATION_B,
+                6023
+            ),
+            new Issue(
+                self::UnreferencedUseConstant,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_NORMAL,
+                "Possibly zero references to use statement for constant {CONST} ({CONST})",
+                self::REMEDIATION_B,
+                6024
             ),
 
             // Issue::CATEGORY_REDEFINE
@@ -2065,6 +2111,14 @@ class Issue
                 "Saw an @override annotation for class constant {CONST}, but could not find an overridden constant",
                 self::REMEDIATION_B,
                 16007
+            ),
+            new Issue(
+                self::CommentParamOutOfOrder,
+                self::CATEGORY_COMMENT,
+                self::SEVERITY_LOW,
+                "Expected @param annotation for {VARIABLE} to be before the @param annotation for {VARIABLE}",
+                self::REMEDIATION_A,
+                16008
             ),
         ];
 
