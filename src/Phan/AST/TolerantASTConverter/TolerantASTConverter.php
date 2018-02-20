@@ -46,7 +46,7 @@ if (!class_exists('\ast\Node')) {
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2017 Tyson Andre
+ * Copyright (c) 2017-2018 Tyson Andre
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -896,7 +896,7 @@ final class TolerantASTConverter
                             }
                             $raw_string = self::tokenToRawString($part);
                             // Pass in '"\\n"' and get "\n" (somewhat inefficient)
-                            $represented_string =\PhpParser\Node\Scalar\String_::parse($start_quote_text . $raw_string . $end_quote_text);
+                            $represented_string = String_::parse($start_quote_text . $raw_string . $end_quote_text);
                             $inner_node_parts[] = $represented_string;
                         }
                     }
@@ -1011,6 +1011,10 @@ Node\SourceFileNode
             },
             'Microsoft\PhpParser\Node\ClassConstDeclaration' => function (PhpParser\Node\ClassConstDeclaration $n, int $start_line) : ast\Node {
                 return self::phpParserClassConstToAstNode($n, $start_line);
+            },
+            'Microsoft\PhpParser\Node\MissingMemberDeclaration' => function (PhpParser\Node\MissingMemberDeclaration $n, int $start_line) {
+                // This node type is generated for something that isn't a function/constant/property. e.g. "public example();"
+                return null;
             },
             'Microsoft\PhpParser\Node\MethodDeclaration' => function (PhpParser\Node\MethodDeclaration $n, int $start_line) : ast\Node {
                 $statements = $n->compoundStatementOrSemicolon;
@@ -1261,7 +1265,7 @@ Node\SourceFileNode
                         assert($select_or_alias_clause instanceof PhpParser\Node\TraitSelectOrAliasClause);
                         $adaptations_inner[] = self::phpParserNodeToAstNode($select_or_alias_clause);
                     }
-                    $adaptations = new ast\Node(ast\AST_TRAIT_ADAPTATIONS, 0, $adaptations_inner, $adaptations_inner[0]->lineno ?: $start_line);
+                    $adaptations = new ast\Node(ast\AST_TRAIT_ADAPTATIONS, 0, $adaptations_inner, $adaptations_inner[0]->lineno ?? $start_line);
                 } else {
                     $adaptations = null;
                 }
@@ -2230,7 +2234,7 @@ Node\SourceFileNode
         }
         $flags = self::phpParserVisibilityToAstVisibility($n->modifiers);
 
-        return new ast\Node(ast\AST_CLASS_CONST_DECL, $flags, $const_elems, $const_elems[0]->lineno ?: $start_line);
+        return new ast\Node(ast\AST_CLASS_CONST_DECL, $flags, $const_elems, $const_elems[0]->lineno ?? $start_line);
     }
 
     private static function phpParserConstToAstNode(PhpParser\Node\Statement\ConstDeclaration $n, int $start_line) : ast\Node
@@ -2245,7 +2249,7 @@ Node\SourceFileNode
             $const_elems[] = self::phpParserConstelemToAstConstelem($prop, $i === 0 ? $doc_comment : null);
         }
 
-        return new ast\Node(ast\AST_CONST_DECL, 0, $const_elems, $const_elems[0]->lineno ?: $start_line);
+        return new ast\Node(ast\AST_CONST_DECL, 0, $const_elems, $const_elems[0]->lineno ?? $start_line);
     }
 
     /**
@@ -2447,7 +2451,7 @@ Node\SourceFileNode
             return $float;
         }
 
-        return \PhpParser\Node\Scalar\String_::parse($str);
+        return String_::parse($str);
     }
 
     /**
@@ -2457,12 +2461,12 @@ Node\SourceFileNode
     {
         $start = $n->getStart();
         $text = \substr(self::$file_contents, $start, $n->getEndPosition() - $start);
-        return \PhpParser\Node\Scalar\String_::parse($text);
+        return String_::parse($text);
     }
 
     private static function variableTokenToString(Token $n) : string
     {
-        return ltrim(trim($n->getText(self::$file_contents)), '$');
+        return \ltrim(\trim($n->getText(self::$file_contents)), '$');
     }
 
     private static function tokenToRawString(Token $n) : string

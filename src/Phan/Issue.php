@@ -52,6 +52,7 @@ class Issue
     const NonClassMethodCall        = 'PhanNonClassMethodCall';
     const TypeArrayOperator         = 'PhanTypeArrayOperator';
     const TypeArraySuspicious       = 'PhanTypeArraySuspicious';
+    const TypeArraySuspiciousNullable = 'PhanTypeArraySuspiciousNullable';
     const TypeSuspiciousIndirectVariable = 'PhanTypeSuspiciousIndirectVariable';
     const TypeComparisonFromArray   = 'PhanTypeComparisonFromArray';
     const TypeComparisonToArray     = 'PhanTypeComparisonToArray';
@@ -69,6 +70,7 @@ class Issue
     const TypeMismatchDimAssignment = 'PhanTypeMismatchDimAssignment';
     const TypeMismatchDimEmpty      = 'PhanTypeMismatchDimEmpty';
     const TypeMismatchDimFetch      = 'PhanTypeMismatchDimFetch';
+    const TypeMismatchDimFetchNullable = 'PhanTypeMismatchDimFetchNullable';
     const TypeMismatchUnpackKey     = 'PhanTypeMismatchUnpackKey';
     const TypeMismatchUnpackValue   = 'PhanTypeMismatchUnpackValue';
     const TypeMismatchArrayDestructuringKey = 'PhanTypeMismatchArrayDestructuringKey';
@@ -323,6 +325,7 @@ class Issue
         'LINE'          => '%d',
         'METHOD'        => '%s',
         'NAMESPACE'     => '%s',
+        'OPERATOR'      => '%s',
         'PARAMETER'     => '%s',
         'PROPERTY'      => '%s',
         'STRING_LITERAL' => '%s',  // A string literal from the code
@@ -984,6 +987,14 @@ class Issue
                 10032
             ),
             new Issue(
+                self::TypeMismatchDimFetchNullable,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                'When fetching an array index from a value of type {TYPE}, found an array index of type {TYPE}, but expected the index to be of the non-nullable type {TYPE}',
+                self::REMEDIATION_B,
+                10044
+            ),
+            new Issue(
                 self::TypeInvalidCallableArraySize,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
@@ -1070,6 +1081,14 @@ class Issue
                 'Attempting an array destructing assignment with a key of type {TYPE} but the only key types of the right hand side are of type {TYPE}',
                 self::REMEDIATION_B,
                 10043
+            ),
+            new Issue(
+                self::TypeArraySuspiciousNullable,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Suspicious array access to nullable {TYPE}",
+                self::REMEDIATION_B,
+                10045
             ),
             // Issue::CATEGORY_VARIABLE
             new Issue(
@@ -1577,7 +1596,7 @@ class Issue
                 self::NoopUnaryOperator,
                 self::CATEGORY_NOOP,
                 self::SEVERITY_LOW,
-                "Unused result of a unary operator",
+                "Unused result of a unary '{OPERATOR}' operator",
                 self::REMEDIATION_B,
                 6020
             ),
@@ -1585,7 +1604,7 @@ class Issue
                 self::NoopBinaryOperator,
                 self::CATEGORY_NOOP,
                 self::SEVERITY_LOW,
-                "Unused result of a binary operator",
+                "Unused result of a binary '{OPERATOR}' operator",
                 self::REMEDIATION_B,
                 6021
             ),
