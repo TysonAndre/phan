@@ -1,6 +1,7 @@
 <?php declare(strict_types=1);
 namespace Phan;
 
+use Phan\Config\Initializer;
 use Phan\Output\Collector\BufferingCollector;
 use Phan\Output\Filter\CategoryIssueFilter;
 use Phan\Output\Filter\ChainedIssueFilter;
@@ -21,7 +22,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    const PHAN_VERSION = '0.10.6-dev';
+    const PHAN_VERSION = '0.12.0-dev';
 
     /**
      * @var OutputInterface
@@ -121,6 +122,7 @@ class CLI
                 'quick',
                 'require-config-exists',
                 'signature-compatibility',
+                'target-php-version',
                 'use-fallback-parser',
                 'version',
             ]
@@ -154,7 +156,7 @@ class CLI
         );
 
         if (\array_key_exists('init', $opts)) {
-            $exit_code = ConfigInitializer::initPhanConfig($this, $opts);
+            $exit_code = Initializer::initPhanConfig($this, $opts);
             if ($exit_code === 0) {
                 exit($exit_code);
             }
@@ -308,6 +310,9 @@ class CLI
                 case 'y':
                 case 'minimum-severity':
                     $minimum_severity = (int)$value;
+                    break;
+                case 'target-php-version':
+                    Config::setValue('target_php_version', $value);
                     break;
                 case 'd':
                 case 'project-root-directory':
@@ -629,6 +634,11 @@ Usage: {$argv[0]} [options] [files...]
  -b, --backward-compatibility-checks
   Check for potential PHP 5 -> PHP 7 BC issues
 
+ --target-php-version {7.0,7.1,7.2,native}
+  The PHP version that the codebase will be checked for compatibility against.
+  For best results, the PHP binary used to run Phan should have the same PHP version.
+  (Phan relies on Reflection for some param counts and checks for undefined classes/methods/functions)
+
  -i, --ignore-undeclared
   Ignore undeclared functions and classes
 
@@ -747,6 +757,7 @@ Extended help:
 
  --require-config-exists
   Exit immediately with an error code if .phan/config.php does not exist.
+
 EOB;
         }
         exit($exit_code);
