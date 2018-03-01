@@ -1286,7 +1286,7 @@ class UnionType implements \Serializable
     /**
      * @return bool
      * True if this union has array-like types (is of type array, is
-     * a generic array, or implements ArrayAccess).
+     * a generic array, is an array shape, or implements ArrayAccess).
      */
     public function hasGenericArray() : bool
     {
@@ -2014,7 +2014,7 @@ class UnionType implements \Serializable
 
     /**
      * @param array<string,array<int|string,string>> $newer_map
-     * @param array{removed:array<string,array<int|string,string>>,added:array<string,array<int|string,string>>} $delta
+     * @param array{new:array<string,array<int|string,string>>,old:array<string,array<int|string,string>>} $delta
      * @return array<string,array<int|string,string>>
      */
     private static function applyDeltaToGetOlderSignatures(array $newer_map, array $delta) : array
@@ -2198,6 +2198,16 @@ class UnionType implements \Serializable
     {
         foreach ($this->type_set as $type) {
             if ($type instanceof ArrayShapeType) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function hasTopLevelNonArrayShapeTypeInstances() : bool
+    {
+        foreach ($this->type_set as $type) {
+            if (!($type instanceof ArrayShapeType)) {
                 return true;
             }
         }

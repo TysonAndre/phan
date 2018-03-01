@@ -100,6 +100,12 @@ final class ArrayShapeType extends ArrayType
         return $this->generic_array_element_union_type ?? ($this->generic_array_element_union_type = UnionType::merge($this->field_types));
     }
 
+    public function genericArrayElementType() : Type
+    {
+        // FIXME Deprecate genericArrayElementType
+        return MixedType::instance(false);
+    }
+
     /**
      * @return bool
      * True if this Type can be cast to the given Type
@@ -107,25 +113,30 @@ final class ArrayShapeType extends ArrayType
      */
     protected function canCastToNonNullableType(Type $type) : bool
     {
-        if ($type instanceof GenericArrayType) {
-            if (($this->getKeyType() & ($type->getKeyType() ?: GenericArrayType::KEY_MIXED)) === 0 && !Config::getValue('scalar_array_key_cast')) {
-                // Attempting to cast an int key to a string key (or vice versa) is normally invalid.
-                // However, the scalar_array_key_cast config would make any cast of array keys a valid cast.
-                return false;
-            }
-            return $this->genericArrayElementUnionType()->canCastToUnionType($type->genericArrayElementType()->asUnionType());
-        } elseif ($type instanceof ArrayShapeType) {
-            foreach ($type->field_types as $key => $field_type) {
-                $this_field_type = $this->field_types[$key] ?? null;
-                // Can't cast {a:int} to {a:int, other:string} if other is missing?
-                if ($this_field_type === null) {
+        if ($type instanceof ArrayType) {
+            if ($type instanceof GenericArrayType) {
+                if (($this->getKeyType() & ($type->getKeyType() ?: GenericArrayType::KEY_MIXED)) === 0 && !Config::getValue('scalar_array_key_cast')) {
+                    // Attempting to cast an int key to a string key (or vice versa) is normally invalid.
+                    // However, the scalar_array_key_cast config would make any cast of array keys a valid cast.
                     return false;
                 }
-                if (!$this_field_type->canCastToUnionType($field_type)) {
-                    return false;
+                return $this->genericArrayElementUnionType()->canCastToUnionType($type->genericArrayElementUnionType());
+            } elseif ($type instanceof ArrayShapeType) {
+                foreach ($type->field_types as $key => $field_type) {
+                    $this_field_type = $this->field_types[$key] ?? null;
+                    // Can't cast {a:int} to {a:int, other:string} if other is missing?
+                    if ($this_field_type === null) {
+                        return false;
+                    }
+                    if (!$this_field_type->canCastToUnionType($field_type)) {
+                        return false;
+                    }
                 }
+                return true;
+            } else {
+                // array{key:T} can cast to array.
+                return true;
             }
-            return true;
         }
 
         if ($type->isArrayLike()) {
@@ -288,7 +299,9 @@ final class ArrayShapeType extends ArrayType
      */
     public static function union(array $array_shape_types) : ArrayShapeType
     {
-        \assert(\count($array_shape_types) > 0);
+        if (\count($array_shape_types) === 0) {
+            throw new \AssertionError('Unexpected union of 0 array shape types');
+        }
         if (\count($array_shape_types) === 1) {
             return $array_shape_types[0];
         }

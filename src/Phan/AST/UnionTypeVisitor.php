@@ -1118,7 +1118,6 @@ class UnionTypeVisitor extends AnalysisVisitor
             if ($element_type !== null) {
                 return $element_type;
             }
-            // TODO: Warn if index could not be found.
         }
         $dim_type = self::unionTypeFromNode(
             $this->code_base,
@@ -1226,11 +1225,13 @@ class UnionTypeVisitor extends AnalysisVisitor
             } catch (CodeBaseException $exception) {
             }
 
-            $this->emitIssue(
-                Issue::TypeArraySuspicious,
-                $node->lineno ?? 0,
-                (string)$union_type
-            );
+            if (!$union_type->hasArrayLike()) {
+                $this->emitIssue(
+                    Issue::TypeArraySuspicious,
+                    $node->lineno ?? 0,
+                    (string)$union_type
+                );
+            }
         }
 
         return $element_types;
@@ -1277,6 +1278,14 @@ class UnionTypeVisitor extends AnalysisVisitor
             }
         }
         if ($resulting_element_type->isEmpty()) {
+            if (!$has_non_array_shape_type) {
+                $this->emitIssue(
+                    Issue::TypeInvalidDimOffset,
+                    $dim_node->lineno ?? $node->lineno ?? 0,
+                    json_encode($dim_value),
+                    (string)$union_type
+                );
+            }
             return null;
         }
         return $resulting_element_type;
@@ -1766,11 +1775,12 @@ class UnionTypeVisitor extends AnalysisVisitor
                         $static_type = $union_type->findTypeMatchingCallback(function (Type $type) : bool {
                             return (
                                 $type->isGenericArray()
-                                && $type->genericArrayElementType()->isStaticType()
+                                && $type->genericArrayElementUnionType()->hasStaticType()
                             );
                         });
 
                         // Remove it from the list
+                        // TODO: Limit this to fields of ArrayShapeType that actually have static type
                         $union_type = $union_type->withoutType($static_type);
                     }
 

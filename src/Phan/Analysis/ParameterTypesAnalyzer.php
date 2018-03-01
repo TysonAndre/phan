@@ -52,6 +52,7 @@ class ParameterTypesAnalyzer
             foreach ($union_type->getTypeSet() as $outer_type) {
                 $type = $outer_type;
 
+                // TODO: Add unit test of `array{key:MissingClazz}`
                 while ($type instanceof GenericArrayType) {
                     $type = $type->genericArrayElementType();
                 }
@@ -154,7 +155,7 @@ class ParameterTypesAnalyzer
                         $code_base,
                         $method->getContext(),
                         Issue::CompatibleNullableTypePHP70,
-                        $real_parameter->getFileRef()->getLineNumberStart(),
+                        $method->getFileRef()->getLineNumberStart(),
                         (string)$type
                     );
                 }
@@ -182,7 +183,7 @@ class ParameterTypesAnalyzer
                     $code_base,
                     $method->getContext(),
                     Issue::CompatibleObjectTypePHP71,
-                    $real_parameter->getFileRef()->getLineNumberStart(),
+                    $method->getFileRef()->getLineNumberStart(),
                     (string)$type
                 );
             }
