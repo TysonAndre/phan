@@ -60,7 +60,7 @@ use ReflectionClass;
  * This supports undoing some operations in the parse phase,
  * for a background daemon analyzing single files. (Phan\CodeBase\UndoTracker)
  */
-class CodeBase
+final class CodeBase
 {
     /**
      * @var Map

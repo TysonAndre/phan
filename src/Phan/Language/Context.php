@@ -21,7 +21,7 @@ use Phan\Language\Scope\GlobalScope;
  * An object representing the context in which any
  * structural element (such as a class or method) lives.
  */
-class Context extends FileRef
+final class Context extends FileRef
 {
     /**
      * @var string

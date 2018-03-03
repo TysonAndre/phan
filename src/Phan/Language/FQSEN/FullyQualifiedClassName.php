@@ -8,7 +8,7 @@ use Phan\Memoize;
 /**
  * A Fully-Qualified Class Name
  */
-class FullyQualifiedClassName extends FullyQualifiedGlobalStructuralElement
+final class FullyQualifiedClassName extends FullyQualifiedGlobalStructuralElement
 {
     use Memoize;
 

@@ -8,7 +8,7 @@ use Phan\Language\UnionType;
 
 use Closure;
 
-class Property extends ClassElement
+final class Property extends ClassElement
 {
     use ElementFutureUnionType;
     use ClosedScopeElement;

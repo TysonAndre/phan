@@ -8,7 +8,7 @@ use Phan\Language\Element\Property;
 /**
  * Maps for elements associated with an individual class
  */
-class ClassMap
+final class ClassMap
 {
     /**
      * @var array<string,ClassConstant>

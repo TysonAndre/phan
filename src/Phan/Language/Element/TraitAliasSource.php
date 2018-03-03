@@ -4,7 +4,7 @@ namespace Phan\Language\Element;
 /**
  * This contains info for the source method of a trait alias.
  */
-class TraitAliasSource
+final class TraitAliasSource
 {
     /**
      * @var int line number where this trait method alias was created

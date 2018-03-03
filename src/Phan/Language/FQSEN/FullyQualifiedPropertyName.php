@@ -4,6 +4,6 @@ namespace Phan\Language\FQSEN;
 /**
  * A Fully-Qualified Property Name
  */
-class FullyQualifiedPropertyName extends FullyQualifiedClassElement
+final class FullyQualifiedPropertyName extends FullyQualifiedClassElement
 {
 }

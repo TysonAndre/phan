@@ -4,7 +4,7 @@ namespace Phan\Language\FQSEN;
 /**
  * A Fully-Qualified Constant Name
  */
-class FullyQualifiedGlobalConstantName extends FullyQualifiedGlobalStructuralElement implements FullyQualifiedConstantName
+final class FullyQualifiedGlobalConstantName extends FullyQualifiedGlobalStructuralElement implements FullyQualifiedConstantName
 {
     /**
      * @return int

@@ -10,7 +10,7 @@ use Phan\Language\Type\GenericArrayType;
 use Phan\Language\UnionType;
 use ast\Node;
 
-class Method extends ClassElement implements FunctionInterface
+final class Method extends ClassElement implements FunctionInterface
 {
     use \Phan\Analysis\Analyzable;
     use \Phan\Memoize;

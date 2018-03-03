@@ -5,7 +5,7 @@ use Phan\Language\Context;
 use Phan\Language\FQSEN\FullyQualifiedClassConstantName;
 use Phan\Language\UnionType;
 
-class ClassConstant extends ClassElement implements ConstantInterface
+final class ClassConstant extends ClassElement implements ConstantInterface
 {
     use ConstantTrait;
 

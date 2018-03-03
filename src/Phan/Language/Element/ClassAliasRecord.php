@@ -5,7 +5,7 @@ namespace Phan\Language\Element;
 use Phan\Language\Context;
 use Phan\Language\FQSEN\FullyQualifiedClassName;
 
-class ClassAliasRecord
+final class ClassAliasRecord
 {
 
     /** @var FullyQualifiedClassName the FQSEN of the alias that will be created. */

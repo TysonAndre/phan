@@ -32,7 +32,7 @@ use Phan\Plugin\ConfigPluginSet;
 
 use Closure;
 
-class Clazz extends AddressableElement
+final class Clazz extends AddressableElement
 {
     use \Phan\Memoize;
     use ClosedScopeElement;

@@ -7,7 +7,7 @@ use ast\Node;
 /**
  * A Fully-Qualified Function Name
  */
-class FullyQualifiedFunctionName extends FullyQualifiedGlobalStructuralElement implements FullyQualifiedFunctionLikeName
+final class FullyQualifiedFunctionName extends FullyQualifiedGlobalStructuralElement implements FullyQualifiedFunctionLikeName
 {
 
     /**

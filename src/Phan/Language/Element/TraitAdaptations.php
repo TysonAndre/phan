@@ -7,7 +7,7 @@ use Phan\Language\FQSEN;
  * This contains info for a single sub-node of a node of type \ast\AST_USE_TRAIT
  * (Which aliases of methods exist for this trait, which `insteadof` exist, etc)
  */
-class TraitAdaptations
+final class TraitAdaptations
 {
     /**
      * @var FQSEN

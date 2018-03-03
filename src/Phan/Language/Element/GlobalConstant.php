@@ -7,7 +7,7 @@ use Phan\Language\FQSEN\FullyQualifiedGlobalConstantName;
 use Phan\Language\Type;
 use Phan\Language\UnionType;
 
-class GlobalConstant extends AddressableElement implements ConstantInterface
+final class GlobalConstant extends AddressableElement implements ConstantInterface
 {
     use ConstantTrait;
 

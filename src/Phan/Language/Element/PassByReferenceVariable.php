@@ -12,7 +12,7 @@ use Phan\Language\UnionType;
  * pass-by-reference parameter so that its value can be
  * updated when re-analyzing the method.
  */
-class PassByReferenceVariable extends Variable
+final class PassByReferenceVariable extends Variable
 {
 
     /** @var Variable */

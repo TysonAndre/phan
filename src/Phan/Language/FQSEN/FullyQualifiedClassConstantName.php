@@ -4,7 +4,7 @@ namespace Phan\Language\FQSEN;
 /**
  * A Fully-Qualified Class Constant Name
  */
-class FullyQualifiedClassConstantName extends FullyQualifiedClassElement implements FullyQualifiedConstantName
+final class FullyQualifiedClassConstantName extends FullyQualifiedClassElement implements FullyQualifiedConstantName
 {
 
     /**

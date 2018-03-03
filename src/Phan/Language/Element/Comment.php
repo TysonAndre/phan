@@ -26,7 +26,7 @@ use Phan\Library\Some;
  * so that it can be used for more precise line numbers (E.g. for where magic methods were declared,
  * where functions with no signature types but phpdoc types declared types that are invalid class names, etc.
  */
-class Comment
+final class Comment
 {
     const ON_CLASS      = 1;
     const ON_VAR        = 2;
