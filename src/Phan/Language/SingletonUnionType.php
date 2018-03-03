@@ -31,7 +31,7 @@ final class SingletonUnionType extends UnionType
      */
     public function __construct(Type $type)
     {
-        parent::__construct([$type], true);
+        $this->type_set = [$type]; // parent::__construct([$type], true);
         $this->type = $type;
     }
 
@@ -89,16 +89,16 @@ final class SingletonUnionType extends UnionType
      */
     public function withUnionType(UnionType $union_type)
     {
-        $type_set = $union_type->type_set;
+        $other_type_set = $union_type->type_set;
         $type = $this->type;
-        if (\in_array($type, $type_set, true)) {
+        if (\in_array($type, $other_type_set, true)) {
             return $union_type;
         }
-        if (\count($type_set) === 0) {
+        if (\count($other_type_set) === 0) {
             return $this;
         }
-        $type_set[] = $type;
-        return new UnionType($type_set, true);
+        // FIXME the PhanAccessMethodPrivate check is dependent on order of iteration.
+        return new UnionType(\array_merge([$type], $other_type_set), true);
     }
 
     /**
@@ -773,7 +773,7 @@ final class SingletonUnionType extends UnionType
 
     public function hasPossiblyObjectTypes() : bool
     {
-        return $this->type->isObject();
+        return $this->type->isPossiblyObject();
     }
 
     /**

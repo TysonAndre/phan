@@ -11,6 +11,7 @@ use Phan\Language\Type\BoolType;
 use Phan\Language\Type\FalseType;
 use Phan\Language\Type\GenericArrayType;
 use Phan\Language\Type\IntType;
+use Phan\Language\Type\IterableType;
 use Phan\Language\Type\MixedType;
 use Phan\Language\Type\ObjectType;
 use Phan\Language\Type\StaticType;
@@ -159,6 +160,23 @@ class SingletonUnionTypeTest extends BaseTest
                     ObjectType::instance(false),
                     MixedType::instance(false),
                     Type::fromFullyQualifiedString('\stdClass'),
+                    IntType::instance(false),
+                    ArrayType::instance(false),
+                    ArrayType::instance(true),
+                    StaticType::instance(false),
+                    FalseType::instance(true),
+                    FalseType::instance(false),
+                    TrueType::instance(true),
+                    TrueType::instance(false),
+                    BoolType::instance(false),
+                    BoolType::instance(true),
+                    IterableType::instance(true),
+                    IterableType::instance(false),
+                    ObjectType::instance(false),
+                    MixedType::instance(false),
+                    Type::fromFullyQualifiedString('\stdClass'),
+                    Type::fromFullyQualifiedString('\ArrayObject'),
+                    Type::fromFullyQualifiedString('\Traversable'),
                 ];
             case UnionType::class:
                 return $this->getCandidateUnionTypes();
@@ -180,6 +198,7 @@ class SingletonUnionTypeTest extends BaseTest
                 UnionType::empty(),
                 new UnionType([FalseType::instance(false), ArrayType::instance(false)]),
                 ArrayType::instance(false)->asUnionType(),
+                ArrayType::instance(true)->asUnionType(),
                 StaticType::instance(false)->asUnionType(),
                 FalseType::instance(true)->asUnionType(),
                 FalseType::instance(false)->asUnionType(),
@@ -187,6 +206,8 @@ class SingletonUnionTypeTest extends BaseTest
                 TrueType::instance(false)->asUnionType(),
                 BoolType::instance(false)->asUnionType(),
                 BoolType::instance(true)->asUnionType(),
+                IterableType::instance(true)->asUnionType(),
+                IterableType::instance(false)->asUnionType(),
                 ObjectType::instance(false)->asUnionType(),
                 MixedType::instance(false)->asUnionType(),
                 Type::fromFullyQualifiedString('\stdClass')->asUnionType(),

@@ -682,7 +682,7 @@ class UnionType implements \Serializable
             }
         }
 
-        return $has_template ? new UnionType($concrete_type_list) : $this;
+        return $has_template ? UnionType::of($concrete_type_list) : $this;
     }
 
     /**
@@ -1381,7 +1381,7 @@ class UnionType implements \Serializable
         if (\count($new_type_list) === \count($this->type_set)) {
             return $this;
         }
-        return new UnionType($new_type_list, true);
+        return UnionType::of($new_type_list);
     }
 
     /**
