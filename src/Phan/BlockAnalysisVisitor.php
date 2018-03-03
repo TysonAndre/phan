@@ -20,13 +20,14 @@ use Phan\Language\Scope\GlobalScope;
 use Phan\Language\Scope\PropertyScope;
 use Phan\Plugin\ConfigPluginSet;
 use ast\Node;
+use ast\flags;
 
 /**
  * Analyze blocks of code
  *
- * - Uses `\Phan\Analysis\PreOrderAnalysisVisitor` for pre-order analysis of a node (E.g. entering a function to analyze)
+ * - Uses `\Phan\Analysis\PreOrderAnalysisVisitorTrait` for pre-order analysis of a node (E.g. entering a function to analyze)
  * - Recursively analyzes child nodes
- * - Uses `\Phan\Analysis\PostOrderAnalysisVisitor` for post-order analysis of a node (E.g. analyzing a statement with the updated Context and emitting issues)
+ * - Uses `\Phan\Analysis\PostOrderAnalysisVisitorTrait` for post-order analysis of a node (E.g. analyzing a statement with the updated Context and emitting issues)
  * - If there is more than one possible child context, merges state from them (variable types)
  *
  * @see $this->visit
@@ -74,203 +75,53 @@ class BlockAnalysisVisitor extends AnalysisVisitor
     ];
 
     /**
+     * BlockAnalysisVisitorTest ensures this is kept up to date.
      * @internal
      */
     const POST_VISIT_LOOKUP_TABLE = [
+        \ast\AST_ARRAY              => 'postVisitArray',
         \ast\AST_ASSIGN             => 'postVisitAssign',
         \ast\AST_ASSIGN_REF         => 'postVisitAssignRef',
         \ast\AST_BINARY_OP          => 'postVisitBinaryOp',
-        \ast\AST_BREAK              => 'postVisitBreak',
         \ast\AST_CALL               => 'postVisitCall',
-        \ast\AST_CAST               => 'postVisitCast',
-        \ast\AST_CATCH              => 'postVisitCatch',
-        \ast\AST_CLASS              => 'postVisitClass',
         \ast\AST_CLASS_CONST        => 'postVisitClassConst',
-        \ast\AST_CLASS_CONST_DECL   => 'postVisitClassConstDecl',
         \ast\AST_CLOSURE            => 'postVisitClosure',
-        \ast\AST_CLOSURE_USES       => 'postVisitClosureUses',
-        \ast\AST_CLOSURE_VAR        => 'postVisitClosureVar',
-        \ast\AST_COALESCE           => 'postVisitCoalesce',
         \ast\AST_CONST              => 'postVisitConst',
-        \ast\AST_CONST_DECL         => 'postVisitConstDecl',
-        \ast\AST_CONST_ELEM         => 'postVisitConstElem',
-        \ast\AST_DECLARE            => 'postVisitDeclare',
         \ast\AST_DIM                => 'postVisitDim',
-        \ast\AST_DO_WHILE           => 'postVisitDoWhile',
         \ast\AST_ECHO               => 'postVisitEcho',
-        \ast\AST_EMPTY              => 'postVisitEmpty',
         \ast\AST_ENCAPS_LIST        => 'postVisitEncapsList',
-        \ast\AST_EXIT               => 'postVisitExit',
-        \ast\AST_EXPR_LIST          => 'postVisitExprList',
-        \ast\AST_FOREACH            => 'postVisitForeach',
         \ast\AST_FUNC_DECL          => 'postVisitFuncDecl',
-        \ast\AST_ISSET              => 'postVisitIsset',
         \ast\AST_GLOBAL             => 'postVisitGlobal',
-        \ast\AST_GREATER            => 'postVisitGreater',
-        \ast\AST_GREATER_EQUAL      => 'postVisitGreaterEqual',
-        \ast\AST_GROUP_USE          => 'postVisitGroupUse',
-        \ast\AST_IF                 => 'postVisitIf',
-        \ast\AST_IF_ELEM            => 'postVisitIfElem',
         \ast\AST_INSTANCEOF         => 'postVisitInstanceof',
-        \ast\AST_MAGIC_CONST        => 'postVisitMagicConst',
-        \ast\AST_METHOD             => 'postVisitMethod',
         \ast\AST_METHOD_CALL        => 'postVisitMethodCall',
-        \ast\AST_NAME               => 'postVisitName',
-        \ast\AST_NAMESPACE          => 'postVisitNamespace',
+        \ast\AST_METHOD             => 'postVisitMethod',
         \ast\AST_NEW                => 'postVisitNew',
-        \ast\AST_PARAM              => 'postVisitParam',
-        \ast\AST_PARAM_LIST         => 'postVisitParamList',
-        \ast\AST_PRE_INC            => 'postVisitPreInc',
         \ast\AST_PRINT              => 'postVisitPrint',
         \ast\AST_PROP               => 'postVisitProp',
-        \ast\AST_PROP_DECL          => 'postVisitPropDecl',
-        \ast\AST_PROP_ELEM          => 'postVisitPropElem',
         \ast\AST_RETURN             => 'postVisitReturn',
-        \ast\AST_STATIC             => 'postVisitStatic',
         \ast\AST_STATIC_CALL        => 'postVisitStaticCall',
+        \ast\AST_STATIC             => 'postVisitStatic',
         \ast\AST_STATIC_PROP        => 'postVisitStaticProp',
-        \ast\AST_STMT_LIST          => 'postVisitStmtList',
-        \ast\AST_SWITCH             => 'postVisitSwitch',
-        \ast\AST_SWITCH_CASE        => 'postVisitSwitchCase',
-        \ast\AST_SWITCH_LIST        => 'postVisitSwitchList',
-        \ast\AST_TYPE               => 'postVisitType',
-        \ast\AST_NULLABLE_TYPE      => 'postVisitNullableType',
-        \ast\AST_UNARY_MINUS        => 'postVisitUnaryMinus',
         \ast\AST_UNARY_OP           => 'postVisitUnaryOp',
-        \ast\AST_USE                => 'postVisitUse',
-        \ast\AST_USE_ELEM           => 'postVisitUseElem',
-        \ast\AST_USE_TRAIT          => 'postVisitUseTrait',
         \ast\AST_VAR                => 'postVisitVar',
-        \ast\AST_WHILE              => 'postVisitWhile',
-        \ast\AST_AND                => 'postVisitAnd',
-        \ast\AST_CATCH_LIST         => 'postVisitCatchList',
-        \ast\AST_CLONE              => 'postVisitClone',
-        \ast\AST_CONDITIONAL        => 'postVisitConditional',
-        \ast\AST_CONTINUE           => 'postVisitContinue',
-        \ast\AST_FOR                => 'postVisitFor',
-        \ast\AST_GOTO               => 'postVisitGoto',
-        \ast\AST_HALT_COMPILER      => 'postVisitHaltCompiler',
-        \ast\AST_INCLUDE_OR_EVAL    => 'postVisitIncludeOrEval',
-        \ast\AST_LABEL              => 'postVisitLabel',
-        \ast\AST_METHOD_REFERENCE   => 'postVisitMethodReference',
-        \ast\AST_NAME_LIST          => 'postVisitNameList',
-        \ast\AST_OR                 => 'postVisitOr',
-        \ast\AST_POST_DEC           => 'postVisitPostDec',
-        \ast\AST_POST_INC           => 'postVisitPostInc',
-        \ast\AST_PRE_DEC            => 'postVisitPreDec',
-        \ast\AST_REF                => 'postVisitRef',
-        \ast\AST_SHELL_EXEC         => 'postVisitShellExec',
-        \ast\AST_SILENCE            => 'postVisitSilence',
-        \ast\AST_THROW              => 'postVisitThrow',
-        \ast\AST_TRAIT_ADAPTATIONS  => 'postVisitTraitAdaptations',
-        \ast\AST_TRAIT_ALIAS        => 'postVisitTraitAlias',
-        \ast\AST_TRAIT_PRECEDENCE   => 'postVisitTraitPrecedence',
-        \ast\AST_TRY                => 'postVisitTry',
-        \ast\AST_UNARY_PLUS         => 'postVisitUnaryPlus',
-        \ast\AST_UNPACK             => 'postVisitUnpack',
-        \ast\AST_UNSET              => 'postVisitUnset',
-        \ast\AST_YIELD              => 'postVisitYield',
-        \ast\AST_YIELD_FROM         => 'postVisitYieldFrom',
     ];
 
     /**
+     * BlockAnalysisVisitorTest ensures this is kept up to date.
      * @internal
      */
     const PRE_VISIT_LOOKUP_TABLE = [
         \ast\AST_ASSIGN             => 'preVisitAssign',
-        \ast\AST_ASSIGN_REF         => 'preVisitAssignRef',
-        \ast\AST_BINARY_OP          => 'preVisitBinaryOp',
-        \ast\AST_BREAK              => 'preVisitBreak',
         \ast\AST_CALL               => 'preVisitCall',
-        \ast\AST_CAST               => 'preVisitCast',
         \ast\AST_CATCH              => 'preVisitCatch',
         \ast\AST_CLASS              => 'preVisitClass',
-        \ast\AST_CLASS_CONST        => 'preVisitClassConst',
-        \ast\AST_CLASS_CONST_DECL   => 'preVisitClassConstDecl',
         \ast\AST_CLOSURE            => 'preVisitClosure',
-        \ast\AST_CLOSURE_USES       => 'preVisitClosureUses',
-        \ast\AST_CLOSURE_VAR        => 'preVisitClosureVar',
-        \ast\AST_COALESCE           => 'preVisitCoalesce',
-        \ast\AST_CONST              => 'preVisitConst',
-        \ast\AST_CONST_DECL         => 'preVisitConstDecl',
-        \ast\AST_CONST_ELEM         => 'preVisitConstElem',
-        \ast\AST_DECLARE            => 'preVisitDeclare',
-        \ast\AST_DIM                => 'preVisitDim',
-        \ast\AST_DO_WHILE           => 'preVisitDoWhile',
-        \ast\AST_ECHO               => 'preVisitEcho',
-        \ast\AST_EMPTY              => 'preVisitEmpty',
-        \ast\AST_ENCAPS_LIST        => 'preVisitEncapsList',
-        \ast\AST_EXIT               => 'preVisitExit',
-        \ast\AST_EXPR_LIST          => 'preVisitExprList',
+        \ast\AST_FOR                => 'preVisitFor',
         \ast\AST_FOREACH            => 'preVisitForeach',
         \ast\AST_FUNC_DECL          => 'preVisitFuncDecl',
-        \ast\AST_ISSET              => 'preVisitIsset',
-        \ast\AST_GLOBAL             => 'preVisitGlobal',
-        \ast\AST_GREATER            => 'preVisitGreater',
-        \ast\AST_GREATER_EQUAL      => 'preVisitGreaterEqual',
-        \ast\AST_GROUP_USE          => 'preVisitGroupUse',
-        \ast\AST_IF                 => 'preVisitIf',
         \ast\AST_IF_ELEM            => 'preVisitIfElem',
-        \ast\AST_INSTANCEOF         => 'preVisitInstanceof',
-        \ast\AST_MAGIC_CONST        => 'preVisitMagicConst',
         \ast\AST_METHOD             => 'preVisitMethod',
-        \ast\AST_METHOD_CALL        => 'preVisitMethodCall',
-        \ast\AST_NAME               => 'preVisitName',
-        \ast\AST_NAMESPACE          => 'preVisitNamespace',
-        \ast\AST_NEW                => 'preVisitNew',
-        \ast\AST_PARAM              => 'preVisitParam',
-        \ast\AST_PARAM_LIST         => 'preVisitParamList',
-        \ast\AST_PRE_INC            => 'preVisitPreInc',
-        \ast\AST_PRINT              => 'preVisitPrint',
-        \ast\AST_PROP               => 'preVisitProp',
-        \ast\AST_PROP_DECL          => 'preVisitPropDecl',
-        \ast\AST_PROP_ELEM          => 'preVisitPropElem',
-        \ast\AST_RETURN             => 'preVisitReturn',
-        \ast\AST_STATIC             => 'preVisitStatic',
-        \ast\AST_STATIC_CALL        => 'preVisitStaticCall',
-        \ast\AST_STATIC_PROP        => 'preVisitStaticProp',
-        \ast\AST_STMT_LIST          => 'preVisitStmtList',
-        \ast\AST_SWITCH             => 'preVisitSwitch',
-        \ast\AST_SWITCH_CASE        => 'preVisitSwitchCase',
-        \ast\AST_SWITCH_LIST        => 'preVisitSwitchList',
-        \ast\AST_TYPE               => 'preVisitType',
-        \ast\AST_NULLABLE_TYPE      => 'preVisitNullableType',
-        \ast\AST_UNARY_MINUS        => 'preVisitUnaryMinus',
-        \ast\AST_UNARY_OP           => 'preVisitUnaryOp',
-        \ast\AST_USE                => 'preVisitUse',
-        \ast\AST_USE_ELEM           => 'preVisitUseElem',
-        \ast\AST_USE_TRAIT          => 'preVisitUseTrait',
-        \ast\AST_VAR                => 'preVisitVar',
         \ast\AST_WHILE              => 'preVisitWhile',
-        \ast\AST_AND                => 'preVisitAnd',
-        \ast\AST_CATCH_LIST         => 'preVisitCatchList',
-        \ast\AST_CLONE              => 'preVisitClone',
-        \ast\AST_CONDITIONAL        => 'preVisitConditional',
-        \ast\AST_CONTINUE           => 'preVisitContinue',
-        \ast\AST_FOR                => 'preVisitFor',
-        \ast\AST_GOTO               => 'preVisitGoto',
-        \ast\AST_HALT_COMPILER      => 'preVisitHaltCompiler',
-        \ast\AST_INCLUDE_OR_EVAL    => 'preVisitIncludeOrEval',
-        \ast\AST_LABEL              => 'preVisitLabel',
-        \ast\AST_METHOD_REFERENCE   => 'preVisitMethodReference',
-        \ast\AST_NAME_LIST          => 'preVisitNameList',
-        \ast\AST_OR                 => 'preVisitOr',
-        \ast\AST_POST_DEC           => 'preVisitPostDec',
-        \ast\AST_POST_INC           => 'preVisitPostInc',
-        \ast\AST_PRE_DEC            => 'preVisitPreDec',
-        \ast\AST_REF                => 'preVisitRef',
-        \ast\AST_SHELL_EXEC         => 'preVisitShellExec',
-        \ast\AST_SILENCE            => 'preVisitSilence',
-        \ast\AST_THROW              => 'preVisitThrow',
-        \ast\AST_TRAIT_ADAPTATIONS  => 'preVisitTraitAdaptations',
-        \ast\AST_TRAIT_ALIAS        => 'preVisitTraitAlias',
-        \ast\AST_TRAIT_PRECEDENCE   => 'preVisitTraitPrecedence',
-        \ast\AST_TRY                => 'preVisitTry',
-        \ast\AST_UNARY_PLUS         => 'preVisitUnaryPlus',
-        \ast\AST_UNPACK             => 'preVisitUnpack',
-        \ast\AST_UNSET              => 'preVisitUnset',
-        \ast\AST_YIELD              => 'preVisitYield',
-        \ast\AST_YIELD_FROM         => 'preVisitYieldFrom',
     ];
 
     /**
@@ -358,15 +209,6 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         // If there are multiple namespaces in the file, have to warn about unused entries in the current namespace first.
         // If this is the first namespace, then there wouldn't be any use statements yet.
         $context->warnAboutUnusedUseElements($this->code_base);
-
-        // Visit the given node populating the code base
-        // with anything we learn and get a new context
-        // indicating the state of the world within the
-        // given node
-        $context = (new PreOrderAnalysisVisitor(
-            $this->code_base,
-            $context
-        ))->visitNamespace($node);
 
         \assert(!empty($context), 'Context cannot be null');
 
@@ -544,10 +386,10 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         // with anything we learn and get a new context
         // indicating the state of the world within the
         // given node
-        $context = (new PreOrderAnalysisVisitor(
-            $this->code_base,
-            $context
-        ))->{Element::VISIT_LOOKUP_TABLE[$node->kind] ?? 'handleMissingNodeKind'}($node);
+        $pre_visit_method = self::PRE_VISIT_LOOKUP_TABLE[$node->kind] ?? null;
+        if (\is_string($pre_visit_method)) {
+            $context = $this->{$pre_visit_method}($node, $context);
+        }
 
         // Let any configured plugins do a pre-order
         // analysis of the node.
@@ -1373,11 +1215,12 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         // with anything we learn and get a new context
         // indicating the state of the world within the
         // given node
-        // Equivalent to (new PostOrderAnalysisVisitor(...)($node)) but faster than using __invoke()
-        $context = (new PreOrderAnalysisVisitor(
-            $this->code_base,
-            $context
-        ))->{Element::VISIT_LOOKUP_TABLE[$node->kind] ?? 'handleMissingNodeKind'}($node);
+
+        // This avoids creating new objects, so it's faster.
+        $pre_visit_method = self::PRE_VISIT_LOOKUP_TABLE[$node->kind] ?? null;
+        if (\is_string($pre_visit_method)) {
+            $context = $this->{$pre_visit_method}($node, $context);
+        }
 
         // Let any configured plugins do a pre-order
         // analysis of the node.
@@ -1406,12 +1249,11 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         // Now that we know all about our context (like what
         // 'self' means), we can analyze statements like
         // assignments and method calls.
-        // Equivalent to (new PostOrderAnalysisVisitor(...)($node)) but faster than using __invoke()
-        $context = (new PostOrderAnalysisVisitor(
-            $this->code_base,
-            $context->withLineNumberStart($node->lineno ?? 0),
-            $this->parent_node_list
-        ))->{Element::VISIT_LOOKUP_TABLE[$node->kind] ?? 'handleMissingNodeKind'}($node);
+        // faster than using __invoke() and avoids creating new objects
+        $post_visit_method = self::POST_VISIT_LOOKUP_TABLE[$node->kind] ?? null;
+        if (\is_string($post_visit_method)) {
+            $this->{$post_visit_method}($node, $context);
+        }
 
         // let any configured plugins analyze the node
         ConfigPluginSet::instance()->postAnalyzeNode(
@@ -1438,15 +1280,6 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         $context = $this->context->withLineNumberStart(
             $node->lineno ?? 0
         );
-
-        // Visit the given node populating the code base
-        // with anything we learn and get a new context
-        // indicating the state of the world within the
-        // given node
-        $context = (new PreOrderAnalysisVisitor(
-            $this->code_base,
-            $context
-        ))->{Element::VISIT_LOOKUP_TABLE[$node->kind] ?? 'handleMissingNodeKind'}($node);
 
         // Let any configured plugins do a pre-order
         // analysis of the node.
@@ -1490,7 +1323,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor
 
         \assert(!empty($context), 'Context cannot be null');
 
-        // Don't bother calling PreOrderAnalysisVisitor, it does nothing
+        // Don't bother calling preVisitPropElem, it doesn't exist
 
         // Let any configured plugins do a pre-order
         // analysis of the node.

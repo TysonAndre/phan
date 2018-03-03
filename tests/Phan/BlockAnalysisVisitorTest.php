@@ -3,6 +3,8 @@
 namespace Phan\Tests;
 
 use Phan\BlockAnalysisVisitor;
+use ReflectionClass;
+use ReflectionParameter;
 
 class BlockAnalysisVisitorTest extends BaseTest
 {
@@ -10,31 +12,39 @@ class BlockAnalysisVisitorTest extends BaseTest
     {
         $reflection_methods = (new ReflectionClass(BlockAnalysisVisitor::class))->getMethods();
         $expected_method_names = [];
-        $actual_method_names = \array_values(BlockAnalysisVisitor::PRE_VISIT_LOOKUP_TABLE);
-        sort($actual_method_names);
+        $actual_method_name_set = [];
+        foreach (BlockAnalysisVisitor::PRE_VISIT_LOOKUP_TABLE as $name) {
+            $actual_method_name_set[$name] = true;
+        }
+        ksort($actual_method_name_set);
 
         foreach ($reflection_methods as $method) {
             if (stripos($method->getName(), 'preVisit') === 0) {
-                $expected_method_names[] = $method->getName();
+                $expected_method_name_set[$method->getName()] = true;
+                $this->assertSame(['ast\Node $node', 'Phan\Language\Context $context'], array_map(function(ReflectionParameter $parameter) {
+                    return (string)$parameter->getType() . ' $' . $parameter->getName();
+                }, $method->getParameters()));
             }
         }
-        sort($expected_method_names);
-        $this->assertEquals($expected_method_names, $actual_method_names);
+        ksort($expected_method_name_set);
+        $this->assertEquals($expected_method_name_set, $actual_method_name_set);
     }
 
-    public function testPosstOrderMethods()
+    public function testPostOrderMethods()
     {
         $reflection_methods = (new ReflectionClass(BlockAnalysisVisitor::class))->getMethods();
-        $expected_method_names = [];
-        $actual_method_names = \array_values(BlockAnalysisVisitor::POST_VISIT_LOOKUP_TABLE);
-        sort($actual_method_names);
+        $actual_method_name_set = [];
+        foreach (BlockAnalysisVisitor::POST_VISIT_LOOKUP_TABLE as $name) {
+            $actual_method_name_set[$name] = true;
+        }
+        ksort($actual_method_name_set);
 
         foreach ($reflection_methods as $method) {
             if (stripos($method->getName(), 'postVisit') === 0) {
-                $expected_method_names[] = $method->getName();
+                $expected_method_name_set[$method->getName()] = true;
             }
         }
-        sort($expected_method_names);
-        $this->assertEquals($expected_method_names, $actual_method_names);
+        ksort($expected_method_name_set);
+        $this->assertEquals($expected_method_name_set, $actual_method_name_set);
     }
 }

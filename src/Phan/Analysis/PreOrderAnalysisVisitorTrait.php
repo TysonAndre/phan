@@ -9,40 +9,25 @@ use Phan\Exception\CodeBaseException;
 use Phan\Exception\NodeException;
 use Phan\Issue;
 use Phan\Language\Context;
-use Phan\Language\Element\Clazz;
 use Phan\Language\Element\Func;
 use Phan\Language\Element\FunctionInterface;
 use Phan\Language\Element\Variable;
+use Phan\Language\FQSEN;
 use Phan\Language\FQSEN\FullyQualifiedClassName;
 use Phan\Language\FQSEN\FullyQualifiedFunctionName;
 use Phan\Language\Scope\ClosureScope;
 use Phan\Language\Type;
+use Phan\Language\UnionType;
 use ast\Node;
 
-trait PreOrderAnalysisVisitor
+trait PreOrderAnalysisVisitorTrait
 {
     /**
-     * @param CodeBase $code_base
-     * The code base in which we're analyzing code
-     *
-     * @param Context $context
-     * The context of the parser at the node for which we'd
-     * like to determine a type
+     * @var CodeBase
+     * The code base within which we're operating
+     * Shared with AnalysisVisitor
      */
-    /*
-    public function __construct(
-        CodeBase $code_base,
-        Context $context
-    ) {
-        parent::__construct($code_base, $context);
-    }
-     */
-
-    /** @param Node $unused_node implementation for unhandled nodes */
-    public function preVisit(Node $unused_node) : Context
-    {
-        return $this->context;
-    }
+    protected $code_base;
 
     /**
      * Visit a node with kind `\ast\AST_CLASS`
@@ -54,13 +39,13 @@ trait PreOrderAnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function preVisitClass(Node $node) : Context
+    public function preVisitClass(Node $node, Context $context) : Context
     {
         if ($node->flags & \ast\flags\CLASS_ANONYMOUS) {
             $class_name =
                 (new ContextNode(
                     $this->code_base,
-                    $this->context,
+                    $context,
                     $node
                 ))->getUnqualifiedNameForAnonymousClass();
         } else {
@@ -76,7 +61,7 @@ trait PreOrderAnalysisVisitor
         do {
             $class_fqsen = FullyQualifiedClassName::fromStringInContext(
                 $class_name,
-                $this->context
+                $context
             )->withAlternateId($alternate_id++);
 
             if (!$this->code_base->hasClassWithFQSEN($class_fqsen)) {
@@ -89,9 +74,9 @@ trait PreOrderAnalysisVisitor
             $clazz = $this->code_base->getClassByFQSEN(
                 $class_fqsen
             );
-        } while ($this->context->getProjectRelativePath()
+        } while ($context->getProjectRelativePath()
                 != $clazz->getFileRef()->getProjectRelativePath()
-            || $this->context->getLineNumberStart() != $clazz->getFileRef()->getLineNumberStart()
+            || $context->getLineNumberStart() != $clazz->getFileRef()->getLineNumberStart()
         );
 
         return $clazz->getContext()->withScope(
@@ -109,18 +94,17 @@ trait PreOrderAnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function preVisitMethod(Node $node) : Context
+    public function preVisitMethod(Node $node, Context $context) : Context
     {
         $method_name = (string)$node->children['name'];
         $code_base = $this->code_base;
-        $context = $this->context;
 
         \assert(
             $context->isInClassScope(),
             "Must be in class context to see a method"
         );
 
-        $clazz = $this->getContextClass();
+        $clazz = $context->getClassInScope($code_base);
 
         if (!$clazz->hasMethodWithName(
             $code_base,
@@ -142,7 +126,7 @@ trait PreOrderAnalysisVisitor
         // extra meta information about the method.
         $comment = $method->getComment();
 
-        $context = $this->context->withScope(
+        $context = $context->withScope(
             $method->getInternalScope()
         );
 
@@ -151,7 +135,7 @@ trait PreOrderAnalysisVisitor
         if ($comment !== null) {
             foreach ($comment->getVariableList() as $parameter) {
                 $context->addScopeVariable(
-                    $parameter->asVariable($this->context)
+                    $parameter->asVariable($context)
                 );
             }
         }
@@ -200,16 +184,15 @@ trait PreOrderAnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function preVisitFuncDecl(Node $node) : Context
+    public function preVisitFuncDecl(Node $node, Context $context) : Context
     {
         $function_name = (string)$node->children['name'];
         $code_base = $this->code_base;
-        $original_context = $this->context;
 
         try {
             $canonical_function = (new ContextNode(
                 $code_base,
-                $original_context,
+                $context,
                 $node
             ))->getFunction($function_name, true);
         } catch (CodeBaseException $exception) {
@@ -224,7 +207,7 @@ trait PreOrderAnalysisVisitor
         $function = null;
         foreach ($canonical_function->alternateGenerator($code_base) as $alternate_function) {
             if ($alternate_function->getFileRef()->getProjectRelativePath()
-                === $original_context->getProjectRelativePath()
+                === $context->getProjectRelativePath()
             ) {
                 $function = $alternate_function;
                 break;
@@ -235,14 +218,14 @@ trait PreOrderAnalysisVisitor
             // No alternate was found
             throw new CodeBaseException(
                 null,
-                "Can't find function {$function_name} in context {$this->context} - aborting"
+                "Can't find function {$function_name} in context {$context} - aborting"
             );
         }
 
         \assert($function instanceof Func);
         $function->ensureScopeInitialized($code_base);
 
-        $context = $original_context->withScope(
+        $context = $context->withScope(
             $function->getInternalScope()
         );
 
@@ -256,7 +239,7 @@ trait PreOrderAnalysisVisitor
         if ($comment !== null) {
             foreach ($comment->getVariableList() as $parameter) {
                 $context->addScopeVariable(
-                    $parameter->asVariable($this->context)
+                    $parameter->asVariable($context)
                 );
             }
         }
@@ -355,10 +338,9 @@ trait PreOrderAnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function preVisitClosure(Node $node) : Context
+    public function preVisitClosure(Node $node, Context $context) : Context
     {
         $code_base = $this->code_base;
-        $context = $this->context;
         $closure_fqsen = FullyQualifiedFunctionName::fromClosureInContext(
             $context->withLineNumberStart($node->lineno ?? 0),
             $node
@@ -496,7 +478,7 @@ trait PreOrderAnalysisVisitor
      * @return Context
      * An unchanged context resulting from parsing the node
      */
-    public function preVisitAssign(Node $node) : Context
+    public function preVisitAssign(Node $node, Context $context) : Context
     {
         // In php 7.0, a **valid** parsed AST would be an \ast\AST_LIST.
         // However, --force-polyfill-parser will emit \ast\AST_ARRAY.
@@ -504,7 +486,7 @@ trait PreOrderAnalysisVisitor
         if (Config::get_closest_target_php_version_id() < 70100 && $node->children['var']->kind === \ast\AST_ARRAY) {
             $this->analyzeArrayAssignBackwardsCompatibility($var_node);
         }
-        return $this->context;
+        return $context;
     }
 
     /**
@@ -515,11 +497,11 @@ trait PreOrderAnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function preVisitForeach(Node $node) : Context
+    public function preVisitForeach(Node $node, Context $context) : Context
     {
         $expression_union_type = UnionTypeVisitor::unionTypeFromNode(
             $this->code_base,
-            $this->context,
+            $context,
             $node->children['expr']
         );
 
@@ -555,7 +537,7 @@ trait PreOrderAnalysisVisitor
 
                 $variable = Variable::fromNodeInContext(
                     $value_elem_node,
-                    $this->context,
+                    $context,
                     $this->code_base,
                     false
                 );
@@ -574,7 +556,7 @@ trait PreOrderAnalysisVisitor
                     }
                 }
 
-                $this->context->addScopeVariable($variable);
+                $context->addScopeVariable($variable);
             }
 
         // Otherwise, read the value as regular variable and
@@ -583,7 +565,7 @@ trait PreOrderAnalysisVisitor
             // Create a variable for the value
             $variable = Variable::fromNodeInContext(
                 $value_node,
-                $this->context,
+                $context,
                 $this->code_base,
                 false
             );
@@ -597,7 +579,7 @@ trait PreOrderAnalysisVisitor
             }
 
             // Add the variable to the scope
-            $this->context->addScopeVariable($variable);
+            $context->addScopeVariable($variable);
         }
 
         // If there's a key, make a variable out of that too
@@ -612,7 +594,7 @@ trait PreOrderAnalysisVisitor
 
             $variable = Variable::fromNodeInContext(
                 $key_node,
-                $this->context,
+                $context,
                 $this->code_base,
                 false
             );
@@ -625,12 +607,12 @@ trait PreOrderAnalysisVisitor
                 }
             }
 
-            $this->context->addScopeVariable($variable);
+            $context->addScopeVariable($variable);
         }
 
         // Note that we're not creating a new scope, just
         // adding variables to the existing scope
-        return $this->context;
+        return $context;
     }
 
     private function analyzeArrayAssignBackwardsCompatibility(Node $node)
@@ -661,23 +643,23 @@ trait PreOrderAnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function preVisitCatch(Node $node) : Context
+    public function preVisitCatch(Node $node, Context $context) : Context
     {
         $union_type = UnionTypeVisitor::unionTypeFromClassNode(
             $this->code_base,
-            $this->context,
+            $context,
             $node->children['class']
         );
 
         try {
             $class_list = (new ContextNode(
                 $this->code_base,
-                $this->context,
+                $context,
                 $node->children['class']
             ))->getClassList(false, ContextNode::CLASS_LIST_ACCEPT_OBJECT_OR_CLASS_NAME);
 
             foreach ($class_list as $class) {
-                $class->addReference($this->context);
+                $class->addReference($context);
             }
         } catch (CodeBaseException $exception) {
             $this->emitIssue(
@@ -690,7 +672,7 @@ trait PreOrderAnalysisVisitor
             // (Wouldn't work for php 5.6, but phan doesn't support php < 7.
             $variable = Variable::fromNodeInContext(
                 $node->children['var'],
-                $this->context,
+                $context,
                 $this->code_base,
                 false
             );
@@ -700,14 +682,14 @@ trait PreOrderAnalysisVisitor
 
         $variable_name = (new ContextNode(
             $this->code_base,
-            $this->context,
+            $context,
             $node->children['var']
         ))->getVariableName();
 
         if (!empty($variable_name)) {
             $variable = Variable::fromNodeInContext(
                 $node->children['var'],
-                $this->context,
+                $context,
                 $this->code_base,
                 false
             );
@@ -716,10 +698,10 @@ trait PreOrderAnalysisVisitor
                 $variable->setUnionType($union_type);
             }
 
-            $this->context->addScopeVariable($variable);
+            $context->addScopeVariable($variable);
         }
 
-        return $this->context;
+        return $context;
     }
 
     /**
@@ -730,11 +712,11 @@ trait PreOrderAnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function preVisitIfElem(Node $node) : Context
+    public function preVisitIfElem(Node $node, Context $context) : Context
     {
         $cond = $node->children['cond'] ?? null;
         if (!($cond instanceof Node)) {
-            return $this->context;
+            return $context;
         }
 
         // Look to see if any proofs we do within the condition
@@ -742,8 +724,8 @@ trait PreOrderAnalysisVisitor
         // list.
         return (new ConditionVisitor(
             $this->code_base,
-            $this->context
-        ))($cond);
+            $context
+        ))->__invoke($cond);
     }
 
     /**
@@ -754,11 +736,11 @@ trait PreOrderAnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function preVisitWhile(Node $node) : Context
+    public function preVisitWhile(Node $node, Context $context) : Context
     {
         $cond = $node->children['cond'];
         if (!($cond instanceof Node)) {
-            return $this->context;
+            return $context;
         }
 
         // Look to see if any proofs we do within the condition of the while
@@ -766,8 +748,8 @@ trait PreOrderAnalysisVisitor
         // list.
         return (new ConditionVisitor(
             $this->code_base,
-            $this->context
-        ))($cond);
+            $context
+        ))->__invoke($cond);
     }
 
     /**
@@ -778,11 +760,11 @@ trait PreOrderAnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function preVisitFor(Node $node) : Context
+    public function preVisitFor(Node $node, Context $context) : Context
     {
         $cond = $node->children['cond'];
         if (!($cond instanceof Node)) {
-            return $this->context;
+            return $context;
         }
 
         // Look to see if any proofs we do within the condition of the while
@@ -790,8 +772,8 @@ trait PreOrderAnalysisVisitor
         // list.
         return (new ConditionVisitor(
             $this->code_base,
-            $this->context
-        ))($cond);
+            $context
+        ))->__invoke($cond);
     }
 
     /**
@@ -802,34 +784,43 @@ trait PreOrderAnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function preVisitCall(Node $node) : Context
+    public function preVisitCall(Node $node, Context $context) : Context
     {
         $name = $node->children['expr']->children['name'] ?? null;
         // Look only at nodes of the form `assert(expr, ...)`.
         if ($name !== 'assert') {
-            return $this->context;
+            return $context;
         }
         $args = $node->children['args'];
         if (!isset($node->children['args']->children[0])
             || !($node->children['args']->children[0] instanceof Node)
         ) {
-            return $this->context;
+            return $context;
         }
 
         // Look to see if the asserted expression says anything about
         // the types of any variables.
         return (new ConditionVisitor(
             $this->code_base,
-            $this->context
-        ))($args->children[0]);
+            $context
+        ))->__invoke($args->children[0]);
     }
 
     /**
-     * @return Clazz
-     * Get the class on this scope or fail real hard
+     * @param string $issue_type
+     * The type of issue to emit such as Issue::ParentlessClass
+     *
+     * @param int $lineno
+     * The line number where the issue was found
+     *
+     * @param int|string|FQSEN|UnionType|Type ...$parameters
+     * Template parameters for the issue's error message
+     *
+     * @return void
      */
-    private function getContextClass() : Clazz
-    {
-        return $this->context->getClassInScope($this->code_base);
-    }
+    protected abstract function emitIssue(
+        string $issue_type,
+        int $lineno,
+        ...$parameters
+    );
 }
