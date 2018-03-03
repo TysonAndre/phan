@@ -2,41 +2,40 @@
 namespace Phan\Language;
 
 use Phan\CodeBase;
+use Phan\Config;
+use Phan\Exception\CodeBaseException;
+use Phan\Issue;
+use Phan\Language\FQSEN\FullyQualifiedClassName;
 use Phan\Language\Type\ArrayType;
+use Phan\Language\Type\ArrayShapeType;
+use Phan\Language\Type\IntType;
+use Phan\Language\Type\FloatType;
+use Phan\Language\Type\GenericArrayType;
+use Phan\Language\Type\MixedType;
+use Phan\Language\Type\NullType;
+use Phan\Language\Type\StaticType;
+use Phan\Language\Type\TemplateType;
+use Phan\Exception\IssueException;
 
 /**
- * NOTE: there may also be instances of UnionType that are empty, due to the constructor being public
+ * NOTE: there may also be instances of UnionType that are singletons, due to the constructor being public
  */
-final class EmptyUnionType extends UnionType
+final class SingletonUnionType extends UnionType
 {
+    /** @var Type the only type in this singleton*/
+    private $type;
+
     /**
      * An optional list of types represented by this union
      * @internal
      */
-    public function __construct()
+    public function __construct(Type $type)
     {
         parent::__construct([], true);
+        $this->type = $type;
     }
 
-    /**
-     * Use UnionType::empty() instead elsewhere in the codebase.
-     */
-    protected static function instance() : EmptyUnionType
-    {
-        static $self = null;
-        return $self ?? ($self = new EmptyUnionType());
-    }
-
-    /**
-     * @return Type[]
-     * The list of simple types associated with this
-     * union type. Keys are consecutive.
-     * @override
-     */
-    public function getTypeSet() : array
-    {
-        return [];
-    }
+    // no need to override getTypeSet()
 
     /**
      * Add a type name to the list of types
@@ -46,7 +45,11 @@ final class EmptyUnionType extends UnionType
      */
     public function withType(Type $type)
     {
-        return $type->asUnionType();
+        $other_type = $this->type;
+        if ($type === $other_type) {
+            return $this;
+        }
+        return new UnionType([$other_type, $type], true);
     }
 
     /**
@@ -61,6 +64,9 @@ final class EmptyUnionType extends UnionType
      */
     public function withoutType(Type $type)
     {
+        if ($type === $this->type) {
+            return self::$empty_instance;
+        }
         return $this;
     }
 
@@ -72,7 +78,7 @@ final class EmptyUnionType extends UnionType
      */
     public function hasType(Type $type) : bool
     {
-        return false;
+        return $this->type === $type;
     }
 
     /**
@@ -83,7 +89,16 @@ final class EmptyUnionType extends UnionType
      */
     public function withUnionType(UnionType $union_type)
     {
-        return $union_type;
+        $type_set = $union_type->type_set;
+        $type = $this->type;
+        if (\in_array($type, $type_set, true)) {
+            return $union_type;
+        }
+        if (\count($type_set) === 0) {
+            return $this;
+        }
+        $type_set[] = $type;
+        return new UnionType($type_set, true);
     }
 
     /**
@@ -95,7 +110,7 @@ final class EmptyUnionType extends UnionType
      */
     public function hasSelfType() : bool
     {
-        return false;
+        return $this->type->isSelfType();
     }
 
     /**
@@ -105,7 +120,7 @@ final class EmptyUnionType extends UnionType
      */
     public function hasTypeInBoolFamily() : bool
     {
-        return false;
+        return $this->type->getIsInBoolFamily();
     }
 
     /**
@@ -116,7 +131,7 @@ final class EmptyUnionType extends UnionType
      */
     public function getTemplateParameterTypeList() : array
     {
-        return [];
+        return $this->type->getTemplateParameterTypeList();
     }
 
     /**
@@ -132,23 +147,11 @@ final class EmptyUnionType extends UnionType
     public function getTemplateParameterTypeMap(
         CodeBase $code_base
     ) : array {
-        return [];
+        return $this->type->getTemplateParameterTypeMap($code_base);
     }
 
 
-    /**
-     * @param UnionType[] $template_parameter_type_map
-     * A map from template type identifiers to concrete types
-     *
-     * @return UnionType
-     * This UnionType with any template types contained herein
-     * mapped to concrete types defined in the given map.
-     */
-    public function withTemplateParameterTypeMap(
-        array $template_parameter_type_map
-    ) : UnionType {
-        return $this;
-    }
+    // not overriding withTemplateParameterTypeMap
 
     /**
      * @return bool
@@ -158,7 +161,7 @@ final class EmptyUnionType extends UnionType
      */
     public function hasTemplateType() : bool
     {
-        return false;
+        return $this->type instanceof TemplateType;
     }
 
     /**
@@ -169,18 +172,7 @@ final class EmptyUnionType extends UnionType
      */
     public function hasStaticType() : bool
     {
-        return false;
-    }
-
-    /**
-     * @return UnionType
-     * A new UnionType with any references to 'static' resolved
-     * in the given context.
-     */
-    public function withStaticResolvedInContext(
-        Context $context
-    ) : UnionType {
-        return $this;
+        return $this->type instanceof StaticType;
     }
 
     /**
@@ -191,7 +183,7 @@ final class EmptyUnionType extends UnionType
      */
     public function isType(Type $type) : bool
     {
-        return false;
+        return $this->type === $type;
     }
 
     /**
@@ -202,7 +194,7 @@ final class EmptyUnionType extends UnionType
      */
     public function isNativeType() : bool
     {
-        return false;
+        return $this->type->isNativeType();
     }
 
     /**
@@ -213,7 +205,8 @@ final class EmptyUnionType extends UnionType
      */
     public function isEqualTo(UnionType $union_type) : bool
     {
-        return $union_type->isEmpty();
+        $type_set = $union_type->type_set;
+        return \count($type_set) === 1 && \reset($type_set) === $this->type;
     }
 
     /**
@@ -223,7 +216,7 @@ final class EmptyUnionType extends UnionType
      */
     public function hasCommonType(UnionType $union_type) : bool
     {
-        return false;
+        return \in_array($this->type, $union_type->type_set, true);
     }
 
     /**
@@ -231,19 +224,30 @@ final class EmptyUnionType extends UnionType
      */
     public function containsNullable() : bool
     {
-        return false;
+        return $this->type->getIsNullable();
     }
 
     /** @override */
     public function nonNullableClone() : UnionType
     {
-        return $this;
+        $type = $this->type;
+        if (!$type->getIsNullable()) {
+            return $this;
+        }
+        if ($type instanceof NullType) {
+            return self::$empty_instance;
+        }
+        return $type->withIsNullable(false)->asUnionType();
     }
 
     /** @override */
     public function nullableClone() : UnionType
     {
-        return $this;
+        $type = $this->type;
+        if ($type->getIsNullable()) {
+            return $this;
+        }
+        return $type->withIsNullable(true)->asUnionType();
     }
 
     /**
@@ -254,13 +258,22 @@ final class EmptyUnionType extends UnionType
      */
     public function containsFalsey() : bool
     {
-        return false;
+        return $this->type->getIsPossiblyFalsey();
     }
 
     /** @override */
     public function nonFalseyClone() : UnionType
     {
-        return $this;
+        $type = $this->type;
+        if (!$type->getIsPossiblyFalsey()) {
+            return $this;
+        }
+        if ($type->getIsAlwaysFalsey()) {
+            return self::$empty_instance;
+        }
+
+        // add non-nullable equivalents, and replace BoolType with non-nullable TrueType
+        return $type->asNonFalseyType()->asUnionType();
     }
 
     /**
@@ -271,13 +284,23 @@ final class EmptyUnionType extends UnionType
      */
     public function containsTruthy() : bool
     {
-        return false;
+        return $this->type->getIsPossiblyTruthy();
     }
 
     /** @override */
     public function nonTruthyClone() : UnionType
     {
-        return $this;
+        $type = $this->type;
+        if (!$type->getIsPossiblyTruthy()) {
+            return $this;
+        }
+        $did_change = true;
+        if ($type->getIsAlwaysTruthy()) {
+            return self::$empty_instance;
+        }
+
+        // add non-nullable equivalents, and replace BoolType with non-nullable TrueType
+        return $type->asNonTruthyType()->asUnionType();
     }
 
     /**
@@ -286,7 +309,7 @@ final class EmptyUnionType extends UnionType
      */
     public function containsFalse() : bool
     {
-        return false;
+        return $this->type->getIsPossiblyFalse();
     }
 
     /**
@@ -295,84 +318,28 @@ final class EmptyUnionType extends UnionType
      */
     public function containsTrue() : bool
     {
-        return false;
+        return $this->type->getIsPossiblyTrue();
     }
 
     public function nonFalseClone() : UnionType
     {
-        return $this;
+        $type = $this->type;
+        if (!$type->getIsPossiblyFalse()) {
+            return $this;
+        }
+        $did_change = true;
+        if ($type->getIsAlwaysFalse()) {
+            return self::$empty_instance;
+        }
+
+        // add non-nullable equivalents, and replace BoolType with non-nullable TrueType
+        return $type->asNonFalseType()->asUnionType();
     }
 
     public function nonTrueClone() : UnionType
     {
         return $this;
     }
-
-    /**
-     * @param UnionType $union_type
-     * A union type to compare against
-     *
-     * @param Context $context
-     * The context in which this type exists.
-     *
-     * @param CodeBase $code_base
-     * The code base in which both this and the given union
-     * types exist.
-     *
-     * @return bool
-     * True if each type within this union type can cast
-     * to the given union type.
-     */
-    // Currently unused and buggy, commenting this out.
-    /**
-    public function isExclusivelyNarrowedFormOrEquivalentTo(
-        UnionType $union_type,
-        Context $context,
-        CodeBase $code_base
-    ) : bool {
-
-        // Special rule: anything can cast to nothing
-        // and nothing can cast to anything
-        if ($union_type->isEmpty() || $this->isEmpty()) {
-            return true;
-        }
-
-        // Check to see if the types are equivalent
-        if ($this->isEqualTo($union_type)) {
-            return true;
-        }
-        // TODO: Allow casting MyClass<TemplateType> to MyClass (Without the template?
-
-        // Resolve 'static' for the given context to
-        // determine whats actually being referred
-        // to in concrete terms.
-        $other_resolved_type =
-            $union_type->withStaticResolvedInContext($context);
-        $other_resolved_type_set = $other_resolved_type->type_set;
-
-        // Convert this type to a set of resolved types to iterate over.
-        $this_resolved_type_set =
-            $this->withStaticResolvedInContext($context)->type_set;
-
-        // TODO: Need to resolve expanded union types (parents, interfaces) of classes *before* this is called.
-
-        // Test to see if every single type in this union
-        // type can cast to the given union type.
-        foreach ($this_resolved_type_set as $type) {
-            // First check if this contains the type as an optimization.
-            if ($other_resolved_type_set->contains($type)) {
-                continue;
-            }
-            $expanded_types = $type->asExpandedTypes($code_base);
-            if ($other_resolved_type->canCastToUnionType(
-                $expanded_types
-            )) {
-                continue;
-            }
-        }
-        return true;
-    }
-     */
 
     /**
      * @param Type[] $type_list
@@ -384,7 +351,7 @@ final class EmptyUnionType extends UnionType
      */
     public function hasAnyType(array $type_list) : bool
     {
-        return false;
+        return \in_array($this->type, $type_list, true);
     }
 
     /**
@@ -393,7 +360,7 @@ final class EmptyUnionType extends UnionType
      */
     public function hasIterable() : bool
     {
-        return false;
+        return $this->type->isIterable();
     }
 
     /**
@@ -402,7 +369,7 @@ final class EmptyUnionType extends UnionType
      */
     public function typeCount() : int
     {
-        return 0;
+        return 1;
     }
 
     /**
@@ -411,7 +378,7 @@ final class EmptyUnionType extends UnionType
      */
     public function isEmpty() : bool
     {
-        return true;
+        return false;
     }
 
     /**
@@ -433,7 +400,9 @@ final class EmptyUnionType extends UnionType
         UnionType $target,
         CodeBase $code_base
     ) : bool {
-        return true;  // Empty can cast to anything.
+        $this_expanded = $this->type->asExpandedTypes($code_base);
+        $target_expanded = $target->asExpandedTypes($code_base);
+        return $this_expanded->canCastToUnionType($target_expanded);
     }
 
     /**
@@ -443,11 +412,89 @@ final class EmptyUnionType extends UnionType
      * @return bool
      * True if this type is allowed to cast to the given type
      * i.e. int->float is allowed  while float->int is not.
+     *
+     * @see UnionType->canCastToUnionType
+     *
+     * TODO: Move to class Type
      */
     public function canCastToUnionType(
         UnionType $target
     ) : bool {
-        return true;  // Empty can cast to anything. See parent implementation.
+        // T overlaps with T, a future call to Type->canCastToType will pass.
+        $target_type_set = $target->type_set;
+        if (\count($target_type_set) === 0) {
+            return true;
+        }
+        $source_type = $this->type;
+        if (\in_array($source_type, $target_type_set, true)) {
+            return true;
+        }
+        static $float_type;
+        static $int_type;
+        static $mixed_type;
+        static $null_type;
+        if ($null_type === null) {
+            $int_type   = IntType::instance(false);
+            $float_type = FloatType::instance(false);
+            $mixed_type = MixedType::instance(false);
+            $null_type  = NullType::instance(false);
+        }
+
+        if (Config::get_null_casts_as_any_type()) {
+            // null <-> null
+            if ($source_type === $null_type
+                || $target->isType($null_type)
+            ) {
+                return true;
+            }
+        } else {
+            // If null_casts_as_any_type isn't set, then try the other two fallbacks.
+            if (Config::get_null_casts_as_array() && $source_type === $null_type && $target->hasArrayLike()) {
+                return true;
+            } elseif (Config::get_array_casts_as_null() && $target->isType($null_type) && $this->hasArrayLike()) {
+                return true;
+            }
+        }
+
+        // mixed <-> mixed
+        if ($this === $mixed_type
+            || \in_array($mixed_type, $target_type_set, true)
+        ) {
+            return true;
+        }
+
+        // int -> float
+        if ($this === $int_type
+            && \in_array($float_type, $target_type_set, true)
+        ) {
+            return true;
+        }
+
+        // Check conversion on the cross product of all
+        // type combinations and see if any can cast to
+        // any.
+        foreach ($target_type_set as $target_type) {
+            if ($source_type->canCastToType($target_type)) {
+                return true;
+            }
+        }
+
+        // Allow casting ?T to T|null for any type T. Check if null is part of this type first.
+        if (\in_array($null_type, $target_type_set, true)) {
+            // Only redo this check for the nullable types, we already failed the checks for non-nullable types.
+            if ($source_type->getIsNullable()) {
+                $non_null_source_type = $source_type->withIsNullable(false);
+                foreach ($target_type_set as $target_type) {
+                    if ($non_null_source_type->canCastToType($target_type)) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        // Only if no source types can be cast to any target
+        // types do we say that we cannot perform the cast
+        return false;
     }
 
     /**
@@ -456,7 +503,7 @@ final class EmptyUnionType extends UnionType
      */
     public function isScalar() : bool
     {
-        return false;
+        return $this->type->isScalar();
     }
 
     /**
@@ -466,7 +513,7 @@ final class EmptyUnionType extends UnionType
      */
     public function hasArrayLike() : bool
     {
-        return false;
+        return $this->type->isArrayLike();
     }
 
     /**
@@ -476,7 +523,7 @@ final class EmptyUnionType extends UnionType
      */
     public function hasGenericArray() : bool
     {
-        return false;
+        return $this->type->isGenericArray();
     }
 
     /**
@@ -486,7 +533,7 @@ final class EmptyUnionType extends UnionType
      */
     public function hasArrayAccess() : bool
     {
-        return false;
+        return $this->type->isArrayAccess();
     }
 
     /**
@@ -496,7 +543,7 @@ final class EmptyUnionType extends UnionType
      */
     public function hasTraversable() : bool
     {
-        return false;
+        return $this->type->isTraversable();
     }
 
     /**
@@ -507,7 +554,8 @@ final class EmptyUnionType extends UnionType
      */
     public function isExclusivelyArrayLike() : bool
     {
-        return false;
+        $type = $this->type;
+        return $type->isArrayLike() && !$type->getIsNullable();
     }
 
     /**
@@ -518,7 +566,8 @@ final class EmptyUnionType extends UnionType
      */
     public function isExclusivelyArray() : bool
     {
-        return false;
+        $type = $this->type;
+        return $type === ArrayType::instance(false) || !$type->isGenericArray();
     }
 
     /**
@@ -527,7 +576,7 @@ final class EmptyUnionType extends UnionType
      */
     public function nonNativeTypes() : UnionType
     {
-        return $this;
+        return $this->type->isNativeType() ? self::$empty_instance : $this;
     }
 
     /**
@@ -536,7 +585,7 @@ final class EmptyUnionType extends UnionType
      */
     public function makeFromFilter(\Closure $cb) : UnionType
     {
-        return $this;  // filtering empty results in empty
+        return $cb($this->type) ? $this : self::$empty_instance;
     }
 
     /**
@@ -544,7 +593,7 @@ final class EmptyUnionType extends UnionType
      * The context in which we're resolving this union
      * type.
      *
-     * @return \Generator
+     * @return iterable
      *
      * A list of class FQSENs representing the non-native types
      * associated with this UnionType
@@ -562,7 +611,27 @@ final class EmptyUnionType extends UnionType
     public function asClassFQSENList(
         Context $context
     ) {
-        return [];
+        $class_type = $this->type;
+        if ($class_type->isNativeType()) {
+            return [];
+        }
+        // Get the class FQSEN
+        $class_fqsen = $class_type->asFQSEN();
+
+        if ($class_type->isStaticType()) {
+            if (!$context->isInClassScope()) {
+                throw new IssueException(
+                    Issue::fromType(Issue::ContextNotObject)(
+                        $context->getFile(),
+                        $context->getLineNumberStart(),
+                        [
+                            $class_type->getName()
+                        ]
+                    )
+                );
+            }
+        }
+        return [$class_fqsen];
     }
 
     /**
@@ -573,7 +642,7 @@ final class EmptyUnionType extends UnionType
      * The context in which we're resolving this union
      * type.
      *
-     * @return \Generator
+     * @return iterable
      *
      * A list of classes representing the non-native types
      * associated with this UnionType
@@ -590,7 +659,56 @@ final class EmptyUnionType extends UnionType
         CodeBase $code_base,
         Context $context
     ) {
-        return [];
+        // Iterate over each viable class type to see if any
+        // have the constant we're looking for
+        $class_type = $this->type;
+        if ($class_type->isNativeType()) {
+            return [];
+        }
+        // Get the class FQSEN
+        $class_fqsen = FullyQualifiedClassName::fromType($class_type);
+
+        if ($class_type->isStaticType()) {
+            if (!$context->isInClassScope()) {
+                throw new IssueException(
+                    Issue::fromType(Issue::ContextNotObject)(
+                        $context->getFile(),
+                        $context->getLineNumberStart(),
+                        [
+                            $class_type->getName()
+                        ]
+                    )
+                );
+            }
+            return [$context->getClassInScope($code_base)];
+        }
+        if ($class_type->isSelfType()) {
+            if (!$context->isInClassScope()) {
+                throw new IssueException(
+                    Issue::fromType(Issue::ContextNotObject)(
+                        $context->getFile(),
+                        $context->getLineNumberStart(),
+                        [
+                            $class_type->getName()
+                        ]
+                    )
+                );
+            }
+            if (strcasecmp($class_type->getName(), 'self') === 0) {
+                return [$context->getClassInScope($code_base)];
+            } else {
+                return [$class_type];
+            }
+        }
+        // See if the class exists
+        if (!$code_base->hasClassWithFQSEN($class_fqsen)) {
+            throw new CodeBaseException(
+                $class_fqsen,
+                "Cannot find class $class_fqsen"
+            );
+        }
+
+        return [$code_base->getClassByFQSEN($class_fqsen)];
     }
 
     /**
@@ -603,7 +721,7 @@ final class EmptyUnionType extends UnionType
      */
     public function nonGenericArrayTypes() : UnionType
     {
-        return $this;
+        return $this->type->isGenericArray() ? self::$empty_instance : $this;
     }
 
     /**
@@ -616,7 +734,7 @@ final class EmptyUnionType extends UnionType
      */
     public function genericArrayTypes() : UnionType
     {
-        return $this;
+        return $this->type->isGenericArray() ? $this : self::$empty_instance;
     }
 
     /**
@@ -629,7 +747,7 @@ final class EmptyUnionType extends UnionType
      */
     public function objectTypes() : UnionType
     {
-        return $this;
+        return $this->type->isObject() ? $this : self::$empty_instance;
     }
 
     /**
@@ -639,7 +757,12 @@ final class EmptyUnionType extends UnionType
      */
     public function hasObjectTypes() : bool
     {
-        return false;
+        return $this->type->isObject();
+    }
+
+    public function hasPossiblyObjectTypes() : bool
+    {
+        return $this->type->isObject();
     }
 
     /**
@@ -655,7 +778,8 @@ final class EmptyUnionType extends UnionType
      */
     public function scalarTypes() : UnionType
     {
-        return $this;
+        $type = $this->type;
+        return $type->isScalar() && !($type instanceof NullType) ? $this : self::$empty_instance;
     }
 
     /**
@@ -671,7 +795,7 @@ final class EmptyUnionType extends UnionType
      */
     public function callableTypes() : UnionType
     {
-        return $this;
+        return $this->type->isCallable() ? $this : self::$empty_instance;
     }
 
     /**
@@ -689,7 +813,7 @@ final class EmptyUnionType extends UnionType
      */
     public function hasCallableType() : bool
     {
-        return false;  // has no types
+        return $this->type->isCallable();
     }
 
     /**
@@ -705,8 +829,15 @@ final class EmptyUnionType extends UnionType
      */
     public function isExclusivelyCallable() : bool
     {
-        return true; // !$this->hasTypeMatchingCallback(empty)
+        return $this->type->isCallable();
     }
+
+    public function isExclusivelyBoolTypes() : bool
+    {
+        $type = $this->type;
+        return $type->getIsInBoolFamily() && $type->getIsNullable();
+    }
+
 
     /**
      * Takes "a|b[]|c|d[]|e|array|ArrayAccess" and returns "a|c|e|ArrayAccess"
@@ -719,6 +850,10 @@ final class EmptyUnionType extends UnionType
      */
     public function nonArrayTypes() : UnionType
     {
+        $type = $this->type;
+        if (!$type->isGenericArray() && $type !== ArrayType::instance(false)) {
+            return self::$empty_instance;
+        }
         return $this;
     }
 
@@ -728,7 +863,7 @@ final class EmptyUnionType extends UnionType
      */
     public function isGenericArray() : bool
     {
-        return false;  // empty
+        return $this->type->isGenericArray();
     }
 
     /**
@@ -737,7 +872,7 @@ final class EmptyUnionType extends UnionType
      */
     public function hasTypeMatchingCallback(\Closure $matcher_callback) : bool
     {
-        return false;
+        return $matcher_callback($this->type);
     }
 
     /**
@@ -746,7 +881,8 @@ final class EmptyUnionType extends UnionType
      */
     public function findTypeMatchingCallback(\Closure $matcher_callback)
     {
-        return false;  // empty, no types
+        $type = $this->type;
+        return $matcher_callback($type) ? $type : false;
     }
 
     /**
@@ -757,7 +893,35 @@ final class EmptyUnionType extends UnionType
      */
     public function genericArrayElementTypes() : UnionType
     {
-        return $this; // empty
+        // This is frequently called, and has been optimized
+        $type = $this->type;
+        if ($type->isGenericArray()) {
+            if ($type instanceof ArrayShapeType) {
+                return $type->genericArrayElementUnionType();
+            } else {
+                return $type->genericArrayElementType()->asUnionType();
+            }
+        }
+
+        static $array_type_nonnull = null;
+        static $array_type_nullable = null;
+        static $mixed_type = null;
+        static $null_type = null;
+        if ($array_type_nonnull === null) {
+            $array_type_nonnull = ArrayType::instance(false);
+            $array_type_nullable = ArrayType::instance(true);
+            $mixed_type = MixedType::instance(false);
+            $null_type = NullType::instance(false);
+        }
+
+        // If array is in there, then it can be any type
+        if ($array_type_nonnull === $type) {
+            return new UnionType([$mixed_type, $null_type], true);
+        } elseif ($mixed_type === $type || $array_type_nullable === $type) {
+            return $mixed_type->asUnionType();
+        }
+
+        return self::$empty_instance;
     }
 
     /**
@@ -771,7 +935,11 @@ final class EmptyUnionType extends UnionType
      */
     public function elementTypesToGenericArray(int $key_type) : UnionType
     {
-        return $this;
+        $type = $this->type;
+        if ($type instanceof MixedType) {
+            return ArrayType::instance(false)->asUnionType();
+        }
+        return GenericArrayType::fromElementType($type, false, $key_type)->asUnionType();
     }
 
     /**
@@ -784,7 +952,7 @@ final class EmptyUnionType extends UnionType
      */
     public function asMappedUnionType(\Closure $closure) : UnionType
     {
-        return $this;  // empty
+        return $closure($this)->asUnionType();
     }
 
     /**
@@ -800,7 +968,7 @@ final class EmptyUnionType extends UnionType
      */
     public function asGenericArrayTypes(int $key_type) : UnionType
     {
-        return $this;  // empty
+        return $this->type->asGenericArrayType($key_type)->asUnionType();
     }
 
     /**
@@ -813,7 +981,8 @@ final class EmptyUnionType extends UnionType
      */
     public function asNonEmptyGenericArrayTypes(int $key_type) : UnionType
     {
-        return ArrayType::instance(false)->asUnionType();
+        // TODO: Be more precise for ArrayShapeType
+        return $this->type->asGenericArrayType($key_type)->asUnionType();
     }
 
     /**
@@ -833,7 +1002,7 @@ final class EmptyUnionType extends UnionType
         CodeBase $code_base,
         int $recursion_depth = 0
     ) : UnionType {
-        return $this;
+        return $this->type->asExpandedTypes($code_base, $recursion_depth + 1);
     }
 
     /**
@@ -846,7 +1015,7 @@ final class EmptyUnionType extends UnionType
      */
     public function serialize() : string
     {
-        return '';
+        return $this->type->__toString();
     }
 
     /**
@@ -856,7 +1025,7 @@ final class EmptyUnionType extends UnionType
      */
     public function __toString() : string
     {
-        return '';
+        return $this->type->__toString();
     }
 
     /**
@@ -873,40 +1042,28 @@ final class EmptyUnionType extends UnionType
         return $this;
     }
 
+    public function generateUniqueId() : string {
+        return (string)\spl_object_id($this->type);
+    }
+
     public function hasTopLevelArrayShapeTypeInstances() : bool
     {
-        return false;
+        return $this->type instanceof ArrayShapeType;
     }
 
     /** @override */
-    public function hasArrayShapeTypeInstances() : bool
+    public function hasTopLevelNonArrayShapeTypeInstances() : bool
     {
-        return false;
+        return !($this->type instanceof ArrayShapeType);
     }
 
     /** @override */
     public function withFlattenedArrayShapeTypeInstances() : UnionType
     {
-        return $this;
+        $type = $this->type;
+        if (!($type instanceof ArrayShapeType)) {
+            return $this;
+        }
+        return UnionType::of($type->withFlattenedArrayShapeTypeInstances());
     }
-
-    public function hasPossiblyObjectTypes() : bool
-    {
-        return false;
-    }
-
-    public function isExclusivelyBoolTypes() : bool
-    {
-        return false;
-    }
-
-    public function generateUniqueId() : string {
-        return '';
-    }
-
-    public function hasTopLevelNonArrayShapeTypeInstances() : bool
-    {
-        return false;
-    }
-
 }

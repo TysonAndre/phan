@@ -1510,10 +1510,10 @@ class Type
             );
 
             // Recurse up the tree to include all types
-            $representation = (string)$this;
+            $representation = $this->__toString();
             $recursive_union_type_builder = new UnionTypeBuilder();
             foreach ($union_type->getTypeSet() as $clazz_type) {
-                if ((string)$clazz_type != $representation) {
+                if ($clazz_type->__toString() != $representation) {
                     $recursive_union_type_builder->addUnionType(
                         $clazz_type->asExpandedTypes(
                             $code_base,
@@ -1648,7 +1648,7 @@ class Type
             ],
         ];
 
-        return $matrix[(string)$this][(string)$type] ?? false;
+        return $matrix[$this->__toString()][$type->__toString()] ?? false;
     }
 
     /**
@@ -1775,7 +1775,7 @@ class Type
     {
         return '<' .
             \implode(',', \array_map(function (UnionType $type) {
-                return (string)$type;
+                return $type->__toString();
             }, $this->template_parameter_type_list)) . '>';
     }
 

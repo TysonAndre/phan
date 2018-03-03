@@ -55,7 +55,7 @@ class UnionType implements \Serializable
     /**
      * @var array<int,Type> * This is an immutable list of unique types.
      */
-    private $type_set;
+    protected $type_set;
 
     /**
      * @param array<int,Type> $type_list
@@ -97,7 +97,7 @@ class UnionType implements \Serializable
     }
 
     /** @var EmptyUnionType */
-    private static $empty_instance;
+    protected static $empty_instance;
 
     /**
      * @return EmptyUnionType (Real return type omitted for performance)
@@ -716,6 +716,8 @@ class UnionType implements \Serializable
      * @return UnionType
      * A new UnionType with any references to 'static' resolved
      * in the given context.
+     *
+     * TODO: Handle ArrayShape and GenericArray?
      */
     public function withStaticResolvedInContext(
         Context $context
@@ -1387,7 +1389,7 @@ class UnionType implements \Serializable
      * The context in which we're resolving this union
      * type.
      *
-     * @return \Generator
+     * @return iterable
      *
      * A list of class FQSENs representing the non-native types
      * associated with this UnionType
@@ -1441,7 +1443,7 @@ class UnionType implements \Serializable
      * The context in which we're resolving this union
      * type.
      *
-     * @return \Generator
+     * @return iterable
      *
      * A list of classes representing the non-native types
      * associated with this UnionType
@@ -1851,6 +1853,7 @@ class UnionType implements \Serializable
      */
     public function asNonEmptyGenericArrayTypes(int $key_type) : UnionType
     {
+        // TODO: Be more precise for ArrayShapeType
         if (\count($this->type_set) === 0) {
             return ArrayType::instance(false)->asUnionType();
         }
@@ -1915,7 +1918,8 @@ class UnionType implements \Serializable
      */
     public function serialize() : string
     {
-        return (string)$this;
+        // Even in php 7.2, calling __toString directly is slightly faster than the (string) cast syntax.
+        return $this->__toString();
     }
 
     /**
@@ -1947,7 +1951,7 @@ class UnionType implements \Serializable
         $types = $this->type_set;
         $type_name_list =
             \array_map(function (Type $type) : string {
-                return (string)$type;
+                return $type->__toString();
             }, $types);
 
         // Sort the types so that we get a stable
