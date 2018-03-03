@@ -31,7 +31,7 @@ final class SingletonUnionType extends UnionType
      */
     public function __construct(Type $type)
     {
-        parent::__construct([], true);
+        parent::__construct([$type], true);
         $this->type = $type;
     }
 
@@ -338,7 +338,17 @@ final class SingletonUnionType extends UnionType
 
     public function nonTrueClone() : UnionType
     {
-        return $this;
+        $type = $this->type;
+        if (!$type->getIsPossiblyTrue()) {
+            return $this;
+        }
+        $did_change = true;
+        if ($type->getIsAlwaysTrue()) {
+            return self::$empty_instance;
+        }
+
+        // add non-nullable equivalents, and replace BoolType with non-nullable TrueType
+        return $type->asNonTrueType()->asUnionType();
     }
 
     /**
@@ -395,6 +405,7 @@ final class SingletonUnionType extends UnionType
      * to include all ancestor types
      *
      * TODO: ensure that this is only called after the parse phase is over.
+     * @override
      */
     public function canCastToExpandedUnionType(
         UnionType $target,
@@ -567,7 +578,7 @@ final class SingletonUnionType extends UnionType
     public function isExclusivelyArray() : bool
     {
         $type = $this->type;
-        return $type === ArrayType::instance(false) || !$type->isGenericArray();
+        return $type === ArrayType::instance(false) || $type->isGenericArray();
     }
 
     /**
@@ -835,7 +846,7 @@ final class SingletonUnionType extends UnionType
     public function isExclusivelyBoolTypes() : bool
     {
         $type = $this->type;
-        return $type->getIsInBoolFamily() && $type->getIsNullable();
+        return $type->getIsInBoolFamily() && !$type->getIsNullable();
     }
 
 
@@ -851,7 +862,7 @@ final class SingletonUnionType extends UnionType
     public function nonArrayTypes() : UnionType
     {
         $type = $this->type;
-        if (!$type->isGenericArray() && $type !== ArrayType::instance(false)) {
+        if ($type->isGenericArray() || $type === ArrayType::instance(false)) {
             return self::$empty_instance;
         }
         return $this;
@@ -952,7 +963,7 @@ final class SingletonUnionType extends UnionType
      */
     public function asMappedUnionType(\Closure $closure) : UnionType
     {
-        return $closure($this)->asUnionType();
+        return $closure($this->type)->asUnionType();
     }
 
     /**
@@ -1055,6 +1066,12 @@ final class SingletonUnionType extends UnionType
     public function hasTopLevelNonArrayShapeTypeInstances() : bool
     {
         return !($this->type instanceof ArrayShapeType);
+    }
+
+    /** @override */
+    public function hasArrayShapeTypeInstances() : bool
+    {
+        return $this->type->hasArrayShapeTypeInstances();
     }
 
     /** @override */
