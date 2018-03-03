@@ -4,6 +4,7 @@ namespace Phan\Analysis;
 use Phan\AST\AnalysisVisitor;
 use Phan\AST\ContextNode;
 use Phan\AST\UnionTypeVisitor;
+use Phan\BlockAnalysisVisitor;
 use Phan\CodeBase;
 use Phan\Config;
 use Phan\Exception\CodeBaseException;
@@ -26,12 +27,113 @@ use Phan\Language\UnionType;
 use ast\Node;
 use ast\flags;
 
-class PostOrderAnalysisVisitor extends AnalysisVisitor
+trait PostOrderAnalysisVisitorTrait
 {
     /**
      * @var array<int,Node>
      */
     private $parent_node_list;
+
+    const VISIT_LOOKUP_TABLE = [
+        \ast\AST_ARG_LIST           => 'postVisitArgList',
+        \ast\AST_ARRAY              => 'postVisitArray',
+        \ast\AST_ARRAY_ELEM         => 'postVisitArrayElem',
+        \ast\AST_ASSIGN             => 'postVisitAssign',
+        \ast\AST_ASSIGN_OP          => 'postVisitAssignOp',
+        \ast\AST_ASSIGN_REF         => 'postVisitAssignRef',
+        \ast\AST_BINARY_OP          => 'postVisitBinaryOp',
+        \ast\AST_BREAK              => 'postVisitBreak',
+        \ast\AST_CALL               => 'postVisitCall',
+        \ast\AST_CAST               => 'postVisitCast',
+        \ast\AST_CATCH              => 'postVisitCatch',
+        \ast\AST_CLASS              => 'postVisitClass',
+        \ast\AST_CLASS_CONST        => 'postVisitClassConst',
+        \ast\AST_CLASS_CONST_DECL   => 'postVisitClassConstDecl',
+        \ast\AST_CLOSURE            => 'postVisitClosure',
+        \ast\AST_CLOSURE_USES       => 'postVisitClosureUses',
+        \ast\AST_CLOSURE_VAR        => 'postVisitClosureVar',
+        \ast\AST_COALESCE           => 'postVisitCoalesce',
+        \ast\AST_CONST              => 'postVisitConst',
+        \ast\AST_CONST_DECL         => 'postVisitConstDecl',
+        \ast\AST_CONST_ELEM         => 'postVisitConstElem',
+        \ast\AST_DECLARE            => 'postVisitDeclare',
+        \ast\AST_DIM                => 'postVisitDim',
+        \ast\AST_DO_WHILE           => 'postVisitDoWhile',
+        \ast\AST_ECHO               => 'postVisitEcho',
+        \ast\AST_EMPTY              => 'postVisitEmpty',
+        \ast\AST_ENCAPS_LIST        => 'postVisitEncapsList',
+        \ast\AST_EXIT               => 'postVisitExit',
+        \ast\AST_EXPR_LIST          => 'postVisitExprList',
+        \ast\AST_FOREACH            => 'postVisitForeach',
+        \ast\AST_FUNC_DECL          => 'postVisitFuncDecl',
+        \ast\AST_ISSET              => 'postVisitIsset',
+        \ast\AST_GLOBAL             => 'postVisitGlobal',
+        \ast\AST_GREATER            => 'postVisitGreater',
+        \ast\AST_GREATER_EQUAL      => 'postVisitGreaterEqual',
+        \ast\AST_GROUP_USE          => 'postVisitGroupUse',
+        \ast\AST_IF                 => 'postVisitIf',
+        \ast\AST_IF_ELEM            => 'postVisitIfElem',
+        \ast\AST_INSTANCEOF         => 'postVisitInstanceof',
+        \ast\AST_MAGIC_CONST        => 'postVisitMagicConst',
+        \ast\AST_METHOD             => 'postVisitMethod',
+        \ast\AST_METHOD_CALL        => 'postVisitMethodCall',
+        \ast\AST_NAME               => 'postVisitName',
+        \ast\AST_NAMESPACE          => 'postVisitNamespace',
+        \ast\AST_NEW                => 'postVisitNew',
+        \ast\AST_PARAM              => 'postVisitParam',
+        \ast\AST_PARAM_LIST         => 'postVisitParamList',
+        \ast\AST_PRE_INC            => 'postVisitPreInc',
+        \ast\AST_PRINT              => 'postVisitPrint',
+        \ast\AST_PROP               => 'postVisitProp',
+        \ast\AST_PROP_DECL          => 'postVisitPropDecl',
+        \ast\AST_PROP_ELEM          => 'postVisitPropElem',
+        \ast\AST_RETURN             => 'postVisitReturn',
+        \ast\AST_STATIC             => 'postVisitStatic',
+        \ast\AST_STATIC_CALL        => 'postVisitStaticCall',
+        \ast\AST_STATIC_PROP        => 'postVisitStaticProp',
+        \ast\AST_STMT_LIST          => 'postVisitStmtList',
+        \ast\AST_SWITCH             => 'postVisitSwitch',
+        \ast\AST_SWITCH_CASE        => 'postVisitSwitchCase',
+        \ast\AST_SWITCH_LIST        => 'postVisitSwitchList',
+        \ast\AST_TYPE               => 'postVisitType',
+        \ast\AST_NULLABLE_TYPE      => 'postVisitNullableType',
+        \ast\AST_UNARY_MINUS        => 'postVisitUnaryMinus',
+        \ast\AST_UNARY_OP           => 'postVisitUnaryOp',
+        \ast\AST_USE                => 'postVisitUse',
+        \ast\AST_USE_ELEM           => 'postVisitUseElem',
+        \ast\AST_USE_TRAIT          => 'postVisitUseTrait',
+        \ast\AST_VAR                => 'postVisitVar',
+        \ast\AST_WHILE              => 'postVisitWhile',
+        \ast\AST_AND                => 'postVisitAnd',
+        \ast\AST_CATCH_LIST         => 'postVisitCatchList',
+        \ast\AST_CLONE              => 'postVisitClone',
+        \ast\AST_CONDITIONAL        => 'postVisitConditional',
+        \ast\AST_CONTINUE           => 'postVisitContinue',
+        \ast\AST_FOR                => 'postVisitFor',
+        \ast\AST_GOTO               => 'postVisitGoto',
+        \ast\AST_HALT_COMPILER      => 'postVisitHaltCompiler',
+        \ast\AST_INCLUDE_OR_EVAL    => 'postVisitIncludeOrEval',
+        \ast\AST_LABEL              => 'postVisitLabel',
+        \ast\AST_METHOD_REFERENCE   => 'postVisitMethodReference',
+        \ast\AST_NAME_LIST          => 'postVisitNameList',
+        \ast\AST_OR                 => 'postVisitOr',
+        \ast\AST_POST_DEC           => 'postVisitPostDec',
+        \ast\AST_POST_INC           => 'postVisitPostInc',
+        \ast\AST_PRE_DEC            => 'postVisitPreDec',
+        \ast\AST_REF                => 'postVisitRef',
+        \ast\AST_SHELL_EXEC         => 'postVisitShellExec',
+        \ast\AST_SILENCE            => 'postVisitSilence',
+        \ast\AST_THROW              => 'postVisitThrow',
+        \ast\AST_TRAIT_ADAPTATIONS  => 'postVisitTraitAdaptations',
+        \ast\AST_TRAIT_ALIAS        => 'postVisitTraitAlias',
+        \ast\AST_TRAIT_PRECEDENCE   => 'postVisitTraitPrecedence',
+        \ast\AST_TRY                => 'postVisitTry',
+        \ast\AST_UNARY_PLUS         => 'postVisitUnaryPlus',
+        \ast\AST_UNPACK             => 'postVisitUnpack',
+        \ast\AST_UNSET              => 'postVisitUnset',
+        \ast\AST_YIELD              => 'postVisitYield',
+        \ast\AST_YIELD_FROM         => 'postVisitYieldFrom',
+    ];
 
     /**
      * @param CodeBase $code_base
@@ -66,7 +168,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visit(Node $node) : Context
+    public function postVisit(Node $node) : Context
     {
         // Many nodes don't change the context and we
         // don't need to read them.
@@ -81,7 +183,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitAssign(Node $node) : Context
+    public function postVisitAssign(Node $node) : Context
     {
         // Get the type of the right side of the
         // assignment
@@ -140,9 +242,9 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitAssignRef(Node $node) : Context
+    public function postVisitAssignRef(Node $node) : Context
     {
-        return $this->visitAssign($node);
+        return $this->postVisitAssign($node);
     }
 
     /**
@@ -153,7 +255,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitIfElem(Node $node) : Context
+    public function postVisitIfElem(Node $node) : Context
     {
         return $this->context;
     }
@@ -166,9 +268,9 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitWhile(Node $node) : Context
+    public function postVisitWhile(Node $node) : Context
     {
-        return $this->visitIfElem($node);
+        return $this->postVisitIfElem($node);
     }
 
     /**
@@ -179,9 +281,9 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitSwitch(Node $node) : Context
+    public function postVisitSwitch(Node $node) : Context
     {
-        return $this->visitIfElem($node);
+        return $this->postVisitIfElem($node);
     }
 
     /**
@@ -192,9 +294,9 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitSwitchCase(Node $node) : Context
+    public function postVisitSwitchCase(Node $node) : Context
     {
-        return $this->visitIfElem($node);
+        return $this->postVisitIfElem($node);
     }
 
     /**
@@ -205,9 +307,9 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitExprList(Node $node) : Context
+    public function postVisitExprList(Node $node) : Context
     {
-        return $this->visitIfElem($node);
+        return $this->postVisitIfElem($node);
     }
 
     /**
@@ -218,7 +320,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitEncapsList(Node $node) : Context
+    public function postVisitEncapsList(Node $node) : Context
     {
         foreach ((array)$node->children as $child_node) {
             // Confirm that variables exists
@@ -272,7 +374,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitDoWhile(Node $node) : Context
+    public function postVisitDoWhile(Node $node) : Context
     {
         return $this->context;
     }
@@ -287,7 +389,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitGlobal(Node $node) : Context
+    public function postVisitGlobal(Node $node) : Context
     {
         $variable = Variable::fromNodeInContext(
             $node->children['var'],
@@ -324,7 +426,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitStatic(Node $node) : Context
+    public function postVisitStatic(Node $node) : Context
     {
         $variable = Variable::fromNodeInContext(
             $node->children['var'],
@@ -360,9 +462,9 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitEcho(Node $node) : Context
+    public function postVisitEcho(Node $node) : Context
     {
-        return $this->visitPrint($node);
+        return $this->postVisitPrint($node);
     }
 
     /**
@@ -373,7 +475,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitPrint(Node $node) : Context
+    public function postVisitPrint(Node $node) : Context
     {
         $type = UnionTypeVisitor::unionTypeFromNode(
             $this->code_base,
@@ -405,7 +507,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitVar(Node $node) : Context
+    public function postVisitVar(Node $node) : Context
     {
         $this->analyzeNoOp($node, Issue::NoopVariable);
         $parent_node = \end($this->parent_node_list);
@@ -446,40 +548,11 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitArray(Node $node) : Context
+    public function postVisitArray(Node $node) : Context
     {
         $this->analyzeNoOp($node, Issue::NoopArray);
         return $this->context;
     }
-
-    /** @internal */
-    const NAME_FOR_BINARY_OP = [
-        flags\BINARY_BOOL_AND            => '&&',
-        flags\BINARY_BOOL_OR             => '||',
-        flags\BINARY_BOOL_XOR            => 'xor',
-        flags\BINARY_BITWISE_OR          => '|',
-        flags\BINARY_BITWISE_AND         => '&',
-        flags\BINARY_BITWISE_XOR         => '^',
-        flags\BINARY_CONCAT              => '.',
-        flags\BINARY_ADD                 => '+',
-        flags\BINARY_SUB                 => '-',
-        flags\BINARY_MUL                 => '*',
-        flags\BINARY_DIV                 => '/',
-        flags\BINARY_MOD                 => '%',
-        flags\BINARY_POW                 => '**',
-        flags\BINARY_SHIFT_LEFT          => '<<',
-        flags\BINARY_SHIFT_RIGHT         => '>>',
-        flags\BINARY_IS_IDENTICAL        => '===',
-        flags\BINARY_IS_NOT_IDENTICAL    => '!==',
-        flags\BINARY_IS_EQUAL            => '==',
-        flags\BINARY_IS_NOT_EQUAL        => '!=',
-        flags\BINARY_IS_SMALLER          => '<',
-        flags\BINARY_IS_SMALLER_OR_EQUAL => '<=',
-        flags\BINARY_IS_GREATER          => '>',
-        flags\BINARY_IS_GREATER_OR_EQUAL => '>=',
-        flags\BINARY_SPACESHIP           => '<=>',
-        flags\BINARY_COALESCE            => '??',
-    ];
 
     /**
      * @param Node $node
@@ -489,27 +562,19 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitBinaryOp(Node $node) : Context
+    public function postVisitBinaryOp(Node $node) : Context
     {
         if ((\end($this->parent_node_list)->kind ?? null) === \ast\AST_STMT_LIST) {
             if (!\in_array($node->flags, [flags\BINARY_BOOL_AND, flags\BINARY_BOOL_OR, flags\BINARY_COALESCE])) {
                 $this->emitIssue(
                     Issue::NoopBinaryOperator,
                     $node->lineno,
-                    self::NAME_FOR_BINARY_OP[$node->flags] ?? ''
+                    BlockAnalysisVisitor::NAME_FOR_BINARY_OP[$node->flags] ?? ''
                 );
             }
         }
         return $this->context;
     }
-
-    const NAME_FOR_UNARY_OP = [
-        flags\UNARY_BOOL_NOT => '!',
-        flags\UNARY_BITWISE_NOT => '~',
-        flags\UNARY_SILENCE => '@',
-        flags\UNARY_PLUS => '+',
-        flags\UNARY_MINUS => '-',
-    ];
 
     /**
      * @param Node $node
@@ -519,14 +584,14 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitUnaryOp(Node $node) : Context
+    public function postVisitUnaryOp(Node $node) : Context
     {
         if ($node->flags !== flags\UNARY_SILENCE) {
             if ((\end($this->parent_node_list)->kind ?? null) === \ast\AST_STMT_LIST) {
                 $this->emitIssue(
                     Issue::NoopUnaryOperator,
                     $node->lineno,
-                    self::NAME_FOR_UNARY_OP[$node->flags] ?? ''
+                    BlockAnalysisVisitor::NAME_FOR_UNARY_OP[$node->flags] ?? ''
                 );
             }
         }
@@ -541,7 +606,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitConst(Node $node) : Context
+    public function postVisitConst(Node $node) : Context
     {
         $context = $this->context;
         try {
@@ -587,7 +652,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitClassConst(Node $node) : Context
+    public function postVisitClassConst(Node $node) : Context
     {
         try {
             $constant = (new ContextNode(
@@ -626,7 +691,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitClosure(Node $node) : Context
+    public function postVisitClosure(Node $node) : Context
     {
         $func = $this->context->getFunctionLikeInScope($this->code_base);
 
@@ -657,7 +722,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitReturn(Node $node) : Context
+    public function postVisitReturn(Node $node) : Context
     {
         // Make sure we're actually returning from a method.
         if (!$this->context->isInFunctionLikeScope()) {
@@ -910,7 +975,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitPropDecl(Node $node) : Context
+    public function postVisitPropDecl(Node $node) : Context
     {
         return $this->context;
     }
@@ -923,7 +988,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitCall(Node $node) : Context
+    public function postVisitCall(Node $node) : Context
     {
         $expression = $node->children['expr'];
         try {
@@ -956,7 +1021,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitNew(Node $node) : Context
+    public function postVisitNew(Node $node) : Context
     {
         try {
             $context_node = (new ContextNode(
@@ -1068,7 +1133,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitInstanceof(Node $node) : Context
+    public function postVisitInstanceof(Node $node) : Context
     {
         try {
             // Fetch the class list, and emit warnings as a side effect.
@@ -1097,7 +1162,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitStaticCall(Node $node) : Context
+    public function postVisitStaticCall(Node $node) : Context
     {
         // Get the name of the method being called
         $method_name = $node->children['method'];
@@ -1342,7 +1407,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitMethod(Node $node) : Context
+    public function postVisitMethod(Node $node) : Context
     {
         \assert(
             $this->context->isInFunctionLikeScope(),
@@ -1429,7 +1494,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitFuncDecl(Node $node) : Context
+    public function postVisitFuncDecl(Node $node) : Context
     {
         $method =
             $this->context->getFunctionLikeInScope($this->code_base);
@@ -1474,7 +1539,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitMethodCall(Node $node) : Context
+    public function postVisitMethodCall(Node $node) : Context
     {
         $method_name = $node->children['method'];
 
@@ -1537,7 +1602,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitDim(Node $node) : Context
+    public function postVisitDim(Node $node) : Context
     {
         $code_base = $this->code_base;
         $context = $this->context;
@@ -1608,12 +1673,12 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         }
     }
 
-    public function visitStaticProp(Node $node) : Context
+    public function postVisitStaticProp(Node $node) : Context
     {
         return $this->analyzeProp($node, true);
     }
 
-    public function visitProp(Node $node) : Context
+    public function postVisitProp(Node $node) : Context
     {
         return $this->analyzeProp($node, false);
     }

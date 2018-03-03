@@ -19,7 +19,7 @@ use Phan\Language\Scope\ClosureScope;
 use Phan\Language\Type;
 use ast\Node;
 
-class PreOrderAnalysisVisitor extends ScopeVisitor
+trait PreOrderAnalysisVisitor
 {
     /**
      * @param CodeBase $code_base
@@ -39,7 +39,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
      */
 
     /** @param Node $unused_node implementation for unhandled nodes */
-    public function visit(Node $unused_node) : Context
+    public function preVisit(Node $unused_node) : Context
     {
         return $this->context;
     }
@@ -54,7 +54,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitClass(Node $node) : Context
+    public function preVisitClass(Node $node) : Context
     {
         if ($node->flags & \ast\flags\CLASS_ANONYMOUS) {
             $class_name =
@@ -109,7 +109,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitMethod(Node $node) : Context
+    public function preVisitMethod(Node $node) : Context
     {
         $method_name = (string)$node->children['name'];
         $code_base = $this->code_base;
@@ -200,7 +200,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitFuncDecl(Node $node) : Context
+    public function preVisitFuncDecl(Node $node) : Context
     {
         $function_name = (string)$node->children['name'];
         $code_base = $this->code_base;
@@ -355,7 +355,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitClosure(Node $node) : Context
+    public function preVisitClosure(Node $node) : Context
     {
         $code_base = $this->code_base;
         $context = $this->context;
@@ -496,7 +496,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
      * @return Context
      * An unchanged context resulting from parsing the node
      */
-    public function visitAssign(Node $node) : Context
+    public function preVisitAssign(Node $node) : Context
     {
         // In php 7.0, a **valid** parsed AST would be an \ast\AST_LIST.
         // However, --force-polyfill-parser will emit \ast\AST_ARRAY.
@@ -515,7 +515,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitForeach(Node $node) : Context
+    public function preVisitForeach(Node $node) : Context
     {
         $expression_union_type = UnionTypeVisitor::unionTypeFromNode(
             $this->code_base,
@@ -661,7 +661,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitCatch(Node $node) : Context
+    public function preVisitCatch(Node $node) : Context
     {
         $union_type = UnionTypeVisitor::unionTypeFromClassNode(
             $this->code_base,
@@ -730,7 +730,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitIfElem(Node $node) : Context
+    public function preVisitIfElem(Node $node) : Context
     {
         $cond = $node->children['cond'] ?? null;
         if (!($cond instanceof Node)) {
@@ -754,7 +754,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitWhile(Node $node) : Context
+    public function preVisitWhile(Node $node) : Context
     {
         $cond = $node->children['cond'];
         if (!($cond instanceof Node)) {
@@ -778,7 +778,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitFor(Node $node) : Context
+    public function preVisitFor(Node $node) : Context
     {
         $cond = $node->children['cond'];
         if (!($cond instanceof Node)) {
@@ -802,7 +802,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitCall(Node $node) : Context
+    public function preVisitCall(Node $node) : Context
     {
         $name = $node->children['expr']->children['name'] ?? null;
         // Look only at nodes of the form `assert(expr, ...)`.
