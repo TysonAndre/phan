@@ -8,6 +8,9 @@ use ReflectionParameter;
 
 class BlockAnalysisVisitorTest extends BaseTest
 {
+    /**
+     * @suppress PhanAccessClassConstantInternal
+     */
     public function testPreOrderMethods()
     {
         $reflection_methods = (new ReflectionClass(BlockAnalysisVisitor::class))->getMethods();
@@ -18,6 +21,7 @@ class BlockAnalysisVisitorTest extends BaseTest
         }
         ksort($actual_method_name_set);
 
+        $expected_method_name_set = [];
         foreach ($reflection_methods as $method) {
             if (stripos($method->getName(), 'preVisit') === 0) {
                 $expected_method_name_set[$method->getName()] = true;
@@ -30,6 +34,9 @@ class BlockAnalysisVisitorTest extends BaseTest
         $this->assertEquals($expected_method_name_set, $actual_method_name_set);
     }
 
+    /**
+     * @suppress PhanAccessClassConstantInternal
+     */
     public function testPostOrderMethods()
     {
         $reflection_methods = (new ReflectionClass(BlockAnalysisVisitor::class))->getMethods();
@@ -39,6 +46,7 @@ class BlockAnalysisVisitorTest extends BaseTest
         }
         ksort($actual_method_name_set);
 
+        $expected_method_name_set = [];
         foreach ($reflection_methods as $method) {
             if (stripos($method->getName(), 'postVisit') === 0) {
                 $expected_method_name_set[$method->getName()] = true;

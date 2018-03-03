@@ -8,7 +8,7 @@ use Phan\Language\FQSEN\FullyQualifiedGlobalConstantName;
 use Phan\Language\FQSEN\FullyQualifiedFunctionName;
 use ast\Node;
 
-abstract class ScopeVisitor extends AnalysisVisitor
+class ScopeVisitor extends AnalysisVisitor
 {
 
     /**

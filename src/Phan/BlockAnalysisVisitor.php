@@ -5,10 +5,11 @@ use Phan\AST\AnalysisVisitor;
 use Phan\AST\Visitor\Element;
 use Phan\Analysis\BlockExitStatusChecker;
 use Phan\Analysis\ConditionVisitor;
-use Phan\Analysis\NegatedConditionVisitor;
 use Phan\Analysis\ContextMergeVisitor;
+use Phan\Analysis\NegatedConditionVisitor;
 use Phan\Analysis\PostOrderAnalysisVisitorTrait;
 use Phan\Analysis\PreOrderAnalysisVisitorTrait;
+use Phan\Analysis\ScopeVisitor;
 use Phan\Language\Context;
 use Phan\Language\Element\Comment;
 use Phan\Language\Element\Variable;
@@ -116,12 +117,15 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         \ast\AST_CATCH              => 'preVisitCatch',
         \ast\AST_CLASS              => 'preVisitClass',
         \ast\AST_CLOSURE            => 'preVisitClosure',
+        \ast\AST_DECLARE            => 'preVisitDeclare',
         \ast\AST_FOR                => 'preVisitFor',
         \ast\AST_FOREACH            => 'preVisitForeach',
         \ast\AST_FUNC_DECL          => 'preVisitFuncDecl',
+        \ast\AST_GROUP_USE          => 'preVisitGroupUse',
         \ast\AST_IF_ELEM            => 'preVisitIfElem',
         \ast\AST_METHOD             => 'preVisitMethod',
         \ast\AST_WHILE              => 'preVisitWhile',
+        \ast\AST_USE                => 'preVisitUse',
     ];
 
     /**
@@ -209,6 +213,15 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         // If there are multiple namespaces in the file, have to warn about unused entries in the current namespace first.
         // If this is the first namespace, then there wouldn't be any use statements yet.
         $context->warnAboutUnusedUseElements($this->code_base);
+
+        // Visit the given node populating the code base
+        // with anything we learn and get a new context
+        // indicating the state of the world within the
+        // given node
+        $context = (new ScopeVisitor(
+            $this->code_base,
+            $context
+        ))->visitNamespace($node);
 
         \assert(!empty($context), 'Context cannot be null');
 
@@ -1252,7 +1265,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         // faster than using __invoke() and avoids creating new objects
         $post_visit_method = self::POST_VISIT_LOOKUP_TABLE[$node->kind] ?? null;
         if (\is_string($post_visit_method)) {
-            $this->{$post_visit_method}($node, $context);
+            $context = $this->{$post_visit_method}($node, $context);
         }
 
         // let any configured plugins analyze the node
@@ -1280,6 +1293,8 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         $context = $this->context->withLineNumberStart(
             $node->lineno ?? 0
         );
+
+        $context = (new ScopeVisitor($this->code_base, $context))->visitGroupUse($node);
 
         // Let any configured plugins do a pre-order
         // analysis of the node.

@@ -37,6 +37,13 @@ trait PostOrderAnalysisVisitorTrait
     protected $code_base;
 
     /**
+     * @var Context
+     * The context in which the node we're going to be looking
+     * at exits.
+     */
+    protected $context;
+
+    /**
      * @var array<int,Node>
      */
     protected $parent_node_list = [];
@@ -297,7 +304,7 @@ trait PostOrderAnalysisVisitorTrait
      */
     public function postVisitVar(Node $node, Context $context) : Context
     {
-        $this->analyzeNoOp($node, Issue::NoopVariable);
+        $this->analyzeNoOp($context, $node, Issue::NoopVariable);
         $parent_node = \end($this->parent_node_list);
         if ($parent_node instanceof Node) {
             $parent_kind = $parent_node->kind;
@@ -338,7 +345,7 @@ trait PostOrderAnalysisVisitorTrait
      */
     public function postVisitArray(Node $node, Context $context) : Context
     {
-        $this->analyzeNoOp($node, Issue::NoopArray);
+        $this->analyzeNoOp($context, $node, Issue::NoopArray);
         return $context;
     }
 
@@ -427,7 +434,7 @@ trait PostOrderAnalysisVisitorTrait
 
         // Check to make sure we're doing something with the
         // constant
-        $this->analyzeNoOp($node, Issue::NoopConstant);
+        $this->analyzeNoOp($context, $node, Issue::NoopConstant);
 
         return $context;
     }
@@ -466,7 +473,7 @@ trait PostOrderAnalysisVisitorTrait
 
         // Check to make sure we're doing something with the
         // class constant
-        $this->analyzeNoOp($node, Issue::NoopConstant);
+        $this->analyzeNoOp($context, $node, Issue::NoopConstant);
 
         return $context;
     }
@@ -498,7 +505,7 @@ trait PostOrderAnalysisVisitorTrait
                 (string)$return_type
             );
         }
-        $this->analyzeNoOp($node, Issue::NoopClosure);
+        $this->analyzeNoOp($context, $node, Issue::NoopClosure);
         return $context;
     }
 
@@ -1502,7 +1509,7 @@ trait PostOrderAnalysisVisitorTrait
         }
 
         if (isset($property)) {
-            $this->analyzeNoOp($node, Issue::NoopProperty);
+            $this->analyzeNoOp($context, $node, Issue::NoopProperty);
         } else {
             \assert(
                 isset($node->children['expr'])
@@ -1539,7 +1546,7 @@ trait PostOrderAnalysisVisitorTrait
 
                 // If they don't, then analyze for Noops.
                 if (!$has_getter) {
-                    $this->analyzeNoOp($node, Issue::NoopProperty);
+                    $this->analyzeNoOp($context, $node, Issue::NoopProperty);
 
                     if ($exception_or_null instanceof IssueException) {
                         Issue::maybeEmitInstance(
@@ -2183,12 +2190,15 @@ trait PostOrderAnalysisVisitorTrait
      *
      * @return void
      */
-    private function analyzeNoOp(Node $node, string $issue_type)
+    private function analyzeNoOp(Context $context, Node $node, string $issue_type)
     {
         if ((\end($this->parent_node_list)->kind ?? null) === \ast\AST_STMT_LIST) {
-            $this->emitIssue(
+            Issue::maybeEmitWithParameters(
+                $this->code_base,
+                $context,
                 $issue_type,
-                $node->lineno
+                $node->lineno,
+                []
             );
         }
     }

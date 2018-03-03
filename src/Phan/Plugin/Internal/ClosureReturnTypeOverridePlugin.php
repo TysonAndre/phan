@@ -1,10 +1,10 @@
 <?php declare(strict_types=1);
 namespace Phan\Plugin\Internal;
 
-use Phan\CodeBase;
 use Phan\Analysis\ArgumentType;
-use Phan\Analysis\PostOrderAnalysisVisitor;
 use Phan\AST\UnionTypeVisitor;
+use Phan\BlockAnalysisVisitor;
+use Phan\CodeBase;
 use Phan\Config;
 use Phan\Language\Context;
 use Phan\Language\Element\Func;
@@ -296,9 +296,9 @@ final class ClosureReturnTypeOverridePlugin extends PluginV2 implements
         foreach ($arguments as $i => $argument) {
             $argument_types[] = $get_argument_type($argument, $i);
         }
-        $analyzer = new PostOrderAnalysisVisitor($code_base, $context, []);
+        $analyzer = new BlockAnalysisVisitor($code_base, $context);
         foreach ($function_like_list as $function_like) {
-            $analyzer->analyzeCallableWithArgumentTypes($argument_types, $function_like);
+            $analyzer->analyzeCallableWithArgumentTypes($argument_types, $function_like, $context);
         }
     }
 }

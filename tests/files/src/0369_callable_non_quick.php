@@ -3,7 +3,7 @@
 class A369 {
     public $propName;
 }
-
+// TODO: this isn't warning after the refactoring
 var_export(array_map(function($arg) {
     return count($arg);
 }, [new A369()]));

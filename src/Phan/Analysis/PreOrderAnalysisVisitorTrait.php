@@ -85,6 +85,35 @@ trait PreOrderAnalysisVisitorTrait
     }
 
     /**
+     * @see ScopeVisitor->visitDeclare
+     */
+    public function preVisitDeclare(Node $node, Context $context) : Context
+    {
+        return (new ScopeVisitor($this->code_base, $context))->visitDeclare($node);
+    }
+
+    /**
+     * @see ScopeVisitor->visitUse
+     */
+    public function preVisitUse(Node $node, Context $context) : Context {
+        return (new ScopeVisitor($this->code_base, $context))->visitUse($node);
+    }
+
+    /**
+     * @see ScopeVisitor->visitGroupUse
+     */
+    public function preVisitGroupUse(Node $node, Context $context) : Context {
+        return (new ScopeVisitor($this->code_base, $context))->visitGroupUse($node);
+    }
+
+    /**
+     * @see ScopeVisitor->visitNamespace
+     */
+    public function preVisitNamespace(Node $node, Context $context) : Context {
+        return (new ScopeVisitor($this->code_base, $context))->visitNamespace($node);
+    }
+
+    /**
      * Visit a node with kind `\ast\AST_METHOD`
      *
      * @param Node $node
