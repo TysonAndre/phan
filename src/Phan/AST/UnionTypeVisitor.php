@@ -771,8 +771,7 @@ class UnionTypeVisitor extends AnalysisVisitor
 
         // TODO: Also return types such as array<int, mixed>?
         // TODO: Fix or suppress false positives PhanTypeArraySuspicious caused by loops...
-        // return ArrayShapeType::empty(false)->asUnionType();
-        return ArrayType::instance(false)->asUnionType();
+        return ArrayShapeType::empty(false)->asUnionType();
     }
 
 
@@ -818,7 +817,7 @@ class UnionTypeVisitor extends AnalysisVisitor
         \reset($key_set);
         $field_types = [];
 
-        foreach ($children as $i => $child) {
+        foreach ($children as $child) {
             $value = $child->children['value'];
             $key = \key($key_set);
             \next($key_set);
@@ -1277,31 +1276,36 @@ class UnionTypeVisitor extends AnalysisVisitor
     }
 
     /**
-     * @param UnionType $union_type
+     * @param UnionType $union_type a union type with at least one top level array shape type
      * @param int|string|float|bool $dim_value a scalar dimension. TODO: Warn about null?
      * @return ?UnionType|?false
      *  returns false if there the offset was invalid and there are no ways to get that offset
      *  returns null if the dim_value offset could not be found, but there were other generic array types
      */
-    public static function resolveArrayShapeElementTypesForOffset(UnionType $union_type, $dim_value) {
+    public static function resolveArrayShapeElementTypesForOffset(UnionType $union_type, $dim_value)
+    {
         $has_non_array_shape_type = false;
         $resulting_element_type = null;
         foreach ($union_type->getTypeSet() as $type) {
             if (!($type instanceof ArrayShapeType)) {
-                $has_non_array_shape_type = true;
                 if ($type instanceof StringType) {
                     if (\is_int($dim_value)) {
+                        // If we request a string offset from a string, that's not valid. Only accept integer dimensions as valid.
+                        $has_non_array_shape_type = true;
                         // in php, indices of strings can be negative
                         if ($resulting_element_type !== null) {
                             $resulting_element_type = $resulting_element_type->withType(StringType::instance(false));
                         } else {
                             $resulting_element_type = StringType::instance(false)->asUnionType();
                         }
-                    } // TODO: Warn about string indices?
+                    } // TODO: Warn about string indices of strings?
+                } elseif ($type->isArrayLike() || $type instanceof MixedType) {
+                    // TODO: Be more precise for objects implementing ArrayAccess?
+                    $has_non_array_shape_type = true;
                 }
                 continue;
             }
-            $element_type = $type->arrayShapeFieldTypes()[$dim_value] ?? null;
+            $element_type = $type->getFieldTypes()[$dim_value] ?? null;
             if ($element_type !== null) {
                 // $element_type may be non-null but $element_type->isEmpty() may be true.
                 // So, we use null to indicate failure below
@@ -1898,6 +1902,7 @@ class UnionTypeVisitor extends AnalysisVisitor
     /**
      * `print($str)` always returns 1.
      * See https://secure.php.net/manual/en/function.print.php#refsect1-function.print-returnvalues
+     * @suppress PhanPluginUnusedPublicMethodArgument
      */
     public function visitPrint(Node $node) : UnionType
     {
@@ -2201,6 +2206,7 @@ class UnionTypeVisitor extends AnalysisVisitor
      * @param string|Node $node the node to fetch CallableType instances for.
      * @param bool $log_error whether or not to log errors while searching
      * @return array<int,FunctionInterface>
+     * @suppress PhanPluginUnusedPublicMethodArgument (TODO: Implement $log_error)
      */
     public static function functionLikeListFromNodeAndContext(CodeBase $code_base, Context $context, $node, bool $log_error) : array
     {

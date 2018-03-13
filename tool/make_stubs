@@ -25,6 +25,9 @@ class StubsGenerator {
 
     public static function printHelpAndExit(string $message = '', int $exit_code = 1)
     {
+        if ($message) {
+            echo "$message\n";
+        }
         global $argv;
         $prog_name = $argv[0];
         echo <<<EOT
@@ -98,7 +101,7 @@ EOT;
             $stub_collection->addFunc($code_base->getFunctionByFQSEN($function_fqsen));
         }
 
-        foreach ($reflection_extension->getConstants() as $constant_name => $constant_value) {
+        foreach ($reflection_extension->getConstants() as $constant_name => $_) {
             list($namespace, $name) = self::extractNamespaceAndName($constant_name);
             $const_fqsen = FullyQualifiedGlobalConstantName::make($namespace, $name);
             if (!$code_base->hasGlobalConstantWithFQSEN($const_fqsen)) {
@@ -111,7 +114,10 @@ EOT;
         echo $stub_collection->toString();
     }
 
-    /** @return void */
+    /**
+     * @suppress PhanDeprecatedFunction
+     * @return void
+     */
     public static function printAllStubs(CodeBase $code_base) {
         $stub_collection = new StubCollection($code_base);
         $class_map = $code_base->getClassMap();

@@ -1,7 +1,6 @@
 <?php declare(strict_types=1);
 namespace Phan\Language\Element;
 
-use Phan\CodeBase;
 use Phan\Language\FileRef;
 use Phan\Language\UnionType;
 
@@ -24,10 +23,11 @@ abstract class UnaddressableTypedElement
 
     /**
      * @var UnionType|null
-     * A set of types satisfyped by this typed structural
+     * A set of types satisfied by this typed structural
      * element.
+     * Prefer using getUnionType() - getUnionType() is overridden by VariadicParameter
      */
-    private $type = null;
+    protected $type = null;
 
     /**
      * @var int
@@ -46,12 +46,6 @@ abstract class UnaddressableTypedElement
     private $phan_flags = 0;
 
     /**
-     * @var array<string,int>
-     * A set of issues types to be suppressed
-     */
-    private $suppress_issue_list = [];
-
-    /**
      * @param FileRef $file_ref
      * The Context or FileRef in which the structural element lives
      * (Will be converted to FileRef, to avoid creating a reference
@@ -61,7 +55,7 @@ abstract class UnaddressableTypedElement
      * The name of the typed structural element
      *
      * @param UnionType $type
-     * A '|' delimited set of types satisfyped by this
+     * A '|' delimited set of types satisfied by this
      * typed structural element.
      *
      * @param int $flags
@@ -114,15 +108,6 @@ abstract class UnaddressableTypedElement
     /**
      * @return void
      */
-    protected function convertToNonVariadic()
-    {
-        // Avoid a redundant clone of toGenericArray()
-        $this->type = $this->getUnionType();
-    }
-
-    /**
-     * @return void
-     */
     protected function convertToNullable()
     {
         // Avoid a redundant clone of nonNullableClone()
@@ -134,16 +119,6 @@ abstract class UnaddressableTypedElement
     }
 
     /**
-     * Variables can't be variadic. This is the same as getUnionType for
-     * variables, but not necessarily for subclasses. Method will return
-     * the element type (such as `DateTime`) for variadic parameters.
-     */
-    public function getNonVariadicUnionType() : UnionType
-    {
-        return $this->getUnionType();
-    }
-
-    /**
      * @return int
      */
     public function getFlags() : int
@@ -152,9 +127,24 @@ abstract class UnaddressableTypedElement
     }
 
     /**
+     * @param int $flag
+     * The flag we'd like to get the state for
+     *
+     * @return bool
+     * True if all bits in the flag are enabled in the bit
+     * vector, else false.
+     */
+    public function getFlagsHasState(int $flag) : bool
+    {
+        return ($this->flags & $flag) === $flag;
+    }
+
+
+    /**
      * @param int $flags
      *
      * @return void
+     * @suppress PhanUnreferencedPublicMethod unused, other modifiers are used by Phan right now
      */
     public function setFlags(int $flags)
     {
@@ -170,13 +160,43 @@ abstract class UnaddressableTypedElement
     }
 
     /**
+     * @param int $flag
+     * The flag we'd like to get the state for
+     *
+     * @return bool
+     * True if all bits in the flag are enabled in the bit
+     * vector, else false.
+     */
+    public function getPhanFlagsHasState(int $flag) : bool
+    {
+        return ($this->phan_flags & $flag) === $flag;
+    }
+
+    /**
      * @param int $phan_flags
      *
      * @return void
+     * @suppress PhanUnreferencedPublicMethod potentially used in the future
      */
     public function setPhanFlags(int $phan_flags)
     {
         $this->phan_flags = $phan_flags;
+    }
+
+    /**
+     * @return void
+     */
+    public function enablePhanFlagBits(int $new_bits)
+    {
+        $this->phan_flags |= $new_bits;
+    }
+
+    /**
+     * @return void
+     */
+    public function disablePhanFlagBits(int $new_bits)
+    {
+        $this->phan_flags &= (~$new_bits);
     }
 
     /**
@@ -186,87 +206,5 @@ abstract class UnaddressableTypedElement
     public function getFileRef() : FileRef
     {
         return $this->file_ref;
-    }
-
-    /**
-     * @return bool
-     * True if this element is marked as deprecated
-     */
-    public function isDeprecated() : bool
-    {
-        return Flags::bitVectorHasState(
-            $this->phan_flags,
-            Flags::IS_DEPRECATED
-        );
-    }
-
-    /**
-     * @param bool $is_deprecated
-     * Set this element as deprecated
-     *
-     * @return void
-     */
-    public function setIsDeprecated(bool $is_deprecated)
-    {
-        $this->setPhanFlags(Flags::bitVectorWithState(
-            $this->getPhanFlags(),
-            Flags::IS_DEPRECATED,
-            $is_deprecated
-        ));
-    }
-
-    /**
-     * @param string[] $suppress_issue_list
-     * Set the set of issue names to suppress
-     *
-     * @return void
-     */
-    public function setSuppressIssueList(array $suppress_issue_list)
-    {
-        $this->suppress_issue_list = [];
-        foreach ($suppress_issue_list as $issue_name) {
-            $this->suppress_issue_list[$issue_name] = 0;
-        }
-    }
-
-    /**
-     * @return array<string,int>
-     */
-    public function getSuppressIssueList() : array
-    {
-        return $this->suppress_issue_list ?: [];
-    }
-
-    /**
-     * return bool
-     * True if this element would like to suppress the given
-     * issue name
-     */
-    public function hasSuppressIssue(string $issue_name) : bool
-    {
-        return isset($this->suppress_issue_list[$issue_name]);
-    }
-
-    /**
-     * @return bool
-     * True if this was an internal PHP object
-     */
-    public function isPHPInternal() : bool
-    {
-        return Flags::bitVectorHasState(
-            $this->getPhanFlags(),
-            Flags::IS_PHP_INTERNAL
-        );
-    }
-
-    /**
-     * This method must be called before analysis
-     * begins.
-     *
-     * @return void
-     */
-    public function hydrate(CodeBase $unused_code_base)
-    {
-        // Do nothing unless overridden
     }
 }

@@ -367,6 +367,7 @@ return [
     'file_list' => [
         'phan',
         'phan_client',
+        'tool/make_stubs',
         // 'vendor/phpunit/phpunit/src/Framework/TestCase.php',
     ],
 
@@ -467,6 +468,8 @@ return [
         'DuplicateArrayKeyPlugin',
         'PregRegexCheckerPlugin',
         'PrintfCheckerPlugin',
+
+        // 'PHPUnitNotDeadCodePlugin',  // Marks phpunit test case subclasses and test cases as refernced code. only useful for runs when dead code detection is enabled
 
         // NOTE: This plugin only produces correct results when
         //       Phan is run on a single core (-j1).

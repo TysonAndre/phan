@@ -25,6 +25,8 @@ use Phan\Language\FQSEN\FullyQualifiedMethodName;
 use Phan\Language\FQSEN\FullyQualifiedPropertyName;
 use Phan\Language\FutureUnionType;
 use Phan\Language\Type;
+use Phan\Language\Type\ArrayShapeType;
+use Phan\Language\Type\ArrayType;
 use Phan\Language\Type\CallableType;
 use Phan\Language\Type\NullType;
 use Phan\Language\Type\StringType;
@@ -39,6 +41,8 @@ use ast\Node;
  * possibly new context as modified by the given node.
  *
  * @property-read CodeBase $code_base
+ *
+ * @phan-file-suppress PhanPluginUnusedPublicMethodArgument implementing faster no-op methods for common visit*
  */
 class ParseVisitor extends ScopeVisitor
 {
@@ -330,7 +334,7 @@ class ParseVisitor extends ScopeVisitor
 
         if ($context->isPHPInternal()) {
             // only for stubs
-            foreach (FunctionFactory::functionListFromFunction($method, $code_base) as $method_variant) {
+            foreach (FunctionFactory::functionListFromFunction($method) as $method_variant) {
                 \assert($method_variant instanceof Method);
                 $class->addMethod($code_base, $method_variant, new None);
             }
@@ -456,33 +460,38 @@ class ParseVisitor extends ScopeVisitor
 
             // Look for any @var declarations
             if ($variable = $comment->getVariableList()[$i] ?? null) {
+                $original_union_type = $union_type;
                 // We try to avoid resolving $future_union_type except when necessary,
                 // to avoid issues such as https://github.com/phan/phan/issues/311 and many more.
                 if ($future_union_type !== null) {
                     try {
-                        $union_type = $future_union_type->get();
+                        $original_union_type = $future_union_type->get();
                         // We successfully resolved the union type. We no longer need $future_union_type
                         $future_union_type = null;
                     } catch (IssueException $e) {
                         // Do nothing
                     }
                     if ($future_union_type === null) {
-                        if ($union_type->isType(NullType::instance(false))) {
+                        if ($original_union_type->isType(ArrayShapeType::empty())) {
+                            $union_type = ArrayType::instance(false)->asUnionType();
+                        } elseif ($original_union_type->isType(NullType::instance(false))) {
                             $union_type = UnionType::empty();
+                        } else {
+                            $union_type = $original_union_type;
                         }
                         // Replace the empty union type with the resolved union type.
                         $property->setUnionType($union_type);
                     }
                 }
 
-                if (!$union_type->isType(NullType::instance(false))
-                    && !$union_type->canCastToUnionType($variable->getUnionType())
+                if (!$original_union_type->isType(NullType::instance(false))
+                    && !$original_union_type->canCastToUnionType($variable->getUnionType())
                     && !$property->hasSuppressIssue(Issue::TypeMismatchProperty)
                 ) {
                     $this->emitIssue(
                         Issue::TypeMismatchProperty,
                         $child_node->lineno ?? 0,
-                        (string)$union_type,
+                        (string)$original_union_type,
                         (string)$property->getFQSEN(),
                         (string)$variable->getUnionType()
                     );
@@ -657,7 +666,7 @@ class ParseVisitor extends ScopeVisitor
 
         if ($context->isPHPInternal()) {
             // only for stubs
-            foreach (FunctionFactory::functionListFromFunction($func, $code_base) as $func_variant) {
+            foreach (FunctionFactory::functionListFromFunction($func) as $func_variant) {
                 \assert($func_variant instanceof Func);
                 $code_base->addFunction($func_variant);
             }

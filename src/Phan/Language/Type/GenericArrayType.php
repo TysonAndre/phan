@@ -101,54 +101,37 @@ final class GenericArrayType extends ArrayType
     }
 
     /**
-     * @param int $key_type
-     * The new key type.
-     *
-     * @return Type
-     * A new type that is a copy of this type but with the
-     * given nullability value.
-     */
-    public function withKeyType(int $key_type) : Type
-    {
-        if ($key_type === $this->key_type) {
-            return $this;
-        }
-
-        return GenericArrayType::fromElementType(
-            $this->element_type,
-            $this->is_nullable,
-            $key_type
-        );
-    }
-
-    /**
      * @return bool
      * True if this Type can be cast to the given Type
      * cleanly
      */
     protected function canCastToNonNullableType(Type $type) : bool
     {
-        if ($type instanceof GenericArrayType) {
-            if (!$this->genericArrayElementType()
-                ->canCastToType($type->genericArrayElementType())) {
-                return false;
-            }
-            if ((($this->key_type ?: self::KEY_MIXED) & ($type->key_type ?: self::KEY_MIXED)) === 0) {
-                // Attempting to cast an int key to a string key (or vice versa) is normally invalid.
-                // However, the scalar_array_key_cast config would make any cast of array keys a valid cast.
-                return Config::getValue('scalar_array_key_cast');
+        if ($type instanceof ArrayType) {
+            if ($type instanceof GenericArrayType) {
+                if (!$this->genericArrayElementType()
+                    ->canCastToType($type->genericArrayElementType())) {
+                    return false;
+                }
+                if ((($this->key_type ?: self::KEY_MIXED) & ($type->key_type ?: self::KEY_MIXED)) === 0) {
+                    // Attempting to cast an int key to a string key (or vice versa) is normally invalid.
+                    // However, the scalar_array_key_cast config would make any cast of array keys a valid cast.
+                    return Config::getValue('scalar_array_key_cast');
+                }
+                return true;
+            } elseif ($type instanceof ArrayShapeType) {
+                if ((($this->key_type ?: self::KEY_MIXED) & $type->getKeyType()) === 0 && !Config::getValue('scalar_array_key_cast')) {
+                    // Attempting to cast an int key to a string key (or vice versa) is normally invalid.
+                    // However, the scalar_array_key_cast config would make any cast of array keys a valid cast.
+                    return false;
+                }
+                return $this->genericArrayElementUnionType()->canCastToUnionType($type->genericArrayElementUnionType());
             }
             return true;
-        } elseif ($type instanceof ArrayShapeType) {
-            if ((($this->key_type ?: self::KEY_MIXED) & $type->getKeyType()) === 0 && !Config::getValue('scalar_array_key_cast')) {
-                // Attempting to cast an int key to a string key (or vice versa) is normally invalid.
-                // However, the scalar_array_key_cast config would make any cast of array keys a valid cast.
-                return false;
-            }
-            return $this->genericArrayElementUnionType()->canCastToUnionType($type->genericArrayElementUnionType());
         }
 
-        if ($type->isArrayLike()) {
+        if (\get_class($type) === IterableType::class) {
+            // can cast to Iterable but not Traversable
             return true;
         }
 
@@ -350,8 +333,10 @@ final class GenericArrayType extends ArrayType
         return $key_types ?: self::KEY_MIXED;
     }
 
+    /** @suppress PhanUnreferencedPublicClassConstant */
     const CONVERT_KEY_MIXED_TO_EMPTY_UNION_TYPE = 0;
     const CONVERT_KEY_MIXED_TO_INT_OR_STRING_UNION_TYPE = 1;
+
     /**
      * @return UnionType
      */
@@ -395,7 +380,7 @@ final class GenericArrayType extends ArrayType
     }
 
     /**
-     * @param array $array - The array keys are used for the final result.
+     * @param array<int|string,mixed> $array - The array keys are used for the final result.
      *
      * @return int
      * Corresponds to the type of the array keys of $array. This is a GenericArrayType::KEY_* constant (KEY_INT, KEY_STRING, or KEY_MIXED).

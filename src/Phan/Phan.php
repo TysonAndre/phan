@@ -52,7 +52,7 @@ class Phan implements IgnoredFilesFilterInterface
      * Take an array of serialized issues, deserialize them and then add
      * them to the issue collector.
      *
-     * @param array $results
+     * @param array[] $results
      */
     private static function collectSerializedResults(array $results)
     {
@@ -216,7 +216,7 @@ class Phan implements IgnoredFilesFilterInterface
             $analyze_file_path_list = $request->filterFilesToAnalyze($code_base->getParsedFilePathList());
             if (count($analyze_file_path_list) === 0) {
                 $request->respondWithNoFilesToAnalyze();  // respond and exit.
-                exit(2);
+                exit(0);  // This is normal (E.g. .txt files, files outside of analysis list, etc)
             }
 
             // Do this before we stop tracking undo operations.
@@ -441,6 +441,7 @@ class Phan implements IgnoredFilesFilterInterface
      *
      * TODO: This is no longer referenced, was removed while sqlite3 was temporarily removed.
      *       It would help in daemon mode if this was re-enabled
+     * @suppress PhanUnreferencedPublicMethod potentially useful but currently unused
      */
     public static function expandedFileList(
         CodeBase $code_base,

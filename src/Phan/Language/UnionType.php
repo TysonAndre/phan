@@ -7,6 +7,7 @@ use Phan\Config;
 use Phan\Exception\CodeBaseException;
 use Phan\Exception\IssueException;
 use Phan\Issue;
+use Phan\Language\AnnotatedUnionType;
 use Phan\Language\FQSEN\FullyQualifiedClassName;
 use Phan\Language\FQSEN\FullyQualifiedFunctionName;
 use Phan\Language\FQSEN\FullyQualifiedMethodName;
@@ -250,7 +251,7 @@ class UnionType implements \Serializable
         if (\count($parts) <= 1) {
             return $parts;
         }
-        if (!\preg_match('/[<(]/', $type_string)) {
+        if (!\preg_match('/[<({]/', $type_string)) {
             return $parts;
         }
         return self::mergeTypeParts($parts);
@@ -279,6 +280,7 @@ class UnionType implements \Serializable
      * @param string[] $parts (already trimmed)
      * @return string[]
      * @see Type::extractTemplateParameterTypeNameList (Similar method)
+     * @suppress PhanPluginUnusedVariable $prev_parts is used in loop
      */
     private static function mergeTypeParts(array $parts) : array
     {
@@ -288,7 +290,7 @@ class UnionType implements \Serializable
         foreach ($parts as $part) {
             if (\count($prev_parts) > 0) {
                 $prev_parts[] = $part;
-                $delta += \substr_count($part, '<') + \substr_count($part, '(') - \substr_count($part, '>') - \substr_count($part, ')');
+                $delta += \substr_count($part, '<') + \substr_count($part, '(') + \substr_count($part, '{') - \substr_count($part, '>') - \substr_count($part, ')') - \substr_count($part, '}');
                 if ($delta <= 0) {
                     if ($delta === 0) {
                         $results[] = \implode('|', $prev_parts);
@@ -299,12 +301,12 @@ class UnionType implements \Serializable
                 }
                 continue;
             }
-            $bracket_count = \substr_count($part, '<') + \substr_count($part, '(');
+            $bracket_count = \substr_count($part, '<') + \substr_count($part, '(') + \substr_count($part, '{');
             if ($bracket_count === 0) {
                 $results[] = $part;
                 continue;
             }
-            $delta = $bracket_count - \substr_count($part, '>') - \substr_count($part, ')');
+            $delta = $bracket_count - \substr_count($part, '>') - \substr_count($part, ')') - \substr_count($part, '}');
             if ($delta === 0) {
                 $results[] = $part;
             } elseif ($delta > 0) {
@@ -334,6 +336,8 @@ class UnionType implements \Serializable
      * @throws IssueException
      * If $should_catch_issue_exception is false an IssueException may
      * be thrown for optional issues.
+     *
+     * @deprecated - Use UnionTypeVisitor::unionTypeFromNode
      */
     public static function fromNode(
         Context $context,
@@ -421,7 +425,7 @@ class UnionType implements \Serializable
         if ($function_fqsen instanceof FullyQualifiedMethodName) {
             $class_fqsen =
                 $function_fqsen->getFullyQualifiedClassName();
-            $class_name = $class_fqsen->getName();
+            $class_name = $class_fqsen->getNamespacedName();
             $function_name =
                 $class_name . '::' . $function_fqsen->getName();
         } else {
@@ -1313,6 +1317,7 @@ class UnionType implements \Serializable
      * @return bool
      * True if this union contains the Traversable type.
      * (Call asExpandedTypes() first to check for subclasses of Traversable)
+     * @suppress PhanUnreferencedPublicMethod not used right now.
      */
     public function hasTraversable() : bool
     {
@@ -1653,6 +1658,7 @@ class UnionType implements \Serializable
      * A UnionType with known callable types kept, other types filtered out.
      *
      * @see nonGenericArrayTypes
+     * @suppress PhanUnreferencedPublicMethod not used right now.
      */
     public function isExclusivelyCallable() : bool
     {
@@ -2181,11 +2187,6 @@ class UnionType implements \Serializable
         $builder->addType($bool_type);
     }
 
-    public static function createBuilderFromTypeList(array $type_list) : UnionTypeBuilder
-    {
-        return new UnionTypeBuilder(\count($type_list) <= 1 ? $type_list : self::getUniqueTypes($type_list));
-    }
-
     /**
      * Generates a variable length string identifier that uniquely identifies the Type instances in this UnionType.
      * int|string will generate the same id as string|int.
@@ -2259,6 +2260,47 @@ class UnionType implements \Serializable
         return $this->hasTypeMatchingCallback(function (Type $type) : bool {
             return $type->shouldBeReplacedBySpecificTypes();
         });
+    }
+
+    /**
+     * @param int|string $field_key
+     */
+    public function withoutArrayShapeField($field_key) : UnionType
+    {
+        $types = $this->type_set;
+        foreach ($types as $i => $type) {
+            if ($type instanceof ArrayShapeType) {
+                $types[$i] = $type->withoutField($field_key);
+            }
+        }
+        if ($types === $this->type_set) {
+            return $this;
+        }
+        return UnionType::of($types);
+    }
+
+    /**
+     * Base implementation. Overridden by AnnotatedUnionType.
+     */
+    public function withIsPossiblyUndefined(bool $is_possibly_undefined) : UnionType
+    {
+        if ($is_possibly_undefined === false) {
+            return $this;
+        }
+        $result = new AnnotatedUnionType($this->getTypeSet(), true);
+        $result->is_possibly_undefined = $is_possibly_undefined;
+        return $result;
+    }
+
+    /**
+     * Base implementation. Overridden by AnnotatedUnionType.
+     * Used for fields of array shapes.
+     *
+     * This is distinct from null - The array shape offset potentially doesn't exist at all, which is different from existing and being null.
+     */
+    public function getIsPossiblyUndefined() : bool
+    {
+        return false;
     }
 }
 

@@ -22,6 +22,12 @@ use Phan\Language\FQSEN\FullyQualifiedGlobalConstantName;
 use Phan\Language\FQSEN\FullyQualifiedGlobalStructuralElement;
 use Phan\Language\FQSEN\FullyQualifiedPropertyName;
 
+/**
+ * This emits PhanUnreferenced* issues for classlikes, constants, properties, and functions/methods.
+ *
+ * TODO: Make references to methods of interfaces also count as references to traits which are used by classes to implement those methods.
+ * (Maybe track these in addMethod when checking for inheritance?)
+ */
 class ReferenceCountsAnalyzer
 {
     /**
@@ -151,7 +157,6 @@ class ReferenceCountsAnalyzer
         int $total_count,
         int &$i
     ) {
-        $filtered_element_list = [];
         foreach ($element_list as $element) {
             CLI::progress('dead code', (++$i)/$total_count);
             // Don't worry about internal elements
@@ -176,7 +181,6 @@ class ReferenceCountsAnalyzer
         int $total_count,
         int &$i
     ) {
-        $filtered_element_list = [];
         foreach ($element_list as $element) {
             CLI::progress('dead code', (++$i)/$total_count);
             // Don't worry about internal elements
@@ -192,20 +196,15 @@ class ReferenceCountsAnalyzer
                     continue;
                 }
             }
-            if ($element->getIsOverride()) {
-                continue;
-            }
-
             $fqsen = $element->getFQSEN();
-            if ($element instanceof Method) {
+            if ($element instanceof Method || $element instanceof Property) {
                 $defining_fqsen = $element->getRealDefiningFQSEN();
             } else {
                 $defining_fqsen = $element->getDefiningFQSEN();
             }
 
-            // Don't analyze elements defined in a parent
-            // class
-            if ($fqsen != $defining_fqsen) {
+            // copy references to methods, properties, and constants into the defining trait or class.
+            if ($fqsen !== $defining_fqsen) {
                 if ($element->getReferenceCount($code_base) > 0) {
                     $defining_element = null;
                     if ($defining_fqsen instanceof FullyQualifiedMethodName) {
@@ -227,6 +226,13 @@ class ReferenceCountsAnalyzer
                 }
                 continue;
             }
+
+            // Don't analyze elements defined in a parent class.
+            // We copy references to methods, properties, and constants into the defining trait or class before this.
+            if ($element->getIsOverride()) {
+                continue;
+            }
+
             $defining_class =
                 $element->getClass($code_base);
 
@@ -272,80 +278,113 @@ class ReferenceCountsAnalyzer
         print "}\n";
         */
 
-        if ($element->getReferenceCount($code_base) < 1) {
-            if ($element->hasSuppressIssue($issue_type)) {
+        // Make issue types granular so that these can be fixed in smaller steps.
+        // E.g. composer libraries may have unreferenced but used public methods, properties, and class constants,
+        // and those would have higher false positives than private/protected elements.
+        //
+        // Make $issue_type specific **first**, so that issue suppressions are checked against the proper issue type
+        if ($element instanceof ClassElement) {
+            if ($element instanceof Method) {
+                if ($element->isPrivate()) {
+                    $issue_type = Issue::UnreferencedPrivateMethod;
+                } elseif ($element->isProtected()) {
+                    $issue_type = Issue::UnreferencedProtectedMethod;
+                } else {
+                    $issue_type = Issue::UnreferencedPublicMethod;
+                }
+            } elseif ($element instanceof Property) {
+                if ($element->isPrivate()) {
+                    $issue_type = Issue::UnreferencedPrivateProperty;
+                } elseif ($element->isProtected()) {
+                    $issue_type = Issue::UnreferencedProtectedProperty;
+                } else {
+                    $issue_type = Issue::UnreferencedPublicProperty;
+                }
+            } elseif ($element instanceof ClassConstant) {
+                if ($element->isPrivate()) {
+                    $issue_type = Issue::UnreferencedPrivateClassConstant;
+                } elseif ($element->isProtected()) {
+                    $issue_type = Issue::UnreferencedProtectedClassConstant;
+                } else {
+                    $issue_type = Issue::UnreferencedPublicClassConstant;
+                }
+            }
+        } elseif ($element instanceof Func) {
+            if (\strcasecmp($element->getName(), "__autoload") === 0) {
                 return;
             }
-
-            if ($element instanceof AddressableElement) {
-                $element_alt = self::findAlternateReferencedElementDeclaration($code_base, $element);
-                if (!\is_null($element_alt)) {
-                    if ($element_alt->getReferenceCount($code_base) >= 1) {
-                        // If there is a reference to the "canonical" declaration (the one which was parsed first),
-                        // then also treat it as a reference to the duplicate.
-                        return;
-                    }
-                    if ($element_alt->isPHPInternal()) {
-                        // For efficiency, Phan doesn't track references to internal classes.
-                        // Phan already emitted a warning about duplicating an internal class.
-                        return;
-                    }
-                }
-                // Make issue types granular so that these can be fixed in smaller steps.
-                // E.g. composer libraries may have unreferenced but used public methods, properties, and class constants.
-                if ($element instanceof ClassElement) {
-                    if ($element instanceof Method) {
-                        if ($element->isPrivate()) {
-                            $issue_type = Issue::UnreferencedPrivateMethod;
-                        } elseif ($element->isProtected()) {
-                            $issue_type = Issue::UnreferencedProtectedMethod;
-                        } else {
-                            $issue_type = Issue::UnreferencedPublicMethod;
-                        }
-                    } elseif ($element instanceof Property) {
-                        if ($element->isPrivate()) {
-                            $issue_type = Issue::UnreferencedPrivateProperty;
-                        } elseif ($element->isProtected()) {
-                            $issue_type = Issue::UnreferencedProtectedProperty;
-                        } else {
-                            $issue_type = Issue::UnreferencedPublicProperty;
-                        }
-                    } elseif ($element instanceof ClassConstant) {
-                        if ($element->isPrivate()) {
-                            $issue_type = Issue::UnreferencedPrivateClassConstant;
-                        } elseif ($element->isProtected()) {
-                            $issue_type = Issue::UnreferencedProtectedClassConstant;
-                        } else {
-                            $issue_type = Issue::UnreferencedPublicClassConstant;
-                        }
-                    }
-                } elseif ($element instanceof Func) {
-                    if (\strcasecmp($element->getName(), "__autoload") === 0) {
-                        return;
-                    }
-                    if ($element->getFQSEN()->isClosure()) {
-                        $issue_type = Issue::UnreferencedClosure;
-                    }
-                }
-
-                // If there are duplicate declarations, display issues for unreferenced elements on each declaration.
-                Issue::maybeEmit(
-                    $code_base,
-                    $element->getContext(),
-                    $issue_type,
-                    $element->getFileRef()->getLineNumberStart(),
-                    (string)$element->getFQSEN()
-                );
-            } else {
-                Issue::maybeEmit(
-                    $code_base,
-                    $element->getContext(),
-                    $issue_type,
-                    $element->getFileRef()->getLineNumberStart(),
-                    (string)$element
-                );
+            if ($element->getFQSEN()->isClosure()) {
+                $issue_type = Issue::UnreferencedClosure;
             }
         }
+
+
+        // If we're suppressing this element type being unreferenced, then exit early.
+        if ($element->hasSuppressIssue($issue_type)) {
+            $element->incrementSuppressIssueCount($issue_type);
+            return;
+        }
+
+        if ($element->getReferenceCount($code_base) >= 1) {
+            if ($element instanceof Property && !($element->hasReadReference())) {
+                self::maybeWarnWriteOnlyProperty($code_base, $element);
+            }
+            return;
+        }
+        // getReferenceCount === 0
+
+        $element_alt = self::findAlternateReferencedElementDeclaration($code_base, $element);
+        if (!\is_null($element_alt)) {
+            if ($element_alt->getReferenceCount($code_base) >= 1) {
+                if ($element_alt instanceof Property && !($element_alt->hasReadReference())) {
+                    self::maybeWarnWriteOnlyProperty($code_base, $element_alt);
+                }
+                // If there is a reference to the "canonical" declaration (the one which was parsed first),
+                // then also treat it as a reference to the duplicate.
+                return;
+            }
+            if ($element_alt->isPHPInternal()) {
+                // For efficiency, Phan doesn't track references to internal classes.
+                // Phan already emitted a warning about duplicating an internal class.
+                return;
+            }
+        }
+        // If there are duplicate declarations, display issues for unreferenced elements on each declaration.
+        Issue::maybeEmit(
+            $code_base,
+            $element->getContext(),
+            $issue_type,
+            $element->getFileRef()->getLineNumberStart(),
+            (string)$element->getFQSEN()
+        );
+    }
+
+    private static function maybeWarnWriteOnlyProperty(CodeBase $code_base, Property $property)
+    {
+        if ($property->isPrivate()) {
+            $issue_type = Issue::WriteOnlyPrivateProperty;
+        } elseif ($property->isProtected()) {
+            $issue_type = Issue::WriteOnlyProtectedProperty;
+        } else {
+            $issue_type = Issue::WriteOnlyPublicProperty;
+        }
+        if ($property->hasSuppressIssue($issue_type)) {
+            $property->incrementSuppressIssueCount($issue_type);
+            return;
+        }
+        $property_alt = self::findAlternateReferencedElementDeclaration($code_base, $property);
+        if ($property_alt instanceof Property) {
+            if ($property_alt->hasReadReference()) {
+                return;
+            }
+        }
+        Issue::maybeEmit(
+            $code_base,
+            $property->getContext(),
+            $issue_type,
+            $property->getFileRef()->getLineNumberStart(),
+            (string)$property->getFQSEN()
+        );
     }
 
     /**

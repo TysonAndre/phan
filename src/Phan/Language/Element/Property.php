@@ -14,6 +14,13 @@ class Property extends ClassElement
     use ClosedScopeElement;
 
     /**
+     * @var ?FullyQualifiedPropertyName If this was originally defined in a trait, this is the trait's defining fqsen.
+     * This is tracked separately from getDefiningFQSEN() in order to not break access checks on protected/private properties.
+     * Used for dead code detection.
+     */
+    private $real_defining_fqsen;
+
+    /**
      * @param Context $context
      * The context in which the structural element lives
      *
@@ -21,7 +28,7 @@ class Property extends ClassElement
      * The name of the typed structural element
      *
      * @param UnionType $type
-     * A '|' delimited set of types satisfyped by this
+     * A '|' delimited set of types satisfied by this
      * typed structural element.
      *
      * @param int $flags
@@ -49,6 +56,7 @@ class Property extends ClassElement
         // of this property, and let it be overwritten
         // if it isn't.
         $this->setDefiningFQSEN($fqsen);
+        $this->real_defining_fqsen = $fqsen;
 
         // Set an internal scope, so that issue suppressions can be placed on property doc comments.
         // (plugins acting on properties would then pick those up).
@@ -57,6 +65,17 @@ class Property extends ClassElement
             $context->getScope(),
             $fqsen
         ));
+    }
+
+    /**
+     * @return FullyQualifiedPropertyName the FQSEN with the original definition (Even if this is private/protected and inherited from a trait). Used for dead code detection.
+     *                                    Inheritance tests use getDefiningFQSEN() so that access checks won't break.
+     *
+     * @suppress PhanUnreferencedPublicMethod this is used, but the invocation could be one of multiple classes.
+     */
+    public function getRealDefiningFQSEN() : FullyQualifiedPropertyName
+    {
+        return $this->real_defining_fqsen ?? $this->getDefiningFQSEN();
     }
 
     public function __toString() : string
@@ -153,5 +172,43 @@ class Property extends ClassElement
             $this->future_union_type = $future_union_type;
             // Probably don't need to call setUnionType(mixed) again...
         };
+    }
+
+    /**
+     * Returns true if at least one of the references to this property was **reading** the property
+     *
+     * Precondition: Config::get_track_references() === true
+     */
+    public function hasReadReference() : bool
+    {
+        return $this->getPhanFlagsHasState(Flags::WAS_PROPERTY_READ);
+    }
+
+    /**
+     * @return void
+     */
+    public function setHasReadReference()
+    {
+        $this->enablePhanFlagBits(Flags::WAS_PROPERTY_READ);
+    }
+
+    /**
+     * Copy addressable references from an element of the same subclass
+     * @override
+     * @return void
+     */
+    public function copyReferencesFrom(AddressableElement $element)
+    {
+        if ($this === $element) {
+            // Should be impossible
+            return;
+        }
+        \assert($element instanceof Property);
+        foreach ($element->reference_list as $key => $file_ref) {
+            $this->reference_list[$key] = $file_ref;
+        }
+        if ($element->hasReadReference()) {
+            $this->setHasReadReference();
+        }
     }
 }

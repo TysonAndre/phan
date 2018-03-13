@@ -1,7 +1,6 @@
 <?php declare(strict_types=1);
 namespace Phan\Language\Element;
 
-use Phan\CodeBase;
 use Phan\Language\Context;
 use Phan\Language\FQSEN\FullyQualifiedFunctionName;
 use Phan\Language\FQSEN\FullyQualifiedMethodName;
@@ -11,31 +10,12 @@ use Phan\Language\UnionType;
 
 class FunctionFactory
 {
-
-    /**
-     * @return array<int,Func>
-     * One or more (alternate) functions/methods begotten from
-     * reflection info and internal method data
-     */
-    public static function functionListFromName(
-        CodeBase $code_base,
-        string $function_name
-    ) : array {
-        $fqsen = FullyQualifiedFunctionName::makeFromExtractedNamespaceAndName($function_name);
-        return self::functionListFromReflectionFunction(
-            $code_base,
-            $fqsen,
-            new \ReflectionFunction($function_name)
-        );
-    }
-
     /**
      * @return array<int,Func>
      * One or more (alternate) functions begotten from
      * reflection info and internal functions data
      */
     public static function functionListFromReflectionFunction(
-        CodeBase $code_base,
         FullyQualifiedFunctionName $fqsen,
         \ReflectionFunction $reflection_function
     ) : array {
@@ -63,7 +43,7 @@ class FunctionFactory
         $function->setRealReturnType(UnionType::fromReflectionType($reflection_function->getReturnType()));
         $function->setRealParameterList(Parameter::listFromReflectionParameterList($reflection_function->getParameters()));
 
-        return self::functionListFromFunction($function, $code_base);
+        return self::functionListFromFunction($function);
     }
 
     /**
@@ -72,7 +52,6 @@ class FunctionFactory
      * reflection info and internal method data
      */
     public static function functionListFromSignature(
-        CodeBase $code_base,
         FullyQualifiedFunctionName $fqsen,
         array $signature
     ) : array {
@@ -94,7 +73,7 @@ class FunctionFactory
             []  // will be filled in by functionListFromFunction
         );
 
-        return self::functionListFromFunction($func, $code_base);
+        return self::functionListFromFunction($func);
     }
 
     /**
@@ -102,7 +81,6 @@ class FunctionFactory
      */
     public static function methodListFromReflectionClassAndMethod(
         Context $context,
-        CodeBase $code_base,
         \ReflectionClass $class,
         \ReflectionMethod $reflection_method
     ) : array {
@@ -146,7 +124,7 @@ class FunctionFactory
             $method->setRealParameterList(Parameter::listFromReflectionParameterList($reflection_method->getParameters()));
         }
 
-        return self::functionListFromFunction($method, $code_base);
+        return self::functionListFromFunction($method);
     }
 
     /**
@@ -154,15 +132,11 @@ class FunctionFactory
      * Get a list of methods hydrated with type information
      * for the given partial method
      *
-     * @param CodeBase $code_base
-     * The global code base holding all state
-     *
      * @return array<int,FunctionInterface>
      * A list of typed functions/methods based on the given method
      */
     public static function functionListFromFunction(
-        FunctionInterface $function,
-        CodeBase $code_base
+        FunctionInterface $function
     ) : array {
         // See if we have any type information for this
         // internal function
@@ -230,11 +204,7 @@ class FunctionFactory
                     $parameter_type,
                     $flags
                 );
-                $parameter->setPhanFlags(Flags::bitVectorWithState(
-                    $parameter->getPhanFlags(),
-                    $phan_flags,
-                    true
-                ));
+                $parameter->enablePhanFlagBits($phan_flags);
 
                 if ($is_optional) {
                     // TODO: could check isDefaultValueAvailable and getDefaultValue, for a better idea.

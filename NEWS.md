@@ -1,11 +1,43 @@
 Phan NEWS
 
+?? ??? 2018, Phan 0.12.3 (dev)
+------------------------
+
+New Features(CLI, Configs)
++ Add `--polyfill-parse-all-element-doc-comments` for PHP 7.0.
+  If you're using the polyfill (e.g. using `--force-polyfill-parser`), this will parse doc comments on class constants in php 7.0.
+  (Normally, the polyfill wouldn't include that information, to closely imitate `php-ast`'s behavior)
+
+New Features(Analysis)
++ Infer the type of `[]` as `array{}` (the empty array), not `array`. (#1382)
++ Allow phpdoc `@param` array shapes to contain optional fields. (E.g. `array{requiredKey:int,optionalKey:string=}`) (#1382)
+  An array shape is now allowed to cast to another array shape, as long as the required fields are compatible with the target type,
+  and any optional fields from the target type are absent in the source type or compatible.
++ Emit `PhanTypeArrayUnsetSuspicious` when trying to unset the offset of something that isn't an array or array-like.
++ Add limited support for analyzing `unset` on variables and the first dimension of arrays.
+  Unsetting variables does not yet work in branches.
++ Don't emit `PhanTypeInvalidDimOffset` in `isset`/`empty`/`unset`
++ Improve Phan's analysis of loose equality (#1101)
++ Add new issue types `PhanWriteOnlyPublicProperty`, `PhanWriteOnlyProtectedProperty`, and `PhanWriteOnlyPrivateProperty`,
+  which will be emitted on properties that are written to but never read from.
+  (Requires that dead code detection be enabled)
+
+Maintenance
++ Add `--disable-usage-on-error` option to `phan_client` (#1540)
++ Print directory which phan daemon is going to await analysis requests for (#1544)
+
+Bug Fixes
++ Allow phpdoc `@param` array shapes to contain union types (#1382)
++ Remove leading `./` from Phan's relative paths for files (#1548, #1538)
++ Reduce false positives in dead code detection for constants/properties/methods.
++ Don't warn when base classes access protected properties of their subclasses.
+
 02 Mar 2018, Phan 0.12.2
 ------------------------
 
 New Features(Analysis)
 
-+ Emit `PhanTypeInvalidDimOffsetArrayDestructuring` when an unknown offset value is used in an array destructuring assignment (#1534)
++ Emit `PhanTypeInvalidDimOffsetArrayDestructuring` when an unknown offset value is used in an array destructuring assignment (#1534, #1477)
   (E.g. `foreach ($expr as ['key' => $value])`, `list($k) = [2]`, etc.)
 
 Plugins

@@ -298,13 +298,6 @@ final class ConfigPluginSet extends PluginV2 implements
         }
     }
 
-    // Micro-optimization in tight loops: check for plugins before calling config plugin set
-    public function hasPlugins() : bool
-    {
-        \assert(!\is_null($this->pluginSet));
-        return \count($this->pluginSet) > 0;
-    }
-
     /**
      * Returns true if analyzeFunction() will execute any plugins.
      */
@@ -633,10 +626,11 @@ final class ConfigPluginSet extends PluginV2 implements
                      * Create an instance of $plugin_analysis_class and run the visit*() method corresponding to $node->kind.
                      *
                      * @suppress PhanParamTooMany
-                     * @suppress PhanUndeclaredProperty
+                     * @suppress PhanTypeInstantiateInterface
                      * @suppress PhanDeprecatedInterface (TODO: Fix bugs in PhanClosureScope)
+                     * @phan-closure-scope PostAnalyzeNodeCapability
                      */
-                    $closure = (static function (CodeBase $code_base, Context $context, Node $node, array $parent_node_list = []) {
+                    $closure = (static function (CodeBase $code_base, Context $context, Node $node, array $unused_parent_node_list = []) {
                         $visitor = new static($code_base, $context);
                         $fn_name = Element::VISIT_LOOKUP_TABLE[$node->kind];
                         $visitor->{$fn_name}($node);

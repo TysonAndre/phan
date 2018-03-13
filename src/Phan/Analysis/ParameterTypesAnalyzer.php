@@ -44,8 +44,6 @@ class ParameterTypesAnalyzer
         // Look at each parameter to make sure their types
         // are valid
         foreach ($method->getParameterList() as $parameter) {
-            $comment_parameter_index = $parameter->getName();
-
             $union_type = $parameter->getUnionType();
 
             // Look at each type in the parameter's Union Type
@@ -192,6 +190,7 @@ class ParameterTypesAnalyzer
 
     /**
      * @return void
+     * @suppress PhanPluginUnusedVariable
      */
     private static function checkCommentParametersAreInOrder(CodeBase $code_base, FunctionInterface $method)
     {

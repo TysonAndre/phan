@@ -63,6 +63,7 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
      * Handles workspace/* method calls
      *
      * @var Server\Workspace
+     * @suppress PhanWriteOnlyPublicProperty used by AdvancedJsonRpc\Dispatcher via reflection
      */
     public $workspace;
 
@@ -203,7 +204,7 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
      * @param \Closure $file_path_lister
      * Returns string[] - A list of files to scan. This may be different from the previous contents.
      *
-     * @param array $options (leave empty for stdout)
+     * @param array<string,mixed> $options (leave empty for stdout)
      *
      * @return Request|null - A writeable request, which has been fully read from.
      * Callers should close after they are finished writing.
@@ -370,10 +371,8 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
      */
     public function analyzeURIAsync(string $uri)
     {
-        Logger::logInfo("Called analyzeURIAsync, uri=$uri");
         $path_to_analyze = Utils::uriToPath($uri);
-        $relative_path_to_analyze = FileRef::getProjectRelativePathForPath($path_to_analyze);
-        Logger::logInfo("Maybe going to analyze this file: $path_to_analyze");
+        Logger::logInfo("Called analyzeURIAsync, uri=$uri, path=$path_to_analyze");
         $this->analyze_request_set[$path_to_analyze] = $uri;
         // Don't call file_path_lister immediately -
         // That has to walk the directories in .phan/config.php to see if the requested path is included and not excluded.
@@ -667,6 +666,7 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
      * @param string|null $rootPath The rootPath of the workspace. Is null if no folder is open.
      * @param int|null $processId The process Id of the parent process that started the server. Is null if the process has not been started by another process. If the parent process is not alive then the server should exit (see exit notification) its process.
      * @return Promise <InitializeResult>
+     * @suppress PhanPluginUnusedPublicMethodArgument
      */
     public function initialize(ClientCapabilities $capabilities, string $rootPath = null, int $processId = null): Promise
     {
@@ -730,6 +730,9 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
         return $textDocumentSyncOptions;
     }
 
+    /**
+     * @suppress PhanUnreferencedPublicMethod this is called by the client through AdvancedJsonRpc
+     */
     public function initialized()
     {
         Logger::logInfo("Called initialized on language server, currently a no-op");

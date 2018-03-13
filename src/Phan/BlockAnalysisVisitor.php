@@ -95,12 +95,9 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         return $context;
     }
 
-    public function visitParam(Node $node) : Context
-    {
-        // Could invoke plugins, but not right now
-        return $this->context;
-    }
-
+    /**
+     * @suppress PhanPluginUnusedPublicMethodArgument
+     */
     public function visitUseElem(Node $node) : Context
     {
         // Could invoke plugins, but not right now
@@ -153,6 +150,9 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         return $this->postOrderAnalyze($context, $node);
     }
 
+    /**
+     * @suppress PhanPluginUnusedPublicMethodArgument
+     */
     public function visitName(Node $node) : Context
     {
         // Could invoke plugins, but not right now
@@ -616,15 +616,60 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         // of all child context into a single scope based
         // on any possible branching structure
         $context = (new ContextMergeVisitor(
-            $this->code_base,
             $context,
             $child_context_list
-        ))($node);
+        ))->__invoke($node);
 
         $unused_final_context = $this->postOrderAnalyze($context, $node);
 
         // Return the initial context as we exit
         return $this->context;
+    }
+
+    /**
+     * @param Node $node
+     * An AST node we'd like to analyze the statements for
+     *
+     * @return Context
+     * The updated context after visiting the node
+     */
+    public function visitSwitchList(Node $node) : Context
+    {
+        // Make a copy of the internal context so that we don't
+        // leak any changes within the closed context to the
+        // outer scope
+        $context = clone($this->context->withLineNumberStart(
+            $node->lineno ?? 0
+        ));
+
+        $context = $this->preOrderAnalyze($context, $node);
+        $child_context_list = [];
+
+        // TODO: Improve inferences in switch statements?
+        // TODO: Behave differently if switch lists don't cover every case (e.g. if there is no default)
+        foreach ($node->children as $child_node) {
+            // Step into each child node and get an
+            // updated context for the node
+            $child_context = $this->analyzeAndGetUpdatedContext($context, $node, $child_node);
+
+            // We can improve analysis of `case` blocks by using
+            // a BlockExitStatusChecker to avoid propogating invalid inferences.
+            if (!BlockExitStatusChecker::willUnconditionallyThrowOrReturn($child_node->children['stmts'])) {
+                $child_context_list[] = $child_context;
+            }
+        }
+
+        if (count($child_context_list) > 0) {
+            // For case statements, we need to merge the contexts
+            // of all child context into a single scope based
+            // on any possible branching structure
+            $context = (new ContextMergeVisitor(
+                $context,
+                $child_context_list
+            ))->__invoke($node);
+        }
+
+        return $this->postOrderAnalyze($context, $node);
     }
 
     /**
@@ -709,10 +754,9 @@ class BlockAnalysisVisitor extends AnalysisVisitor
 
             // ContextMergeVisitor will include the incoming scope($context) if the if elements aren't comprehensive
             $context = (new ContextMergeVisitor(
-                $this->code_base,
                 $fallthrough_context,  // e.g. "if (!is_string($x)) { $x = ''; }" should result in inferring $x is a string.
                 $child_context_list
-            ))($node);
+            ))->__invoke($node);
         }
 
         $context = $this->postOrderAnalyze($context, $node);
@@ -770,9 +814,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         // but not others will be treated as absent.
         // TODO: Improve in future releases
         // NOTE: We let ContextMergeVisitor->visitTry decide if the block exit status is valid.
-        $original_context = $context;
         $context = (new ContextMergeVisitor(
-            $this->code_base,
             $context,
             [$try_context]
         ))->mergeTryContext($node);
@@ -808,7 +850,6 @@ class BlockAnalysisVisitor extends AnalysisVisitor
             // of all child context into a single scope based
             // on any possible branching structure
             $context = (new ContextMergeVisitor(
-                $this->code_base,
                 $context,
                 $catch_context_list
             ))->mergeCatchContext($node);
@@ -912,7 +953,6 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         if ($right_node instanceof Node) {
             $right_context = $this->analyzeAndGetUpdatedContext($context_with_left_condition, $node, $right_node);
             $context = (new ContextMergeVisitor(
-                $this->code_base,
                 $context,
                 [$context, $context_with_left_condition, $right_context]
             ))($node);
@@ -977,7 +1017,6 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         if ($right_node instanceof Node) {
             $right_context = $this->analyzeAndGetUpdatedContext($context_with_false_left_condition, $node, $right_node);
             $context = (new ContextMergeVisitor(
-                $this->code_base,
                 $context,
                 [$context, $context_with_true_left_condition, $right_context]
             ))->combineChildContextList();
@@ -1057,10 +1096,9 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         }
         if (\count($child_context_list) >= 1) {
             $context = (new ContextMergeVisitor(
-                $this->code_base,
                 $context,
                 $child_context_list
-            ))($node);
+            ))->__invoke($node);
         }
 
         $context = $this->postOrderAnalyze($context, $node);
@@ -1239,8 +1277,6 @@ class BlockAnalysisVisitor extends AnalysisVisitor
 
         $context = $this->context;
         $class = $context->getClassInScope($this->code_base);
-        $is_static = (\end($this->parent_node_list)->flags & \ast\flags\MODIFIER_STATIC) !== 0;
-        $property = $class->getPropertyByNameInContext($this->code_base, $prop_name, $context, $is_static);
 
         $context = $this->context->withScope(new PropertyScope(
             $context->getScope(),

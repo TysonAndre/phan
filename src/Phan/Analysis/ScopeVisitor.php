@@ -39,7 +39,7 @@ abstract class ScopeVisitor extends AnalysisVisitor
      * @return Context
      * A new or an unchanged context resulting from
      * parsing the node
-     * @suppress PhanPluginUnusedMethodArgument
+     * @suppress PhanPluginUnusedPublicMethodArgument
      */
     public function visit(Node $node) : Context
     {
@@ -181,6 +181,10 @@ abstract class ScopeVisitor extends AnalysisVisitor
                 }
             } else {
                 $alias = $child_node->children['alias'];
+            }
+            if (!\is_string($alias)) {
+                // Should be impossible
+                continue;
             }
 
             // if AST_USE does not have any flags set, then its AST_USE_ELEM

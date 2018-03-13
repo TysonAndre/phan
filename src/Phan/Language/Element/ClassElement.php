@@ -150,10 +150,7 @@ abstract class ClassElement extends AddressableElement
      */
     public function getIsOverride() : bool
     {
-        return Flags::bitVectorHasState(
-            $this->getPhanFlags(),
-            Flags::IS_OVERRIDE
-        );
+        return $this->getPhanFlagsHasState(Flags::IS_OVERRIDE);
     }
 
     /**
@@ -177,10 +174,7 @@ abstract class ClassElement extends AddressableElement
      */
     public function isStatic() : bool
     {
-        return Flags::bitVectorHasState(
-            $this->getFlags(),
-            \ast\flags\MODIFIER_STATIC
-        );
+        return $this->getFlagsHasState(\ast\flags\MODIFIER_STATIC);
     }
 
     /**
@@ -198,12 +192,12 @@ abstract class ClassElement extends AddressableElement
         );
     }
 
-    public function getElementNamespace(CodeBase $code_base) : string
+    /**
+     * @suppress PhanPluginUnusedMethodArgument
+     */
+    public function getElementNamespace() : string
     {
-        // Get the class that this element is defined on
-        $class = $this->getClass($code_base);
-
         // Get the namespace that the class is within
-        return $class->getFQSEN()->getNamespace() ?: '\\';
+        return $this->getClassFQSEN()->getNamespace() ?: '\\';
     }
 }

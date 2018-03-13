@@ -2,6 +2,11 @@
 namespace Phan;
 
 use Phan\Language\Context;
+use Phan\Language\Element\TypedElement;
+use Phan\Language\Element\UnaddressableTypedElement;
+use Phan\Language\FQSEN;
+use Phan\Language\Type;
+use Phan\Language\UnionType;
 
 /**
  * An issue emitted during the course of analysis
@@ -52,6 +57,7 @@ class Issue
     const NonClassMethodCall        = 'PhanNonClassMethodCall';
     const TypeArrayOperator         = 'PhanTypeArrayOperator';
     const TypeArraySuspicious       = 'PhanTypeArraySuspicious';
+    const TypeArrayUnsetSuspicious  = 'PhanTypeArrayUnsetSuspicious';
     const TypeArraySuspiciousNullable = 'PhanTypeArraySuspiciousNullable';
     const TypeSuspiciousIndirectVariable = 'PhanTypeSuspiciousIndirectVariable';
     const TypeComparisonFromArray   = 'PhanTypeComparisonFromArray';
@@ -170,29 +176,32 @@ class Issue
     const ParamSignaturePHPDocMismatchParamType                       = 'PhanParamSignaturePHPDocMismatchParamType';
 
     // Issue::CATEGORY_NOOP
-    const NoopArray                 = 'PhanNoopArray';
-    const NoopClosure               = 'PhanNoopClosure';
-    const NoopConstant              = 'PhanNoopConstant';
-    const NoopProperty              = 'PhanNoopProperty';
-    const NoopVariable              = 'PhanNoopVariable';
-    const NoopUnaryOperator         = 'PhanNoopUnaryOperator';
-    const NoopBinaryOperator        = 'PhanNoopBinaryOperator';
-    const UnreferencedClass         = 'PhanUnreferencedClass';
-    const UnreferencedFunction      = 'PhanUnreferencedFunction';
-    const UnreferencedPublicMethod  = 'PhanUnreferencedPublicMethod';
-    const UnreferencedProtectedMethod = 'PhanUnreferencedProtectedMethod';
-    const UnreferencedPrivateMethod = 'PhanUnreferencedPrivateMethod';
-    const UnreferencedPublicProperty = 'PhanUnreferencedPublicProperty';
+    const NoopArray                     = 'PhanNoopArray';
+    const NoopClosure                   = 'PhanNoopClosure';
+    const NoopConstant                  = 'PhanNoopConstant';
+    const NoopProperty                  = 'PhanNoopProperty';
+    const NoopVariable                  = 'PhanNoopVariable';
+    const NoopUnaryOperator             = 'PhanNoopUnaryOperator';
+    const NoopBinaryOperator            = 'PhanNoopBinaryOperator';
+    const UnreferencedClass             = 'PhanUnreferencedClass';
+    const UnreferencedFunction          = 'PhanUnreferencedFunction';
+    const UnreferencedPublicMethod      = 'PhanUnreferencedPublicMethod';
+    const UnreferencedProtectedMethod   = 'PhanUnreferencedProtectedMethod';
+    const UnreferencedPrivateMethod     = 'PhanUnreferencedPrivateMethod';
+    const UnreferencedPublicProperty    = 'PhanUnreferencedPublicProperty';
     const UnreferencedProtectedProperty = 'PhanUnreferencedProtectedProperty';
-    const UnreferencedPrivateProperty = 'PhanUnreferencedPrivateProperty';
-    const UnreferencedConstant      = 'PhanUnreferencedConstant';
+    const UnreferencedPrivateProperty   = 'PhanUnreferencedPrivateProperty';
+    const WriteOnlyPublicProperty       = 'PhanWriteOnlyPublicProperty';
+    const WriteOnlyProtectedProperty    = 'PhanWriteOnlyProtectedProperty';
+    const WriteOnlyPrivateProperty      = 'PhanWriteOnlyPrivateProperty';
+    const UnreferencedConstant          = 'PhanUnreferencedConstant';
     const UnreferencedPublicClassConstant = 'PhanUnreferencedPublicClassConstant';
     const UnreferencedProtectedClassConstant = 'PhanUnreferencedProtectedClassConstant';
     const UnreferencedPrivateClassConstant = 'PhanUnreferencedPrivateClassConstant';
-    const UnreferencedClosure       = 'PhanUnreferencedClosure';
-    const UnreferencedUseNormal = 'PhanUnreferencedUseNormal';
-    const UnreferencedUseFunction = 'PhanUnreferencedUseFunction';
-    const UnreferencedUseConstant = 'PhanUnreferencedUseConstant';
+    const UnreferencedClosure           = 'PhanUnreferencedClosure';
+    const UnreferencedUseNormal         = 'PhanUnreferencedUseNormal';
+    const UnreferencedUseFunction       = 'PhanUnreferencedUseFunction';
+    const UnreferencedUseConstant       = 'PhanUnreferencedUseConstant';
 
     // Issue::CATEGORY_REDEFINE
     const RedefineClass             = 'PhanRedefineClass';
@@ -306,9 +315,13 @@ class Issue
     // See https://docs.codeclimate.com/v1.0/docs/remediation
     const REMEDIATION_A = 1000000;
     const REMEDIATION_B = 3000000;
+    /** @suppress PhanUnreferencedPublicClassConstant */
     const REMEDIATION_C = 6000000;
+    /** @suppress PhanUnreferencedPublicClassConstant */
     const REMEDIATION_D = 12000000;
+    /** @suppress PhanUnreferencedPublicClassConstant */
     const REMEDIATION_E = 16000000;
+    /** @suppress PhanUnreferencedPublicClassConstant */
     const REMEDIATION_F = 18000000;
 
     // type id constants.
@@ -850,6 +863,14 @@ class Issue
                 "Suspicious array access to {TYPE}",
                 self::REMEDIATION_B,
                 10009
+            ),
+            new Issue(
+                self::TypeArrayUnsetSuspicious,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Suspicious attempt to unset an offset of a value of type {TYPE}",
+                self::REMEDIATION_B,
+                10048
             ),
             new Issue(
                 self::TypeComparisonToArray,
@@ -1714,6 +1735,30 @@ class Issue
                 6016
             ),
             new Issue(
+                self::WriteOnlyPublicProperty,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_NORMAL,
+                "Possibly zero read references to public property {PROPERTY}",
+                self::REMEDIATION_B,
+                6025
+            ),
+            new Issue(
+                self::WriteOnlyProtectedProperty,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_NORMAL,
+                "Possibly zero read references to protected property {PROPERTY}",
+                self::REMEDIATION_B,
+                6026
+            ),
+            new Issue(
+                self::WriteOnlyPrivateProperty,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_NORMAL,
+                "Possibly zero read references to private property {PROPERTY}",
+                self::REMEDIATION_B,
+                6027
+            ),
+            new Issue(
                 self::UnreferencedPublicClassConstant,
                 self::CATEGORY_NOOP,
                 self::SEVERITY_NORMAL,
@@ -2329,12 +2374,12 @@ class Issue
 
     /**
      * @return int
+     * @suppress PhanUnreferencedPublicMethod (no reporters use this right now)
      */
     public function getRemediationDifficulty() : int
     {
         return $this->remediation_difficulty;
     }
-
 
     /**
      * @return string
@@ -2393,7 +2438,7 @@ class Issue
      * @param int $line
      * The line number (start) where the issue was found
      *
-     * @param mixed ...$template_parameters
+     * @param string|int|float|bool|Type|UnionType|FQSEN|TypedElement|UnaddressableTypedElement ...$template_parameters
      * Any template parameters required for the issue
      * message
      *
@@ -2424,7 +2469,7 @@ class Issue
      * @param int $line
      * The line number (start) where the issue was found
      *
-     * @param array $template_parameters
+     * @param array<int,string|int|float|bool|Type|UnionType|FQSEN|TypedElement|UnaddressableTypedElement> $template_parameters
      * Any template parameters required for the issue
      * message
      *
@@ -2523,7 +2568,7 @@ class Issue
      * @param int $lineno
      * The line number where the issue was found
      *
-     * @param string|int|float|bool|object ...$parameters
+     * @param string|int|float|bool|Type|UnionType|FQSEN|TypedElement|UnaddressableTypedElement ...$parameters
      * Template parameters for the issue's error message.
      * If these are objects, they should define __toString()
      *
@@ -2559,7 +2604,7 @@ class Issue
      * @param int $lineno
      * The line number where the issue was found
      *
-     * @param array parameters
+     * @param array<int,string|int|float|bool|Type|UnionType|FQSEN|TypedElement|UnaddressableTypedElement> $parameters
      * Template parameters for the issue's error message
      *
      * @return void

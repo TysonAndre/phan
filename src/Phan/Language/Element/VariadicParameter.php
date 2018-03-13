@@ -17,13 +17,18 @@ class VariadicParameter extends Parameter
         $result = clone($this);
         if (!$result->isCloneOfVariadic()) {
             $result->convertToNonVariadic();
-            $result->setPhanFlags(Flags::bitVectorWithState(
-                $result->getPhanFlags(),
-                Flags::IS_CLONE_OF_VARIADIC,
-                true
-            ));
+            $result->enablePhanFlagBits(Flags::IS_CLONE_OF_VARIADIC);
         }
         return $result;
+    }
+
+    /**
+     * @return void
+     */
+    private function convertToNonVariadic()
+    {
+        // Avoid a redundant clone of toGenericArray()
+        $this->type = $this->getUnionType();
     }
 
     /**
@@ -34,7 +39,7 @@ class VariadicParameter extends Parameter
      */
     public function isCloneOfVariadic() : bool
     {
-        return Flags::bitVectorHasState($this->getPhanFlags(), Flags::IS_CLONE_OF_VARIADIC);
+        return $this->getPhanFlagsHasState(Flags::IS_CLONE_OF_VARIADIC);
     }
 
     /**
@@ -95,7 +100,7 @@ class VariadicParameter extends Parameter
         return new Parameter(
             $this->getFileRef(),
             $this->getName(),
-            $this->getNonVariadicUnionType(),
+            $this->type,
             Flags::bitVectorWithState($this->getFlags(), \ast\flags\PARAM_VARIADIC, false)
         );
     }
@@ -108,8 +113,7 @@ class VariadicParameter extends Parameter
      */
     public function getNonVariadicUnionType() : UnionType
     {
-        // if ($this->isCloneOfVariadic()) { throw new \Error("Calling getNonVariadicUnionType on clone?\n"); }
-        return parent::getUnionType();
+        return $this->type;
     }
 
     /**
@@ -135,6 +139,6 @@ class VariadicParameter extends Parameter
             // TODO: Figure out why asNonEmptyGenericArrayTypes() causes test failures
             return parent::getUnionType()->asGenericArrayTypes(GenericArrayType::KEY_INT);
         }
-        return parent::getUnionType();
+        return $this->type;
     }
 }

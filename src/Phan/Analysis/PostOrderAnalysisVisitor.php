@@ -16,10 +16,12 @@ use Phan\Language\Element\FunctionInterface;
 use Phan\Language\Element\Method;
 use Phan\Language\Element\Parameter;
 use Phan\Language\Element\PassByReferenceVariable;
+use Phan\Language\Element\Property;
 use Phan\Language\Element\Variable;
 use Phan\Language\Type;
 use Phan\Language\Type\ArrayType;
 use Phan\Language\Type\GenericArrayType;
+use Phan\Language\Type\MixedType;
 use Phan\Language\Type\NullType;
 use Phan\Language\Type\VoidType;
 use Phan\Language\UnionType;
@@ -112,7 +114,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             $this->context,
             $node,
             $right_type
-        ))($node->children['var']);
+        ))->__invoke($node->children['var']);
 
         if ($node->children['expr'] instanceof Node
             && $node->children['expr']->kind == \ast\AST_CLOSURE
@@ -146,6 +148,90 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     }
 
     /**
+     * @param Node $node
+     * A node to parse
+     *
+     * @return Context
+     * A new or an unchanged context resulting from
+     * parsing the node
+     */
+    public function visitUnset(Node $node) : Context
+    {
+        $context = $this->context;
+        // Get the type of the thing being unset
+        $var_node = $node->children['var'];
+        if (!is_object($var_node)) {
+            var_export($node);
+        }
+
+        $kind = $var_node->kind;
+        if ($kind === \ast\AST_VAR) {
+            $var_name = $var_node->children['name'];
+            if (\is_string($var_name)) {
+                // TODO: Make this work in branches
+                $context->unsetScopeVariable($var_name);
+            }
+            // I think DollarDollarPlugin already warns, so don't warn here.
+        } elseif ($kind === \ast\AST_DIM) {
+            $this->analyzeUnsetDim($var_node);
+        }
+        return $context;
+    }
+
+    /**
+     * @param Node $node a node of type AST_DIM in unset()
+     * @return void
+     * @see UnionTypeVisitor::resolveArrayShapeElementTypes()
+     * @see UnionTypeVisitor::visitDim()
+     */
+    private function analyzeUnsetDim(Node $node)
+    {
+        $expr_node = $node->children['expr'];
+        if (!($expr_node instanceof Node)) {
+            // php -l would warn
+            return;
+        }
+
+        // For now, just handle a single level of dimensions for unset($x['field']);
+        if ($expr_node->kind === \ast\AST_VAR) {
+            $var_name = $expr_node->children['name'];
+            if (!\is_string($var_name)) {
+                return;
+            }
+
+            $context = $this->context;
+            $scope = $context->getScope();
+            if (!$scope->hasVariableWithName($var_name)) {
+                // TODO: Warn about potentially pointless unset in function scopes?
+                return;
+            }
+            // TODO: Could warn about invalid offsets for isset
+            $variable = $scope->getVariableByName($var_name);
+            $union_type = $variable->getUnionType();
+            if ($union_type->isEmpty()) {
+                return;
+            }
+            if (!$union_type->asExpandedTypes($this->code_base)->hasArrayLike() && !$union_type->hasType(MixedType::instance(false))) {
+                $this->emitIssue(
+                    Issue::TypeArrayUnsetSuspicious,
+                    $node->lineno ?? 0,
+                    (string)$union_type
+                );
+            }
+            if (!$union_type->hasTopLevelArrayShapeTypeInstances()) {
+                return;
+            }
+            $dim_node = $node->children['dim'];
+            $dim_value = $dim_node instanceof Node ? (new ContextNode($this->code_base, $this->context, $dim_node))->getEquivalentPHPScalarValue() : $dim_node;
+            // TODO: detect and warn about null
+            if (!\is_scalar($dim_value)) {
+                return;
+            }
+            $variable->setUnionType($variable->getUnionType()->withoutArrayShapeField($dim_value));
+        }
+    }
+
+    /**
      * @param Node $node (@phan-unused-param)
      * A node to parse
      *
@@ -165,10 +251,11 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * @return Context
      * A new or an unchanged context resulting from
      * parsing the node
+     * @suppress PhanPluginUnusedPublicMethodArgument
      */
     public function visitWhile(Node $node) : Context
     {
-        return $this->visitIfElem($node);
+        return $this->context;
     }
 
     /**
@@ -178,10 +265,11 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * @return Context
      * A new or an unchanged context resulting from
      * parsing the node
+     * @suppress PhanPluginUnusedPublicMethodArgument
      */
     public function visitSwitch(Node $node) : Context
     {
-        return $this->visitIfElem($node);
+        return $this->context;
     }
 
     /**
@@ -191,10 +279,11 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * @return Context
      * A new or an unchanged context resulting from
      * parsing the node
+     * @suppress PhanPluginUnusedPublicMethodArgument
      */
     public function visitSwitchCase(Node $node) : Context
     {
-        return $this->visitIfElem($node);
+        return $this->context;
     }
 
     /**
@@ -204,10 +293,11 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * @return Context
      * A new or an unchanged context resulting from
      * parsing the node
+     * @suppress PhanPluginUnusedPublicMethodArgument
      */
     public function visitExprList(Node $node) : Context
     {
-        return $this->visitIfElem($node);
+        return $this->context;
     }
 
     /**
@@ -336,9 +426,9 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         // If the element has a default, set its type
         // on the variable
         if (isset($node->children['default'])) {
-            $default_type = UnionType::fromNode(
-                $this->context,
+            $default_type = UnionTypeVisitor::unionTypeFromNode(
                 $this->code_base,
+                $this->context,
                 $node->children['default']
             );
 
@@ -1562,6 +1652,12 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 // will analyze $x['key'] = expr in AssignmentVisitor
                 return $context;
             }
+        } elseif ($parent_kind === \ast\AST_ARRAY_ELEM) {
+            if ($this->shouldSkipNestedDim()) {
+                return $context;
+            }
+        } elseif ($parent_kind === \ast\AST_ISSET || $parent_kind === \ast\AST_UNSET || $parent_kind === \ast\AST_EMPTY) {
+            return $context;
         }
         // Check the array type to trigger TypeArraySuspicious
         try {
@@ -1604,7 +1700,15 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                     return true;
                 }
                 return false;
+            } elseif ($kind === \ast\AST_ARRAY_ELEM) {
+                $prev_parent_node = \prev($parent_node_list);  // this becomes AST_ARRAY
+                continue;
+            } elseif ($kind === \ast\AST_ARRAY) {
+                continue;
+            } elseif ($kind === \ast\AST_UNSET) {
+                return true;  // This is removing the offset
             }
+
             return false;
         }
     }
@@ -1646,7 +1750,9 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
 
             // Mark that this property has been referenced from
             // this context
-            $property->addReference($this->context);
+            if (Config::get_track_references()) {
+                $this->trackPropertyReference($property, $node);
+            }
         } catch (IssueException $exception) {
             // We'll check out some reasons it might not exist
             // before logging the issue
@@ -1707,6 +1813,29 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         }
 
         return $this->context;
+    }
+
+    /**
+     * @return void
+     */
+    private function trackPropertyReference(Property $property, Node $node)
+    {
+        $property->addReference($this->context);
+        if (!$property->hasReadReference() && !$this->isAssignmentOrNestedAssignment($node)) {
+            $property->setHasReadReference();
+        }
+    }
+
+    private function isAssignmentOrNestedAssignment(Node $node) : bool
+    {
+        $parent_node = \end($this->parent_node_list);
+        $parent_kind = $parent_node->kind;
+        if ($parent_kind === \ast\AST_DIM) {
+            return $parent_node->children['expr'] === $node && $this->shouldSkipNestedDim();
+        } elseif ($parent_kind === \ast\AST_ASSIGN || $parent_kind === \ast\AST_ASSIGN_REF) {
+            return $parent_node->children['var'] === $node;
+        }
+        return false;
     }
 
     /**
@@ -1792,7 +1921,10 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         FunctionInterface $method,
         Node $node
     ) {
-        $method->addReference($this->context);
+        $code_base = $this->code_base;
+        $context = $this->context;
+
+        $method->addReference($context);
 
         // Create variables for any pass-by-reference
         // parameters
@@ -1815,8 +1947,8 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                         // We don't do anything with it; just create it
                         // if it doesn't exist
                         $variable = (new ContextNode(
-                            $this->code_base,
-                            $this->context,
+                            $code_base,
+                            $context,
                             $argument
                         ))->getOrCreateVariable();
                     } catch (NodeException $e) {
@@ -1833,14 +1965,14 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                         // if it doesn't exist
                         try {
                             (new ContextNode(
-                                $this->code_base,
-                                $this->context,
+                                $code_base,
+                                $context,
                                 $argument
                             ))->getOrCreateProperty($argument->children['prop'], $argument->kind == \ast\AST_STATIC_PROP);
                         } catch (IssueException $exception) {
                             Issue::maybeEmitInstance(
-                                $this->code_base,
-                                $this->context,
+                                $code_base,
+                                $context,
                                 $exception->getIssueInstance()
                             );
                         } catch (\Exception $exception) {
@@ -1859,8 +1991,8 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         ArgumentType::analyze(
             $method,
             $node,
-            $this->context,
-            $this->code_base
+            $context,
+            $code_base
         );
 
         // Take another pass over pass-by-reference parameters
@@ -1875,11 +2007,11 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 continue;
             }
 
-            if (Config::get_track_references()) {
-                (new ArgumentVisitor(
-                    $this->code_base,
-                    $this->context
-                ))($argument);
+            $kind = $argument->kind;
+            if ($kind === \ast\AST_CLOSURE) {
+                if (Config::get_track_references()) {
+                    $this->trackReferenceToClosure($argument);
+                }
             }
 
             // If the parameter is pass-by-reference and we're
@@ -1887,19 +2019,19 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             // the parameter and variable types to eachother
             $variable = null;
             if ($parameter->isPassByReference()) {
-                if ($argument->kind == \ast\AST_VAR) {
+                if ($kind === \ast\AST_VAR) {
                     try {
                         $variable = (new ContextNode(
-                            $this->code_base,
-                            $this->context,
+                            $code_base,
+                            $context,
                             $argument
                         ))->getOrCreateVariable();
                     } catch (NodeException $e) {
                         // E.g. `function_accepting_reference(${$varName})` - Phan can't analyze outer type of ${$varName}
                         continue;
                     }
-                } elseif ($argument->kind == \ast\AST_STATIC_PROP
-                    || $argument->kind == \ast\AST_PROP
+                } elseif ($kind === \ast\AST_STATIC_PROP
+                    || $kind === \ast\AST_PROP
                 ) {
                     $property_name = $argument->children['prop'];
 
@@ -1908,14 +2040,15 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                         // if it doesn't exist
                         try {
                             $variable = (new ContextNode(
-                                $this->code_base,
-                                $this->context,
+                                $code_base,
+                                $context,
                                 $argument
                             ))->getOrCreateProperty($argument->children['prop'], $argument->kind == \ast\AST_STATIC_PROP);
+                            $variable->addReference($context);
                         } catch (IssueException $exception) {
                             Issue::maybeEmitInstance(
-                                $this->code_base,
-                                $this->context,
+                                $code_base,
+                                $context,
                                 $exception->getIssueInstance()
                             );
                         } catch (\Exception $exception) {
@@ -1987,6 +2120,25 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             $node->children['args'],
             $method
         );
+    }
+
+    /**
+     * @return void
+     */
+    private function trackReferenceToClosure(Node $argument)
+    {
+        try {
+            $inner_context = $this->context->withLineNumberStart($argument->lineno ?? 0);
+            $method = (new ContextNode(
+                $this->code_base,
+                $inner_context,
+                $argument
+            ))->getClosure();
+
+            $method->addReference($inner_context);
+        } catch (\Exception $exception) {
+            // Swallow it
+        }
     }
 
     /**

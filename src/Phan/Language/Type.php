@@ -54,9 +54,11 @@ class Type
     /**
      * @var string
      * A legal array entry in an array shape (e.g. 'field:string[]')
+     *
+     * @suppress PhanUnreferencedPublicClassConstant
      */
     const array_shape_entry_regex_noncapturing =
-        '(?:' . self::shape_key_regex . ')\s*:\s*(?:' . self::simple_type_regex . ')';
+        '(?:' . self::shape_key_regex . ')\s*:\s*(?:' . self::simple_type_regex . '=?)';
 
     /**
      * @var string
@@ -81,8 +83,8 @@ class Type
           . '>'
           . '|'
           . '\{('  // Expect either '{' or '<', after a word token.
-            . '(?:' . self::shape_key_regex . '\s*:\s*(?-6))'  // {shape_key_regex:<type_regex>}
-            . '(?:,' . self::shape_key_regex . '\s*:\s*(?-6))*'  // {shape_key_regex:<type_regex>}
+            . '(?:' . self::shape_key_regex . '\s*:\s*(?-6)(?:\|(?-6))*=?)'  // {shape_key_regex:<type_regex>}
+            . '(?:,' . self::shape_key_regex . '\s*:\s*(?-6)(?:\|(?-6))*=?)*'  // {shape_key_regex:<type_regex>}
           . ')?\})?'
         . ')'
         . '(\[\])*'
@@ -112,8 +114,8 @@ class Type
               . '>'
               . '|'
               . '(\{)('  // Expect either '{' or '<', after a word token. Match '{' to disambiguate 'array{}'
-                . '(?:' . self::shape_key_regex . '\s*:\s*(?-9))'  // {shape_key_regex:<type_regex>}
-                . '(?:,' . self::shape_key_regex . '\s*:\s*(?-9))*'  // {shape_key_regex:<type_regex>}
+                . '(?:' . self::shape_key_regex . '\s*:\s*(?-9)(?:\|(?-9))*=?)'  // {shape_key_regex:<type_regex>}
+                . '(?:,' . self::shape_key_regex . '\s*:\s*(?-9)(?:\|(?-9))*=?)*'  // {shape_key_regex:<type_regex>}
               . ')?\})?'
             . ')'
           . '(\[\])*'
@@ -180,9 +182,9 @@ class Type
     const _bit_nullable = (1 << 2);
 
     /**
-     * @var string|null
-     * The namespace of this type such as '\' or
-     * '\Phan\Language'
+     * @var string
+     * The namespace of this type such as '' (for internal types such as 'int')
+     * or '\' or '\Phan\Language'
      */
     protected $namespace = null;
 
@@ -655,9 +657,6 @@ class Type
     public static function fromFullyQualifiedStringInner(
         string $fully_qualified_string
     ) : Type {
-        if (empty($fully_qualified_string)) {
-            debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
-        }
         \assert(
             !empty($fully_qualified_string),
             "Type cannot be empty"
@@ -1008,6 +1007,10 @@ class Type
     {
         return array_map(
             function (string $component_string) use ($context, $source) : UnionType {
+                if (\substr($component_string, -1) === '=') {
+                    $type = UnionType::fromStringInContext(\substr($component_string, 0, -1), $context, $source);
+                    return $type->withIsPossiblyUndefined(true);
+                }
                 return UnionType::fromStringInContext($component_string, $context, $source);
             },
             $shape_components
@@ -1045,6 +1048,9 @@ class Type
      * @return FullyQualifiedClassName
      * A fully-qualified class name derived from this type
      * (This differs from asFQSEN() in ClosureType)
+     *
+     * @deprecated
+     * @suppress PhanUnreferencedPublicMethod (just use FullyQualifiedClassName::fromType($this))
      */
     public function asClassFQSEN() : FullyQualifiedClassName
     {
@@ -1064,6 +1070,7 @@ class Type
     /**
      * @return bool
      * True if this namespace is defined
+     * @suppress PhanUnreferencedPublicMethod (TODO: remove?)
      */
     public function hasNamespace() : bool
     {
@@ -1409,6 +1416,8 @@ class Type
     /**
      * @return bool
      * True if this type has any template parameter types
+     * @suppress PhanUnreferencedPublicMethod potentially used in the future
+     *           TODO: Would need to override this in ArrayShapeType, GenericArrayType?
      */
     public function hasTemplateParameterTypes() : bool
     {

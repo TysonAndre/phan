@@ -25,7 +25,7 @@ abstract class AddressableElement extends TypedElement implements AddressableEle
      * element is referenced from.
      * References from the same file and line are deduplicated to save memory.
      */
-    private $reference_list = [];
+    protected $reference_list = [];
 
     /**
      * @param Context $context
@@ -35,7 +35,7 @@ abstract class AddressableElement extends TypedElement implements AddressableEle
      * The name of the typed structural element
      *
      * @param UnionType $type
-     * A '|' delimited set of types satisfyped by this
+     * A '|' delimited set of types satisfied by this
      * typed structural element.
      *
      * @param int $flags
@@ -104,10 +104,7 @@ abstract class AddressableElement extends TypedElement implements AddressableEle
      */
     public function isProtected() : bool
     {
-        return Flags::bitVectorHasState(
-            $this->getFlags(),
-            \ast\flags\MODIFIER_PROTECTED
-        );
+        return $this->getFlagsHasState(\ast\flags\MODIFIER_PROTECTED);
     }
 
     /**
@@ -116,14 +113,11 @@ abstract class AddressableElement extends TypedElement implements AddressableEle
      */
     public function isPrivate() : bool
     {
-        return Flags::bitVectorHasState(
-            $this->getFlags(),
-            \ast\flags\MODIFIER_PRIVATE
-        );
+        return $this->getFlagsHasState(\ast\flags\MODIFIER_PRIVATE);
     }
 
     /**
-     * @param CodeBase $code_base (@phan-unused-param, may be used by subclasses)
+     * @param CodeBase $code_base (@phan-unused-param, this is used by subclasses)
      * The code base in which this element exists.
      *
      * @return bool
@@ -131,10 +125,7 @@ abstract class AddressableElement extends TypedElement implements AddressableEle
      */
     public function isNSInternal(CodeBase $code_base) : bool
     {
-        return Flags::bitVectorHasState(
-            $this->getPhanFlags(),
-            Flags::IS_NS_INTERNAL
-        );
+        return $this->getPhanFlagsHasState(Flags::IS_NS_INTERNAL);
     }
 
     /**
@@ -151,7 +142,7 @@ abstract class AddressableElement extends TypedElement implements AddressableEle
     }
 
     /**
-     * @param CodeBase $code_base
+     * @param CodeBase $code_base (@phan-unused-param, this is used by subclasses)
      * The code base in which this element exists.
      *
      * @return bool
@@ -162,7 +153,7 @@ abstract class AddressableElement extends TypedElement implements AddressableEle
         Context $context
     ) : bool {
         // Figure out which namespace this element is within
-        $element_namespace = $this->getElementNamespace($code_base);
+        $element_namespace = $this->getElementNamespace();
 
         // Get our current namespace from the context
         $context_namespace = $context->getNamespace();
@@ -188,7 +179,7 @@ abstract class AddressableElement extends TypedElement implements AddressableEle
             if ($this->isPHPInternal()) {
                 return;
             }
-            $this->reference_list[(string)$file_ref] = $file_ref;
+            $this->reference_list[$file_ref->__toString()] = $file_ref;
         }
     }
 
@@ -250,27 +241,12 @@ abstract class AddressableElement extends TypedElement implements AddressableEle
         $this->hydrateOnce($code_base);
     }
 
-    /**
-     * This method must be called before analysis begins.
-     * This is identical to hydrate(), but returns true only if this is the first time the element was hydrated.
-     */
-    public function hydrateIndicatingFirstTime(CodeBase $code_base) : bool
-    {
-        if ($this->is_hydrated) {  // Same as isFirstExecution(), inlined due to being called frequently.
-            return false;
-        }
-        $this->is_hydrated = true;
-
-        $this->hydrateOnce($code_base);
-        return true;
-    }
-
     protected function hydrateOnce(CodeBase $unused_code_base)
     {
         // Do nothing unless overridden
     }
 
-    public function getElementNamespace(CodeBase $unused_code_base) : string
+    public function getElementNamespace() : string
     {
         $element_fqsen = $this->getFQSEN();
         \assert($element_fqsen instanceof FullyQualifiedGlobalStructuralElement);

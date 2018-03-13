@@ -126,29 +126,6 @@ class Clazz extends AddressableElement
      * A reference to the entire code base in which this
      * context exists
      *
-     * @param string $class_name
-     * The name of a builtin class to build a new Class structural
-     * element from.
-     *
-     * @return Clazz
-     * A Class structural element representing the given named
-     * builtin.
-     */
-    public static function fromClassName(
-        CodeBase $code_base,
-        string $class_name
-    ) : Clazz {
-        return self::fromReflectionClass(
-            $code_base,
-            new \ReflectionClass($class_name)
-        );
-    }
-
-    /**
-     * @param CodeBase $code_base
-     * A reference to the entire code base in which this
-     * context exists
-     *
      * @param \ReflectionClass $class
      * A reflection class representing a builtin class.
      *
@@ -319,7 +296,6 @@ class Clazz extends AddressableElement
             $method_list =
                 FunctionFactory::methodListFromReflectionClassAndMethod(
                     $method_context,
-                    $code_base,
                     $class,
                     $reflection_method
                 );
@@ -646,7 +622,8 @@ class Clazz extends AddressableElement
         );
 
         // TODO: defer template properties until the analysis phase? They might not be parsed or resolved yet.
-        if ($property->getFQSEN() !== $property_fqsen) {
+        $original_property_fqsen = $property->getFQSEN();
+        if ($original_property_fqsen !== $property_fqsen) {
             $property = clone($property);
             $property->setFQSEN($property_fqsen);
 
@@ -791,6 +768,18 @@ class Clazz extends AddressableElement
         );
     }
 
+    public function getPropertyByName(
+        CodeBase $code_base,
+        string $name
+    ) : Property {
+        return $code_base->getPropertyByFQSEN(
+            FullyQualifiedPropertyName::make(
+                $this->getFQSEN(),
+                $name
+            )
+        );
+    }
+
     /**
      * Checks if a given property can be accessed by the class in the current Context
      * (if any)
@@ -833,10 +822,20 @@ class Clazz extends AddressableElement
                 $type_of_class_of_property
             );
         } else {
-            // If the definition of the property is protected, then the subclasses of the defining class can access it.
-            return $accessing_class_type->asExpandedTypes($code_base)->canCastToUnionType(
-                $type_of_class_of_property->asUnionType()
-            );
+            // If the definition of the property is protected,
+            // then the subclasses of the defining class can access it.
+            foreach ($accessing_class_type->asExpandedTypes($code_base)->getTypeSet() as $type) {
+                if ($type->canCastToType($type_of_class_of_property)) {
+                    return true;
+                }
+            }
+            // and base classes of the defining class can access it
+            foreach ($type_of_class_of_property->asExpandedTypes($code_base)->getTypeSet() as $type) {
+                if ($type->canCastToType($accessing_class_type)) {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 
@@ -1490,23 +1489,6 @@ class Clazz extends AddressableElement
      * details
      *
      * @return bool
-     * True if this class has a magic '__call' or '__callStatic'
-     * method
-     */
-    public function hasCallOrCallStaticMethod(CodeBase $code_base)
-    {
-        return (
-            $this->hasCallMethod($code_base)
-            || $this->hasCallStaticMethod($code_base)
-        );
-    }
-
-    /**
-     * @param CodeBase $code_base
-     * The entire code base from which we'll find ancestor
-     * details
-     *
-     * @return bool
      * True if this class has a magic '__get' method
      */
     public function hasGetMethod(CodeBase $code_base) : bool
@@ -1580,10 +1562,7 @@ class Clazz extends AddressableElement
      */
     public function getIsParentConstructorCalled() : bool
     {
-        return Flags::bitVectorHasState(
-            $this->getPhanFlags(),
-            Flags::IS_PARENT_CONSTRUCTOR_CALLED
-        );
+        return $this->getPhanFlagsHasState(Flags::IS_PARENT_CONSTRUCTOR_CALLED);
     }
 
     /**
@@ -1605,10 +1584,7 @@ class Clazz extends AddressableElement
     public function getForbidUndeclaredMagicProperties(CodeBase $code_base) : bool
     {
         return (
-            Flags::bitVectorHasState(
-                $this->getPhanFlags(),
-                Flags::CLASS_FORBID_UNDECLARED_MAGIC_PROPERTIES
-            )
+            $this->getPhanFlagsHasState(Flags::CLASS_FORBID_UNDECLARED_MAGIC_PROPERTIES)
             ||
             (
                 $this->hasParentType()
@@ -1640,10 +1616,7 @@ class Clazz extends AddressableElement
     public function getForbidUndeclaredMagicMethods(CodeBase $code_base) : bool
     {
         return (
-            Flags::bitVectorHasState(
-                $this->getPhanFlags(),
-                Flags::CLASS_FORBID_UNDECLARED_MAGIC_METHODS
-            )
+            $this->getPhanFlagsHasState(Flags::CLASS_FORBID_UNDECLARED_MAGIC_METHODS)
             ||
             (
                 $this->hasParentType()
@@ -1676,10 +1649,7 @@ class Clazz extends AddressableElement
     public function getHasDynamicProperties(CodeBase $code_base) : bool
     {
         return (
-            Flags::bitVectorHasState(
-                $this->getPhanFlags(),
-                Flags::CLASS_HAS_DYNAMIC_PROPERTIES
-            )
+            $this->getPhanFlagsHasState(Flags::CLASS_HAS_DYNAMIC_PROPERTIES)
             ||
             (
                 $this->hasParentType()
@@ -1709,10 +1679,7 @@ class Clazz extends AddressableElement
      */
     public function isFinal() : bool
     {
-        return Flags::bitVectorHasState(
-            $this->getFlags(),
-            \ast\flags\CLASS_FINAL
-        );
+        return $this->getFlagsHasState(\ast\flags\CLASS_FINAL);
     }
 
     /**
@@ -1721,10 +1688,7 @@ class Clazz extends AddressableElement
      */
     public function isAbstract() : bool
     {
-        return Flags::bitVectorHasState(
-            $this->getFlags(),
-            \ast\flags\CLASS_ABSTRACT
-        );
+        return $this->getFlagsHasState(\ast\flags\CLASS_ABSTRACT);
     }
 
     /**
@@ -1733,10 +1697,7 @@ class Clazz extends AddressableElement
      */
     public function isInterface() : bool
     {
-        return Flags::bitVectorHasState(
-            $this->getFlags(),
-            \ast\flags\CLASS_INTERFACE
-        );
+        return $this->getFlagsHasState(\ast\flags\CLASS_INTERFACE);
     }
 
     /**
@@ -1745,10 +1706,7 @@ class Clazz extends AddressableElement
      */
     public function isTrait() : bool
     {
-        return Flags::bitVectorHasState(
-            $this->getFlags(),
-            \ast\flags\CLASS_TRAIT
-        );
+        return $this->getFlagsHasState(\ast\flags\CLASS_TRAIT);
     }
 
     /**
@@ -2369,6 +2327,9 @@ class Clazz extends AddressableElement
         return $string;
     }
 
+    /**
+     * @suppress PhanUnreferencedPublicMethod (toStubInfo is used by callers for more flexibility)
+     */
     public function toStub(CodeBase $code_base) : string
     {
         list($namespace, $string) = $this->toStubInfo($code_base);
@@ -2417,8 +2378,8 @@ class Clazz extends AddressableElement
             $stub .= "\n\n    // methods\n";
 
             $is_interface = $this->isInterface();
-            $stub .= implode("\n", array_map(function (Method $method) use ($code_base, $is_interface) {
-                return $method->toStub($code_base, $is_interface);
+            $stub .= implode("\n", array_map(function (Method $method) use ($is_interface) {
+                return $method->toStub($is_interface);
             }, $method_map));
         }
 
@@ -2640,7 +2601,7 @@ class Clazz extends AddressableElement
      * This method must be called before analysis begins.
      * This is identical to hydrate(), but returns true only if this is the first time the element was hydrated.
      */
-    public function hydrateIndicatingFirstTime(CodeBase $code_base) : bool
+    private function hydrateIndicatingFirstTime(CodeBase $code_base) : bool
     {
         if (!$this->did_finish_parsing) {
             return false;

@@ -10,12 +10,8 @@ use ast\Node;
  */
 class ASTSimplifier
 {
-    /** @var string - for debugging purposes */
-    private $filename;
-
-    public function __construct(string $filename = 'unknown')
+    public function __construct()
     {
-        $this->filename = $filename;
     }
 
     /**
@@ -128,7 +124,6 @@ class ASTSimplifier
             if ($stmt->kind !== \ast\AST_IF) {
                 continue;
             }
-            $children = $stmt->children;
             // Run normalizeIfStatement again.
             \array_pop($new_statements);
             \array_push($new_statements, ...$this->normalizeIfStatement($stmt));
@@ -525,9 +520,9 @@ class ASTSimplifier
         return $new_node;
     }
 
-    public static function applyStatic(Node $node, string $filename = 'unknown') : Node
+    public static function applyStatic(Node $node) : Node
     {
-        $rewriter = new self($filename);
+        $rewriter = new self();
         $nodes = $rewriter->apply($node);
         \assert(\count($nodes) === 1);
         return $nodes[0];

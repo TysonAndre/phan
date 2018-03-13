@@ -3,7 +3,6 @@
 namespace Phan\Config;
 
 use Phan\AST\Parser;
-use Phan\CLI;
 use Phan\CodeBase;
 use Phan\Config;
 use Phan\Issue;
@@ -18,7 +17,11 @@ use Composer\Semver\Constraint\ConstraintInterface;
  */
 class Initializer
 {
-    public static function initPhanConfig(CLI $cli, array $opts) : int
+    /**
+     * @param array{init-overwrite:mixed=,init-no-composer:mixed=,init-level:string=} $opts
+     * Returns a process exit code for `phan --init`
+     */
+    public static function initPhanConfig(array $opts) : int
     {
         Config::setValue('use_polyfill_parser', true);
         $cwd = getcwd();
@@ -73,6 +76,7 @@ class Initializer
 
     /**
      * @return array<string,string[]> maps a config name to a list of comment lines about that config
+     * @suppress PhanPluginUnusedVariable used in loop
      */
     private static function computeCommentNameDocumentationMap() : array
     {
@@ -219,9 +223,9 @@ EOT;
     ];
 
     /**
-     * @param array $composer_settings (can be empty for --init-no-composer)
+     * @param array<string,mixed> $composer_settings (can be empty for --init-no-composer)
      * @param ?string $vendor_path (can be null for --init-no-composer)
-     * @param array $opts parsed from getopt
+     * @param array{init-overwrite:mixed=,init-no-composer:mixed=,init-level:string=} $opts parsed from getopt
      * @return ?InitializedSettings
      */
     private static function createPhanSettingsForComposerSettings(array $composer_settings, $vendor_path, array $opts)
@@ -278,11 +282,12 @@ EOT;
             // TODO: Migrate to a smaller subset scalar_implicit_partial as analysis gets stricter?
             'scalar_implicit_partial'  => [],
             'ignore_undeclared_variables_in_global_scope' => $is_average_level,
+            'ignore_undeclared_functions_with_known_signatures' => $is_strong_or_weaker_level,
             'backward_compatibility_checks' => false,  // this is slow
             'check_docblock_signature_return_type_match' => !$is_average_level,
             'prefer_narrowed_phpdoc_param_type' => true,
             'prefer_narrowed_phpdoc_return_type' => true,
-            'ensure_signature_compatibility' => !$is_weak_level,
+            'analyze_signature_compatibility' => !$is_weak_level,
             'phpdoc_type_mapping' => [],
             'dead_code_detection' => false,  // this is slow
             'quick_mode' => $is_weakest_level,

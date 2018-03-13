@@ -1,6 +1,7 @@
 <?php declare(strict_types=1);
 namespace Phan\Language\Type;
 
+use Phan\Language\AnnotatedUnionType;
 use Phan\Language\Type;
 use Phan\Language\UnionType;
 use Phan\Language\UnionTypeBuilder;
@@ -16,7 +17,7 @@ final class ArrayShapeType extends ArrayType
     const NAME = 'array';
 
     /**
-     * @var array<string|int,UnionType>
+     * @var array<string|int,UnionType|AnnotatedUnionType>
      * Maps 0 or more field names to the corresponding types
      */
     private $field_types = [];
@@ -52,6 +53,28 @@ final class ArrayShapeType extends ArrayType
     }
 
     /**
+     * @return array<string|int,UnionType>
+     * An array mapping field keys of this type to their union types.
+     */
+    public function getFieldTypes() : array
+    {
+        return $this->field_types;
+    }
+
+    /**
+     * @param int|string $field_key
+     */
+    public function withoutField($field_key) : ArrayShapeType
+    {
+        $field_types = $this->field_types;
+        if (!\array_key_exists($field_key, $field_types)) {
+            return $this;
+        }
+        unset($field_types[$field_key]);
+        return self::fromFieldTypes($field_types, $this->is_nullable);
+    }
+
+    /**
      * @param bool $is_nullable
      * Set to true if the type should be nullable, else pass
      * false
@@ -66,7 +89,7 @@ final class ArrayShapeType extends ArrayType
             return $this;
         }
 
-        return ArrayShapeType::fromFieldTypes(
+        return self::fromFieldTypes(
             $this->field_types,
             $is_nullable
         );
@@ -124,22 +147,27 @@ final class ArrayShapeType extends ArrayType
             } elseif ($type instanceof ArrayShapeType) {
                 foreach ($type->field_types as $key => $field_type) {
                     $this_field_type = $this->field_types[$key] ?? null;
-                    // Can't cast {a:int} to {a:int, other:string} if other is missing?
+                    // Can't cast {a:int} to {a:int, other:string} if other is missing
                     if ($this_field_type === null) {
+                        if ($field_type->getIsPossiblyUndefined()) {
+                            // ... unless the other field is allowed to be undefined.
+                            continue;
+                        }
                         return false;
                     }
+                    // can't cast {a:int} to {a:string} or {a:string=}
                     if (!$this_field_type->canCastToUnionType($field_type)) {
                         return false;
                     }
                 }
                 return true;
-            } else {
-                // array{key:T} can cast to array.
-                return true;
             }
+            // array{key:T} can cast to array.
+            return true;
         }
 
-        if ($type->isArrayLike()) {
+        if (\get_class($type) === IterableType::class) {
+            // can cast to Iterable but not Traversable
             return true;
         }
 
@@ -184,9 +212,10 @@ final class ArrayShapeType extends ArrayType
     }
 
     /**
+     * Returns an empty array shape (for `array{}`)
      * @param bool $is_nullable
      * @return ArrayShapeType
-     * TODO: deduplicate
+     * @suppress PhanUnreferencedPublicMethod (TODO: Remove if we support empty array shapes and still don't use this)
      */
     public static function empty(
         bool $is_nullable = false
@@ -204,15 +233,6 @@ final class ArrayShapeType extends ArrayType
     public function isGenericArray() : bool
     {
         return true;
-    }
-
-    /**
-     * @return array<string|int,UnionType>
-     * An array of mapping field keys of this type to field types
-     */
-    public function arrayShapeFieldTypes() : array
-    {
-        return $this->field_types;
     }
 
     public function __toString() : string
@@ -257,8 +277,6 @@ final class ArrayShapeType extends ArrayType
             "Recursion has gotten out of hand"
         );
         // TODO: Use UnionType::merge from a future change?
-        $result = new UnionTypeBuilder();
-        $key_type = GenericArrayType::getKeyTypeForArrayLiteral($this->field_types);
         $result_fields = [];
         foreach ($this->field_types as $key => $union_type) {
             // UnionType already increments recursion_depth before calling asExpandedTypes on a subclass of Type,

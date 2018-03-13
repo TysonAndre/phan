@@ -28,6 +28,7 @@ class ArrayType extends IterableType
 
     /**
      * @return UnionType with ArrayType subclass(es)
+     * @suppress PhanUnreferencedPublicMethod may be used in the future or for plugins as array shape support improves.
      */
     public static function combineArrayTypesMerging(UnionType $union_type) : UnionType
     {
@@ -113,7 +114,7 @@ class ArrayType extends IterableType
     /**
      * Overridden in subclasses
      *
-     * @param int $key_type
+     * @param int $key_type @phan-unused-param (TODO: Use?)
      * Corresponds to the type of the array keys. Set this to a GenericArrayType::KEY_* constant.
      *
      * @return Type

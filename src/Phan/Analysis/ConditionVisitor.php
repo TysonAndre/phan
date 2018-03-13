@@ -18,10 +18,15 @@ use Phan\Language\Type\StringType;
 use Phan\Language\UnionType;
 use Phan\Language\UnionTypeBuilder;
 use ast\Node;
+use ast\flags;
 
-// TODO: Make $x != null remove FalseType and NullType from $x
-// TODO: Make $x > 0, $x < 0, $x >= 50, etc.  remove FalseType and NullType from $x
-// TODO: if (a || b || c || d) might get really slow, due to creating both ConditionVisitor and NegatedConditionVisitor
+/**
+ * TODO: Make $x != null remove FalseType and NullType from $x
+ * TODO: Make $x > 0, $x < 0, $x >= 50, etc.  remove FalseType and NullType from $x
+ * TODO: if (a || b || c || d) might get really slow, due to creating both ConditionVisitor and NegatedConditionVisitor
+ *
+ * @phan-file-suppress PhanPluginUnusedClosureArgument
+ */
 class ConditionVisitor extends KindVisitorImplementation
 {
     use ConditionVisitorUtil;
@@ -31,7 +36,7 @@ class ConditionVisitor extends KindVisitorImplementation
      * The context in which the node we're going to be looking
      * at exits.
      */
-    private $context;
+    protected $context;
 
     /**
      * @param CodeBase $code_base
@@ -93,6 +98,62 @@ class ConditionVisitor extends KindVisitorImplementation
     }
 
     /**
+     * Check if variables from within a generic condition are defined.
+     * @param Node $node
+     * A node to parse
+     * @return void
+     */
+    private function checkVariablesDefinedInIsset(Node $node)
+    {
+        while ($node->kind === \ast\AST_UNARY_OP) {
+            $node = $node->children['expr'];
+            if (!($node instanceof Node)) {
+                return;
+            }
+        }
+        if ($node->kind === \ast\AST_DIM) {
+            $this->checkArrayAccessDefined($node);
+            return;
+        }
+        // Get the type just to make sure everything
+        // is defined.
+        UnionTypeVisitor::unionTypeFromNode(
+            $this->code_base,
+            $this->context,
+            $node,
+            true
+        );
+    }
+
+    /**
+     * Analyzes (isset($x['field']))
+     * @return void
+     *
+     * TODO: Add to NegatedConditionVisitor
+     */
+    private function checkArrayAccessDefined(Node $node)
+    {
+        $code_base = $this->code_base;
+        $context = $this->context;
+
+        // TODO: Infer that the offset exists after this check
+        UnionTypeVisitor::unionTypeFromNode(
+            $code_base,
+            $context,
+            $node->children['dim'],
+            true
+        );
+        // Check the array type to trigger TypeArraySuspicious
+        /* $array_type = */
+        UnionTypeVisitor::unionTypeFromNode(
+            $code_base,
+            $context,
+            $node->children['expr'],
+            true
+        );
+    }
+
+    /**
      * @param Node $node
      * A node to parse
      *
@@ -103,53 +164,22 @@ class ConditionVisitor extends KindVisitorImplementation
     public function visitBinaryOp(Node $node) : Context
     {
         $flags = $node->flags;
-        if ($flags === \ast\flags\BINARY_BOOL_AND) {
+        if ($flags === flags\BINARY_BOOL_AND) {
             return $this->analyzeShortCircuitingAnd($node->children['left'], $node->children['right']);
-        } elseif ($flags === \ast\flags\BINARY_BOOL_OR) {
+        } elseif ($flags === flags\BINARY_BOOL_OR) {
             return $this->analyzeShortCircuitingOr($node->children['left'], $node->children['right']);
-        } elseif ($flags === \ast\flags\BINARY_IS_IDENTICAL) {
+        } elseif ($flags === flags\BINARY_IS_IDENTICAL || $flags === flags\BINARY_IS_EQUAL) {
+            // TODO: Could be more precise, and preserve 0, [], etc. for `$x == null`
             $this->checkVariablesDefined($node);
-            return $this->analyzeIsIdentical($node->children['left'], $node->children['right']);
-        } elseif ($flags === \ast\flags\BINARY_IS_NOT_IDENTICAL || $flags === \ast\flags\BINARY_IS_NOT_EQUAL) {
+            return $this->analyzeAndUpdateToBeIdentical($node->children['left'], $node->children['right']);
+        } elseif ($flags === flags\BINARY_IS_NOT_IDENTICAL) {
             $this->checkVariablesDefined($node);
             // TODO: Add a different function for IS_NOT_EQUAL, e.g. analysis of != null should be different from !== null (First would remove FalseType)
-            return $this->analyzeIsNotIdentical($node->children['left'], $node->children['right']);
+            return $this->analyzeAndUpdateToBeNotIdentical($node->children['left'], $node->children['right']);
+        } elseif ($flags === flags\BINARY_IS_NOT_EQUAL) {
+            return $this->analyzeAndUpdateToBeNotEqual($node->children['left'], $node->children['right']);
         } else {
             $this->checkVariablesDefined($node);
-        }
-        return $this->context;
-    }
-
-    /**
-     * @param Node|int|float|string $left
-     * @param Node|int|float|string $right
-     * @return Context - Constant after inferring type from an expression such as `if ($x === 'literal')`
-     */
-    private function analyzeIsIdentical($left, $right) : Context
-    {
-        if (($left instanceof Node) && $left->kind === \ast\AST_VAR) {
-            // e.g. if ($x === null)
-            return $this->updateVariableToBeIdentical($left, $right, $this->context);
-        } elseif (($right instanceof Node) && $right->kind === \ast\AST_VAR) {
-            // e.g. if (null === $x)
-            return $this->updateVariableToBeIdentical($right, $left, $this->context);
-        }
-        return $this->context;
-    }
-
-    /**
-     * @param Node|int|float|string $left
-     * @param Node|int|float|string $right
-     * @return Context - Constant after inferring type from an expression such as `if ($x !== false)`
-     */
-    private function analyzeIsNotIdentical($left, $right) : Context
-    {
-        if (($left instanceof Node) && $left->kind === \ast\AST_VAR) {
-            // e.g. if ($x !== null)
-            return $this->updateVariableToBeNotIdentical($left, $right, $this->context);
-        } elseif (($right instanceof Node) && $right->kind === \ast\AST_VAR) {
-            // e.g. if (null !== $x)
-            return $this->updateVariableToBeNotIdentical($right, $left, $this->context);
         }
         return $this->context;
     }
@@ -241,7 +271,7 @@ class ConditionVisitor extends KindVisitorImplementation
         // We analyze the right hand side of `cond($x) || cond2($x)` as if `cond($x)` was false.
         $right_true_context = (new ConditionVisitor($code_base, $left_false_context))($right);
         // When the ConditionVisitor is true, at least one of the left or right contexts must be true.
-        return (new ContextMergeVisitor($code_base, $context, [$left_true_context, $right_true_context]))->combineChildContextList();
+        return (new ContextMergeVisitor($context, [$left_true_context, $right_true_context]))->combineChildContextList();
     }
 
     /**
@@ -255,7 +285,7 @@ class ConditionVisitor extends KindVisitorImplementation
     public function visitUnaryOp(Node $node) : Context
     {
         $expr_node = $node->children['expr'];
-        if ($node->flags !== \ast\flags\UNARY_BOOL_NOT) {
+        if ($node->flags !== flags\UNARY_BOOL_NOT) {
             if ($expr_node instanceof Node) {
                 $this->checkVariablesDefined($expr_node);
             }
@@ -295,7 +325,7 @@ class ConditionVisitor extends KindVisitorImplementation
         $context = $this->context;
         $var_node = $node->children['var'];
         if ($var_node->kind !== \ast\AST_VAR) {
-            $this->checkVariablesDefined($var_node);
+            $this->checkVariablesDefinedInIsset($var_node);
             return $context;
         }
 
@@ -359,9 +389,9 @@ class ConditionVisitor extends KindVisitorImplementation
 
             // Get the type that we're checking it against
             $class_node = $node->children['class'];
-            $type = UnionType::fromNode(
-                $this->context,
+            $type = UnionTypeVisitor::unionTypeFromNode(
                 $this->code_base,
+                $this->context,
                 $class_node
             );
             // Make a copy of the variable
@@ -633,7 +663,7 @@ class ConditionVisitor extends KindVisitorImplementation
             // Don't emit notices for if (empty($x)) {}, etc.
             return $this->removeTruthyFromVariable($var_node, $this->context, true);
         }
-        $this->checkVariablesDefined($node);
+        $this->checkVariablesDefinedInIsset($var_node);
         return $this->context;
     }
 
