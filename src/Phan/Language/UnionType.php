@@ -85,7 +85,7 @@ class UnionType implements \Serializable
         }
     }
 
-    private static function ofUniqueTypes(array $type_list)
+    protected static function ofUniqueTypes(array $type_list)
     {
         $n = \count($type_list);
         if ($n === 0) {
@@ -1274,6 +1274,22 @@ class UnionType implements \Serializable
 
         return !$this->hasTypeMatchingCallback(function (Type $type) : bool {
             return !$type->isScalar();
+        });
+    }
+
+    /**
+     * @return bool
+     * True if any types in this union are a printable scalar, or this is the empty union type
+     * @internal
+     */
+    public function hasPrintableScalar() : bool
+    {
+        if ($this->isEmpty()) {
+            return true;
+        }
+
+        return $this->hasTypeMatchingCallback(function (Type $type) : bool {
+            return $type->isPrintableScalar();
         });
     }
 

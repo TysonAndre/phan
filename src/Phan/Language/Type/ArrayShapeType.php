@@ -200,11 +200,11 @@ final class ArrayShapeType extends ArrayType
         static $cache = [];
 
         $key_parts = [];
-        if ($is_nullable) {
-            $key_parts[] = '?';
-        }
         foreach ($field_types as $key => $field_union_type) {
             $key_parts[$key] = $field_union_type->generateUniqueId();
+        }
+        if ($is_nullable) {
+            $key_parts[] = '?';
         }
         $key = \json_encode($key_parts);
 
@@ -239,13 +239,15 @@ final class ArrayShapeType extends ArrayType
     {
         $parts = [];
         foreach ($this->field_types as $key => $value) {
-            $parts[] = "$key:$value";
+            $value_repr = $value->__toString();
+            if (\substr($value_repr, -1) === '=') {
+                // convert {key:type=} to {key?:type} in representation.
+                $parts[] = $key . '?:' . \substr($value_repr, 0, -1);
+            } else {
+                $parts[] = "$key:$value_repr";
+            }
         }
-        $string = 'array{' . \implode(',', $parts) . '}';
-        if ($this->is_nullable) {
-            $string = '?' . $string;
-        }
-        return $string;
+        return ($this->is_nullable ? '?' : '') . 'array{' . \implode(',', $parts) . '}';
     }
 
     /**

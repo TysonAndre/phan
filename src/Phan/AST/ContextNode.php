@@ -6,6 +6,7 @@ use Phan\Config;
 use Phan\Exception\CodeBaseException;
 use Phan\Exception\IssueException;
 use Phan\Exception\NodeException;
+use Phan\Exception\TypeException;
 use Phan\Exception\UnanalyzableException;
 use Phan\Issue;
 use Phan\Language\Context;
@@ -27,6 +28,7 @@ use Phan\Language\FQSEN\FullyQualifiedMethodName;
 use Phan\Language\FQSEN\FullyQualifiedPropertyName;
 use Phan\Language\Type;
 use Phan\Language\Type\ClosureType;
+use Phan\Language\Type\FunctionLikeDeclarationType;
 use Phan\Language\Type\IntType;
 use Phan\Language\Type\MixedType;
 use Phan\Language\Type\NullType;
@@ -37,6 +39,7 @@ use Phan\Library\FileCache;
 use Phan\Library\None;
 use ast\Node;
 use ast;
+use InvalidArgumentException;
 
 if (!\function_exists('spl_object_id')) {
     require_once __DIR__ . '/../../spl_object_id.php';
@@ -520,7 +523,7 @@ class ContextNode
      * @throws NodeException
      * An exception is thrown if we can't understand the node
      *
-     * @throws CodeBaseExtension
+     * @throws CodeBaseException
      * An exception is thrown if we can't find the given
      * method
      *
@@ -688,24 +691,24 @@ class ContextNode
 
                 foreach ($union_type->getTypeSet() as $type) {
                     // TODO: Allow CallableType to have FQSENs as well, e.g. `$x = [MyClass::class, 'myMethod']` has an FQSEN in a sense.
-                    if (!($type instanceof ClosureType)) {
-                        continue;
-                    }
+                    if ($type instanceof ClosureType) {
+                        $closure_fqsen =
+                            FullyQualifiedFunctionName::fromFullyQualifiedString(
+                                (string)$type->asFQSEN()
+                            );
 
-                    $closure_fqsen =
-                        FullyQualifiedFunctionName::fromFullyQualifiedString(
-                            (string)$type->asFQSEN()
-                        );
-
-                    if ($this->code_base->hasFunctionWithFQSEN(
-                        $closure_fqsen
-                    )) {
-                        // Get the closure
-                        $function = $this->code_base->getFunctionByFQSEN(
+                        if ($this->code_base->hasFunctionWithFQSEN(
                             $closure_fqsen
-                        );
+                        )) {
+                            // Get the closure
+                            $function = $this->code_base->getFunctionByFQSEN(
+                                $closure_fqsen
+                            );
 
-                        yield $function;
+                            yield $function;
+                        }
+                    } elseif ($type instanceof FunctionLikeDeclarationType) {
+                        yield $type;
                     }
                 }
             }
@@ -1166,7 +1169,7 @@ class ContextNode
      * An exception is thrown if we can't find the given
      * class
      *
-     * @throws CodeBaseExtension
+     * @throws CodeBaseException
      * An exception is thrown if we can't find the given
      * class
      *
@@ -1266,7 +1269,7 @@ class ContextNode
      * @throws NodeException
      * An exception is thrown if we can't understand the node
      *
-     * @throws CodeBaseExtension
+     * @throws CodeBaseException
      * An exception is thrown if we can't find the given
      * class
      */
@@ -1370,7 +1373,7 @@ class ContextNode
      * @throws NodeException
      * An exception is thrown if we can't understand the node
      *
-     * @throws CodeBaseExtension
+     * @throws CodeBaseException
      * An exception is thrown if we can't find the given
      * class
      *

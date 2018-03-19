@@ -11,9 +11,40 @@ New Features(CLI, Configs)
 New Features(Analysis)
 + Infer the type of `[]` as `array{}` (the empty array), not `array`. (#1382)
   (Temporarily reverted in this fork)
-+ Allow phpdoc `@param` array shapes to contain optional fields. (E.g. `array{requiredKey:int,optionalKey:string=}`) (#1382)
++ Allow phpdoc `@param` array shapes to contain optional fields. (E.g. `array{requiredKey:int,optionalKey?:string}`) (#1382)
   An array shape is now allowed to cast to another array shape, as long as the required fields are compatible with the target type,
   and any optional fields from the target type are absent in the source type or compatible.
++ Add `Closure` and `callable` with annotated param types and return to Phan's type system(#1578, #1581).
+  This is not a part of the phpdoc2 standard or any other standard.
+  These can be used in any phpdoc tags that Phan is aware of,
+  to indicate their expected types (`@param`, `@var`, `@return`, etc.)
+
+  Examples:
+
+  - `function(int $x) : ?int {return $x;}` has the type `Closure(int):?int`,
+    which can cast to `callable(int):?int`
+  - `function(array &$x) {$x[] = 2;}` has the type `Closure(array&):void`
+  - `function(int $i = 2, int ...$args) : void {}`
+    has the type `Closure(int=,int...):void`
+
+  Note: Complex return types such as `int[]` or `int|false`
+  **must** be surrounded by brackets to avoid potential ambiguities.
+
+  - e.g. `Closure(int|array): (int[])`
+  - e.g. `Closure(): (int|false)`
+  - e.g. `Closure(): (array{key:string})` is not ambiguous,
+    but the return type must be surrounded by brackets for now
+
+  Other notes:
+  - For now, the inner parameter list of `Closure(...)`
+    cannot contain the characters `(` or `)`
+    (or `,`, except to separate the arguments)
+    Future changes are planned to allow those characters.
+  - Phan treats `Closure(T)` as an alias of `Closure(T):void`
+  - Placeholder variable names can be part of these types,
+    similarly to `@method` (`Closure($unknown,int $count=0):T`
+    is equivalent to `Closure(mixed,int):T`
++ In issue messages, represent closures by their signatures instead of as `\closure_{hexdigits}`
 + Emit `PhanTypeArrayUnsetSuspicious` when trying to unset the offset of something that isn't an array or array-like.
 + Add limited support for analyzing `unset` on variables and the first dimension of arrays.
   Unsetting variables does not yet work in branches.
@@ -23,6 +54,11 @@ New Features(Analysis)
   which will be emitted on properties that are written to but never read from.
   (Requires that dead code detection be enabled)
 + Improve Phan's analysis of switch statements and fix bugs. (#1561)
++ Add `PhanTypeSuspiciousEcho` to warn about suspicious types being passed to echo/print statements.
+  This now warns about booleans, arrays, resources, null, non-stringable classes, combinations of those types, etc.
+  (`var_export` or JSON encoding usually makes more sense for a boolean/null)
++ Make Phan check that types in `@throws` annotations are valid; don't warn about classes in `@throws` being unreferenced. (#1555)
+  New issue types: `PhanUndeclaredTypeThrowsType`, `PhanTypeInvalidThrowsNonObject`, `PhanTypeInvalidThrowsNonThrowable`, `PhanTypeInvalidThrowsIsTrait`, `PhanTypeInvalidThrowsIsInterface`
 
 Maintenance
 + Add `--disable-usage-on-error` option to `phan_client` (#1540)
@@ -116,7 +152,7 @@ New Features(Analysis)
   '@phan-var array<int,MyClass> $values';
 
   foreach ($x as $instance) {
-	  function_expecting_myclass($x);
+      function_expecting_myclass($x);
   }
   ```
 + Add a way to suppress issues for the entire file (including within methods, etc.) (#1190)

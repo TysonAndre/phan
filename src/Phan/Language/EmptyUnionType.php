@@ -2,6 +2,8 @@
 namespace Phan\Language;
 
 use Phan\CodeBase;
+use Phan\Exception\CodeBaseException;
+use Phan\Exception\IssueException;
 use Phan\Language\Type\ArrayType;
 
 /**
@@ -459,6 +461,16 @@ final class EmptyUnionType extends UnionType
     public function isScalar() : bool
     {
         return false;
+    }
+
+    /**
+     * @return bool
+     * True if any types in this union are a printable scalar, or this is the empty union type
+     * @internal
+     */
+    public function hasPrintableScalar() : bool
+    {
+        return true;
     }
 
     /**
