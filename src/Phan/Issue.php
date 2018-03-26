@@ -189,6 +189,7 @@ class Issue
     const NoopVariable                  = 'PhanNoopVariable';
     const NoopUnaryOperator             = 'PhanNoopUnaryOperator';
     const NoopBinaryOperator            = 'PhanNoopBinaryOperator';
+    const UnreachableCatch              = 'PhanUnreachableCatch';
     const UnreferencedClass             = 'PhanUnreferencedClass';
     const UnreferencedFunction          = 'PhanUnreferencedFunction';
     const UnreferencedPublicMethod      = 'PhanUnreferencedPublicMethod';
@@ -298,20 +299,21 @@ class Issue
     const CATEGORY_NAME = [
         self::CATEGORY_ACCESS            => 'AccessError',
         self::CATEGORY_ANALYSIS          => 'Analysis',
+        self::CATEGORY_COMMENT           => 'CommentError',
         self::CATEGORY_COMPATIBLE        => 'CompatError',
         self::CATEGORY_CONTEXT           => 'Context',
         self::CATEGORY_DEPRECATED        => 'DeprecatedError',
+        self::CATEGORY_GENERIC           => 'Generic',
+        self::CATEGORY_INTERNAL          => 'Internal',
         self::CATEGORY_NOOP              => 'NOOPError',
         self::CATEGORY_PARAMETER         => 'ParamError',
+        self::CATEGORY_PLUGIN            => 'Plugin',
         self::CATEGORY_REDEFINE          => 'RedefineError',
         self::CATEGORY_STATIC            => 'StaticCallError',
+        self::CATEGORY_SYNTAX            => 'Syntax',
         self::CATEGORY_TYPE              => 'TypeError',
         self::CATEGORY_UNDEFINED         => 'UndefError',
         self::CATEGORY_VARIABLE          => 'VarError',
-        self::CATEGORY_PLUGIN            => 'Plugin',
-        self::CATEGORY_GENERIC           => 'Generic',
-        self::CATEGORY_INTERNAL          => 'Internal',
-        self::CATEGORY_SYNTAX            => 'Syntax',
     ];
 
     const SEVERITY_LOW      = 0;
@@ -1859,6 +1861,14 @@ class Issue
                 "Possibly zero references to use statement for constant {CONST} ({CONST})",
                 self::REMEDIATION_B,
                 6024
+            ),
+            new Issue(
+                self::UnreachableCatch,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_NORMAL,
+                "Catch statement for {CLASSLIKE} is unreachable. An earlier catch statement at line {LINE} caught the ancestor class/interface {CLASSLIKE}",
+                self::REMEDIATION_B,
+                6028
             ),
 
             // Issue::CATEGORY_REDEFINE

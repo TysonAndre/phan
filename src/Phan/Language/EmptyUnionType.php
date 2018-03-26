@@ -238,6 +238,14 @@ final class EmptyUnionType extends UnionType
         return false;
     }
 
+    /**
+     * @return bool - True if not empty, not possibly undefined, and at least one type is NullType or nullable.
+     */
+    public function containsNullableOrUndefined() : bool
+    {
+        return false;
+    }
+
     /** @override */
     public function nonNullableClone() : UnionType
     {
@@ -651,6 +659,19 @@ final class EmptyUnionType extends UnionType
     }
 
     /**
+     * Takes "MyClass|int|array|?object" and returns "MyClass|?object"
+     *
+     * @return UnionType
+     * A UnionType with known object types kept, other types filtered out.
+     *
+     * @see nonGenericArrayTypes
+     */
+    public function objectTypesWithKnownFQSENs() : UnionType
+    {
+        return $this;
+    }
+
+    /**
      * Returns true if objectTypes would be non-empty.
      *
      * @return bool
@@ -898,6 +919,12 @@ final class EmptyUnionType extends UnionType
 
     /** @override */
     public function hasArrayShapeTypeInstances() : bool
+    {
+        return false;
+    }
+
+    /** @override */
+    public function hasMixedType() : bool
     {
         return false;
     }

@@ -17,9 +17,9 @@ use Phan\Language\Type\BoolType;
 use Phan\Language\Type\FalseType;
 use Phan\Language\Type\FloatType;
 use Phan\Language\Type\GenericArrayType;
-use Phan\Language\Type\GenericMultiArrayType;
 use Phan\Language\Type\IntType;
 use Phan\Language\Type\MixedType;
+use Phan\Language\Type\MultiType;
 use Phan\Language\Type\NullType;
 use Phan\Language\Type\StaticType;
 use Phan\Language\Type\TemplateType;
@@ -145,7 +145,7 @@ class UnionType implements \Serializable
                 return Type::fromFullyQualifiedString($type_name);
             }, self::extractTypeParts($fully_qualified_string));
 
-            $unique_types = self::getUniqueTypes(self::normalizeGenericMultiArrayTypes($types));
+            $unique_types = self::getUniqueTypes(self::normalizeMultiTypes($types));
             if (\count($unique_types) === 1) {
                 $union_type = \reset($unique_types)->asUnionType();
             } else {
@@ -213,7 +213,7 @@ class UnionType implements \Serializable
                 $source
             );
         }
-        return UnionType::of(self::normalizeGenericMultiArrayTypes($types));
+        return UnionType::of(self::normalizeMultiTypes($types));
     }
 
     /**
@@ -258,16 +258,16 @@ class UnionType implements \Serializable
     }
 
     /**
-     * Expands any GenericMultiArrayType instances in $types if necessary.
+     * Expands any GenericMultiArrayType and ScalarRawType instances in $types if necessary.
      *
      * @param array<int,Type> $types
      * @return array<int,Type>
      */
-    public static function normalizeGenericMultiArrayTypes(array $types) : array
+    public static function normalizeMultiTypes(array $types) : array
     {
         foreach ($types as $i => $type) {
-            if ($type instanceof GenericMultiArrayType) {
-                foreach ($type->asGenericArrayTypeInstances() as $new_type) {
+            if ($type instanceof MultiType) {
+                foreach ($type->asIndividualTypeInstances() as $new_type) {
                     $types[] = $new_type;
                 }
                 unset($types[$i]);
@@ -833,6 +833,14 @@ class UnionType implements \Serializable
             }
         }
         return false;
+    }
+
+    /**
+     * @return bool - True if not empty, not possibly undefined, and at least one type is NullType or nullable.
+     */
+    public function containsNullableOrUndefined() : bool
+    {
+        return $this->containsNullable();
     }
 
     public function nonNullableClone() : UnionType
@@ -1582,6 +1590,21 @@ class UnionType implements \Serializable
     }
 
     /**
+     * Takes "MyClass|int|array|?object" and returns "MyClass"
+     *
+     * @return UnionType
+     * A UnionType with known object types with known FQSENs kept, other types filtered out.
+     *
+     * @see nonGenericArrayTypes
+     */
+    public function objectTypesWithKnownFQSENs() : UnionType
+    {
+        return $this->makeFromFilter(function (Type $type) : bool {
+            return $type->isObjectWithKnownFQSEN();
+        });
+    }
+
+    /**
      * Returns true if objectTypes would be non-empty.
      *
      * @return bool
@@ -2243,6 +2266,16 @@ class UnionType implements \Serializable
     {
         foreach ($this->type_set as $type) {
             if ($type->hasArrayShapeTypeInstances()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function hasMixedType() : bool
+    {
+        foreach ($this->type_set as $type) {
+            if ($type instanceof MixedType) {
                 return true;
             }
         }

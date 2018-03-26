@@ -453,11 +453,36 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
             $func->setUnionType(VoidType::instance(false)->asUnionType());
         }
 
+        // Add parameters to the context.
+        $context = $context->withScope($func->getInternalScope());
+
+        $comment = $func->getComment();
+
+        // For any @var references in the method declaration,
+        // add them as variables to the method's scope
+        if ($comment !== null) {
+            foreach ($comment->getVariableList() as $parameter) {
+                $context->addScopeVariable(
+                    $parameter->asVariable($this->context)
+                );
+            }
+        }
+        if ($func->getRecursionDepth() === 0) {
+            // Add each closure parameter to the scope. We clone it
+            // so that changes to the variable don't alter the
+            // parameter definition
+            foreach ($func->getParameterList() as $parameter) {
+                $context->addScopeVariable(
+                    $parameter->cloneAsNonVariadic()
+                );
+            }
+        }
+
         if ($func->getHasYield()) {
             $this->setReturnTypeOfGenerator($func, $node);
         }
 
-        return $context->withScope($func->getInternalScope());
+        return $context;
     }
 
     /**
@@ -877,15 +902,6 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
                 (string)$exception->getFQSEN()
             );
 
-            // The class doesn't exist. Analyze the variable as if it's a Throwable.
-            // (Wouldn't work for php 5.6, but phan doesn't support php < 7.
-            $variable = Variable::fromNodeInContext(
-                $node->children['var'],
-                $this->context,
-                $this->code_base,
-                false
-            );
-
             $union_type = $union_type->withType(Type::fromFullyQualifiedString('\Throwable'));
         }
 
@@ -934,7 +950,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
         return (new ConditionVisitor(
             $this->code_base,
             $this->context
-        ))($cond);
+        ))->__invoke($cond);
     }
 
     /**
@@ -958,7 +974,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
         return (new ConditionVisitor(
             $this->code_base,
             $this->context
-        ))($cond);
+        ))->__invoke($cond);
     }
 
     /**
@@ -982,7 +998,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
         return (new ConditionVisitor(
             $this->code_base,
             $this->context
-        ))($cond);
+        ))->__invoke($cond);
     }
 
     /**
@@ -1012,7 +1028,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
         return (new ConditionVisitor(
             $this->code_base,
             $this->context
-        ))($args->children[0]);
+        ))->__invoke($args->children[0]);
     }
 
     /**
