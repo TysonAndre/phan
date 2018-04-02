@@ -50,6 +50,24 @@ return [
     // If null_casts_as_any_type is true, this has no effect.
     'array_casts_as_null' => false,
 
+    // If enabled, Phan will warn if **any** type in the argument's type
+    // cannot be cast to a type in the parameter's expected type.
+    // Setting this to true will introduce a large number of false positives (and some bugs).
+    // (For self-analysis, Phan has a large number of suppressions and file-level suppressions, due to \ast\Node being difficult to type check)
+    'strict_param_checking' => true,
+
+    // If enabled, Phan will warn if **any** type in a property assignment's type
+    // cannot be cast to a type in the property's expected type.
+    // Setting this to true will introduce a large number of false positives (and some bugs).
+    // (For self-analysis, Phan has a large number of suppressions and file-level suppressions, due to \ast\Node being difficult to type check)
+    'strict_property_checking' => true,
+
+    // If enabled, Phan will warn if **any** type in the return statement's type
+    // cannot be cast to a type in the method's declared return type.
+    // Setting this to true will introduce a large number of false positives (and some bugs).
+    // (For self-analysis, Phan has a large number of suppressions and file-level suppressions, due to \ast\Node being difficult to type check)
+    'strict_return_checking' => true,
+
     // If enabled, scalars (int, float, bool, string, null)
     // are treated as if they can cast to each other.
     // This does not affect checks of array keys. See scalar_array_key_cast.
@@ -117,6 +135,13 @@ return [
     // (Users may enable this if analyzing projects that support only php 7.2+)
     // This is false by default. (Will warn if real parameter types are omitted in an override)
     'allow_method_param_type_widening' => false,
+
+    // Set this to true to make Phan guess that undocumented parameter types
+    // (for optional parameters) have the same type as default values
+    // (Instead of combining that type with `mixed`).
+    // E.g. `function($x = 'val')` would make Phan infer that $x had a type of `string`, not `string|mixed`.
+    // Phan will not assume it knows specific types if the default value is false or null.
+    'guess_unknown_parameter_type_using_default' => false,
 
     // This setting maps case insensitive strings to union types.
     // This is useful if a project uses phpdoc that differs from the phpdoc2 standard.
@@ -197,6 +222,11 @@ return [
     // here to inhibit them from being reported
     'suppress_issue_types' => [
         'PhanUnreferencedClosure',  // False positives seen with closures in arrays, TODO: move closure checks closer to what is done by unused variable plugin
+        'PhanPossiblyFalseTypeArgument',
+        'PhanPossiblyFalseTypeArgumentInternal',
+        'PhanPossiblyNullTypeArgument',
+        'PhanPossiblyNullTypeArgumentInternal',
+        'PhanPossiblyNullTypeReturn',
         // 'PhanUndeclaredMethod',
     ],
 
@@ -471,6 +501,10 @@ return [
         'DuplicateArrayKeyPlugin',
         'PregRegexCheckerPlugin',
         'PrintfCheckerPlugin',
+        // InvokePHPNativeSyntaxCheckPlugin invokes 'php --no-php-ini --syntax-check ${abs_path_to_analyzed_file}.php' and reports any error messages.
+        // Using this can cause phan's overall analysis time to more than double.
+        // This is best used along with `--processes N`
+        // 'InvokePHPNativeSyntaxCheckPlugin',
 
         // 'PHPUnitNotDeadCodePlugin',  // Marks phpunit test case subclasses and test cases as refernced code. only useful for runs when dead code detection is enabled
 

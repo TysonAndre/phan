@@ -113,6 +113,7 @@ abstract class FunctionLikeDeclarationType extends Type implements FunctionInter
 
     /**
      * @return ?ClosureDeclarationParameter
+     * @suppress PhanPossiblyFalseTypeReturn is_variadic implies at least one parameter exists.
      */
     public function getClosureParameterForArgument(int $i)
     {
@@ -530,7 +531,7 @@ abstract class FunctionLikeDeclarationType extends Type implements FunctionInter
     }
 
     /**
-     * @param ?UnionType the raw phpdoc union type
+     * @param ?UnionType $union_type the raw phpdoc union type
      */
     public function setPHPDocReturnType($union_type)
     {

@@ -32,6 +32,9 @@ use Phan\Plugin\ConfigPluginSet;
 
 use Closure;
 
+/**
+ * @phan-file-suppress PhanPartialTypeMismatchArgument
+ */
 class Clazz extends AddressableElement
 {
     use \Phan\Memoize;
@@ -68,6 +71,13 @@ class Clazz extends AddressableElement
      * @var bool - hydrate() will check for this to avoid prematurely hydrating while looking for values of class constants.
      */
     private $did_finish_parsing = true;
+
+    /**
+     * @var ?UnionType for Type->asExpandedTypes()
+     *
+     * TODO: This won't reverse in daemon mode?
+     */
+    private $additional_union_types = null;
 
     /**
      * @param Context $context
@@ -180,7 +190,7 @@ class Clazz extends AddressableElement
 
         if ($class_name === "Traversable") {
             // Make sure that canCastToExpandedUnionType() works as expected for Traversable and its subclasses
-            $clazz->setUnionType($clazz->getUnionType()->withType(IterableType::instance(false)));
+            $clazz->addAdditionalType(IterableType::instance(false));
         }
 
         // Note: If there are multiple calls to Clazz->addProperty(),
@@ -354,9 +364,7 @@ class Clazz extends AddressableElement
         $this->parent_type = $parent_type;
 
         // Add the parent to the union type of this class
-        $this->setUnionType($this->getUnionType()->withType(
-            $parent_type
-        ));
+        $this->addAdditionalType($parent_type);
     }
 
     /**
@@ -374,8 +382,9 @@ class Clazz extends AddressableElement
      */
     public function getParentTypeOption()
     {
-        if ($this->hasParentType()) {
-            return new Some($this->parent_type);
+        $parent_type = $this->parent_type;
+        if ($parent_type !== null) {
+            return new Some($parent_type);
         }
 
         return new None;
@@ -559,14 +568,15 @@ class Clazz extends AddressableElement
 
         // Add the interface to the union type of this
         // class
-        $this->setUnionType($this->getUnionType()->withUnionType(
-            UnionType::fromFullyQualifiedString((string)$fqsen)
-        ));
+        $this->addAdditionalType(
+            Type::fromFullyQualifiedString($fqsen->__toString())
+        );
     }
 
     /**
      * @return array<int,FullyQualifiedClassName>
      * Get the list of interfaces implemented by this class
+     * @suppress PhanPartialTypeMismatchReturn
      */
     public function getInterfaceFQSENList() : array
     {
@@ -1534,9 +1544,9 @@ class Clazz extends AddressableElement
         $this->trait_fqsen_list[] = $fqsen;
 
         // Add the trait to the union type of this class
-        $this->setUnionType($this->getUnionType()->withUnionType(
-            UnionType::fromFullyQualifiedString((string)$fqsen)
-        ));
+        $this->addAdditionalType(
+            Type::fromFullyQualifiedString($fqsen->__toString())
+        );
     }
 
     /**
@@ -1550,6 +1560,7 @@ class Clazz extends AddressableElement
     /**
      * @return array<int,FullyQualifiedClassName>
      * A list of FQSEN's for included traits
+     * @suppress PhanPartialTypeMismatchReturn TODO: investigate
      */
     public function getTraitFQSENList() : array
     {
@@ -1747,7 +1758,7 @@ class Clazz extends AddressableElement
      * The entire code base from which we'll find ancestor
      * details
      *
-     * @param array<int,FullyQualifiedClassName>
+     * @param array<int,FullyQualifiedClassName> $fqsen_list
      * A list of class FQSENs to turn into a list of
      * Clazz objects
      *
@@ -2625,12 +2636,61 @@ class Clazz extends AddressableElement
         $are_constants_hydrated = $this->are_constants_hydrated;
         $is_hydrated = $this->is_hydrated;
         $original_union_type = $this->getUnionType();
+        $additional_union_types = $this->additional_union_types;
 
-        return function () use ($original_union_type, $is_hydrated, $are_constants_hydrated) {
+        return function () use ($original_union_type, $is_hydrated, $are_constants_hydrated, $additional_union_types) {
             $this->memoizeFlushAll();
             $this->are_constants_hydrated = $are_constants_hydrated;
             $this->is_hydrated = $is_hydrated;
             $this->setUnionType($original_union_type);
+            $this->additional_union_types = $additional_union_types;
         };
+    }
+
+    /**
+     * @return void
+     */
+    public function addAdditionalType(Type $type)
+    {
+        $this->additional_union_types = ($this->additional_union_types ?? UnionType::empty())->withType($type);
+    }
+
+    /**
+     * @return ?UnionType
+     */
+    public function getAdditionalTypes()
+    {
+        return $this->additional_union_types;
+    }
+
+    /**
+     * @param array<string,UnionType> $template_parameter_type_map
+     */
+    public function resolveParentTemplateType(array $template_parameter_type_map) : UnionType
+    {
+        if (\count($template_parameter_type_map) === 0) {
+            return UnionType::empty();
+        }
+        $parent_type = $this->parent_type;
+        if ($parent_type === null) {
+            return UnionType::empty();
+        }
+        if (!$parent_type->hasTemplateParameterTypes()) {
+            return UnionType::empty();
+        }
+        $parent_template_parameter_type_list = $parent_type->getTemplateParameterTypeList();
+        $changed = false;
+        foreach ($parent_template_parameter_type_list as $i => $template_type) {
+            $new_template_type = $template_type->withTemplateParameterTypeMap($template_parameter_type_map);
+            if ($template_type === $new_template_type) {
+                continue;
+            }
+            $parent_template_parameter_type_list[$i] = $new_template_type;
+            $changed = true;
+        }
+        if (!$changed) {
+            return UnionType::empty();
+        }
+        return Type::fromType($parent_type, $parent_template_parameter_type_list)->asUnionType();
     }
 }

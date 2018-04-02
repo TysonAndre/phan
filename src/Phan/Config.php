@@ -42,7 +42,7 @@ class Config
      */
     private static $configuration = self::DEFAULT_CONFIGURATION;
 
-    // The 6 most commonly accessed configs:
+    // The most commonly accessed configs:
     /** @var bool */
     private static $null_casts_as_any_type = false;
 
@@ -51,6 +51,15 @@ class Config
 
     /** @var bool */
     private static $array_casts_as_null = false;
+
+    /** @var bool */
+    private static $strict_param_checking = false;
+
+    /** @var bool */
+    private static $strict_property_checking = false;
+
+    /** @var bool */
+    private static $strict_return_checking = false;
 
     /** @var bool */
     private static $track_references = false;
@@ -184,6 +193,13 @@ class Config
         // If this is null, this will be inferred from target_php_version.
         'allow_method_param_type_widening' => false,
 
+        // Set this to true to make Phan guess that undocumented parameter types
+        // (for optional parameters) have the same type as default values
+        // (Instead of combining that type with `mixed`).
+        // E.g. `function($x = 'val')` would make Phan infer that $x had a type of `string`, not `string|mixed`.
+        // Phan will not assume it knows specific types if the default value is false or null.
+        'guess_unknown_parameter_type_using_default' => false,
+
         // If enabled, inherit any missing phpdoc for types from
         // the parent method if none is provided.
         //
@@ -218,6 +234,18 @@ class Config
         // type can be cast to null. Setting this to true
         // will cut down on false positives.
         'null_casts_as_any_type' => false,
+
+        // If enabled, Phan will warn if **any** type in the argument's type
+        // cannot be cast to a type in the parameter's expected type.
+        // Setting this to true will introduce a large number of false positives
+        // (and reveal some bugs).
+        'strict_param_checking' => false,
+
+        // If enabled, Phan will warn if **any** type in the return value's type
+        // cannot be cast to a type in the declared return type.
+        // Setting this to true will introduce a large number of false positives
+        // (and reveal some bugs).
+        'strict_return_checking' => false,
 
         // If enabled, scalars (int, float, bool, string, null)
         // are treated as if they can cast to each other.
@@ -677,6 +705,10 @@ class Config
         // Alternately, you can pass in the full path to a PHP file with the plugin's implementation (e.g. 'vendor/phan/phan/.phan/plugins/AlwaysReturnPlugin.php')
         'plugins' => [
         ],
+
+        // E.g. this is used by InvokePHPNativeSyntaxCheckPlugin
+        'plugin_config' => [
+        ],
     ];
 
     /**
@@ -690,6 +722,7 @@ class Config
      * @return string
      * Get the root directory of the project that we're
      * scanning
+     * @suppress PhanPossiblyFalseTypeReturn getcwd() can technically be false, but we should have checked earlier
      */
     public static function getProjectRootDirectory() : string
     {
@@ -738,7 +771,7 @@ class Config
     }
 
     /**
-     * @return array
+     * @return array<string,mixed>
      * A map of configuration keys and their values
      */
     public function toArray() : array
@@ -751,6 +784,21 @@ class Config
     public static function get_null_casts_as_any_type() : bool
     {
         return self::$null_casts_as_any_type;
+    }
+
+    public static function get_strict_param_checking() : bool
+    {
+        return self::$strict_param_checking;
+    }
+
+    public static function get_strict_property_checking() : bool
+    {
+        return self::$strict_property_checking;
+    }
+
+    public static function get_strict_return_checking() : bool
+    {
+        return self::$strict_return_checking;
     }
 
     public static function get_null_casts_as_array() : bool
@@ -830,6 +878,15 @@ class Config
             case 'array_casts_as_null':
                 self::$array_casts_as_null = $value;
                 break;
+            case 'strict_param_checking':
+                self::$strict_param_checking = $value;
+                break;
+            case 'strict_property_checking':
+                self::$strict_property_checking = $value;
+                break;
+            case 'strict_return_checking':
+                self::$strict_return_checking = $value;
+                break;
             case 'dead_code_detection':
             case 'force_tracking_references':
                 self::$track_references = self::getValue('dead_code_detection') || self::getValue('force_tracking_references');
@@ -891,10 +948,7 @@ class Config
             return $relative_path;
         }
 
-        return \implode(DIRECTORY_SEPARATOR, [
-            Config::getProjectRootDirectory(),
-            $relative_path
-        ]);
+        return Config::getProjectRootDirectory() . DIRECTORY_SEPARATOR .  $relative_path;
     }
 }
 

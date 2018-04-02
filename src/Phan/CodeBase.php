@@ -59,6 +59,8 @@ use ReflectionClass;
  *
  * This supports undoing some operations in the parse phase,
  * for a background daemon analyzing single files. (Phan\CodeBase\UndoTracker)
+ *
+ * @phan-file-suppress PhanPartialTypeMismatchReturn the way generic objects is type hinted is inadequate, etc.
  */
 class CodeBase
 {
@@ -474,7 +476,7 @@ class CodeBase
     }
 
     /**
-     * @param array{clone:CodeBase,callbacks:?(Closure():void)[]}
+     * @param array{clone:CodeBase,callbacks:?(Closure():void)[]} $restore_point
      * @return void
      */
     public function restoreFromRestorePoint(array $restore_point)
@@ -510,7 +512,7 @@ class CodeBase
      * For use by daemon mode when running without pcntl
      * Returns a serialized representation of everything in this CodeBase.
      * @internal
-     * @return array{clone:CodeBase,callbacks:?Closure():void)[]}
+     * @return array{clone:CodeBase,callbacks:(?Closure():void)[]}
      */
     public function createRestorePoint() : array
     {
@@ -1320,7 +1322,7 @@ class CodeBase
     }
 
     /**
-     * @param FullyQualifiedFunctionName
+     * @param FullyQualifiedFunctionName $fqsen
      * The FQSEN of a function we'd like to look up
      *
      * @return bool

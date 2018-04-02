@@ -1,6 +1,7 @@
 <?php declare(strict_types=1);
 namespace Phan;
 
+use Phan\Config;
 use Phan\Language\Context;
 use Phan\Language\Element\TypedElement;
 use Phan\Language\Element\UnaddressableTypedElement;
@@ -53,6 +54,8 @@ class Issue
     const UndeclaredStaticMethodInCallable = 'PhanUndeclaredStaticMethodInCallable';
     const UndeclaredFunctionInCallable = 'PhanUndeclaredFunctionInCallable';
     const UndeclaredMethodInCallable = 'PhanUndeclaredMethodInCallable';
+    const EmptyFQSENInCallable      = 'PhanEmptyFQSENInCallable';
+    const EmptyFQSENInClasslike     = 'PhanEmptyFQSENInClasslike';
 
     // Issue::CATEGORY_TYPE
     const NonClassMethodCall        = 'PhanNonClassMethodCall';
@@ -79,6 +82,13 @@ class Issue
     const TypeMagicVoidWithReturn   = 'PhanTypeMagicVoidWithReturn';
     const TypeMismatchArgument      = 'PhanTypeMismatchArgument';
     const TypeMismatchArgumentInternal = 'PhanTypeMismatchArgumentInternal';
+    const PartialTypeMismatchArgument = 'PhanPartialTypeMismatchArgument';
+    const PartialTypeMismatchArgumentInternal= 'PhanPartialTypeMismatchArgumentInternal';
+    const PossiblyNullTypeArgument  = 'PhanPossiblyNullTypeArgument';
+    const PossiblyNullTypeArgumentInternal = 'PhanPossiblyNullTypeArgumentInternal';
+    const PossiblyFalseTypeArgument  = 'PhanPossiblyFalseTypeArgument';
+    const PossiblyFalseTypeArgumentInternal = 'PhanPossiblyFalseTypeArgumentInternal';
+
     const TypeMismatchDefault       = 'PhanTypeMismatchDefault';
     const TypeMismatchDimAssignment = 'PhanTypeMismatchDimAssignment';
     const TypeMismatchDimEmpty      = 'PhanTypeMismatchDimEmpty';
@@ -91,7 +101,13 @@ class Issue
     const TypeMismatchVariadicParam = 'PhanMismatchVariadicParam';
     const TypeMismatchForeach       = 'PhanTypeMismatchForeach';
     const TypeMismatchProperty      = 'PhanTypeMismatchProperty';
+    const PossiblyNullTypeMismatchProperty = 'PhanPossiblyNullTypeMismatchProperty';
+    const PossiblyFalseTypeMismatchProperty = 'PhanPossiblyFalseTypeMismatchProperty';
+    const PartialTypeMismatchProperty = 'PhanPartialTypeMismatchProperty';
     const TypeMismatchReturn        = 'PhanTypeMismatchReturn';
+    const PartialTypeMismatchReturn = 'PhanPartialTypeMismatchReturn';
+    const PossiblyNullTypeReturn  = 'PhanPossiblyNullTypeReturn';
+    const PossiblyFalseTypeReturn  = 'PhanPossiblyFalseTypeReturn';
     const TypeMismatchDeclaredReturn = 'PhanTypeMismatchDeclaredReturn';
     const TypeMismatchDeclaredReturnNullable = 'PhanTypeMismatchDeclaredReturnNullable';
     const TypeMismatchDeclaredParam = 'PhanTypeMismatchDeclaredParam';
@@ -271,6 +287,8 @@ class Issue
     const MisspelledAnnotation             = 'PhanMisspelledAnnotation';
     const UnextractableAnnotation          = 'PhanUnextractableAnnotation';
     const UnextractableAnnotationPart      = 'PhanUnextractableAnnotationPart';
+    const UnextractableAnnotationSuffix    = 'PhanUnextractableAnnotationSuffix';
+    const UnextractableAnnotationElementName = 'PhanUnextractableAnnotationElementName';
     const CommentParamWithoutRealParam     = 'PhanCommentParamWithoutRealParam';
     const CommentParamOnEmptyParamList     = 'PhanCommentParamOnEmptyParamList';
     const CommentOverrideOnNonOverrideMethod = 'PhanCommentOverrideOnNonOverrideMethod';
@@ -740,6 +758,22 @@ class Issue
                 self::REMEDIATION_B,
                 11033
             ),
+            new Issue(
+                self::EmptyFQSENInCallable,
+                self::CATEGORY_UNDEFINED,
+                self::SEVERITY_NORMAL,
+                "Possible call to a function '{FUNCTIONLIKE}' with an empty FQSEN.",
+                self::REMEDIATION_B,
+                11035
+            ),
+            new Issue(
+                self::EmptyFQSENInClasslike,
+                self::CATEGORY_UNDEFINED,
+                self::SEVERITY_NORMAL,
+                "Possible use of a classlike '{CLASSLIKE}' with an empty FQSEN.",
+                self::REMEDIATION_B,
+                11036
+            ),
 
             // Issue::CATEGORY_ANALYSIS
             new Issue(
@@ -767,6 +801,30 @@ class Issue
                 "Assigning {TYPE} to property but {PROPERTY} is {TYPE}",
                 self::REMEDIATION_B,
                 10001
+            ),
+            new Issue(
+                self::PartialTypeMismatchProperty,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Assigning {TYPE} to property but {PROPERTY} is {TYPE} ({TYPE} is incompatible)",
+                self::REMEDIATION_B,
+                10063
+            ),
+            new Issue(
+                self::PossiblyNullTypeMismatchProperty,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Assigning {TYPE} to property but {PROPERTY} is {TYPE} ({TYPE} is incompatible)",
+                self::REMEDIATION_B,
+                10064
+            ),
+            new Issue(
+                self::PossiblyFalseTypeMismatchProperty,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Assigning {TYPE} to property but {PROPERTY} is {TYPE} ({TYPE} is incompatible)",
+                self::REMEDIATION_B,
+                10065
             ),
             new Issue(
                 self::TypeMismatchDefault,
@@ -809,12 +867,84 @@ class Issue
                 10004
             ),
             new Issue(
+                self::PartialTypeMismatchArgument,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Argument {INDEX} ({VARIABLE}) is {TYPE} but {FUNCTIONLIKE}() takes {TYPE} ({TYPE} is incompatible) defined at {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                10054
+            ),
+            new Issue(
+                self::PartialTypeMismatchArgumentInternal,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Argument {INDEX} ({VARIABLE}) is {TYPE} but {FUNCTIONLIKE}() takes {TYPE} ({TYPE} is incompatible)",
+                self::REMEDIATION_B,
+                10055
+            ),
+            new Issue(
+                self::PossiblyNullTypeArgument,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Argument {INDEX} ({VARIABLE}) is {TYPE} but {FUNCTIONLIKE}() takes {TYPE} ({TYPE} is incompatible) defined at {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                10056
+            ),
+            new Issue(
+                self::PossiblyNullTypeArgumentInternal,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Argument {INDEX} ({VARIABLE}) is {TYPE} but {FUNCTIONLIKE}() takes {TYPE} ({TYPE} is incompatible)",
+                self::REMEDIATION_B,
+                10057
+            ),
+            new Issue(
+                self::PossiblyFalseTypeArgument,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Argument {INDEX} ({VARIABLE}) is {TYPE} but {FUNCTIONLIKE}() takes {TYPE} ({TYPE} is incompatible) defined at {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                10058
+            ),
+            new Issue(
+                self::PossiblyFalseTypeArgumentInternal,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Argument {INDEX} ({VARIABLE}) is {TYPE} but {FUNCTIONLIKE}() takes {TYPE} ({TYPE} is incompatible)",
+                self::REMEDIATION_B,
+                10059
+            ),
+            new Issue(
                 self::TypeMismatchReturn,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
                 "Returning type {TYPE} but {FUNCTIONLIKE}() is declared to return {TYPE}",
                 self::REMEDIATION_B,
                 10005
+            ),
+            new Issue(
+                self::PartialTypeMismatchReturn,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Returning type {TYPE} but {FUNCTIONLIKE}() is declared to return {TYPE} ({TYPE} is incompatible)",
+                self::REMEDIATION_B,
+                10060
+            ),
+            new Issue(
+                self::PossiblyNullTypeReturn,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Returning type {TYPE} but {FUNCTIONLIKE}() is declared to return {TYPE} ({TYPE} is incompatible)",
+                self::REMEDIATION_B,
+                10061
+            ),
+            new Issue(
+                self::PossiblyFalseTypeReturn,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Returning type {TYPE} but {FUNCTIONLIKE}() is declared to return {TYPE} ({TYPE} is incompatible)",
+                self::REMEDIATION_B,
+                10062
             ),
             new Issue(
                 self::TypeMismatchDeclaredReturn,
@@ -2278,7 +2408,7 @@ class Issue
                 self::UnextractableAnnotation,
                 self::CATEGORY_COMMENT,
                 self::SEVERITY_LOW,
-                "Saw unextractable annotation for comment {COMMENT}",
+                "Saw unextractable annotation for comment '{COMMENT}'",
                 self::REMEDIATION_B,
                 16002
             ),
@@ -2286,9 +2416,25 @@ class Issue
                 self::UnextractableAnnotationPart,
                 self::CATEGORY_COMMENT,
                 self::SEVERITY_LOW,
-                "Saw unextractable annotation for a fragment of comment {COMMENT}: {COMMENT}",
+                "Saw unextractable annotation for a fragment of comment '{COMMENT}': '{COMMENT}'",
                 self::REMEDIATION_B,
                 16003
+            ),
+            new Issue(
+                self::UnextractableAnnotationSuffix,
+                self::CATEGORY_COMMENT,
+                self::SEVERITY_LOW,
+                "Saw a token Phan may have failed to parse after '{COMMENT}': after {TYPE}, saw '{COMMENT}'",
+                self::REMEDIATION_B,
+                16009
+            ),
+            new Issue(
+                self::UnextractableAnnotationElementName,
+                self::CATEGORY_COMMENT,
+                self::SEVERITY_LOW,
+                "Saw possibly unextractable annotation for a fragment of comment '{COMMENT}': after {TYPE}, did not see an element name (will guess based on comment order)",
+                self::REMEDIATION_B,
+                16010
             ),
             new Issue(
                 self::CommentParamWithoutRealParam,
@@ -2469,6 +2615,7 @@ class Issue
         int $line,
         array $template_parameters = []
     ) : IssueInstance {
+        // TODO: Add callable to expanded union types instead
         return new IssueInstance(
             $this,
             $file,

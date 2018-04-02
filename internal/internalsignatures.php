@@ -1,5 +1,8 @@
 #!/usr/bin/env php
 <?php declare(strict_types=1);
+<<<PHAN
+@phan-file-suppress PhanNativePHPSyntaxCheckPlugin
+PHAN;
 
 use Phan\Analysis;
 use Phan\CodeBase;
@@ -169,11 +172,14 @@ EOT;
      */
     abstract protected function getAvailableMethodSignatures() : array;
 
+    /**
+     * @param array<string,array<int|string,string>> $phan_signatures
+     */
     protected static function getLowercaseSignatureMap(array $phan_signatures) : array
     {
         $phan_signatures_lc = [];
         foreach ($phan_signatures as $key => $signature) {
-            $phan_signatures_lc[strtolower($key)] = $signature;
+            $phan_signatures_lc[\strtolower($key)] = $signature;
         }
         return $phan_signatures_lc;
     }
@@ -264,6 +270,9 @@ EOT;
         file_put_contents($new_signature_path, $contents);
     }
 
+    /**
+     * @param array<string,array<int|string,string>> $signatures
+     */
     public static function serializeSignatures(array $signatures) : string
     {
         $parts = ["return [\n"];
@@ -330,8 +339,19 @@ class IncompatibleXMLSignatureDetector extends IncompatibleSignatureDetectorBase
             fwrite(STDERR, "Could not find subdirectory '$en_reference_dir'\n");
             static::printUsageAndExit();
         }
-        $this->reference_directory = realpath($en_reference_dir);
-        $this->doc_base_directory = realpath($dir);
+        $this->reference_directory = self::realpath($en_reference_dir);
+        $this->doc_base_directory = self::realpath($dir);
+    }
+
+    private static function realpath(string $dir) : string
+    {
+        $realpath = realpath($dir);
+        if (!is_string($realpath)) {
+            fwrite(STDERR, "Could not find realpath of '$dir'\n");
+            static::printUsageAndExit();
+            throw new RuntimeException("unreachable");
+        }
+        return $realpath;
     }
 
     /** @var array<string,array<string,string>> a set of unique file names */
@@ -701,7 +721,7 @@ class IncompatibleXMLSignatureDetector extends IncompatibleSignatureDetectorBase
     }
 
     /**
-     * @return array<int,string>
+     * @return array<string,string>
      */
     private function extractMethodParams(SimpleXMLElement $param)
     {
@@ -721,7 +741,7 @@ class IncompatibleXMLSignatureDetector extends IncompatibleSignatureDetectorBase
                 $param_name .= '=';
             }
 
-            $result[$param_name] = static::toTypeString($part->type);
+            $result[$param_name] = self::toTypeString($part->type);
         }
         return $result;
     }
@@ -849,7 +869,13 @@ class IncompatibleStubsSignatureDetector extends IncompatibleSignatureDetectorBa
         }
         Phan::setIssueCollector(new BufferingCollector());
 
-        $this->directory = realpath($dir);
+        $realpath = realpath($dir);
+        if (!is_string($realpath)) {
+            echo "Could not find realpath of '$dir'\n";
+            static::printUsageAndExit();
+            return;
+        }
+        $this->directory = $realpath;
 
         // TODO: Change to a more suitable configuration?
         $this->code_base = require(__DIR__ . '/../src/codebase.php');

@@ -510,7 +510,7 @@ trait FunctionTrait
     }
 
     /**
-     * @param UnionType
+     * @param UnionType $union_type
      * The real (non-phpdoc) return type of this method in its given context.
      *
      * @return void
@@ -715,15 +715,16 @@ trait FunctionTrait
             // to null
             if ($default_is_null) {
                 if ($wasEmpty) {
-                    $parameter->addUnionType(
-                        MixedType::instance(false)->asUnionType()
-                    );
+                    $parameter->addUnionType(MixedType::instance(false)->asUnionType());
                 }
                 // The parameter constructor or above check for wasEmpty already took care of null default case
             } else {
                 $default_type = $default_type->withFlattenedArrayShapeTypeInstances();
                 if ($wasEmpty) {
                     $parameter->addUnionType(self::inferNormalizedTypesOfDefault($default_type));
+                    if (!Config::getValue('guess_unknown_parameter_type_using_default')) {
+                        $parameter->addUnionType(MixedType::instance(false)->asUnionType());
+                    }
                 } else {
                     // Don't add both `int` and `?int` to the same set.
                     foreach ($default_type->getTypeSet() as $default_type_part) {
@@ -761,7 +762,7 @@ trait FunctionTrait
     }
 
     /**
-     * @param array<string,UnionType> maps a subset of param names to the unmodified phpdoc parameter types. May differ from real parameter types
+     * @param array<string,UnionType> $parameter_map maps a subset of param names to the unmodified phpdoc parameter types. May differ from real parameter types
      * @return void
      * @suppress PhanUnreferencedPublicMethod Phan knows FunctionInterface's method is referenced, but can't associate that yet.
      */

@@ -1,5 +1,8 @@
 #!/usr/bin/env php
 <?php declare(strict_types=1);
+<<<PHAN
+@phan-file-suppress PhanNativePHPSyntaxCheckPlugin
+PHAN;
 
 use Phan\CodeBase;
 use Phan\Language\Element\Clazz;
@@ -62,7 +65,7 @@ EOT;
         $code_base = require_once(dirname(__DIR__) . '/src/codebase.php');
 
         $extension_name = $options['e'] ?? $options['extension'] ?? null;
-        if (isset($extension_name)) {
+        if (is_string($extension_name)) {
             self::printStubsForExtension($extension_name, $code_base);
             return;
         }

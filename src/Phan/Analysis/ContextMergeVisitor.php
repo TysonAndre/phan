@@ -8,6 +8,9 @@ use Phan\Language\Type\NullType;
 use Phan\Language\UnionType;
 use ast\Node;
 
+/**
+ * @phan-file-suppress PhanPartialTypeMismatchArgument
+ */
 class ContextMergeVisitor extends KindVisitorImplementation
 {
     /**
@@ -192,6 +195,8 @@ class ContextMergeVisitor extends KindVisitorImplementation
      * @return Context
      * A new or an unchanged context resulting from
      * parsing the node
+     *
+     * @suppress PhanPossiblyFalseTypeReturn child_context_list is not empty
      */
     public function visitIf(Node $node) : Context
     {

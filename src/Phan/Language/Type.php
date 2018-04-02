@@ -3,6 +3,7 @@ namespace Phan\Language;
 
 use Phan\CodeBase;
 use Phan\Config;
+use Phan\Exception\EmptyFQSENException;
 use Phan\Language\Element\Comment;
 use Phan\Language\FQSEN\FullyQualifiedClassName;
 use Phan\Language\Type\ArrayType;
@@ -36,6 +37,16 @@ use Phan\Library\Option;
 use Phan\Library\Some;
 use Phan\Library\Tuple5;
 
+use InvalidArgumentException;
+
+/**
+ * The base class for all of Phan's types.
+ * A plain Type represents a class instance.
+ * Separate subclasses exist for NativeType, ArrayType, ScalarType, TemplateType, etc.
+ *
+ * @phan-file-suppress PhanPartialTypeMismatchArgument
+ * @phan-file-suppress PhanPartialTypeMismatchArgumentInternal
+ */
 class Type
 {
     use \Phan\Memoize;
@@ -758,10 +769,12 @@ class Type
             $namespace = '\\' . $namespace;
         }
 
-        \assert(
-            !empty($namespace) && !empty($type_name),
-            "Type was not fully qualified"
-        );
+        if ($type_name === '') {
+            throw new EmptyFQSENException("Type was not fully qualified", $fully_qualified_string);
+        }
+        if ($namespace === '') {
+            throw new InvalidArgumentException("Type was not fully qualified");
+        };
 
         return self::make(
             $namespace,
@@ -1645,7 +1658,7 @@ class Type
     }
 
     /**
-     * @param CodeBase
+     * @param CodeBase $code_base
      * The code base to use in order to find super classes, etc.
      *
      * @param $recursion_depth
@@ -1688,12 +1701,16 @@ class Type
             $union_type = $union_type->withUnionType(
                 $clazz->getUnionType()
             );
+            $additional_union_type = $clazz->getAdditionalTypes();
+            if ($additional_union_type !== null) {
+                $union_type = $union_type->withUnionType($additional_union_type);
+            }
 
             // Recurse up the tree to include all types
-            $representation = (string)$this;
+            $representation = $this->__toString();
             $recursive_union_type_builder = new UnionTypeBuilder();
             foreach ($union_type->getTypeSet() as $clazz_type) {
-                if ((string)$clazz_type != $representation) {
+                if ($clazz_type->__toString() !== $representation) {
                     $recursive_union_type_builder->addUnionType(
                         $clazz_type->asExpandedTypes(
                             $code_base,
@@ -1703,6 +1720,11 @@ class Type
                 } else {
                     $recursive_union_type_builder->addType($clazz_type);
                 }
+            }
+            if (!empty($this->template_parameter_type_list)) {
+                $recursive_union_type_builder->addUnionType(
+                    $clazz->resolveParentTemplateType($this->getTemplateParameterTypeMap($code_base))
+                );
             }
 
             // Add in aliases

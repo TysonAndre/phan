@@ -41,7 +41,7 @@ class Request
     /** @var Responder|null - Null after the response is sent. */
     private $responder;
 
-    /** @var array<string,mixed> */
+    /** @var array{method:string,files:array<int,string>,format:string,temporary_file_mapping_contents:array<string,string>} */
     private $config;
 
     /** @var BufferedOutput */
@@ -60,6 +60,9 @@ class Request
     /** @var bool */
     private $should_exit;
 
+    /**
+     * @param array{method:string,files:array<int,string>,format:string,temporary_file_mapping_contents:array<string,string>} $config
+     */
     private function __construct(Responder $responder, array $config, bool $should_exit)
     {
         $this->responder = $responder;
@@ -197,10 +200,14 @@ class Request
     /**
      * TODO: convert absolute path to relative paths.
      * @return array<string,string> - Maps original relative file paths to contents.
+     * @suppress PhanPartialTypeMismatchArgumentInternal
      */
     public function getTemporaryFileMapping() : array
     {
         $mapping = $this->config[self::PARAM_TEMPORARY_FILE_MAPPING_CONTENTS] ?? [];
+        if (!is_array($mapping)) {
+            $mapping = [];
+        }
         Daemon::debugf("Have the following files in mapping: %s", json_encode(array_keys($mapping)));
         return $mapping;
     }
@@ -296,6 +303,7 @@ class Request
      * @param \Closure $file_path_lister
      * @param Responder $responder
      * @return ?Request - non-null if this is a worker process with work to do. null if request failed or this is the master.
+     * @suppress PhanPartialTypeMismatchArgument pre-existing
      */
     public static function accept(CodeBase $code_base, \Closure $file_path_lister, Responder $responder, bool $fork)
     {
@@ -311,7 +319,7 @@ class Request
             return null;
         }
         $new_file_mapping_contents = [];
-        $method = $request['method'] ?? null;
+        $method = $request['method'] ?? '';
         switch ($method) {
             case 'analyze_all':
                 // Analyze the default list of files. No expected params.
@@ -342,8 +350,12 @@ class Request
                 }
                 if (\is_null($error_message)) {
                     $file_mapping_contents = $request[self::PARAM_TEMPORARY_FILE_MAPPING_CONTENTS] ?? [];
-                    $new_file_mapping_contents = self::normalizeFileMappingContents($file_mapping_contents, $error_message);
-                    $request[self::PARAM_TEMPORARY_FILE_MAPPING_CONTENTS] = $new_file_mapping_contents;
+                    if (is_array($file_mapping_contents)) {
+                        $new_file_mapping_contents = self::normalizeFileMappingContents($file_mapping_contents, $error_message);
+                        $request[self::PARAM_TEMPORARY_FILE_MAPPING_CONTENTS] = $new_file_mapping_contents;
+                    } else {
+                        $error_message = 'Must pass an optional array or null for temporary_file_mapping_contents';
+                    }
                 }
                 if ($error_message !== null) {
                     Daemon::debugf($error_message);
@@ -466,6 +478,7 @@ class Request
      * Substitutes files. We assume that the original file path exists already, and reject it if it doesn't.
      * (i.e. it was returned by $file_path_lister in the past)
      *
+     * @param array<string,string> $temporary_file_mapping_contents
      * @return void
      */
     private static function applyTemporaryFileMappingForParsePhase(CodeBase $code_base, array $temporary_file_mapping_contents)

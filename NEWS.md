@@ -1,18 +1,66 @@
 Phan NEWS
 
-?? ??? 2018, Phan 0.12.4 (dev)
+?? ??? 2018, Phan 0.12.5 (dev)
 ------------------------
+
+31 Mar 2018, Phan 0.12.4
+------------------------
+
+New Features(CLI, Configs)
++ Add a `strict_param_checking` config setting. (And a `--strict-param-checking` CLI flag)
+  If this is set to true, then Phan will warn if at least one of the types
+  in an argument's union type can't cast to the expected parameter type.
+  New issue types: `PhanPartialTypeMismatchArgument`, `PhanPossiblyNullTypeArgument`, and `PhanPossiblyFalseTypeArgument`
+  (along with equivalents for internal functions and methods)
+
+  Setting this to true will likely introduce large numbers of warnings.
+  Those issue types would need to be suppressed entirely,
+  or with `@phan-file-suppress`, or with `@suppress`.
++ Add a `strict_property_checking` config setting. (And a `--strict-property-checking` CLI flag)
+  If this is set to true, then Phan will warn if at least one of the types
+  in an assignment's union type can't cast to the expected property type.
+  New issue types: `PhanPartialTypeMismatchProperty`, `PhanPossiblyNullTypeProperty`, and `PhanPossiblyFalseTypeProperty`
+
+  NOTE: This option does not make Phan check if all possible expressions have a given property, but may do that in the future.
++ Add a `strict_return_checking` config setting. (And a `--strict-return-checking` CLI flag)
+  If this is set to true, then Phan will warn if at least one of the types
+  in a return statement's union type can't cast to the expected return type type.
+  New issue types: `PhanPartialTypeMismatchReturn`, `PhanPossiblyNullTypeReturn`, and `PhanPossiblyFalseTypeReturn`
+
+  Setting this to true will likely introduce large numbers of warnings.
+  Those issue types would need to be suppressed entirely,
+  or with `@phan-file-suppress`, or with `@suppress`.
++ Add a `--strict-type-checking` CLI flag, to enable all of the new strict property/param/return type checks.
++ Add a `guess_unknown_parameter_type_using_default` config,
+  which can be enabled to make Phan more aggresively infer the types of undocument optional parameters
+  from the parameter's default value.
+  E.g. `function($x = 'val')` would make Phan infer that the function expects $x to have a type of `string`, not `string|mixed`.
+
+Plugins
++ Add a new plugin `InvokePHPNativeSyntaxCheckPlugin` on all analyzed files (but not files excluded from analysis) (#629)
++ Add a new plugin capability `AfterAnalyzeFileCapability` that runs after a given file is analyzed.
+  This does not get invoked for files that are excluded from analysis, or for empty files.
 
 New Features(Analysis)
 + Detect unreachable catch statements (#112)
   (Check if an earlier catch statement caught an ancestor of a given catch statement)
 + Support phpdoc3's `scalar` type in phpdoc. (#1589)
   That type is equivalent to `bool|float|int|string`.
++ Improve analysis of return statements with ternary conditionals (e.g. `return $a ?: $b`).
++ Start analyzing negated `instanceof` conditionals such as `assert(!($x instanceof MyClass))`.
++ Infer that the reference parameter's resulting type for `preg_match` is a `string[]`, not `array` (when possible)
+  (And that the type is `array{0:string,1:int}[]` when `PREG_OFFSET_CAPTURE` is passed as a flag)
++ Warn in more places when Phan can't extract union types or element identifiers from a doc comment.
+  New issue types: `UnextractableAnnotationElementName`, `UnextractableAnnotationSuffix`.
+  (E.g. warn about `@param int description` (ideally has param name) and `@return int?` (Phan doesn't parse the `?`, should be `@return ?int`))
 
 Bug Fixes
 + Don't emit false positive `PhanTypeArraySuspiciousNullable`, etc. for complex isset/empty/unset expressions. (#642)
 + Analyze conditionals wrapped by `@(cond)` (e.g. `if (@array_key_exists('key', $array)) {...}`) (#1591)
 + Appending an unknown type to an array shape should update Phan's inferred keys(int) and values(mixed) of an array. (#1560)
++ Make line numbers for arguments more accurate
++ Infer that the result of `|` or `&` on two strings is a string.
++ Fix a crash caused by empty FQSENs for classlike names or function names (#1616)
 
 24 Mar 2018, Phan 0.12.3
 ------------------------

@@ -44,6 +44,8 @@ use ast\Node;
  * @property-read CodeBase $code_base
  *
  * @phan-file-suppress PhanPluginUnusedPublicMethodArgument implementing faster no-op methods for common visit*
+ * @phan-file-suppress PhanPartialTypeMismatchArgument
+ * @phan-file-suppress PhanPartialTypeMismatchArgumentInternal
  */
 class ParseVisitor extends ScopeVisitor
 {
@@ -346,15 +348,12 @@ class ParseVisitor extends ScopeVisitor
         if ('__construct' === $method_name) {
             $class->setIsParentConstructorCalled(false);
         } elseif ('__invoke' === $method_name) {
-            $class->setUnionType($class->getUnionType()->withType(
-                CallableType::instance(false)
-            ));
+            // TODO: More precise callable shape
+            $class->addAdditionalType(CallableType::instance(false));
         } elseif ('__toString' === $method_name
             && !$this->context->getIsStrictTypes()
         ) {
-            $class->setUnionType($class->getUnionType()->withType(
-                StringType::instance(false)
-            ));
+            $class->addAdditionalType(StringType::instance(false));
         }
 
 
@@ -544,6 +543,7 @@ class ParseVisitor extends ScopeVisitor
         foreach ($node->children as $child_node) {
             \assert($child_node instanceof Node, 'expected class const element to be a Node');
             $name = $child_node->children['name'];
+            \assert(\is_string($name));
 
             $fqsen = FullyQualifiedClassConstantName::fromStringInContext(
                 $name,
@@ -736,7 +736,7 @@ class ParseVisitor extends ScopeVisitor
         // it can be called with anything.
         $expression = $node->children['expr'];
 
-        if ($expression->kind === \ast\AST_NAME) {
+        if ($expression instanceof Node && $expression->kind === \ast\AST_NAME) {
             $function_name = \strtolower($expression->children['name']);
             if (\in_array($function_name, [
                 'func_get_args', 'func_get_arg', 'func_num_args'
@@ -792,7 +792,7 @@ class ParseVisitor extends ScopeVisitor
     {
         $call = $node->children['class'];
 
-        if ($call->kind == \ast\AST_NAME) {
+        if ($call instanceof Node && $call->kind == \ast\AST_NAME) {
             $func_name = \strtolower($call->children['name']);
             if ($func_name == 'parent') {
                 // Make sure it is not a crazy dynamic parent method call

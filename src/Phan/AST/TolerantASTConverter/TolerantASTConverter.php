@@ -66,6 +66,10 @@ if (!class_exists('\ast\Node')) {
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
+ *
+ * @phan-file-suppress PhanPartialTypeMismatchArgument
+ * @phan-file-suppress PhanPossiblyNullTypeReturn
+ * @phan-file-suppress PhanPartialTypeMismatchReturn
  */
 final class TolerantASTConverter
 {
@@ -179,6 +183,7 @@ final class TolerantASTConverter
      * @param int $ast_version
      * @param string $file_contents
      * @return ast\Node
+     * @suppress PhanPartialTypeMismatchReturn this should always be passed a statement list
      */
     public function phpParserToPhpast(PhpParser\Node $parser_node, int $ast_version, string $file_contents)
     {
@@ -2494,6 +2499,9 @@ final class TolerantASTConverter
         return String_::parse($text);
     }
 
+    /**
+     * @suppress PhanPartialTypeMismatchArgumentInternal hopefully in range
+     */
     private static function variableTokenToString(Token $n) : string
     {
         return \ltrim(\trim($n->getText(self::$file_contents)), '$');
@@ -2517,7 +2525,9 @@ final class TolerantASTConverter
     ];
 
     // FIXME don't use in places expecting non-strings.
-    /** @return string */
+    /**
+     * @phan-suppress PhanPartialTypeMismatchArgumentInternal hopefully in range
+     */
     private static function tokenToString(Token $n) : string
     {
         $result = \trim($n->getText(self::$file_contents));

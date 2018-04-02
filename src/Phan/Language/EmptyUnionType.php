@@ -167,6 +167,17 @@ final class EmptyUnionType extends UnionType
 
     /**
      * @return bool
+     * True if this union type has any types that have generic
+     * types
+     * @override
+     */
+    public function hasTemplateParameterTypes() : bool
+    {
+        return false;
+    }
+
+    /**
+     * @return bool
      * True if this type has a type referencing the
      * class context 'static'.
      * @override
@@ -856,10 +867,10 @@ final class EmptyUnionType extends UnionType
     }
 
     /**
-     * @param CodeBase
+     * @param CodeBase $code_base
      * The code base to use in order to find super classes, etc.
      *
-     * @param $recursion_depth
+     * @param int $recursion_depth
      * This thing has a tendency to run-away on me. This tracks
      * how bad I messed up by seeing how far the expanded types
      * go
@@ -961,10 +972,30 @@ final class EmptyUnionType extends UnionType
     }
 
     /**
-     * @param int|string $field_key
+     * @param int|string|float|bool $field_key
      */
     public function withoutArrayShapeField($field_key) : UnionType
     {
         return $this;
+    }
+
+    public function withoutSubclassesOf(CodeBase $code_base, Type $object_type) : UnionType
+    {
+        return $this;
+    }
+
+    public function canStrictCastToUnionType(UnionType $target) : bool
+    {
+        return true;
+    }
+
+    public function hasArray() : bool
+    {
+        return false;
+    }
+
+    public function hasClassWithToStringMethod(CodeBase $code_base, Context $context) : bool
+    {
+        return false;
     }
 }
