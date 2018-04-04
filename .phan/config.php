@@ -489,6 +489,21 @@ return [
     // Also see 'autoload_internal_extension_signatures' for an alternative way to fix this type of issue.
     'ignore_undeclared_functions_with_known_signatures' => false,
 
+    'plugin_config' => [
+        // A list of 1 or more PHP binaries (Absolute path or program name found in $PATH)
+        // to use to analyze your files with PHP's native `--syntax-check`.
+        //
+        // This can be used to simultaneously run PHP's syntax checks with multiple PHP versions.
+        // e.g. `'plugin_config' => ['php_native_syntax_check_binaries' => ['php72', 'php70', 'php56']]`
+        // if all of those programs can be found in $PATH
+
+        // 'php_native_syntax_check_binaries' => [PHP_BINARY],
+
+        // The maximum number of `php --syntax-check` processes to run at any point in time (Minimum: 1).
+        // This may be temporarily higher if php_native_syntax_check_binaries has more elements than this process count.
+        'php_native_syntax_check_max_processes' => 4,
+    ],
+
     // A list of plugin files to execute
     // NOTE: values can be the base name without the extension for plugins bundled with Phan (E.g. 'AlwaysReturnPlugin')
     // or relative/absolute paths to the plugin (Relative to the project root).
@@ -503,7 +518,6 @@ return [
         'PrintfCheckerPlugin',
         // InvokePHPNativeSyntaxCheckPlugin invokes 'php --no-php-ini --syntax-check ${abs_path_to_analyzed_file}.php' and reports any error messages.
         // Using this can cause phan's overall analysis time to more than double.
-        // This is best used along with `--processes N`
         // 'InvokePHPNativeSyntaxCheckPlugin',
 
         // 'PHPUnitNotDeadCodePlugin',  // Marks phpunit test case subclasses and test cases as refernced code. only useful for runs when dead code detection is enabled
