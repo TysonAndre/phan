@@ -5,7 +5,9 @@ use Phan\Config;
 use Phan\Language\Context;
 use Phan\Language\Element\TypedElement;
 use Phan\Language\Element\UnaddressableTypedElement;
+use Phan\Language\Element\Variable;
 use Phan\Language\FQSEN;
+use Phan\Language\FQSEN\FullyQualifiedClassName;
 use Phan\Language\Type;
 use Phan\Language\UnionType;
 
@@ -126,6 +128,10 @@ class Issue
     const TypeExpectedObjectPropAccess = 'PhanTypeExpectedObjectPropAccess';
     const TypeExpectedObjectPropAccessButGotNull = 'PhanTypeExpectedObjectPropAccessButGotNull';
     const TypeExpectedObjectStaticPropAccess = 'PhanTypeExpectedObjectStaticPropAccess';
+
+    const TypeMismatchGeneratorYieldValue = 'PhanTypeMismatchGeneratorYieldValue';
+    const TypeMismatchGeneratorYieldKey = 'PhanTypeMismatchGeneratorYieldKey';
+    const TypeInvalidYieldFrom      = 'PhanTypeInvalidYieldFrom';
 
     // Issue::CATEGORY_ANALYSIS
     const Unanalyzable              = 'PhanUnanalyzable';
@@ -384,6 +390,7 @@ class Issue
         'PROPERTY'      => '%s',
         'SCALAR'        => '%s',  // A scalar from the code
         'STRING_LITERAL' => '%s',  // A string literal from the code
+        'SUGGESTION'    => '%s',
         'TYPE'          => '%s',
         'TRAIT'         => '%s',
         'VARIABLE'      => '%s',
@@ -872,6 +879,30 @@ class Issue
                 "Argument {INDEX} ({VARIABLE}) is {TYPE} but {FUNCTIONLIKE}() takes {TYPE}",
                 self::REMEDIATION_B,
                 10004
+            ),
+            new Issue(
+                self::TypeMismatchGeneratorYieldValue,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Yield statement has a value with type {TYPE} but {FUNCTIONLIKE}() is declared to yield values of type {TYPE} in {TYPE}",
+                self::REMEDIATION_B,
+                10067
+            ),
+            new Issue(
+                self::TypeMismatchGeneratorYieldKey,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Yield statement has a key with type {TYPE} but {FUNCTIONLIKE}() is declared to yield keys of type {TYPE} in {TYPE}",
+                self::REMEDIATION_B,
+                10068
+            ),
+            new Issue(
+                self::TypeInvalidYieldFrom,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Yield from statement was passed an invalid expression of type {TYPE} (expected Traversable/array)",
+                self::REMEDIATION_B,
+                10069
             ),
             new Issue(
                 self::PartialTypeMismatchArgument,
@@ -2679,14 +2710,16 @@ class Issue
     public function __invoke(
         string $file,
         int $line,
-        array $template_parameters = []
+        array $template_parameters = [],
+        string $suggestion = null
     ) : IssueInstance {
         // TODO: Add callable to expanded union types instead
         return new IssueInstance(
             $this,
             $file,
             $line,
-            $template_parameters
+            $template_parameters,
+            $suggestion
         );
     }
 
@@ -2750,18 +2783,21 @@ class Issue
      * Any template parameters required for the issue
      * message
      *
+     * @param ?string $suggestion (optional details on fixing this)
+     *
      * @return void
      */
     public static function emitWithParameters(
         string $type,
         string $file,
         int $line,
-        array $template_parameters
+        array $template_parameters,
+        string $suggestion = null
     ) {
         $issue = self::fromType($type);
 
         self::emitInstance(
-            $issue($file, $line, $template_parameters)
+            $issue($file, $line, $template_parameters, $suggestion)
         );
     }
 
@@ -2882,6 +2918,8 @@ class Issue
      * The line number where the issue was found
      *
      * @param array<int,string|int|float|bool|Type|UnionType|FQSEN|TypedElement|UnaddressableTypedElement> $parameters
+     * @param ?string $suggestion (optional)
+     *
      * Template parameters for the issue's error message
      *
      * @return void
@@ -2891,7 +2929,8 @@ class Issue
         Context $context,
         string $issue_type,
         int $lineno,
-        array $parameters
+        array $parameters,
+        string $suggestion = null
     ) {
         // If this issue type has been suppressed in
         // the config, ignore it
@@ -2925,7 +2964,114 @@ class Issue
             $issue_type,
             $context->getFile(),
             $lineno,
-            $parameters
+            $parameters,
+            $suggestion
         );
+    }
+
+    /**
+     * @param ?Closure(FullyQualifiedClassName):bool $filter
+     */
+    public static function suggestSimilarClass(CodeBase $code_base, Context $context, FullyQualifiedClassName $class_fqsen, $filter = null, string $prefix = 'Did you mean')
+    {
+        $suggested_fqsens = $code_base->suggestSimilarClass($class_fqsen, $context);
+        if ($filter) {
+            $suggested_fqsens = array_filter($suggested_fqsens, $filter);
+        }
+        if (count($suggested_fqsens) === 0) {
+            return null;
+        }
+        return $prefix . ' ' . implode(' or ', array_map(function (FullyQualifiedClassName $fqsen) use ($code_base) : string {
+            $category = 'classlike';
+            if ($code_base->hasClassWithFQSEN($fqsen)) {
+                $class = $code_base->getClassByFQSEN($fqsen);
+                if ($class->isInterface()) {
+                    $category = 'interface';
+                } elseif ($class->isTrait()) {
+                    $category = 'trait';
+                } else {
+                    $category = 'class';
+                }
+            }
+            return $category . ' ' . $fqsen->__toString();
+        }, $suggested_fqsens));
+    }
+
+    /**
+     * @param ?\Closure $filter
+     * TODO: Figure out why ?Closure(NS\X):bool can't cast to ?Closure(NS\X):bool
+     */
+    public static function suggestSimilarClassForGenericFQSEN(CodeBase $code_base, Context $context, FQSEN $fqsen, $filter = null, string $prefix = 'Did you mean')
+    {
+        if (!($fqsen instanceof FullyQualifiedClassName)) {
+            return null;
+        }
+        return self::suggestSimilarClass($code_base, $context, $fqsen, $filter, $prefix);
+    }
+
+    public static function suggestVariableTypoFix(CodeBase $code_base, Context $context, string $variable_name, string $prefix = 'Did you mean')
+    {
+        if ($variable_name === '') {
+            return null;
+        }
+        if (!$context->isInFunctionLikeScope()) {
+            // Don't bother suggesting globals for now
+            return null;
+        }
+        $suggestions = [];
+        if (strlen($variable_name) > 1) {
+            $variable_candidates = $context->getScope()->getVariableMap();
+            if (count($variable_candidates) < 50) {
+                $variable_candidates = array_merge($variable_candidates, Variable::_BUILTIN_SUPERGLOBAL_TYPES);
+                $variable_suggestions = self::getSuggestionsForVariables($variable_name, $variable_candidates);
+
+                foreach ($variable_suggestions as $suggested_variable_name) {
+                    $suggestions[] = '$' . $suggested_variable_name;
+                }
+            }
+        }
+        if ($context->isInClassScope()) {
+            // TODO: Does this need to check for static closures
+            $class_in_scope = $context->getClassInScope($code_base);
+            if ($class_in_scope->hasPropertyWithName($code_base, $variable_name)) {
+                $property = $class_in_scope->getPropertyByName($code_base, $variable_name);
+                if (!$property->isDynamicProperty()) {
+                    $suggestions[] = '$this->' . $variable_name;
+                }
+            }
+        }
+        if (count($suggestions) === 0) {
+            return null;
+        }
+        sort($suggestions);
+
+        return $prefix . ' ' . implode(' or ', $suggestions);
+    }
+
+    /**
+     * @param array<string,mixed> $variable_candidates
+     * @return array<int,string>
+     */
+    private static function getSuggestionsForVariables(string $variable_name, array $variable_candidates)
+    {
+        $search_name = strtolower($variable_name);
+        $N = strlen($search_name);
+        $maxLevenshteinDistance = (int)(1 + strlen($search_name) / 6);
+        $candidates = [];
+        $minFoundDistance = $maxLevenshteinDistance;
+
+        foreach ($variable_candidates as $name => $_) {
+            if (\abs(\strlen($name) - $N) > $maxLevenshteinDistance) {
+                continue;
+            }
+            $distance = levenshtein(strtolower($name), $search_name);
+            if ($distance <= $minFoundDistance) {
+                if ($distance < $minFoundDistance) {
+                    $candidates = [];
+                }
+                $candidates[] = $name;
+            }
+        }
+        return $candidates;
     }
 }

@@ -91,6 +91,9 @@ final class TolerantASTConverter
     // (For debugging, may be removed in the future)
     const ENV_AST_THROW_INVALID = 'AST_THROW_INVALID';
 
+    /**
+     * @var int - A version in SUPPORTED_AST_VERSIONS
+     */
     private static $php_version_id_parsing = PHP_VERSION_ID;
 
     /**
@@ -677,7 +680,7 @@ final class TolerantASTConverter
             },
             'Microsoft\PhpParser\Node\Expression\IssetIntrinsicExpression' => function (PhpParser\Node\Expression\IssetIntrinsicExpression $n, int $start_line) : ast\Node {
                 $ast_issets = [];
-                foreach ($n->expressions->children as $var) {
+                foreach ($n->expressions->children ?? [] as $var) {
                     if ($var instanceof Token && $var->kind === TokenKind::CommaToken) {
                         continue;
                     }
@@ -1074,7 +1077,7 @@ final class TolerantASTConverter
              */
             'Microsoft\PhpParser\Node\Expression\EchoExpression' => function (PhpParser\Node\Expression\EchoExpression $n, int $start_line) {
                 $ast_echos = [];
-                foreach ($n->expressions->children as $expr) {
+                foreach ($n->expressions->children ?? [] as $expr) {
                     if ($expr instanceof Token && $expr->kind === TokenKind::CommaToken) {
                         continue;
                     }
@@ -1346,7 +1349,7 @@ final class TolerantASTConverter
             /** @return ast\Node|ast\Node[] */
             'Microsoft\PhpParser\Node\Expression\UnsetIntrinsicExpression' => function (PhpParser\Node\Expression\UnsetIntrinsicExpression $n, int $start_line) {
                 $stmts = [];
-                foreach ($n->expressions->children as $var) {
+                foreach ($n->expressions->children ?? [] as $var) {
                     if ($var instanceof Token) {
                         // Skip over ',' and invalid tokens
                         continue;
@@ -2284,7 +2287,7 @@ final class TolerantASTConverter
     {
         $const_elems = [];
         $doc_comment = $n->getDocCommentText();
-        foreach ($n->constElements->children as $i => $prop) {
+        foreach ($n->constElements->children ?? [] as $i => $prop) {
             if ($prop instanceof Token) {
                 continue;
             }
@@ -2548,7 +2551,6 @@ final class TolerantASTConverter
             'const' => $name,
         ], $start_line);
     }
-
 
     /**
      * @return string

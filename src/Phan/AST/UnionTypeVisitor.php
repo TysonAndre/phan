@@ -777,6 +777,33 @@ class UnionTypeVisitor extends AnalysisVisitor
         return ArrayType::instance(false)->asUnionType();  // TODO: revert or make configurable
     }
 
+    /**
+     * Visit a node with kind `\ast\AST_YIELD`
+     *
+     * @param Node $unused_node
+     * A yield node. Does not affect the union type
+     *
+     * @return UnionType
+     * The set of types that are possibly produced by the
+     * given node
+     */
+    public function visitYield(Node $unused_node) : UnionType
+    {
+        $context = $this->context;
+        if (!$context->isInFunctionLikeScope()) {
+            return UnionType::empty();
+        }
+
+        // Get the method/function/closure we're in
+        $method = $context->getFunctionLikeInScope($this->code_base);
+        $method_generator_type = $method->getReturnTypeAsGeneratorTemplateType();
+        $type_list = $method_generator_type->getTemplateParameterTypeList();
+        if (\count($type_list) < 3 || \count($type_list) > 4) {
+            return UnionType::empty();
+        }
+        // Return TSend of Generator<TKey,TValue,TSend[,TReturn]>
+        return $type_list[2];
+    }
 
     /**
      * @return ?array<int|string,true>
@@ -1199,7 +1226,7 @@ class UnionTypeVisitor extends AnalysisVisitor
         // so we'll add the string type to the result if we're
         // indexing something that could be a string
         if ($union_type->isType($string_type)
-            || $union_type->canCastToUnionType($string_type->asUnionType())
+            || ($union_type->canCastToUnionType($string_type->asUnionType()) && !$union_type->hasMixedType())
         ) {
             if (!$dim_type->isEmpty() && !$dim_type->canCastToUnionType($int_union_type)) {
                 // TODO: Efficient implementation of asExpandedTypes()->hasArrayAccess()?
@@ -1468,7 +1495,8 @@ class UnionTypeVisitor extends AnalysisVisitor
                     Issue::fromType(Issue::UndeclaredVariable)(
                         $this->context->getFile(),
                         $node->lineno ?? 0,
-                        [$variable_name]
+                        [$variable_name],
+                        Issue::suggestVariableTypoFix($this->code_base, $this->context, $variable_name)
                     )
                 );
             }
@@ -1837,11 +1865,11 @@ class UnionTypeVisitor extends AnalysisVisitor
         } catch (IssueException $exception) {
             // Swallow it
         } catch (CodeBaseException $exception) {
-            $this->emitIssue(
+            $this->emitIssueWithSuggestion(
                 Issue::UndeclaredClassMethod,
                 $node->lineno ?? 0,
-                $method_name,
-                (string)$exception->getFQSEN()
+                [$method_name, (string)$exception->getFQSEN()],
+                Issue::suggestSimilarClassForGenericFQSEN($this->code_base, $this->context, $exception->getFQSEN())
             );
         }
 
@@ -2120,7 +2148,8 @@ class UnionTypeVisitor extends AnalysisVisitor
                     Issue::fromType(Issue::UndeclaredClass)(
                         $context->getFile(),
                         $node->lineno ?? 0,
-                        [ (string)$parent_class_fqsen ]
+                        [ (string)$parent_class_fqsen ],
+                        Issue::suggestSimilarClass($code_base, $context, $parent_class_fqsen)
                     )
                 );
             } else {
@@ -2174,6 +2203,7 @@ class UnionTypeVisitor extends AnalysisVisitor
     }
 
     /**
+     * @phan-return \Generator<Clazz>
      * @return \Generator|Clazz[]
      * A list of classes associated with the given node
      *
@@ -2600,9 +2630,9 @@ class UnionTypeVisitor extends AnalysisVisitor
     }
 
     /**
-     *
      * @return ?UnionType (Returns null when mixed)
      * TODO: Add an equivalent for Traversable and subclasses, once we have template support for Traversable<Key,T>
+     * TODO: Move into UnionType?
      */
     public static function arrayKeyUnionTypeOfUnionType(UnionType $union_type)
     {

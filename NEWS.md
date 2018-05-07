@@ -1,12 +1,25 @@
 Phan NEWS
 
-?? ??? 2018, Phan 0.12.6 (dev)
+?? ??? 2018, Phan 0.12.7 (dev)
+------------------------
+
+Bug fixes
++ Include text from suggestions in Language Server Protocol output
++ Fix a crash in the tolerant-php-parser polyfill seen when typing out an echo statement
+
+06 May 2018, Phan 0.12.6
 ------------------------
 
 New features(Analysis)
 + Warn about properties that are read but not written to when dead code detection is enabled
   (Similar to existing warnings about properties that are written to but never read)
   New issue types: `PhanReadOnlyPrivateProperty`, `PhanReadOnlyProtectedProperty`, `PhanReadOnlyPublicProperty`
++ When warning about undeclared classes, mention any classes that have the same name (but a different namespace) as suggestions.
+
+  E.g. `test.php:26 PhanUndeclaredClassInstanceof Checking instanceof against undeclared class \MyNS\InvalidArgumentException (Did you mean class \InvalidArgumentException)`
++ When warning about undeclared variables (outside of the global scope), mention any variables that have similar names (based on case-insensitive levenstein distance) as suggestions.
+
+  In method scopes: If `$myName` is undeclared, but `$this->myName` is declared (or inherited), `$this->myName` will be one of the suggestions.
 + Warn about string and numeric literals that are no-ops. (E.g. `<?php 'notEchoedStr'; "notEchoed $x"; ?>`)
   New issue types: `PhanNoopStringLiteral`, `PhanNoopEncapsulatedStringLiteral`, `PhanNoopNumericLiteral`.
 
@@ -19,6 +32,42 @@ New features(Analysis)
   E.g. Phan will now warn about `/** @return array<string,int> */ function example() { $result = ['a' => 'x', 'b' => 2]; return $result; }`
 + Warn about invalid expressions/variables encapsulated within double-quoted strings or within heredoc strings.
   New issue type: `TypeSuspiciousStringExpression` (May also emit `TypeConversionFromArray`)
+
++ Add support for template params in iterable types in phpdoc. (#824)
+  Phan supports `iterable<TValue>` and `iterable<TKey, TValue>` syntaxes. (Where TKey and TValue are union types)
+  Phan will check that generic arrays and array shapes can cast to iterable template types.
++ Add support for template syntax of Generator types in phpdoc. (#824)
+  Supported syntaxes are:
+
+  1. `\Generator<TValue>`
+  2. `\Generator<TKey,TValue>`
+  3. `\Generator<TKey,TValue,TSend>` (TSend is the expected type of `$x` in `$x = yield;`)
+  4. `\Generator<TKey,TValue,TSend,TReturn>` (TReturn is the expected type of `expr` in `return expr`)
+
+  New issue types: `PhanTypeMismatchGeneratorYieldValue`, `PhanTypeMismatchGeneratorYieldKey` (For comparing yield statements against the declared `TValue` and `TKey`)
+
+  Additionally, Phan will use `@return Generator|TValue[]` to analyze the yield statements
+  within a function/method body the same way as it would analyze `@return Generator<TValue>`.
+  (Analysis outside the method would not change)
+
++ Add support for template params in Iterator and Traversable types in phpdoc. (#824)
+  NOTE: Internal subtypes of those classes (e.g. ArrayObject) are not supported yet.
+  Supported syntaxes are:
+
+  1. `Traversable<TValue>`/`Iterator<TValue>`
+  2. `Traversable<TKey,TValue>`/`Iterator<TKey,TValue>`
+
++ Analyze `yield from` statements.
+
+  New issue types: `PhanTypeInvalidYieldFrom` (Emitted when the expression passed to `yield from` is not a Traversable or an array)
+
+  Warnings about the inferred keys/values of `yield from` being invalid reuse `PhanTypeMismatchGeneratorYieldValue` and `PhanTypeMismatchGeneratorYieldKey`
++ Make the union types within the phpdoc template syntax of `iterator`/`Traversable`/`Iterator`/`Generator` affect analysis of the keys/values of `foreach` statements
++ Improve phan's analysis of array functions modifying arguments by reference, reducing false positives. (#1662)
+  Affects `array_shift`/`array_unshift`/`array_push`/`array_pop`/`array_splice`.
+
+Misc
++ Infer that a falsey array is the empty array shape.
 
 Bug Fixes
 + Consistently warn about unreferenced declared properties (i.e. properties that are not magic or dynamically added).

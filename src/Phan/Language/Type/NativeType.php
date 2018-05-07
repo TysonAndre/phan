@@ -60,6 +60,11 @@ abstract class NativeType extends Type
         return false;
     }
 
+    public function isGenerator() : bool
+    {
+        return false;
+    }
+
     public function isObject() : bool
     {
         return false;
@@ -200,6 +205,22 @@ abstract class NativeType extends Type
     public function hasTemplateParameterTypes() : bool
     {
         return false;
+    }
+
+    /**
+     * @return ?UnionType returns the iterable value's union type if this is a subtype of iterable, null otherwise.
+     */
+    public function iterableKeyUnionType(CodeBase $unused_code_base)
+    {
+        return null;
+    }
+
+    /**
+     * @return ?UnionType returns the iterable value's union type if this is a subtype of iterable, null otherwise.
+     */
+    public function iterableValueUnionType(CodeBase $unused_code_base)
+    {
+        return null;
     }
 }
 \class_exists(ArrayType::class);

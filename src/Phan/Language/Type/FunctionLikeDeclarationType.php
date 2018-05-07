@@ -124,6 +124,7 @@ abstract class FunctionLikeDeclarationType extends Type implements FunctionInter
         return $result;
     }
 
+    // TODO: Figure out why ?Closure():bool can't cast to ?Closure(): bool
     public function canCastToNonNullableFunctionLikeDeclarationType(FunctionLikeDeclarationType $type) : bool
     {
         if ($this->required_param_count > $type->required_param_count) {
@@ -236,7 +237,10 @@ abstract class FunctionLikeDeclarationType extends Type implements FunctionInter
         throw new \AssertionError('unexpected call to ' . __METHOD__);
     }
 
-    /** @override */
+    /**
+     * @phan-return \Generator<FunctionLikeDeclarationType>
+     * @override
+     */
     public function alternateGenerator(CodeBase $_) : \Generator
     {
         yield $this;
@@ -626,6 +630,12 @@ abstract class FunctionLikeDeclarationType extends Type implements FunctionInter
             $stub[$name] = $type_string;
         }
         return $stub;
+    }
+
+    public function getReturnTypeAsGeneratorTemplateType() : Type
+    {
+        // Probably unused
+        return Type::fromFullyQualifiedString('\Generator');
     }
 
     ////////////////////////////////////////////////////////////////////////////////

@@ -416,11 +416,12 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
                             clone($context)->withLineNumberStart($use->lineno),
                             Issue::UndeclaredVariable,
                             $node->lineno ?? 0,
-                            [$variable_name]
+                            [$variable_name],
+                            Issue::suggestVariableTypoFix($this->code_base, $context, $variable_name)
                         );
                         continue;
                     } else {
-                        // If the variable doesn't exist, but its
+                        // If the variable doesn't exist, but it's
                         // a pass-by-reference variable, we can
                         // just create it
                         $variable = Variable::fromNodeInContext(
@@ -551,13 +552,16 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
      */
     public function visitForeach(Node $node) : Context
     {
+        $code_base = $this->code_base;
+        $context = $this->context;
+
         $expression_union_type = UnionTypeVisitor::unionTypeFromNode(
-            $this->code_base,
-            $this->context,
+            $code_base,
+            $context,
             $node->children['expr']
         );
 
-        // Check the expression type to make sure its
+        // Check the expression type to make sure it's
         // something we can iterate over
         if ($expression_union_type->isScalar()) {
             $this->emitIssue(
@@ -569,7 +573,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
 
         $value_node = $node->children['value'];
         if (!($value_node instanceof Node)) {
-            return $this->context;
+            return $context;
         }
         if ($value_node->kind == \ast\AST_ARRAY) {
             if (Config::get_closest_target_php_version_id() < 70100) {
@@ -583,17 +587,17 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
             // Filter out the non-generic types of the
             // expression
             $non_generic_expression_union_type =
-                $expression_union_type->genericArrayElementTypes();
+                $expression_union_type->iterableValueUnionType($code_base);
+
             // Create a variable for the value
             $variable = Variable::fromNodeInContext(
                 $value_node,
-                $this->context,
-                $this->code_base,
+                $context,
+                $code_base,
                 false
             );
 
-
-            // If we were able to figure out the type and its
+            // If we were able to figure out the type and it's
             // a generic type, then set its element types as
             // the type of the variable
             if (!$non_generic_expression_union_type->isEmpty()) {
@@ -601,7 +605,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
             }
 
             // Add the variable to the scope
-            $this->context->addScopeVariable($variable);
+            $context->addScopeVariable($variable);
         }
 
         // If there's a key, make a variable out of that too
@@ -616,25 +620,26 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
 
             $variable = Variable::fromNodeInContext(
                 $key_node,
-                $this->context,
-                $this->code_base,
+                $context,
+                $code_base,
                 false
             );
             if (!$expression_union_type->isEmpty()) {
                 // TODO: Support Traversable<Key, T> then return Key.
                 // If we see array<int,T> or array<string,T> and no other array types, we're reasonably sure the foreach key is an integer or a string, so set it.
-                $union_type_of_array_key = UnionTypeVisitor::arrayKeyUnionTypeOfUnionType($expression_union_type);
+                // (Or if we see iterable<int,T>
+                $union_type_of_array_key = $expression_union_type->iterableKeyUnionType($code_base);
                 if ($union_type_of_array_key !== null) {
                     $variable->setUnionType($union_type_of_array_key);
                 }
             }
 
-            $this->context->addScopeVariable($variable);
+            $context->addScopeVariable($variable);
         }
 
         // Note that we're not creating a new scope, just
         // adding variables to the existing scope
-        return $this->context;
+        return $context;
     }
 
     private function analyzeArrayAssignBackwardsCompatibility(Node $node)
@@ -759,7 +764,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
                 $second_order_non_generic_expression_union_type = $get_fallback_second_order_element_type();
             }
 
-            // If we were able to figure out the type and its
+            // If we were able to figure out the type and it's
             // a generic type, then set its element types as
             // the type of the variable
             $variable->setUnionType(
@@ -817,7 +822,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
                 false
             );
 
-            // If we were able to figure out the type and its
+            // If we were able to figure out the type and it's
             // a generic type, then set its element types as
             // the type of the variable
             if (!$element_union_type->isEmpty()) {
@@ -899,10 +904,13 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
                 $class->addReference($this->context);
             }
         } catch (CodeBaseException $exception) {
-            $this->emitIssue(
+            Issue::maybeEmitWithParameters(
+                $this->code_base,
+                $this->context,
                 Issue::UndeclaredClassCatch,
                 $node->lineno ?? 0,
-                (string)$exception->getFQSEN()
+                [(string)$exception->getFQSEN()],
+                Issue::suggestSimilarClassForGenericFQSEN($this->code_base, $this->context, $exception->getFQSEN())
             );
 
             $union_type = $union_type->withType(Type::fromFullyQualifiedString('\Throwable'));

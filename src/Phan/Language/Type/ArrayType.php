@@ -1,6 +1,7 @@
 <?php declare(strict_types=1);
 namespace Phan\Language\Type;
 
+use Phan\CodeBase;
 use Phan\Language\Type;
 use Phan\Language\UnionType;
 use Phan\Language\UnionTypeBuilder;
@@ -17,13 +18,18 @@ class ArrayType extends IterableType
 
     public function asNonTruthyType() : Type
     {
-        // There's no EmptyArrayType, so return $this
-        return $this;
+        // if (!$x) implies that $x is `[]` when $x is an array
+        return ArrayShapeType::empty($this->is_nullable);
     }
 
     public function isPossiblyObject() : bool
     {
         return false;  // Overrides IterableType returning true
+    }
+
+    public function isArrayLike() : bool
+    {
+        return true;  // Overrides Type
     }
 
     /**
@@ -161,7 +167,23 @@ class ArrayType extends IterableType
     protected function canCastToNonNullableType(Type $type) : bool
     {
         // CallableDeclarationType is not a native type, we check separately here
-        return parent::canCastToNonNullableType($type) || $type instanceof CallableDeclarationType;
+        return parent::canCastToNonNullableType($type) || $type instanceof ArrayType || $type instanceof CallableDeclarationType;
+    }
+
+    /**
+     * @return UnionType int|string for arrays
+     */
+    public function iterableKeyUnionType(CodeBase $unused_code_base)
+    {
+        // Reduce false positive partial type mismatch errors
+        return UnionType::empty();
+        /**
+        static $result;
+        if ($result === null) {
+            $result = UnionType::fromFullyQualifiedString('int|string');
+        }
+        return $result;
+         */
     }
 }
 // Trigger the autoloader for GenericArrayType so that it won't be called

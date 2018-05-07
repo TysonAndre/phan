@@ -583,11 +583,13 @@ class ContextNode
                     ?? $this->node->children['class']
             ))->getClassList(false, self::CLASS_LIST_ACCEPT_ANY);
         } catch (CodeBaseException $exception) {
+            $exception_fqsen = $exception->getFQSEN();
             throw new IssueException(
                 Issue::fromType(Issue::UndeclaredClassMethod)(
                     $this->context->getFile(),
                     $this->node->lineno ?? 0,
-                    [ $method_name, (string)$exception->getFQSEN() ]
+                    [$method_name, (string)$exception_fqsen],
+                    Issue::suggestSimilarClassForGenericFQSEN($this->code_base, $this->context, $exception_fqsen)
                 )
             );
         }
@@ -674,6 +676,7 @@ class ContextNode
     /**
      * Yields a list of FunctionInterface objects for the 'expr' of an AST_CALL.
      * @return \Generator
+     * @phan-return \Generator<FunctionInterface>
      */
     public function getFunctionFromNode()
     {
@@ -913,7 +916,7 @@ class ContextNode
         // Get the name of the variable
         $variable_name = $this->getVariableName();
 
-        if (empty($variable_name)) {
+        if ($variable_name === '') {
             throw new NodeException(
                 $this->node,
                 "Variable name not found"
@@ -926,7 +929,8 @@ class ContextNode
                 Issue::fromType(Issue::UndeclaredVariable)(
                     $this->context->getFile(),
                     $this->node->lineno ?? 0,
-                    [ $variable_name ]
+                    [ $variable_name ],
+                    Issue::suggestVariableTypoFix($this->code_base, $this->context, $variable_name)
                 )
             );
         }
@@ -1436,11 +1440,13 @@ class ContextNode
                 $this->node->children['class']
             ))->getClassList(false, self::CLASS_LIST_ACCEPT_OBJECT_OR_CLASS_NAME);
         } catch (CodeBaseException $exception) {
+            $exception_fqsen = $exception->getFQSEN();
             throw new IssueException(
                 Issue::fromType(Issue::UndeclaredClassConstant)(
                     $this->context->getFile(),
                     $this->node->lineno ?? 0,
-                    [ $constant_name, $exception->getFQSEN() ]
+                    [$constant_name, (string)$exception_fqsen],
+                    Issue::suggestSimilarClassForGenericFQSEN($this->code_base, $this->context, $exception_fqsen)
                 )
             );
         }
