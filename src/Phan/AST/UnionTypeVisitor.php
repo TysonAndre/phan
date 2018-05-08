@@ -16,6 +16,7 @@ use Phan\Exception\NodeException;
 use Phan\Exception\TypeException;
 use Phan\Exception\UnanalyzableException;
 use Phan\Issue;
+use Phan\IssueFixSuggester;
 use Phan\Language\Context;
 use Phan\Language\Element\Clazz;
 use Phan\Language\Element\FunctionInterface;
@@ -1496,7 +1497,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                         $this->context->getFile(),
                         $node->lineno ?? 0,
                         [$variable_name],
-                        Issue::suggestVariableTypoFix($this->code_base, $this->context, $variable_name)
+                        IssueFixSuggester::suggestVariableTypoFix($this->code_base, $this->context, $variable_name)
                     )
                 );
             }
@@ -1685,11 +1686,19 @@ class UnionTypeVisitor extends AnalysisVisitor
                 $exception->getIssueInstance()
             );
         } catch (CodeBaseException $exception) {
+
+            $exception_fqsen = $exception->getFQSEN();
+            $suggestion = null;
             $property_name = $node->children['prop'];
-            $this->emitIssue(
+            if ($exception_fqsen instanceof FullyQualifiedClassName && $this->code_base->hasClassWithFQSEN($exception_fqsen)) {
+                $suggestion_class = $this->code_base->getClassByFQSEN($exception_fqsen);
+                $suggestion = IssueFixSuggester::suggestSimilarProperty($this->code_base, $suggestion_class, $property_name, false);
+            }
+            $this->emitIssueWithSuggestion(
                 Issue::UndeclaredProperty,
                 $node->lineno ?? 0,
-                "{$exception->getFQSEN()}->{$property_name}"
+                ["{$exception_fqsen}->{$property_name}"],
+                $suggestion
             );
         } catch (UnanalyzableException $exception) {
             // Swallow it. There are some constructs that we
@@ -1865,11 +1874,14 @@ class UnionTypeVisitor extends AnalysisVisitor
         } catch (IssueException $exception) {
             // Swallow it
         } catch (CodeBaseException $exception) {
+            $exception_fqsen = $exception->getFQSEN();
             $this->emitIssueWithSuggestion(
                 Issue::UndeclaredClassMethod,
                 $node->lineno ?? 0,
                 [$method_name, (string)$exception->getFQSEN()],
-                Issue::suggestSimilarClassForGenericFQSEN($this->code_base, $this->context, $exception->getFQSEN())
+                ($exception_fqsen instanceof FullyQualifiedClassName
+                    ? IssueFixSuggester::suggestSimilarClassForMethod($this->code_base, $this->context, $exception_fqsen, $method_name, $node->kind === \ast\AST_STATIC_CALL)
+                    : null)
             );
         }
 
@@ -2149,7 +2161,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                         $context->getFile(),
                         $node->lineno ?? 0,
                         [ (string)$parent_class_fqsen ],
-                        Issue::suggestSimilarClass($code_base, $context, $parent_class_fqsen)
+                        IssueFixSuggester::suggestSimilarClass($code_base, $context, $parent_class_fqsen)
                     )
                 );
             } else {
@@ -2367,6 +2379,7 @@ class UnionTypeVisitor extends AnalysisVisitor
             $result_types[] = $method_fqsen;
         }
         if (\count($result_types) === 0 && $class instanceof Clazz) {
+            // TODO: Include suggestion for method name
             $this->emitIssue(
                 Issue::UndeclaredMethodInCallable,
                 $context->getLineNumberStart(),
