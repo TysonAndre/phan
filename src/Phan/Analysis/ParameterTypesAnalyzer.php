@@ -5,12 +5,12 @@ use Phan\CodeBase;
 use Phan\Config;
 use Phan\Exception\CodeBaseException;
 use Phan\Issue;
+use Phan\IssueFixSuggester;
 use Phan\Language\Element\Clazz;
 use Phan\Language\Element\FunctionInterface;
 use Phan\Language\Element\Method;
 use Phan\Language\Element\Parameter;
 use Phan\Language\FQSEN\FullyQualifiedClassName;
-use Phan\Language\Type\GenericArrayType;
 use Phan\Language\Type\IterableType;
 use Phan\Language\Type\MixedType;
 use Phan\Language\Type\NullType;
@@ -47,17 +47,9 @@ class ParameterTypesAnalyzer
             $union_type = $parameter->getUnionType();
 
             // Look at each type in the parameter's Union Type
-            foreach ($union_type->getTypeSet() as $outer_type) {
-                $type = $outer_type;
-
-                // TODO: Add unit test of `array{key:MissingClazz}`
-                while ($type instanceof GenericArrayType) {
-                    $type = $type->genericArrayElementType();
-                }
-
-                // If its a native type or a reference to
-                // self, its OK
-                if ($type->isNativeType() || ($method instanceof Method && ($type->isSelfType() || $type->isStaticType()))) {
+            foreach ($union_type->getReferencedClasses() as $outer_type => $type) {
+                // If it's a reference to self, its OK
+                if ($method instanceof Method && ($type->isSelfType() || $type->isStaticType())) {
                     continue;
                 }
 
@@ -78,12 +70,20 @@ class ParameterTypesAnalyzer
                     $type_fqsen = $type->asFQSEN();
                     \assert($type_fqsen instanceof FullyQualifiedClassName, 'non-native types must be class names');
                     if (!$code_base->hasClassWithFQSEN($type_fqsen)) {
-                        Issue::maybeEmit(
+                        Issue::maybeEmitWithParameters(
                             $code_base,
                             $method->getContext(),
                             Issue::UndeclaredTypeParameter,
                             $method->getFileRef()->getLineNumberStart(),
-                            (string)$outer_type
+                            [(string)$outer_type],
+                            IssueFixSuggester::suggestSimilarClass(
+                                $code_base,
+                                $method->getContext(),
+                                $type_fqsen,
+                                null,
+                                IssueFixSuggester::DEFAULT_CLASS_SUGGESTION_PREFIX,
+                                IssueFixSuggester::CLASS_SUGGEST_CLASSES_AND_TYPES
+                            )
                         );
                     }
                 }

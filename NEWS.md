@@ -1,5 +1,54 @@
 Phan NEWS
 
+?? ??? 2018, Phan 0.12.9 (dev)
+------------------------
+
+New features(CLI, Configs):
++ Add `--language-server-enable-go-to-definition`. See the section "Language Server/Daemon mode".
+
+New features(Analysis):
++ Emit class name suggestions for undeclared types in param, property, return type, and thrown type declarations. (#1689)
+
+  Affects `PhanUndeclaredTypeParameter`, `PhanUndeclaredTypeProperty`, `PhanUndeclaredTypeReturnType`,
+  `PhanUndeclaredTypeThrowsType`, and `PhanInvalidThrowsIs*`
++ Add `pretend_newer_core_methods_exist` config setting.
+  If this is set to true (the default),
+  and `target_php_version` is newer than the version used to run Phan,
+  Phan will act as though functions added in newer PHP versions exist.
+
+  Note: Currently only affects `Closure::fromCallable()`, which was added in PHP 7.1.
+  This will affect more functions and methods in the future.
+
+Language Server/Daemon mode:
++ Support "Go to definition" for properties, classes, global/class constants, and methods/global functions (Issue #1483)
+  (Must pass the CLI option `--language-server-enable-go-to-definition` when starting the server to enable this)
++ Support "Go to type definition" for variables, properties, classes, and methods/global functions (Issue #1702)
+  (Must pass the CLI option `--language-server-enable-go-to-definition` when starting the server to enable this)
+  Note that constants can't have object types in PHP, so there's no implementation of "Go To Type Definition" for those.
+
+Plugins:
++ Add a new plugin `SleepCheckerPlugin`. (PR #1696)
+  Warn about returning non-arrays in sleep,
+  as well as about returning array values with invalid property names.
+
+  Issue types: `SleepCheckerInvalidReturnStatement`, `SleepCheckerInvalidPropNameType`, `SleepCheckerInvalidPropName`,
+  `SleepCheckerMagicPropName`, and `SleepCheckerDynamicPropName`
++ Make `PhanPregRegexCheckerPlugin` warn about the `/e` modifier on regexes (#1692)
+
+Misc:
++ Add simple integration test for the language server mode.
+
+Bug fixes:
++ Be more consistent about emitting `PhanUndeclaredType*` for invalid types within array shapes.
++ Avoid a crash when the left hand side of an assignment is invalid. (#1693)
++ Prevent an uncaught `TypeError` when integer variable names (e.g. `${42}`) are used in branches (Issue #1699)
+
+12 May 2018, Phan 0.12.8
+------------------------
+
+Bug fixes
++ Fix a crash that occurs when the `iterable<[KeyType,]ValueType>` annotation is used in phpdoc. (#1685)
+
 08 May 2018, Phan 0.12.7
 ------------------------
 

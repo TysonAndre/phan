@@ -329,7 +329,7 @@ class AssignmentVisitor extends AnalysisVisitor
                         $this->code_base,
                         $this->context,
                         $value_node
-                    ))->getProperty($value_node->children['prop'], false);
+                    ))->getProperty(false);
 
                     // Set the element type on each element of
                     // the list
@@ -406,8 +406,10 @@ class AssignmentVisitor extends AnalysisVisitor
             }
 
             $value_node = $child_node->children['value'];
-
-            if ($value_node->kind == \ast\AST_VAR) {
+            if (!($value_node instanceof Node)) {
+                // Skip non-nodes to avoid crash
+                // TODO: Emit a new issue type for https://github.com/phan/phan/issues/1693
+            } elseif ($value_node->kind === \ast\AST_VAR) {
                 $variable = Variable::fromNodeInContext(
                     $value_node,
                     $this->context,
@@ -422,13 +424,13 @@ class AssignmentVisitor extends AnalysisVisitor
                 // Note that we're not creating a new scope, just
                 // adding variables to the existing scope
                 $this->context->addScopeVariable($variable);
-            } elseif ($value_node->kind == \ast\AST_PROP) {
+            } elseif ($value_node->kind === \ast\AST_PROP) {
                 try {
                     $property = (new ContextNode(
                         $this->code_base,
                         $this->context,
                         $value_node
-                    ))->getProperty($value_node->children['prop'], false);
+                    ))->getProperty(false);
 
                     // Set the element type on each element of
                     // the list
@@ -1123,7 +1125,6 @@ class AssignmentVisitor extends AnalysisVisitor
         }
 
         if (!$assign_type_expanded->hasArrayLike()) {
-
             if ($assign_type->hasType($string_type)) {
                 // Are we assigning to a variable/property of type 'string' (with no ArrayAccess or array types)?
                 if (\is_null($dim_type)) {

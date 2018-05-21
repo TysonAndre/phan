@@ -80,10 +80,15 @@ class Config
         // of the php executable used to execute phan.
         'target_php_version' => null,
 
-        // Supported values: '7.0', '7.1', '7.2', null.
-        // If this is set to null,
-        // then Phan assumes the PHP version which is closest to the minor version
-        // of the php executable used to execute phan.
+        // Default: true. If this is set to true,
+        // and target_php_version is newer than the version used to run Phan,
+        // Phan will act as though functions added in newer PHP versions exist.
+        //
+        // NOTE: Currently, this only affects Closure::fromCallable
+        'pretend_newer_core_methods_exist' => true,
+
+        // Make the tolerant-php-parser polyfill generate doc comments
+        // for all types of elements, even if php-ast wouldn't (for an older PHP version)
         'polyfill_parse_all_element_doc_comments' => true,
 
         // A list of individual files to include in analysis
@@ -706,6 +711,10 @@ class Config
         // Use the command line option instead
         'language_server_use_pcntl_fallback' => false,
 
+        // This should only be set via CLI (--language-server-enable-go-to-definition)
+        // Affects "go to definition" and "go to type definition"
+        'language_server_enable_go_to_definition' => false,
+
         // Can be set to false to disable the plugins Phan uses to infer more accurate return types of array_map, array_filter, etc.
         // Phan is slightly faster when these are disabled.
         'enable_internal_return_type_plugins' => true,
@@ -784,7 +793,7 @@ class Config
      * @return array<string,mixed>
      * A map of configuration keys and their values
      */
-    public function toArray() : array
+    public static function toArray() : array
     {
         return self::$configuration;
     }
@@ -857,6 +866,13 @@ class Config
     public static function getValue(string $name)
     {
         return self::$configuration[$name];
+    }
+
+    public static function reset()
+    {
+        self::$configuration = self::DEFAULT_CONFIGURATION;
+        // Trigger magic behavior
+        self::get();
     }
 
     /**
@@ -939,11 +955,11 @@ class Config
 
     /**
      * @return string
-     * The relative path appended to the project root directory.
+     * The relative path appended to the project root directory. (i.e. the absolute path)
      *
      * @suppress PhanUnreferencedPublicMethod
      */
-    public static function projectPath(string $relative_path)
+    public static function projectPath(string $relative_path) : string
     {
         // Make sure its actually relative
         if (\DIRECTORY_SEPARATOR === \substr($relative_path, 0, 1)) {
