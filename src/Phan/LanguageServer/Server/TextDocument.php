@@ -182,4 +182,14 @@ class TextDocument
         $uri = Utils::pathToUri(Utils::uriToPath($textDocument->uri));
         return $this->server->awaitDefinition($uri, $position, true);
     }
+
+    /**
+     * Placeholder to avoid a crash on malformed clients
+     * @suppress PhanPluginUnusedPublicMethodArgument
+     * @suppress PhanUnreferencedPublicMethod called by client via AdvancedJsonRpc
+     */
+    public function hover(TextDocumentIdentifier $unusedTtextDocument, Position $position)
+    {
+        return null;
+    }
 }

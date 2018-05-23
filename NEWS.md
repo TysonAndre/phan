@@ -1,12 +1,53 @@
 Phan NEWS
 
-?? ??? 2018, Phan 0.12.9 (dev)
+?? ??? 2018, Phan 0.12.10 (dev)
+-------------------------
+
+22 May 2018, Phan 0.12.9
 ------------------------
 
 New features(CLI, Configs):
-+ Add `--language-server-enable-go-to-definition`. See the section "Language Server/Daemon mode".
++ Add CLI flag `--language-server-enable-go-to-definition`. See the section "Language Server/Daemon mode".
++ Add Config setting `disable_line_based_suppression` to disable line-based suppression from internal comments. See the section "New Features"
++ Add Config setting `disable_file_based_suppression` to disable file-based issue suppressions.
 
 New features(Analysis):
++ Make `@suppress`, `@phan-suppress`, `@phan-file-suppress` accept a comma separated issue list of issue types to suppress. (#1715)
+  Spaces aren't allowed before the commas.
++ Implement `@phan-suppress-current-line` and `@phan-suppress-next-line` to suppress issues on the current or next line.
+
+  These can occur within any comment or doc comment (i.e. the comment types for `/*`, `//`, and `/**`)
+
+  These suppressions accept a comma separated list of issue type names.
+  Commas must be immediately after the previous issue type.
+
+  Note: Phan currently does not support inline comments anywhere else.
+  Phan also does not associate these inline comments with any information about the current scope.
+  This suppression is based on tokenizing the PHP file and determining the line based on that comment line.
+
+  Examples:
+
+  ```php
+  // @phan-suppress-next-line PhanUndeclaredVariable, PhanUndeclaredFunction optional reason goes here
+  $result = call_undefined_function() + $undefined_variable;
+
+  $closure();  /* @phan-suppress-current-line PhanParamTooFew optional reason for suppression */
+
+  /**
+   * This can also be used within doc comments:
+
+   * @phan-suppress-next-line PhanInvalidCommentForDeclarationType optional reason for suppression
+   * @property int $x
+   */
+  function my_example() {
+  }
+  ```
+
+  `PhanUnusedSuppressionPlugin` is capable of detecting if line-based suppressions are unused.
++ Allow using `@phan-file-suppress` as a regular comment anywhere within a file (`//`, `/*`, or `/**` comments).
+  Previously, `@phan-file-suppress` could only be used inside the doc comment of an element.
+
+  `@phan-file-suppress` in no-op string literals will be deprecated in a future Phan release.
 + Emit class name suggestions for undeclared types in param, property, return type, and thrown type declarations. (#1689)
 
   Affects `PhanUndeclaredTypeParameter`, `PhanUndeclaredTypeProperty`, `PhanUndeclaredTypeReturnType`,
@@ -27,6 +68,8 @@ Language Server/Daemon mode:
   Note that constants can't have object types in PHP, so there's no implementation of "Go To Type Definition" for those.
 
 Plugins:
++ Add a new plugin capability `SuppressionCapability`
+  that allows users to suppress issues in additional ways. (#1070)
 + Add a new plugin `SleepCheckerPlugin`. (PR #1696)
   Warn about returning non-arrays in sleep,
   as well as about returning array values with invalid property names.
