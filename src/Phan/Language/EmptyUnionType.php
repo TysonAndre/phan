@@ -11,7 +11,7 @@ use Generator;
 /**
  * NOTE: there may also be instances of UnionType that are empty, due to the constructor being public
  *
- * @phan-file-suppress PhanPluginUnusedPublicFinalMethodArgument the results don't depend on passed in parameters
+ * @phan-file-suppress PhanPluginUnusedPublicFinalMethodArgument, PhanUnusedPublicFinalMethodParameter the results don't depend on passed in parameters
  */
 final class EmptyUnionType extends UnionType
 {
@@ -549,7 +549,7 @@ final class EmptyUnionType extends UnionType
      * @return bool
      * True if this union type represents types that are arrays
      * or generic arrays, but nothing else.
-     * @suppress PhanUnreferencedPublicMethod
+     * @override
      */
     public function isExclusivelyArray() : bool
     {
@@ -640,7 +640,7 @@ final class EmptyUnionType extends UnionType
      * @return UnionType
      * A UnionType with generic array types filtered out
      *
-     * @suppress PhanUnreferencedPublicMethod
+     * @override
      */
     public function nonGenericArrayTypes() : UnionType
     {
@@ -739,7 +739,7 @@ final class EmptyUnionType extends UnionType
      *
      * @see $this->callableTypes()
      *
-     * @suppress PhanUnreferencedPublicMethod
+     * @override
      */
     public function hasCallableType() : bool
     {

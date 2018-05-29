@@ -254,13 +254,12 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     }
 
     /**
-     * @param Node $node
+     * @param Node $node @phan-unused-param
      * A node to parse
      *
      * @return Context
      * A new or an unchanged context resulting from
      * parsing the node
-     * @suppress PhanPluginUnusedPublicMethodArgument
      */
     public function visitWhile(Node $node) : Context
     {
@@ -268,13 +267,12 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     }
 
     /**
-     * @param Node $node
+     * @param Node $node @phan-unused-param
      * A node to parse
      *
      * @return Context
      * A new or an unchanged context resulting from
      * parsing the node
-     * @suppress PhanPluginUnusedPublicMethodArgument
      */
     public function visitSwitch(Node $node) : Context
     {
@@ -282,13 +280,12 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     }
 
     /**
-     * @param Node $node
+     * @param Node $node @phan-unused-param
      * A node to parse
      *
      * @return Context
      * A new or an unchanged context resulting from
      * parsing the node
-     * @suppress PhanPluginUnusedPublicMethodArgument
      */
     public function visitSwitchCase(Node $node) : Context
     {
@@ -296,13 +293,11 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     }
 
     /**
-     * @param Node $node
-     * A node to parse
+     * @param Node $node @phan-unused-param
      *
      * @return Context
      * A new or an unchanged context resulting from
      * parsing the node
-     * @suppress PhanPluginUnusedPublicMethodArgument
      */
     public function visitExprList(Node $node) : Context
     {
@@ -334,7 +329,6 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
 
     /**
      * @return void
-     * @suppress PhanAccessMethodInternal
      */
     private function checkEncapsulatedStringArgument(Node $expr_node)
     {
@@ -347,6 +341,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             true
         );
 
+        // @phan-suppress-next-line PhanAccessMethodInternal
         if (!$type->hasPrintableScalar()) {
             if ($type->isType(ArrayType::instance(false))
                 || $type->isType(ArrayType::instance(true))

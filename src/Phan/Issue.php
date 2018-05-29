@@ -238,6 +238,18 @@ class Issue
     const UnreferencedUseFunction       = 'PhanUnreferencedUseFunction';
     const UnreferencedUseConstant       = 'PhanUnreferencedUseConstant';
 
+    const UnusedVariable                        = 'PhanUnusedVariable';
+    const UnusedPublicMethodParameter           = 'PhanUnusedPublicMethodParameter';
+    const UnusedPublicFinalMethodParameter      = 'PhanUnusedPublicFinalMethodParameter';
+    const UnusedProtectedMethodParameter        = 'PhanUnusedProtectedMethodParameter';
+    const UnusedProtectedFinalMethodParameter   = 'PhanUnusedProtectedFinalMethodParameter';
+    const UnusedPrivateMethodParameter          = 'PhanUnusedPrivateMethodParameter';
+    const UnusedPrivateFinalMethodParameter     = 'PhanUnusedPrivateFinalMethodParameter';
+    const UnusedClosureUseVariable              = 'PhanUnusedClosureUseVariable';
+    const UnusedClosureParameter                = 'PhanUnusedClosureParameter';
+    const UnusedGlobalFunctionParameter         = 'PhanUnusedGlobalFunctionParameter';
+    const UnusedVariableValueOfForeachWithKey   = 'PhanUnusedVariableValueOfForeachWithKey';  // has higher false positive rates than UnusedVariable
+
     // Issue::CATEGORY_REDEFINE
     const RedefineClass             = 'PhanRedefineClass';
     const RedefineClassAlias        = 'PhanRedefineClassAlias';
@@ -2094,6 +2106,95 @@ class Issue
                 self::REMEDIATION_B,
                 6028
             ),
+            new Issue(
+                self::UnusedVariable,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_NORMAL,
+                'Unused definition of variable ${VARIABLE}',
+                self::REMEDIATION_B,
+                6035
+            ),
+            new Issue(
+                self::UnusedPublicMethodParameter,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_NORMAL,
+                'Parameter ${PARAMETER} is never used',
+                self::REMEDIATION_B,
+                6036
+            ),
+            new Issue(
+                self::UnusedPublicFinalMethodParameter,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_NORMAL,
+                'Parameter ${PARAMETER} is never used',
+                self::REMEDIATION_B,
+                6037
+            ),
+            new Issue(
+                self::UnusedProtectedMethodParameter,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_NORMAL,
+                'Parameter ${PARAMETER} is never used',
+                self::REMEDIATION_B,
+                6038
+            ),
+            new Issue(
+                self::UnusedProtectedFinalMethodParameter,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_NORMAL,
+                'Parameter ${PARAMETER} is never used',
+                self::REMEDIATION_B,
+                6039
+            ),
+            new Issue(
+                self::UnusedPrivateMethodParameter,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_NORMAL,
+                'Parameter ${PARAMETER} is never used',
+                self::REMEDIATION_B,
+                6040
+            ),
+            new Issue(
+                self::UnusedPrivateFinalMethodParameter,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_NORMAL,
+                'Parameter ${PARAMETER} is never used',
+                self::REMEDIATION_B,
+                6041
+            ),
+            new Issue(
+                self::UnusedClosureUseVariable,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_NORMAL,
+                'Closure use variable ${VARIABLE} is never used',
+                self::REMEDIATION_B,
+                6042
+            ),
+            new Issue(
+                self::UnusedClosureParameter,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_NORMAL,
+                'Parameter ${PARAMETER} is never used',
+                self::REMEDIATION_B,
+                6043
+            ),
+            new Issue(
+                self::UnusedGlobalFunctionParameter,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_NORMAL,
+                'Parameter ${PARAMETER} is never used',
+                self::REMEDIATION_B,
+                6044
+            ),
+            new Issue(
+                self::UnusedVariableValueOfForeachWithKey,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_LOW,
+                'Unused definition of variable ${VARIABLE} as the value of a foreach loop that included keys',
+                self::REMEDIATION_B,
+                6045
+            ),
+
 
             // Issue::CATEGORY_REDEFINE
             new Issue(
@@ -2585,7 +2686,6 @@ class Issue
     /**
      * @param array<int,Issue> $error_list
      * @return void
-     * @suppress PhanPluginUnusedVariable (error_map and unique_type_id_set)
      */
     private static function sanityCheckErrorList(array $error_list)
     {
@@ -2614,6 +2714,7 @@ class Issue
                     $expected_category_for_type_id_bitpos
                 ));
             }
+            // @phan-suppress-next-line PhanPluginUnusedVariable
             $error_map[$error_type] = $error;
         }
     }

@@ -28,7 +28,7 @@ class Config
      * New features increment minor versions, and bug fixes increment patch versions.
      * @suppress PhanUnreferencedPublicClassConstant
      */
-    const PHAN_PLUGIN_VERSION = '2.3.0';
+    const PHAN_PLUGIN_VERSION = '2.4.0';
 
     /**
      * @var string|null
@@ -310,6 +310,11 @@ class Config
         // `$class->$method()`) in ways that we're unable
         // to make sense of.
         'dead_code_detection' => false,
+
+        // Set to true in order to attempt to detect unused variables.
+        // dead_code_detection will also enable unused variable detection.
+        // This has a few known false positives, e.g. for loops or branches.
+        'unused_variable_detection' => false,
 
         // Set to true in order to force tracking references to elements
         // (functions/methods/consts/protected).
@@ -879,7 +884,7 @@ class Config
     {
         self::$configuration = self::DEFAULT_CONFIGURATION;
         // Trigger magic behavior
-        self::get();
+        self::get()->init();
     }
 
     /**
