@@ -610,7 +610,7 @@ class Issue
             new Issue(
                 self::UndeclaredMethod,
                 self::CATEGORY_UNDEFINED,
-                self::SEVERITY_NORMAL,
+                self::SEVERITY_CRITICAL,
                 "Call to undeclared method {METHOD}",
                 self::REMEDIATION_B,
                 11013
@@ -618,7 +618,7 @@ class Issue
             new Issue(
                 self::UndeclaredStaticMethod,
                 self::CATEGORY_UNDEFINED,
-                self::SEVERITY_NORMAL,
+                self::SEVERITY_CRITICAL,
                 "Static call to undeclared method {METHOD}",
                 self::REMEDIATION_B,
                 11014
@@ -910,7 +910,7 @@ class Issue
             new Issue(
                 self::TypeInvalidYieldFrom,
                 self::CATEGORY_TYPE,
-                self::SEVERITY_NORMAL,
+                self::SEVERITY_CRITICAL,
                 "Yield from statement was passed an invalid expression of type {TYPE} (expected Traversable/array)",
                 self::REMEDIATION_B,
                 10069
@@ -1262,7 +1262,7 @@ class Issue
             new Issue(
                 self::TypeExpectedObjectPropAccess,
                 self::CATEGORY_TYPE,
-                self::SEVERITY_NORMAL,
+                self::SEVERITY_CRITICAL,
                 'Expected an object instance when accessing an instance property, but saw an expression with type {TYPE}',
                 self::REMEDIATION_B,
                 10038
@@ -1504,7 +1504,7 @@ class Issue
             new Issue(
                 self::ParamTooFew,
                 self::CATEGORY_PARAMETER,
-                self::SEVERITY_NORMAL,
+                self::SEVERITY_CRITICAL,
                 "Call with {COUNT} arg(s) to {FUNCTIONLIKE}() which requires {COUNT} arg(s) defined at {FILE}:{LINE}",
                 self::REMEDIATION_B,
                 7003
@@ -1512,7 +1512,7 @@ class Issue
             new Issue(
                 self::ParamTooFewInternal,
                 self::CATEGORY_PARAMETER,
-                self::SEVERITY_NORMAL,
+                self::SEVERITY_CRITICAL,
                 "Call with {COUNT} arg(s) to {FUNCTIONLIKE}() which requires {COUNT} arg(s)",
                 self::REMEDIATION_B,
                 7004
@@ -1520,7 +1520,7 @@ class Issue
             new Issue(
                 self::ParamTooFewCallable,
                 self::CATEGORY_PARAMETER,
-                self::SEVERITY_LOW,
+                self::SEVERITY_CRITICAL,
                 "Call with {COUNT} arg(s) to {FUNCTIONLIKE}() (as a provided callable) which requires {COUNT} arg(s) defined at {FILE}:{LINE}",
                 self::REMEDIATION_B,
                 7044
@@ -1643,7 +1643,7 @@ class Issue
             new Issue(
                 self::ParamSignatureRealMismatchHasParamType,
                 self::CATEGORY_PARAMETER,
-                self::SEVERITY_NORMAL,
+                self::SEVERITY_CRITICAL,
                 "Declaration of {METHOD} should be compatible with {METHOD} (parameter #{INDEX} has type '{TYPE}' cannot replace original parameter with no type) defined in {FILE}:{LINE}",
                 self::REMEDIATION_B,
                 7017
@@ -2418,7 +2418,7 @@ class Issue
             new Issue(
                 self::AccessOverridesFinalMethodPHPDoc,
                 self::CATEGORY_ACCESS,
-                self::SEVERITY_LOW,
+                self::SEVERITY_CRITICAL,
                 "Declaration of phpdoc method {METHOD} is an unnecessary override of final method {METHOD} defined in {FILE}:{LINE}",
                 self::REMEDIATION_B,
                 1019
