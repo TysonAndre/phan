@@ -5,6 +5,7 @@ use Phan\Output\Printer\CheckstylePrinter;
 use Phan\Output\Printer\CodeClimatePrinter;
 use Phan\Output\Printer\CSVPrinter;
 use Phan\Output\Printer\JSONPrinter;
+use Phan\Output\Printer\PHPLikePrinter;
 use Phan\Output\Printer\PlainTextPrinter;
 use Phan\Output\Printer\PylintPrinter;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -21,7 +22,7 @@ class PrinterFactory
      */
     public function getTypes():array
     {
-        return ['text', 'json', 'csv', 'codeclimate', 'checkstyle', 'pylint'];
+        return ['text', 'json', 'csv', 'codeclimate', 'checkstyle', 'pylint', 'phplike'];
     }
 
     public function getPrinter($type, OutputInterface $output):IssuePrinterInterface
@@ -41,6 +42,9 @@ class PrinterFactory
                 break;
             case 'pylint':
                 $printer = new PylintPrinter();
+                break;
+            case 'phplike':
+                $printer = new PHPLikePrinter();
                 break;
             case 'text':
             default:

@@ -1,0 +1,1 @@
+%s:12 PhanParamSignatureMismatch Declaration of function one(string $a = 'a') should be compatible with function one(int $a = 1) defined in %s:4

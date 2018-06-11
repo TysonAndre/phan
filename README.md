@@ -4,10 +4,16 @@ Phan looks for common issues and will verify type compatibility on various opera
 information is available or can be deduced. Phan has a good (but not comprehensive) understanding of flow control
 and does not attempt to track values.
 
-[![Maintainability](https://api.codeclimate.com/v1/badges/3940135c0dfbd5387c94/maintainability)](https://codeclimate.com/github/phan/phan/maintainability) [![Build Status](https://travis-ci.org/phan/phan.svg?branch=master)](https://travis-ci.org/phan/phan) [![Build Status (Windows)](https://ci.appveyor.com/api/projects/status/github/phan/phan?branch=master&svg=true)](https://ci.appveyor.com/project/TysonAndre/phan/branch/master)
+[![Build Status (fork)](https://travis-ci.org/TysonAndre/phan.svg?branch=master)](https://travis-ci.org/TysonAndre/phan) [![Build Status](https://travis-ci.org/phan/phan.svg?branch=master)](https://travis-ci.org/phan/phan) [![Build status (Windows)](https://ci.appveyor.com/api/projects/status/080ocpistks584hu?svg=true)](https://ci.appveyor.com/project/TysonAndre/phan-y8ry7)
 [![Gitter](https://badges.gitter.im/phan/phan.svg)](https://gitter.im/phan/phan?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 [![Latest Stable Version](https://img.shields.io/packagist/v/phan/phan.svg)](https://packagist.org/packages/phan/phan)
 [![License](https://img.shields.io/packagist/l/phan/phan.svg)](https://github.com/phan/phan/blob/master/LICENSE)
+
+# About this fork
+
+This fork supports miscellaneous features which haven't been merged to phan/phan yet
+
+see [.phan/config.php](.phan/config.php) and [src/phan/Config.php](src/phan/Config.php) for more details on the new features.
 
 # Getting Started
 

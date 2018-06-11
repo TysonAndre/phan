@@ -508,7 +508,6 @@ class Type
             'DEFAULT_INCLUDE_PATH'  => $string,
             'PEAR_INSTALL_DIR'      => $string,
             'PHP_EXTENSION_DIR'     => $string,
-            'PEAR_EXTENSION_DIR'    => $string,
             'PHP_PREFIX'            => $string,
             'PHP_BINDIR'            => $string,
             'PHP_BINARY'            => $string,
@@ -1947,18 +1946,22 @@ class Type
             return true;
         }
 
-        // A nullable type cannot cast to a non-nullable type
-        if ($this->getIsNullable() && !$type->getIsNullable()) {
-            // If this is nullable, but that isn't, and we've
-            // configured nulls to cast as anything (or as arrays), ignore
-            // the nullable part.
+        if ($this->getIsNullable()) {
+            // A nullable type cannot cast to a non-nullable type (Except when null_casts_as_any_type is true)
             if (Config::get_null_casts_as_any_type()) {
-                return $this->withIsNullable(false)->canCastToType($type);
+                return true;
             } elseif (Config::get_null_casts_as_array() && $type->isArrayLike()) {
-                return $this->withIsNullable(false)->canCastToType($type);
+                return true;
+            } elseif ($type->isScalar() && (
+                    Config::getValue('scalar_implicit_cast') ||
+                    in_array($type->getName(), Config::getValue('scalar_implicit_partial')['null'] ?? []))) {
+                // e.g. allow casting ?string to string if scalar_implicit_cast or 'null' => ['string'] is in scalar_implicit_partial.
+                return true;
             }
 
-            return false;
+            if (!$type->getIsNullable()) {
+                return false;
+            }
         }
 
         // Get a non-null version of the type we're comparing

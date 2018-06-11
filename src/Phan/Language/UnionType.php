@@ -56,7 +56,7 @@ class UnionType implements \Serializable
         . '(\|' . Type::type_regex_or_this . ')*';
 
     /**
-     * @var array<int,Type> * This is an immutable list of unique types.
+     * @var array<int,Type> This is an immutable list of unique types.
      */
     private $type_set;
 
@@ -759,8 +759,9 @@ class UnionType implements \Serializable
             $static_nullable_type = StaticType::instance(true);
         }
 
-        $has_static_type = \in_array($static_type, $this->type_set, true);
-        $has_static_nullable_type = \in_array($static_nullable_type, $this->type_set, true);
+        $type_set = $this->type_set;
+        $has_static_type = \in_array($static_type, $type_set);
+        $has_static_nullable_type = \in_array($static_type, $type_set);
 
         // If this doesn't reference 'static', there's nothing to do.
         if (!($has_static_type || $has_static_nullable_type)) {
@@ -1103,6 +1104,11 @@ class UnionType implements \Serializable
         $this_resolved_type_set =
             $this->withStaticResolvedInContext($context)->type_set;
 
+        // Convert this type to an array of resolved
+        // types.
+        $type_set =
+            $this->withStaticResolvedInContext($context)
+            ->getTypeSet();
         // TODO: Need to resolve expanded union types (parents, interfaces) of classes *before* this is called.
 
         // Test to see if every single type in this union
@@ -1246,18 +1252,18 @@ class UnionType implements \Serializable
 
         if (Config::get_null_casts_as_any_type()) {
             // null <-> null
-            if ($this->isType($null_type)
-                || $target->isType($null_type)
+            // (this fork has weaker type casting rules than phan/phan, using hasType instead of isType)
+            if ($this->hasType(NullType::instance(false))
+                || $target->isType(NullType::instance(false))
             ) {
                 return true;
             }
-        } else {
-            // If null_casts_as_any_type isn't set, then try the other two fallbacks.
-            if (Config::get_null_casts_as_array() && $this->isType($null_type) && $target->hasArrayLike()) {
-                return true;
-            } elseif (Config::get_array_casts_as_null() && $target->isType($null_type) && $this->hasArrayLike()) {
-                return true;
-            }
+        } elseif (Config::get_null_casts_as_array() && $this->hasType(NullType::instance(false)) && $target->hasArrayLike()) {
+            // null->array
+            return true;
+        } elseif (Config::get_array_casts_as_null() && $target->isType(NullType::instance(false)) && $this->hasArrayLike()) {
+            // array -> null
+            return true;
         }
 
         // mixed <-> mixed

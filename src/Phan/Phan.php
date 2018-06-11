@@ -176,7 +176,10 @@ class Phan implements IgnoredFilesFilterInterface
         $temporary_file_mapping = [];
 
         $request = null;
+
+        // Clear Type->asExpandedTypes(), we may have found more parent classes since these were called.
         Type::clearAllMemoizations();
+
         if ($is_undoable_request) {
             \assert($code_base->isUndoTrackingEnabled());
             if ($is_daemon_request) {
@@ -329,6 +332,10 @@ class Phan implements IgnoredFilesFilterInterface
                 $process_count > 0 && $process_count <= Config::getValue('processes'),
                 "The process count must be between 1 and the given number of processes. After mapping files to cores, $process_count process were set to be used."
             );
+
+            // Clear Type->asExpandedTypes(), we may have found more parent classes since these were called.
+            // TODO: Reorder calls to clearAllMemoizations
+            Type::clearAllMemoizations();
 
             $did_fork_pool_have_error = false;
 
@@ -588,6 +595,7 @@ class Phan implements IgnoredFilesFilterInterface
     /**
      * Loads configured stubs for internal PHP extensions.
      * @return void
+     * @throws \InvalidArgumentException if autoload_internal_extension_signatures has invalid entries
      */
     private static function loadConfiguredPHPExtensionStubs(CodeBase $code_base)
     {

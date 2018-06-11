@@ -354,6 +354,7 @@ New Features(CLI, Configs)
 
 New Features(Analysis)
 + Infer the type of `[]` as `array{}` (the empty array), not `array`. (#1382)
+  (Temporarily reverted in this fork)
 + Allow phpdoc `@param` array shapes to contain optional fields. (E.g. `array{requiredKey:int,optionalKey?:string}`) (#1382)
   An array shape is now allowed to cast to another array shape, as long as the required fields are compatible with the target type,
   and any optional fields from the target type are absent in the source type or compatible.
@@ -692,6 +693,12 @@ Maintenance
 + Upgrade felixfbecker/advanced-json-rpc dependency to ^3.0.0 (#1354)
 + Performance improvements.
   Changed the internal representation of union types to no longer require `spl_object_id` or the polyfill.
+
+Plugins
++ Make UnionType instances immutable.
+  This will affect plugins that used addType/addUnionType/removeType. withType/withUnionType/withoutType should be used instead.
+  To modify the type of elements(properties, method return types, parameters, variables, etc),
+  `Element->setUnionType(plugin_modifier_function(Element->getUnionType()))` should be used.
 
 Bug Fixes
 + Allow `null` to be passed in where a union type of `mixed` was expected.
