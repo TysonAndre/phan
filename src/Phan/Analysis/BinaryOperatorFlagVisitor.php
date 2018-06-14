@@ -93,7 +93,7 @@ class BinaryOperatorFlagVisitor extends FlagVisitorImplementation
         } elseif ($left->hasType(FloatType::instance(false))
             || $right->hasType(FloatType::instance(false))
         ) {
-            if ($left->hasNonNullIntType() && $right->hasType(FloatType::instance(false))) {
+            if ($left->hasNonNullIntType() && $right->hasNonNullIntType()) {
                 return $int_or_float ?? ($int_or_float = new UnionType([
                     IntType::instance(false),
                     FloatType::instance(false)
@@ -476,7 +476,7 @@ class BinaryOperatorFlagVisitor extends FlagVisitorImplementation
             && ($right->isNonNullIntType()
             || $right->isType($float_type))
         ) {
-            return $float_type->asUnionType();
+            return $int_or_float_union_type;
         }
 
         $left_is_array = (
