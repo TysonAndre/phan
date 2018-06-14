@@ -22,6 +22,8 @@ use Phan\Language\Type\FunctionLikeDeclarationType;
 use Phan\Language\Type\GenericArrayType;
 use Phan\Language\Type\GenericIterableType;
 use Phan\Language\Type\GenericMultiArrayType;
+use Phan\Language\Type\LiteralIntType;
+use Phan\Language\Type\LiteralStringType;
 use Phan\Language\Type\IntType;
 use Phan\Language\Type\IterableType;
 use Phan\Language\Type\MixedType;
@@ -30,6 +32,7 @@ use Phan\Language\Type\NullType;
 use Phan\Language\Type\ObjectType;
 use Phan\Language\Type\ResourceType;
 use Phan\Language\Type\ScalarRawType;
+use Phan\Language\Type\ScalarType;
 use Phan\Language\Type\StaticType;
 use Phan\Language\Type\StringType;
 use Phan\Language\Type\TrueType;
@@ -76,6 +79,16 @@ class Type
         '[-._a-zA-Z0-9\x7f-\xff]+\??';
 
     /**
+     * A literal integer or string.
+     *
+     * Note that string literals can only contain a whitelist of characters.
+     * NOTE: The / is escaped
+     */
+    const noncapturing_literal_regex =
+        '\??(?:-?(?:0|[1-9][0-9]*)|\'(?:[- ,.\/?:;"!#$%^&*_+=a-zA-Z0-9_\x80-\xff]|\\\\(?:[\'\\\\]|x[0-9a-fA-F]{2}))*\')';
+        // '\??(?:-?(?:0|[1-9][0-9]*)|\'(?:[a-zA-Z0-9_])*\')';
+
+    /**
      * @var string
      * A legal array entry in an array shape (e.g. 'field:string[]')
      *
@@ -105,6 +118,7 @@ class Type
             . ')'
           . ')?'
         . ')|'
+        . self::noncapturing_literal_regex . '|'
         . '(' . self::simple_type_regex . ')'  // ?T or T. TODO: Get rid of pattern for '?'?
         . '(?:'
           . '<'
@@ -147,6 +161,7 @@ class Type
                 . ')'
               . ')?'
             . ')|'
+            . self::noncapturing_literal_regex . '|'
             . '(' . self::simple_type_regex_or_this . ')'  // 3 patterns
             . '(?:<'
               . '('
@@ -293,6 +308,7 @@ class Type
     //  which saves and restores some static properties)
     public function __wakeup()
     {
+        debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
         throw new \Error("Cannot unserialize Type");
     }
 
@@ -545,16 +561,16 @@ class Type
 
     /**
      * @return Type
-     * Get a type for the given object
+     * Get a type for the given object. Equivalent to Type::fromObject($object)->asNonLiteralType()
      */
-    public static function fromObject($object) : Type
+    public static function nonLiteralFromObject($object) : Type
     {
         static $type_map = null;
         if ($type_map === null) {
             $type_map = [
                 'integer' => IntType::instance(false),
                 'boolean' => BoolType::instance(false),
-                'double'   => FloatType::instance(false),
+                'double'  => FloatType::instance(false),
                 'string'  => StringType::instance(false),
                 'object'  => ObjectType::instance(false),
                 'NULL'    => NullType::instance(false),
@@ -564,6 +580,38 @@ class Type
         }
         // gettype(2) doesn't return 'int', it returns 'integer', so use FROM_PHPDOC
         return $type_map[\gettype($object)];
+    }
+
+    /**
+     * @return Type
+     * Get a type for the given object
+     */
+    public static function fromObject($object) : Type
+    {
+        switch (\gettype($object)) {
+            case 'integer':
+                '@phan-var int $object';
+                return LiteralIntType::instance_for_value($object, false);
+            case 'string':
+                '@phan-var string $object';
+                return LiteralStringType::instance_for_value($object, false);
+            case 'NULL':
+                return NullType::instance(false);
+            case 'double':
+                return FloatType::instance(false);
+            case 'object':
+                return ObjectType::instance(false);
+            case 'boolean':
+                // TODO: Does this have many side effects?
+                // Probably not, 'false' is an AST_CONST Node.
+                return $object ? TrueType::instance(false) : FalseType::instance(false);
+            case 'array':
+                return ArrayType::instance(false);
+            case 'resource':
+                return ResourceType::instance(false);  // For inferring the type of constants STDIN, etc.
+            default:
+                throw new \AssertionError("Unknown type " . gettype($object));
+        }
     }
 
     /**
@@ -704,7 +752,7 @@ class Type
         string $fully_qualified_string
     ) : Type {
         \assert(
-            !empty($fully_qualified_string),
+            $fully_qualified_string !== '',
             "Type cannot be empty"
         );
         while (\substr($fully_qualified_string, -1) === ')') {
@@ -736,6 +784,9 @@ class Type
         $template_parameter_type_name_list = $tuple->_2;
         $is_nullable = $tuple->_3;
         $shape_components = $tuple->_4;
+        if (\preg_match('/^(' . self::noncapturing_literal_regex . ')$/', $type_name)) {
+            return self::fromEscapedLiteralScalar($type_name);
+        }
         if (\is_array($shape_components)) {
             if (\strcasecmp($type_name, 'array') === 0) {
                 return ArrayShapeType::fromFieldTypes(
@@ -789,6 +840,22 @@ class Type
             $is_nullable,
             Type::FROM_NODE
         );
+    }
+
+    private static function fromEscapedLiteralScalar(string $escaped_literal) : ScalarType
+    {
+        $is_nullable = $escaped_literal[0] === '?';
+        if ($is_nullable) {
+            $escaped_literal = \substr($escaped_literal, 1);
+        }
+        if ($escaped_literal[0] === "'") {
+            return LiteralStringType::fromEscapedString($escaped_literal, $is_nullable);
+        }
+        $value = filter_var($escaped_literal, FILTER_VALIDATE_INT);
+        if (\is_int($value)) {
+            return LiteralIntType::instance_for_value($value, $is_nullable);
+        }
+        return FloatType::instance($is_nullable);
     }
 
     /**
@@ -956,6 +1023,11 @@ class Type
         $template_parameter_type_name_list = $tuple->_2;
         $is_nullable = $tuple->_3;
         $shape_components = $tuple->_4;
+
+        if (\preg_match('/^(' . self::noncapturing_literal_regex . ')$/', $type_name)) {
+            return self::fromEscapedLiteralScalar($type_name);
+        }
+
         if (\is_array($shape_components)) {
             if (\strcasecmp($type_name, 'array') === 0) {
                 return ArrayShapeType::fromFieldTypes(
@@ -2262,15 +2334,26 @@ class Type
         $match = [];
         $is_nullable = false;
         if (\preg_match('/^' . self::type_regex_or_this . '$/', $type_string, $match)) {
-            if ($match[3] !== '') {
-                return self::closureTypeStringComponents($type_string, $match[3]);
+            $closure_components = $match[3] ?? '';
+            if ($closure_components !== '') {
+                return self::closureTypeStringComponents($type_string, $closure_components);
             }
             if (!isset($match[2])) {
                 // Parse '(X)' as 'X'
                 return self::typeStringComponents(\substr($match[1], 1, -1));
             } elseif (!isset($match[4])) {
-                // Parse '?(X[]) as '?X[]'
-                return self::typeStringComponents('?' . \substr($match[2], 2, -1));
+                if (\substr($type_string, -1) === ')') {
+                    // Parse '?(X[]) as '?X[]'
+                    return self::typeStringComponents('?' . \substr($match[2], 2, -1));
+                } else {
+                    return new Tuple5(
+                        '',
+                        $match[0],
+                        [],
+                        false,
+                        null
+                    );
+                }
             }
             $type_string = $match[4];
 
@@ -2432,6 +2515,11 @@ class Type
         return $this->is_nullable ? self::_bit_nullable : 0;
     }
 
+    public function hasArrayShapeOrLiteralTypeInstances() : bool
+    {
+        return false;
+    }
+
     public function hasArrayShapeTypeInstances() : bool
     {
         return false;
@@ -2447,10 +2535,27 @@ class Type
     }
 
     /**
+     * @deprecated - Use withFlattenedArrayShapeOrLiteralTypeInstances
+     * @suppress PhanUnreferencedPublicMethod
+     */
+    final public function withFlattenedArrayShapeInstances() : array
+    {
+        return $this->withFlattenedArrayShapeOrLiteralTypeInstances();
+    }
+
+    /**
      * @return Type[]
      */
-    public function withFlattenedArrayShapeTypeInstances() : array
+    public function withFlattenedArrayShapeOrLiteralTypeInstances() : array
     {
         return [$this];
+    }
+
+    /**
+     * Overridden in subclasses such as LiteralIntType
+     */
+    public function asNonLiteralType() : Type
+    {
+        return $this;
     }
 }

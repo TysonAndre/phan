@@ -4,6 +4,15 @@ Phan NEWS
 -------------------------
 
 New features(Analysis)
++ Support integer literals both in PHPDoc and in Phan's type system. (E.g. `@return -1|string`)
+  Include integer values in issue messages if the values are known.
++ Support string literals both in PHPDoc and in Phan's type system. (E.g. `@return 'example\n'`)
+  Phan can now infer possible variable values for dynamic function/method calls, etc.
+
+  Note: By default, Phan does not store representations of strings longer than 50 characters. This can be increased with the `'max_literal_string_type_length'` config.
+
+  Supported escape codes: `\\`, `\'`, `\r`, `\n`, `\t`, and hexadecimal (`\xXX`).
++ Improve inferred types of unary operators.
 + Warn about using `void`/`iterable`/`object` in use statements based on `target_php_version`. (#449)
   New issue types: `PhanCompatibleUseVoidPHP70`, `PhanCompatibleUseObjectPHP71`, `PhanCompatibleUseObjectPHP71`
 + Warn about making overrides of inherited property and constants less visible (#788)
@@ -16,10 +25,12 @@ New features(Analysis)
 
 Maintenance:
 + Update signature map with more accurate signatures (#1761)
++ Upgrade tolerant-php-parser, making the polyfill/fallback able to parse PHP 7.1's multi exception catch.
 
 Bug fixes:
 + Fix uncaught `AssertionError` when `parent` is used in PHPDoc (#1758)
-+ Fix various bugs that can cause crashes in the polyfill parser when parsing invalid ASTs
++ Fix various bugs that can cause crashes in the polyfill/fallback parser when parsing invalid or incomplete ASTs.
++ Fix unparseable/invalid function signature entries of rarely used functions
 
 08 Jun 2018, Phan 0.12.12
 -------------------------

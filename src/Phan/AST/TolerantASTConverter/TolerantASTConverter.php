@@ -65,9 +65,6 @@ if (!class_exists('\ast\Node')) {
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
- *
- * @phan-file-suppress PhanPartialTypeMismatchArgument
- * @phan-file-suppress PhanPartialTypeMismatchReturn
  */
 class TolerantASTConverter
 {
@@ -229,6 +226,7 @@ class TolerantASTConverter
 
     /**
      * @param Token|PhpParser\Node[]|PhpParser\Node\StatementNode $parser_nodes
+     *        This is represented as a single node for `if` with a colon (macro style)
      * @param ?int $lineno
      * @param bool $return_null_on_empty (return null if non-array (E.g. semicolon is seen))
      * @return ?ast\Node
@@ -462,7 +460,10 @@ class TolerantASTConverter
                     $n->byRef !== null
                 );
             },
-            'Microsoft\PhpParser\Node\Expression\BinaryExpression' => function (PhpParser\Node\Expression\BinaryExpression $n, int $start_line) : ast\Node {
+            /**
+             * @return ast\Node|string|float|int (can return a non-Node if the left or right hand side could not be parsed
+             */
+            'Microsoft\PhpParser\Node\Expression\BinaryExpression' => function (PhpParser\Node\Expression\BinaryExpression $n, int $start_line) {
                 static $lookup = [
                     TokenKind::AmpersandAmpersandToken              => ast\flags\BINARY_BOOL_AND,
                     TokenKind::AmpersandToken                       => ast\flags\BINARY_BITWISE_AND,
@@ -880,7 +881,6 @@ class TolerantASTConverter
                         }
                     }
                 } else {
-                    // FIXME: skip over whitespace and \\
                     $imploded_parts = static::phpParserNameToString($n);
                 }
                 if ($n->globalSpecifier !== null) {
@@ -999,8 +999,13 @@ class TolerantASTConverter
                 $qualified_name = $n->qualifiedName;
                 $catch_inner_list = [];
                 // Handle `catch()` syntax error
-                if ($qualified_name !== null) {
+                if ($qualified_name instanceof PhpParser\Node\QualifiedName) {
                     $catch_inner_list[] = static::phpParserNonValueNodeToAstNode($qualified_name);
+                }
+                foreach ($n->otherQualifiedNameList as $other_qualified_name) {
+                    if ($other_qualified_name instanceof PhpParser\Node\QualifiedName) {
+                        $catch_inner_list[] = static::phpParserNonValueNodeToAstNode($other_qualified_name);
+                    }
                 }
                 $catch_list_node = new ast\Node(ast\AST_NAME_LIST, 0, $catch_inner_list, $catch_inner_list[0]->lineno ?? $start_line);
                 // TODO: Change to handle multiple exception types in catch clauses
@@ -1331,7 +1336,7 @@ class TolerantASTConverter
                         return null;
                     }
 
-                    $target_name_list = array_merge([$n->targetName], $n->remainingTargetNames ?? []);
+                    $target_name_list = array_merge([$n->targetName], $n->remainingTargetNames);
                     if (\is_object($member_name_list)) {
                         $member_name_list = [$member_name_list];
                     }
@@ -1360,7 +1365,7 @@ class TolerantASTConverter
                     }
                     $flags = static::phpParserVisibilityToAstVisibility($n->modifiers, false);
                     $target_name = $n->targetName;
-                    $target_name = $target_name !== null ? static::phpParserNameToString($target_name) : null;
+                    $target_name = $target_name instanceof PhpParser\Node\QualifiedName ? static::phpParserNameToString($target_name) : null;
                     $children = [
                         'method' => new ast\Node(ast\AST_METHOD_REFERENCE, 0, [
                             'class' => $class_node,
@@ -2001,14 +2006,14 @@ class TolerantASTConverter
     }
 
     /**
-     * @param Token[]|PhpParser\Node\NamespaceUseGroupClause[] $uses
+     * @param Token[]|PhpParser\Node\NamespaceUseGroupClause[]|PhpParser\Node[] $uses
      * @return ast\Node[]
      */
     private static function phpParserNamespaceUseListToAstUseList(array $uses) : array
     {
         $ast_uses = [];
         foreach ($uses as $use_clause) {
-            if ($use_clause instanceof Token) {
+            if (!($use_clause instanceof PhpParser\Node\NamespaceUseGroupClause)) {
                 continue;
             }
             // ast doesn't fill in an alias if it's identical to the real name,
@@ -2106,11 +2111,26 @@ class TolerantASTConverter
         ], $node_line);
     }
 
+    /**
+     * @param PhpParser\Node[]|PhpParser\Node|Token $stmts
+     */
+    private static function getStartLineOfStatementOrStatements($stmts) : int
+    {
+        if (is_array($stmts)) {
+            return isset($stmts[0]) ? self::getStartLine($stmts[0]) : 0;
+        }
+        return self::getStartLine($stmts);
+    }
+
     private static function phpParserIfStmtToAstIfStmt(PhpParser\Node\Statement\IfStatementNode $node, int $start_line) : ast\Node
     {
         $if_elem = static::astIfElem(
             static::phpParserNodeToAstNode($node->expression),
-            static::phpParserStmtlistToAstNode($node->statements, self::getStartLine($node->statements), true),
+            static::phpParserStmtlistToAstNode(
+                $node->statements,
+                self::getStartLineOfStatementOrStatements($node->statements) ?: $start_line,
+                true
+            ),
             $start_line
         );
         $if_elems = [$if_elem];
@@ -2118,14 +2138,17 @@ class TolerantASTConverter
             $if_elem_line = self::getStartLine($else_if);
             $if_elem = static::astIfElem(
                 static::phpParserNodeToAstNode($else_if->expression),
-                static::phpParserStmtlistToAstNode($else_if->statements, self::getStartLine($else_if->statements)),
+                static::phpParserStmtlistToAstNode(
+                    $else_if->statements,
+                    self::getStartLineOfStatementOrStatements($else_if->statements)
+                ),
                 $if_elem_line
             );
             $if_elems[] = $if_elem;
         }
         $parser_else_node = $node->elseClause;
         if ($parser_else_node) {
-            $parser_else_line = self::getStartLine($parser_else_node->statements);
+            $parser_else_line = self::getStartLineOfStatementOrStatements($parser_else_node->statements);
             $if_elems[] = static::astIfElem(
                 null,
                 static::phpParserStmtlistToAstNode($parser_else_node->statements, $parser_else_line),
@@ -2135,7 +2158,10 @@ class TolerantASTConverter
         return new ast\Node(ast\AST_IF, 0, $if_elems, $start_line);
     }
 
-    private static function astNodeBinaryop(int $flags, PhpParser\Node\Expression\BinaryExpression $n, int $start_line) : \ast\Node
+    /**
+     * @return ast\Node|string|int|float
+     */
+    private static function astNodeBinaryop(int $flags, PhpParser\Node\Expression\BinaryExpression $n, int $start_line)
     {
         try {
             $left_node = static::phpParserNodeToAstNode($n->leftOperand);
@@ -2208,8 +2234,12 @@ class TolerantASTConverter
                 'default' => $n->rightOperand ? static::phpParserNodeToAstNode($n->rightOperand) : null,
             ];
         } elseif ($n instanceof PhpParser\Node\Expression\Variable) {
+            $name = $n->name;
+            if (!($name instanceof Token) || !$name->length) {
+                throw new InvalidNodeException();
+            }
             $children = [
-                'name' => static::tokenToString($n->name),
+                'name' => static::tokenToString($name),
                 'default' => null,
             ];
         } else {
@@ -2534,6 +2564,9 @@ class TolerantASTConverter
         return \ltrim(\trim($n->getText(self::$file_contents)), '$');
     }
 
+    /**
+     * @suppress PhanPartialTypeMismatchReturn this is in bounds and $file_contents is a string
+     */
     private static function tokenToRawString(Token $n) : string
     {
         return $n->getText(self::$file_contents);
@@ -2585,7 +2618,15 @@ class TolerantASTConverter
         // TODO: Handle error case (can there be missing parts?)
         $result = '';
         foreach ($nameParts as $part) {
-            $result .= \trim(static::tokenToString($part));
+            $part_as_string = static::tokenToString($part);
+            if ($part_as_string !== '') {
+                $result .= \trim($part_as_string);
+            }
+        }
+        $result = \rtrim(\preg_replace('/\\\\{2,}/', '\\', $result), '\\');
+        if ($result === '') {
+            // Would lead to "The name cannot be empty" when parsing
+            throw new InvalidNodeException();
         }
         return $result;
     }
