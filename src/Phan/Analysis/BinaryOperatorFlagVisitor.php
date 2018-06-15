@@ -471,11 +471,11 @@ class BinaryOperatorFlagVisitor extends FlagVisitorImplementation
             return ArrayType::combineArrayTypesOverriding($left, $right);
         }
 
-        if (($left->isNonNullIntType()
-            || $left->isType($float_type))
-            && ($right->isNonNullIntType()
-            || $right->isType($float_type))
-        ) {
+        if ($left->isNonNullNumberType() && $right->isNonNullNumberType()) {
+            if (!$left->hasNonNullIntType() || !$right->hasNonNullIntType()) {
+                // Heuristic: If one or more of the sides is a float, the result is always a float.
+                return $float_type->asUnionType();
+            }
             return $int_or_float_union_type;
         }
 
