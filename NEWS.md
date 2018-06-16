@@ -157,6 +157,14 @@ New features(Analysis)
 + Warn about using negative string offsets and multiple catch exceptions in PHP 7.0 (if `target_php_version` is less than `'7.1'`). (#1771, #1778)
   New issue types: `PhanCompatibleMultiExceptionCatchPHP70`, `PhanCompatibleNegativeStringOffset`.
 
+New features(CLI, Configs)
++ Make `--allow-polyfill-parser` the default behavior.
+  If `php-ast` is not yet installed, it will warn but continue to analyze.
+  Add a new option `--forbid-polyfill-parser` to imitate the previous default behavior.
+
+  (Many of the bugs and limitations in [tolerant-php-parser](https://github.com/Microsoft/tolerant-php-parser) have be fixed,
+  but a few edge cases remain)
+
 Maintenance:
 + Update signature map with more accurate signatures (#1761)
 + Upgrade tolerant-php-parser, making the polyfill/fallback able to parse PHP 7.1's multi exception catch.

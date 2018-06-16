@@ -340,10 +340,14 @@ Usage: ./phan [options] [files...]
   This flag does not affect excluded files and directories.
 
  --allow-polyfill-parser
+  On by default.
   If the `php-ast` extension isn't available or is an outdated version,
   then use a slower parser (based on tolerant-php-parser) instead.
   Note that https://github.com/Microsoft/tolerant-php-parser
   has some known bugs which may result in false positive parse errors.
+
+ --forbid-polyfill-parser
+  If the `php-ast` extension isn't available, then exit with an error.
 
  --force-polyfill-parser
   Use a slower parser (based on tolerant-php-parser) instead of the native parser,

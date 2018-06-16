@@ -58,6 +58,7 @@ class CLI
         'extended-help',
         'file-list:',
         'file-list-only:',
+        'forbid-polyfill-parser',
         'force-polyfill-parser',
         'help',
         'ignore-undeclared',
@@ -202,14 +203,7 @@ class CLI
             $this->config_file = $config_file_override;
         }
 
-        if (isset($opts['language-server-force-missing-pcntl'])) {
-            Config::setValue('language_server_use_pcntl_fallback', true);
-        } elseif (!isset($opts['language-server-require-pcntl'])) {
-            // --language-server-allow-missing-pcntl is now the default
-            if (!extension_loaded('pcntl')) {
-                Config::setValue('language_server_use_pcntl_fallback', true);
-            }
-        }
+        $this->maybeUseLanguageServerPcntlFallback();
 
         // Now that we have a root directory, attempt to read a
         // configuration file `.phan/config.php` if it exists
@@ -463,17 +457,9 @@ class CLI
                 case 'unused-variable-detection':
                     Config::setValue('unused_variable_detection', true);
                     break;
+                case 'forbid-polyfill-parser':
                 case 'allow-polyfill-parser':
-                    // Just check if it's installed and of a new enough version.
-                    // Assume that if there is an installation, it works, and warn later in ensureASTParserExists()
-                    if (!extension_loaded('ast')) {
-                        Config::setValue('use_polyfill_parser', true);
-                        break;
-                    }
-                    if (version_compare((new \ReflectionExtension('ast'))->getVersion(), '0.1.5') < 0) {
-                        Config::setValue('use_polyfill_parser', true);
-                        break;
-                    }
+                    // These two options are handled afterwards
                     break;
                 case 'force-polyfill-parser':
                     Config::setValue('use_polyfill_parser', true);
@@ -499,6 +485,8 @@ class CLI
                     break;
             }
         }
+
+        $this->maybeEnablePolyfillParser($opts);
 
         $this->ensureASTParserExists();
 
@@ -557,6 +545,52 @@ class CLI
             || !Config::getValue('dead_code_detection'),
             "We cannot run dead code detection on more than one core."
         );
+    }
+
+    /**
+     * @return void
+     */
+    private function maybeUseLanguageServerPcntlFallback()
+    {
+        if (isset($opts['language-server-force-missing-pcntl'])) {
+            Config::setValue('language_server_use_pcntl_fallback', true);
+        } elseif (!isset($opts['language-server-require-pcntl'])) {
+            // --language-server-allow-missing-pcntl is now the default
+            if (!extension_loaded('pcntl')) {
+                Config::setValue('language_server_use_pcntl_fallback', true);
+            }
+        }
+    }
+
+    /**
+     * This sets use_polyfill_parser according to the user's CLI settings.
+     *
+     * If use_polyfill_parser is set to true, this means we have decided to always use the polyfill, even if php-ast exists
+     *
+     * @return void
+     */
+    private function maybeEnablePolyfillParser(array $opts)
+    {
+        if (Config::getValue('use_polyfill_parser')) {
+            return;
+        }
+        if (array_key_exists('forbid-polyfill-parser', $opts)) {
+            Config::setValue('use_polyfill_parser', false);
+            return;
+        }
+        // Just check if it's installed and of a new enough version.
+        // Assume that if there is an installation, it works, and warn later in ensureASTParserExists()
+        if (extension_loaded('ast') && version_compare((new \ReflectionExtension('ast'))->getVersion(), '0.1.5') >= 0) {
+            return;
+        }
+        if (!array_key_exists('allow-polyfill-parser', $opts) && !getenv('PHAN_DISABLE_POLYFILL_WARN')) {
+            fwrite(STDERR, <<<EOT
+[info] Automatically running phan with php-ast disabled
+[info] To disable this warning, set the environment variable PHAN_DISABLE_POLYFILL_WARN to 1 (or explicitly pass --allow-polyfill-parser)
+
+EOT
+            );
+        }
     }
 
     /**
@@ -803,10 +837,14 @@ Usage: {$argv[0]} [options] [files...]
   This flag does not affect excluded files and directories.
 
  --allow-polyfill-parser
+  On by default.
   If the `php-ast` extension isn't available or is an outdated version,
   then use a slower parser (based on tolerant-php-parser) instead.
   Note that https://github.com/Microsoft/tolerant-php-parser
   has some known bugs which may result in false positive parse errors.
+
+ --forbid-polyfill-parser
+  If the `php-ast` extension isn't available, then exit with an error.
 
  --force-polyfill-parser
   Use a slower parser (based on tolerant-php-parser) instead of the native parser,
