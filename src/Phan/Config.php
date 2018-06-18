@@ -71,7 +71,7 @@ class Config
     private static $quick_mode = false;
     // End of the 4 most commonly accessed configs.
 
-    private static $closest_target_php_version_id = null;
+    private static $closest_target_php_version_id;
 
     const DEFAULT_CONFIGURATION = [
         // Supported values: '7.0', '7.1', '7.2', null.
@@ -366,6 +366,10 @@ class Config
         // @var, @suppress, @deprecated) and only rely on
         // types expressed in code.
         'read_type_annotations' => true,
+
+        // If enabled, warn about throw statement where the exception types
+        // are not documented in the PHPDoc of functions, methods, and closures.
+        'warn_about_undocumented_throw_statements' => false,
 
         // This setting maps case insensitive strings to union types.
         // This is useful if a project uses phpdoc that differs from the phpdoc2 standard.

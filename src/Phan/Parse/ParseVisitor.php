@@ -465,7 +465,7 @@ class ParseVisitor extends ScopeVisitor
                 // to avoid issues such as https://github.com/phan/phan/issues/311 and many more.
                 if ($future_union_type !== null) {
                     try {
-                        $original_union_type = $future_union_type->get();
+                        $original_union_type = $future_union_type->get()->asNonLiteralType();
                         // We successfully resolved the union type. We no longer need $future_union_type
                         $future_union_type = null;
                     } catch (IssueException $e) {
@@ -497,11 +497,18 @@ class ParseVisitor extends ScopeVisitor
                     );
                 }
 
-                // Set the declared type to the doc-comment type and add
-                // |null if the default value is null
-                $property->setUnionType($property->getUnionType()->withUnionType(
-                    $variable->getUnionType()
-                ));
+                $original_property_type = $property->getUnionType();
+                $variable_type = $variable->getUnionType();
+                if ($variable_type->hasGenericArray() && !$original_property_type->hasTypeMatchingCallback(function (Type $type) : bool {
+                    return \get_class($type) !== ArrayType::class;
+                })) {
+                    // Don't convert `/** @var T[] */ public $x = []` to union type `string[]|array`
+                    $property->setUnionType($variable_type);
+                } else {
+                    // Set the declared type to the doc-comment type and add
+                    // |null if the default value is null
+                    $property->setUnionType($original_property_type->withUnionType($variable_type));
+                }
             }
 
             // Don't set 'null' as the type if that's the default

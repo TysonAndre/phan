@@ -75,6 +75,12 @@ return [
 
     'generic_types_enabled' => true,
 
+    'guess_unknown_parameter_type_using_default' => true,
+
+    // If enabled, warn about throw statement where the exception types
+    // are not documented in the PHPDoc of functions, methods, and closures.
+    'warn_about_undocumented_throw_statements' => true,
+
     'minimum_severity' => Issue::SEVERITY_LOW,
 
     'directory_list' => ['src'],

@@ -62,7 +62,7 @@ class Clazz extends AddressableElement
     private $trait_fqsen_list = [];
 
     /**
-     * @var array<int,TraitAdaptations>
+     * @var array<string,TraitAdaptations>
      * Maps lowercase fqsen of a method to the trait names which are hidden
      * and the trait aliasing info
      */
@@ -2259,7 +2259,7 @@ class Clazz extends AddressableElement
             return;
         }
         $next_class_fqsen = $class_fqsen->withAlternateId($class_fqsen->getAlternateId() + 1);
-        if ($code_base->hasClassWithFQSEN($next_class_fqsen)) {
+        if (!$this->isPHPInternal() && $code_base->hasClassWithFQSEN($next_class_fqsen)) {
             $this->warnAboutAmbiguousInheritance($code_base, $class, $next_class_fqsen);
         }
 

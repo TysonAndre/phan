@@ -50,6 +50,7 @@ use Phan\Language\UnionType;
 use Phan\Language\UnionTypeBuilder;
 use ast\Node;
 use ast;
+use AssertionError;
 
 /**
  * Determine the UnionType associated with a
@@ -530,6 +531,8 @@ class UnionTypeVisitor extends AnalysisVisitor
      * @return UnionType
      * The set of types that are possibly produced by the
      * given node
+     *
+     * @throws AssertionError if the type flags were unknown
      */
     public function visitType(Node $node) : UnionType
     {
@@ -555,7 +558,7 @@ class UnionTypeVisitor extends AnalysisVisitor
             case \ast\flags\TYPE_VOID:
                 return VoidType::instance(false)->asUnionType();
             default:
-                throw new \AssertionError("All flags must match. Found "
+                throw new AssertionError("All flags must match. Found "
                     . Debug::astFlagDescription($node->flags ?? 0, $node->kind));
         }
     }
@@ -1008,6 +1011,8 @@ class UnionTypeVisitor extends AnalysisVisitor
      * @return UnionType
      * The set of types that are possibly produced by the
      * given node
+     *
+     * @throws NodeException if the flags are a value we aren't expecting
      */
     public function visitCast(Node $node) : UnionType
     {
@@ -1171,6 +1176,9 @@ class UnionTypeVisitor extends AnalysisVisitor
      * @return UnionType
      * The set of types that are possibly produced by the
      * given node
+     *
+     * @throws IssueException
+     * if the dimension access is invalid
      */
     public function visitDim(Node $node) : UnionType
     {
@@ -1193,6 +1201,7 @@ class UnionTypeVisitor extends AnalysisVisitor
         static $string_type;
         static $int_union_type;
         static $int_or_string_union_type;
+
         if ($array_access_type === null) {
             // array offsets work on strings, unfortunately
             // Double check that any classes in the type don't
@@ -1206,12 +1215,14 @@ class UnionTypeVisitor extends AnalysisVisitor
             $int_union_type = IntType::instance(false)->asUnionType();
             $int_or_string_union_type = new UnionType([IntType::instance(false), StringType::instance(false)], true);
         }
+
         if ($union_type->hasTopLevelArrayShapeTypeInstances()) {
             $element_type = $this->resolveArrayShapeElementTypes($node, $union_type);
             if ($element_type !== null) {
                 return $element_type;
             }
         }
+
         $dim_type = self::unionTypeFromNode(
             $this->code_base,
             $this->context,
@@ -1221,12 +1232,11 @@ class UnionTypeVisitor extends AnalysisVisitor
 
         // Figure out what the types of accessed array
         // elements would be.
-        $generic_types =
-            $union_type->genericArrayElementTypes();
+        $generic_types = $union_type->genericArrayElementTypes();
 
         // If we have generics, we're all set
         if (!$generic_types->isEmpty()) {
-            if ($this->isSuspiciousNullable($union_type) && !($node->flags & self::FLAG_IGNORE_NULLABLE)) {
+            if (!($node->flags & self::FLAG_IGNORE_NULLABLE) && $this->isSuspiciousNullable($union_type)) {
                 $this->emitIssue(
                     Issue::TypeArraySuspiciousNullable,
                     $node->lineno ?? 0,
@@ -1235,7 +1245,7 @@ class UnionTypeVisitor extends AnalysisVisitor
             }
 
             if (!$dim_type->isEmpty()) {
-                if (!$union_type->asExpandedTypes($this->code_base)->hasArrayAccess() && !$union_type->hasMixedType()) {
+                if (!$union_type->hasMixedType() && !$union_type->asExpandedTypes($this->code_base)->hasArrayAccess()) {
                     if (Config::getValue('scalar_array_key_cast')) {
                         $expected_key_type = $int_or_string_union_type;
                     } else {
@@ -1244,14 +1254,14 @@ class UnionTypeVisitor extends AnalysisVisitor
                             GenericArrayType::CONVERT_KEY_MIXED_TO_INT_OR_STRING_UNION_TYPE
                         );
                     }
+
                     if (!$dim_type->canCastToUnionType($expected_key_type)) {
                         $issue_type = Issue::TypeMismatchDimFetch;
 
-                        if ($dim_type->containsNullable()) {
-                            if ($dim_type->nonNullableClone()->canCastToUnionType($expected_key_type)) {
-                                $issue_type = Issue::TypeMismatchDimFetchNullable;
-                            }
+                        if ($dim_type->containsNullable() && $dim_type->nonNullableClone()->canCastToUnionType($expected_key_type)) {
+                            $issue_type = Issue::TypeMismatchDimFetchNullable;
                         }
+
                         if ($this->should_catch_issue_exception) {
                             $this->emitIssue(
                                 $issue_type,
@@ -1262,6 +1272,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                             );
                             return $generic_types;
                         }
+
                         throw new IssueException(
                             Issue::fromType($issue_type)(
                                 $this->context->getFile(),
@@ -1286,9 +1297,13 @@ class UnionTypeVisitor extends AnalysisVisitor
         // You can access string characters via array index,
         // so we'll add the string type to the result if we're
         // indexing something that could be a string
-        if ($union_type->isType($string_type)
+        if ($union_type->isNonNullStringType()
             || ($union_type->canCastToUnionType($string_type->asUnionType()) && !$union_type->hasMixedType())
         ) {
+            if (Config::get_closest_target_php_version_id() < 70100 && $union_type->isNonNullStringType()) {
+                $this->analyzeNegativeStringOffsetCompatibility($node, $dim_type);
+            }
+
             if (!$dim_type->isEmpty() && !$dim_type->canCastToUnionType($int_union_type)) {
                 // TODO: Efficient implementation of asExpandedTypes()->hasArrayAccess()?
                 if (!$union_type->isEmpty() && !$union_type->asExpandedTypes($this->code_base)->hasArrayLike()) {
@@ -1420,7 +1435,7 @@ class UnionTypeVisitor extends AnalysisVisitor
     }
 
     /**
-     * Visit a node with kind `\ast\AST_DIM`
+     * Visit a node with kind `\ast\AST_UNPACK`
      *
      * @param Node $node
      * A node of the type indicated by the method name that we'd
@@ -1429,6 +1444,9 @@ class UnionTypeVisitor extends AnalysisVisitor
      * @return UnionType
      * The set of types that are possibly produced by the
      * given node
+     *
+     * @throws IssueException
+     * if the unpack is on an invalid expression
      */
     public function visitUnpack(Node $node) : UnionType
     {
@@ -1518,6 +1536,9 @@ class UnionTypeVisitor extends AnalysisVisitor
      * @return UnionType
      * The set of types that are possibly produced by the
      * given node
+     *
+     * @throws IssueException
+     * if variable is undeclined and being fetched
      */
     public function visitVar(Node $node) : UnionType
     {
@@ -2816,5 +2837,21 @@ class UnionTypeVisitor extends AnalysisVisitor
             }
         }
         return null;
+    }
+
+    /**
+     * @param Node $node
+     * @return void
+     */
+    private function analyzeNegativeStringOffsetCompatibility(Node $node, UnionType $dim_type)
+    {
+        $dim_value = $dim_type->asSingleScalarValueOrNull();
+        if (!\is_int($dim_value) || $dim_value >= 0) {
+            return;
+        }
+        $this->emitIssue(
+            Issue::CompatibleNegativeStringOffset,
+            $node->children['dim']->lineno ?? $node->lineno ?? 0
+        );
     }
 }

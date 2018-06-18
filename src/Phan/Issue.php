@@ -51,6 +51,7 @@ class Issue
     const UndeclaredTypeThrowsType  = 'PhanUndeclaredTypeThrowsType';
     const UndeclaredVariable        = 'PhanUndeclaredVariable';
     const UndeclaredVariableDim     = 'PhanUndeclaredVariableDim';
+    const UndeclaredVariableAssignOp = 'PhanUndeclaredVariableAssignOp';
     const UndeclaredClassInCallable = 'PhanUndeclaredClassInCallable';
     const UndeclaredStaticMethodInCallable = 'PhanUndeclaredStaticMethodInCallable';
     const UndeclaredFunctionInCallable = 'PhanUndeclaredFunctionInCallable';
@@ -73,6 +74,10 @@ class Issue
     const TypeInvalidClosureScope   = 'PhanTypeInvalidClosureScope';
     const TypeInvalidLeftOperand    = 'PhanTypeInvalidLeftOperand';
     const TypeInvalidRightOperand   = 'PhanTypeInvalidRightOperand';
+    const TypeInvalidLeftOperandOfAdd  = 'PhanTypeInvalidLeftOperandOfAdd';
+    const TypeInvalidRightOperandOfAdd = 'PhanTypeInvalidRightOperandOfAdd';
+    const TypeInvalidLeftOperandOfNumericOp = 'PhanTypeInvalidLeftOperandOfNumericOp';
+    const TypeInvalidRightOperandOfNumericOp = 'PhanTypeInvalidRightOperandOfNumericOp';
     const TypeInvalidInstanceof     = 'PhanTypeInvalidInstanceof';
     const TypeInvalidDimOffset      = 'PhanTypeInvalidDimOffset';
     const TypeInvalidDimOffsetArrayDestructuring = 'PhanTypeInvalidDimOffsetArrayDestructuring';
@@ -299,17 +304,19 @@ class Issue
     const AccessOverridesFinalMethodPHPDoc       = 'PhanAccessOverridesFinalMethodPHPDoc';
 
     // Issue::CATEGORY_COMPATIBLE
-    const CompatibleExpressionPHP7          = 'PhanCompatibleExpressionPHP7';
-    const CompatiblePHP7                    = 'PhanCompatiblePHP7';
-    const CompatibleNullableTypePHP70       = 'PhanCompatibleNullableTypePHP70';
-    const CompatibleShortArrayAssignPHP70   = 'PhanCompatibleShortArrayAssignPHP70';
-    const CompatibleKeyedArrayAssignPHP70   = 'PhanCompatibleKeyedArrayAssignPHP70';
-    const CompatibleVoidTypePHP70           = 'PhanCompatibleVoidTypePHP70';
-    const CompatibleIterableTypePHP70       = 'PhanCompatibleIterableTypePHP70';
-    const CompatibleObjectTypePHP71         = 'PhanCompatibleNullableTypePHP71';
-    const CompatibleUseVoidPHP70            = 'PhanCompatibleUseVoidPHP70';
-    const CompatibleUseIterablePHP71        = 'PhanCompatibleUseIterablePHP71';
-    const CompatibleUseObjectPHP71          = 'PhanCompatibleUseObjectPHP71';
+    const CompatibleExpressionPHP7           = 'PhanCompatibleExpressionPHP7';
+    const CompatiblePHP7                     = 'PhanCompatiblePHP7';
+    const CompatibleNullableTypePHP70        = 'PhanCompatibleNullableTypePHP70';
+    const CompatibleShortArrayAssignPHP70    = 'PhanCompatibleShortArrayAssignPHP70';
+    const CompatibleKeyedArrayAssignPHP70    = 'PhanCompatibleKeyedArrayAssignPHP70';
+    const CompatibleVoidTypePHP70            = 'PhanCompatibleVoidTypePHP70';
+    const CompatibleIterableTypePHP70        = 'PhanCompatibleIterableTypePHP70';
+    const CompatibleObjectTypePHP71          = 'PhanCompatibleNullableTypePHP71';
+    const CompatibleUseVoidPHP70             = 'PhanCompatibleUseVoidPHP70';
+    const CompatibleUseIterablePHP71         = 'PhanCompatibleUseIterablePHP71';
+    const CompatibleUseObjectPHP71           = 'PhanCompatibleUseObjectPHP71';
+    const CompatibleMultiExceptionCatchPHP70 = 'PhanCompatibleMultiExceptionCatchPHP70';
+    const CompatibleNegativeStringOffset     = 'PhanCompatibleNegativeStringOffset';
 
     // Issue::CATEGORY_GENERIC
     const TemplateTypeConstant       = 'PhanTemplateTypeConstant';
@@ -330,6 +337,8 @@ class Issue
     const CommentOverrideOnNonOverrideMethod = 'PhanCommentOverrideOnNonOverrideMethod';
     const CommentOverrideOnNonOverrideConstant = 'PhanCommentOverrideOnNonOverrideConstant';
     const CommentParamOutOfOrder           = 'PhanCommentParamOutOfOrder';
+    const ThrowTypeAbsent                  = 'PhanThrowTypeAbsent';
+    const ThrowTypeMismatch                = 'PhanThrowTypeMismatch';
 
 
     const CATEGORY_ACCESS            = 1 << 1;
@@ -370,11 +379,16 @@ class Issue
         self::CATEGORY_VARIABLE          => 'VarError',
     ];
 
+    /** Low severity. E.g. documentation errors or code that would cause a (typically harmless) PHP notice. */
     const SEVERITY_LOW      = 0;
+    /** Normal severity. E.g. something that may cause a minor bug. */
     const SEVERITY_NORMAL   = 5;
+    /** Highest severity. Likely to cause an uncaught Error, Exception, or fatal error at runtime. */
     const SEVERITY_CRITICAL = 10;
 
     // See https://docs.codeclimate.com/v1.0/docs/remediation
+    // TODO: Decide on a way to estimate these and bring these up to date once codeclimate updates phan.
+    // Right now, almost everything is REMEDIATION_B.
     const REMEDIATION_A = 1000000;
     const REMEDIATION_B = 3000000;
     /** @suppress PhanUnreferencedPublicClassConstant */
@@ -738,6 +752,14 @@ class Issue
                 "Variable \${VARIABLE} was undeclared, but array fields are being added to it.",
                 self::REMEDIATION_B,
                 11027
+            ),
+            new Issue(
+                self::UndeclaredVariableAssignOp,
+                self::CATEGORY_UNDEFINED,
+                self::SEVERITY_LOW,
+                "Variable \${VARIABLE} was undeclared, but it is being used as the left hand side of an assignment operation",
+                self::REMEDIATION_B,
+                11037
             ),
             new Issue(
                 self::UndeclaredTypeReturnType,
@@ -1142,6 +1164,38 @@ class Issue
                 "Invalid operator: right operand is array and left is not",
                 self::REMEDIATION_B,
                 10016
+            ),
+            new Issue(
+                self::TypeInvalidRightOperandOfAdd,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Invalid operator: right operand is {TYPE} (expected array or number)",
+                self::REMEDIATION_B,
+                10070
+            ),
+            new Issue(
+                self::TypeInvalidLeftOperandOfAdd,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Invalid operator: left operand is {TYPE} (expected array or number)",
+                self::REMEDIATION_B,
+                10071
+            ),
+            new Issue(
+                self::TypeInvalidRightOperandOfNumericOp,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Invalid operator: right operand is {TYPE} (expected number)",
+                self::REMEDIATION_B,
+                10072
+            ),
+            new Issue(
+                self::TypeInvalidLeftOperandOfNumericOp,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Invalid operator: left operand is {TYPE} (expected number)",
+                self::REMEDIATION_B,
+                10073
             ),
             new Issue(
                 self::TypeParentConstructorCalled,
@@ -2605,6 +2659,22 @@ class Issue
                 self::REMEDIATION_B,
                 3010
             ),
+            new Issue(
+                self::CompatibleMultiExceptionCatchPHP70,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_CRITICAL,
+                "Catching multiple exceptions is not supported before PHP 7.1",
+                self::REMEDIATION_B,
+                3011
+            ),
+            new Issue(
+                self::CompatibleNegativeStringOffset,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_NORMAL,
+                "Using negative string offsets is not supported before PHP 7.1 (emits an 'Uninitialized string offset' notice)",
+                self::REMEDIATION_B,
+                3012
+            ),
 
             // Issue::CATEGORY_GENERIC
             new Issue(
@@ -2778,6 +2848,22 @@ class Issue
                 "Expected @param annotation for {VARIABLE} to be before the @param annotation for {VARIABLE}",
                 self::REMEDIATION_A,
                 16008
+            ),
+            new Issue(
+                self::ThrowTypeAbsent,
+                self::CATEGORY_COMMENT,
+                self::SEVERITY_LOW,
+                "{METHOD}() can throw {TYPE} here, but has no '@throws' declarations",
+                self::REMEDIATION_A,
+                16011
+            ),
+            new Issue(
+                self::ThrowTypeMismatch,
+                self::CATEGORY_COMMENT,
+                self::SEVERITY_LOW,
+                "{METHOD}() throws {TYPE}, but it only has declarations of '@throws {TYPE}'",
+                self::REMEDIATION_A,
+                16012
             ),
         ];
 

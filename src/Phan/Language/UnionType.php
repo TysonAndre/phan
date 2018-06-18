@@ -1005,6 +1005,35 @@ class UnionType implements \Serializable
     }
 
     /**
+     * Returns true if this is exclusively non-null IntType or FloatType or subclasses
+     */
+    public function isNonNullNumberType() : bool
+    {
+        if (\count($this->type_set) === 0) {
+            return false;
+        }
+        foreach ($this->type_set as $type) {
+            if (!($type instanceof IntType || $type instanceof FloatType) || $type->getIsNullable()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Returns true if this contains at least one non-null StringType or LiteralStringType
+     */
+    public function hasStringType() : bool
+    {
+        foreach ($this->type_set as $type) {
+            if ($type instanceof StringType) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Returns true if this contains at least one non-null StringType or LiteralStringType
      */
     public function hasNonNullStringType() : bool
@@ -2810,6 +2839,9 @@ class UnionType implements \Serializable
                 if ($can_be_float) {
                     if (!($type instanceof IntType)) {
                         $type_set = $type_set->withType(FloatType::instance(false));
+                        if (!($type instanceof FloatType)) {
+                            $type_set = $type_set->withType(IntType::instance(false));
+                        }
                         $added_fallbacks = true;
                     } else {
                         $type_set = $type_set->withType(IntType::instance(false));

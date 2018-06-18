@@ -12,6 +12,8 @@ use Phan\Output\IgnoredFilesFilterInterface;
 use Phan\Output\IssueCollectorInterface;
 use Phan\Output\IssuePrinterInterface;
 use Phan\Plugin\ConfigPluginSet;
+use Exception;
+use InvalidArgumentException;
 
 /**
  * This executes the the parse, method/function, then the analysis phases.
@@ -27,14 +29,14 @@ class Phan implements IgnoredFilesFilterInterface
     public static $printer;
 
     /** @var IssueCollectorInterface */
-    private static $issueCollector;
+    private static $issue_collector;
 
     /**
      * @return IssueCollectorInterface
      */
     public static function getIssueCollector() : IssueCollectorInterface
     {
-        return self::$issueCollector;
+        return self::$issue_collector;
     }
 
     /**
@@ -45,7 +47,7 @@ class Phan implements IgnoredFilesFilterInterface
     public static function setIssueCollector(
         IssueCollectorInterface $issueCollector
     ) {
-        self::$issueCollector = $issueCollector;
+        self::$issue_collector = $issueCollector;
     }
 
     /**
@@ -237,6 +239,8 @@ class Phan implements IgnoredFilesFilterInterface
      * @param ?Request $request
      * @param array<int,string> $analyze_file_path_list
      * @param array<string,string> $temporary_file_mapping
+     *
+     * @throws Exception if analysis failed catastrophically
      */
     public static function finishAnalyzingRemainingStatements(
         CodeBase $code_base,
@@ -387,7 +391,7 @@ class Phan implements IgnoredFilesFilterInterface
             }
 
             // Get a count of the number of issues that were found
-            $issue_count = count((self::$issueCollector)->getCollectedIssues());
+            $issue_count = count((self::$issue_collector)->getCollectedIssues());
             $is_issue_found =
                 0 !== $issue_count;
 
@@ -397,7 +401,7 @@ class Phan implements IgnoredFilesFilterInterface
             if (Config::get()->print_memory_usage_summary) {
                 self::printMemoryUsageSummary();
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             if ($request instanceof Request) {
                 // Give people using the language server client/daemon a somewhat useful response.
                 $request->sendJSONResponse([
@@ -505,7 +509,7 @@ class Phan implements IgnoredFilesFilterInterface
      */
     private static function display()
     {
-        $collector = self::$issueCollector;
+        $collector = self::$issue_collector;
 
         $printer = self::$printer;
 
@@ -595,7 +599,7 @@ class Phan implements IgnoredFilesFilterInterface
     /**
      * Loads configured stubs for internal PHP extensions.
      * @return void
-     * @throws \InvalidArgumentException if autoload_internal_extension_signatures has invalid entries
+     * @throws InvalidArgumentException if the stubs or stub config is invalid
      */
     private static function loadConfiguredPHPExtensionStubs(CodeBase $code_base)
     {

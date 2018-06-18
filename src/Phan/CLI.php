@@ -8,6 +8,8 @@ use Phan\Output\Filter\ChainedIssueFilter;
 use Phan\Output\Filter\FileIssueFilter;
 use Phan\Output\Filter\MinimumSeverityFilter;
 use Phan\Output\PrinterFactory;
+
+use InvalidArgumentException;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Output\StreamOutput;
@@ -24,7 +26,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    const PHAN_VERSION = '0.12.13-dev';
+    const PHAN_VERSION = '0.12.14-dev';
 
     /**
      * @var OutputInterface
@@ -251,9 +253,9 @@ class CLI
                             }
                             $this->file_list_in_config = array_merge(
                                 $this->file_list,
-                                $this->directoryNameToFileList(
+                                array_values($this->directoryNameToFileList(
                                     $directory_name
-                                )
+                                ))
                             );
                         }
                     }
@@ -549,7 +551,7 @@ class CLI
             foreach (Config::getValue('directory_list') as $directory_name) {
                 $this->file_list = array_merge(
                     $this->file_list,
-                    $this->directoryNameToFileList($directory_name)
+                    array_values($this->directoryNameToFileList($directory_name))
                 );
             }
 
@@ -877,6 +879,9 @@ EOB;
      *
      * @return array<string,string>
      * A list of PHP files in the given directory
+     *
+     * @throws InvalidArgumentException
+     * if there is nothing to analyze
      */
     private function directoryNameToFileList(
         string $directory_name
@@ -887,7 +892,7 @@ EOB;
             $file_extensions = Config::getValue('analyzed_file_extensions');
 
             if (!\is_array($file_extensions) || count($file_extensions) === 0) {
-                throw new \InvalidArgumentException(
+                throw new InvalidArgumentException(
                     'Empty list in config analyzed_file_extensions. Nothing to analyze.'
                 );
             }
@@ -1053,11 +1058,15 @@ EOB;
             ]);
 
         // Totally cool if the file isn't there
-        if (!file_exists($config_file_name)) {
+        if ($config_file_name === false || !file_exists($config_file_name)) {
             if ($require_config_exists) {
                 // But if the CLI option --require-config-exists is provided, exit immediately.
                 // (Include extended help documenting that option)
-                $this->usage("Could not find a config file at '$config_file_name', but --require-config-exists was set", EXIT_FAILURE, true);
+                if ($config_file_name !== false) {
+                    $this->usage("Could not find a config file at '$config_file_name', but --require-config-exists was set", EXIT_FAILURE, true);
+                } else {
+                    $this->usage(sprintf("Could not figure out the path for config file '%s', but --require-config-exists was set", $this->config_file), EXIT_FAILURE, true);
+                }
             }
             return;
         }

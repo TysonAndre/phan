@@ -1,6 +1,16 @@
 Phan NEWS
 
-?? ??? 2018, Phan 0.12.13 (dev)
+?? ??? 2018, Phan 0.12.14 (dev)
+-------------------------
+
+New features(CLI, Configs)
++ Add `warn_about_undocumented_throw_statements` config. (#90)
+  If this is enabled, Phan will warn about uncaught throw statements that aren't documented in the function's PHPDoc.
+  This does not yet check function and method calls within the checked function that may themselves throw.
+
+  New issue types: `PhanThrowTypeAbsent`, `PhanThrowTypeMismatch`
+
+16 Jun 2018, Phan 0.12.13
 -------------------------
 
 New features(Analysis)
@@ -22,15 +32,24 @@ New features(Analysis)
   New issue types: `PhanAccessNonStaticToStaticProperty`, `PhanAccessStaticToNonStaticProperty`
 + Warn about inheriting from a class/trait/interface that has multiple possible definitions (#773)
   New issue types: `PhanRedefinedExtendedClass`, `PhanRedefinedUsedTrait`, `PhanRedefinedInheritedInterface`
++ Infer more accurate types for the side effects of assignment operators (i.e. `+=`, `.=`, etc) and other binary operations. (#1775)
++ Warn about invalid arguments to binary operators or assignment operators.
+  New issue types: `PhanTypeInvalidLeftOperandOfAdd`,  `PhanTypeInvalidLeftOperandOfNumericOp`,
+                   `PhanTypeInvalidRightOperandOfAdd`, `PhanTypeInvalidRightOperandOfNumericOp`
++ Warn about using negative string offsets and multiple catch exceptions in PHP 7.0 (if `target_php_version` is less than `'7.1'`). (#1771, #1778)
+  New issue types: `PhanCompatibleMultiExceptionCatchPHP70`, `PhanCompatibleNegativeStringOffset`.
 
 Maintenance:
 + Update signature map with more accurate signatures (#1761)
 + Upgrade tolerant-php-parser, making the polyfill/fallback able to parse PHP 7.1's multi exception catch.
 
 Bug fixes:
++ Don't add more generic types to properties with more specific PHPDoc types (#1783).
+  For example, don't add `array` to a property declared with PHPDoc type `/** @var string[] */`
 + Fix uncaught `AssertionError` when `parent` is used in PHPDoc (#1758)
 + Fix various bugs that can cause crashes in the polyfill/fallback parser when parsing invalid or incomplete ASTs.
 + Fix unparseable/invalid function signature entries of rarely used functions
++ Warn about undefined variables on the left hand side of assignment operations (e.g. `$x .= 'string'`) (#1613)
 
 08 Jun 2018, Phan 0.12.12
 -------------------------
