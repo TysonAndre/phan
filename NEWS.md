@@ -4,11 +4,20 @@ Phan NEWS
 -------------------------
 
 New features(CLI, Configs)
-+ Add `warn_about_undocumented_throw_statements` config. (#90)
-  If this is enabled, Phan will warn about uncaught throw statements that aren't documented in the function's PHPDoc.
++ Add `warn_about_undocumented_throw_statements` and `exception_classes_with_optional_throws_phpdoc` config. (#90)
+
+  If `warn_about_undocumented_throw_statements` is true, Phan will warn about uncaught throw statements that aren't documented in the function's PHPDoc.
+  (excluding classes listed in `exception_classes_with_optional_throws_phpdoc` and their subclasses)
   This does not yet check function and method calls within the checked function that may themselves throw.
 
   New issue types: `PhanThrowTypeAbsent`, `PhanThrowTypeMismatch`
+
+New features(Analysis)
++ Support analysis of [`list()` reference assignment](https://wiki.php.net/rfc/list_reference_assignment) for php 7.3 (which is still in alpha). (#1537)
+
+Bug fixes:
++ Start warning about assignment operations (e.g. `+=`) when the modified variable isn't referenced later in the function.
++ Fix another rare bug that can cause crashes in the polyfill/fallback parser when parsing invalid or incomplete ASTs.
 
 16 Jun 2018, Phan 0.12.13
 -------------------------
