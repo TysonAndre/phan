@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 class InvokeExecutionPromiseSCCP
 {
@@ -21,18 +21,20 @@ class InvokeExecutionPromiseSCCP
     private $output = null;
 
     /** @var string */
-    private $raw_stdout = '';
+    private $raw_stderr = '';
 
     /** @var string */
     private $abs_path;
 
-    public function __construct(string $binary, string $file_contents, string $abs_path, string $optimization_level)
+    public function __construct(string $binary, string $file_contents, string $abs_path, bool $optimize)
     {
         // TODO: Use symfony process
         // Note: We might have invalid utf-8, ensure that the streams are opened in binary mode.
         // I'm not sure if this is necessary.
 
-        $cmd = $binary . " -d opcache.enable_cli=1 -d opcache.opt_debug_level=0x20000 -d opcache.optimization_level=$optimization_level --syntax-check";
+        $optimization_level = $optimize ? '-1' : '0';
+        $debug_level = $optimize ? '0x20000' : '0x10000';
+        $cmd = $binary . " -d opcache.enable_cli=1 -d opcache.opt_debug_level=$debug_level -d opcache.optimization_level=$optimization_level --syntax-check $abs_path";
 
         if (DIRECTORY_SEPARATOR === "\\") {
 
@@ -53,7 +55,7 @@ class InvokeExecutionPromiseSCCP
             $cmd .= ' < ' . escapeshellarg($abs_path);
 
             $descriptorspec = [
-                1 => ['pipe', 'wb'],
+                2 => ['pipe', 'wb'],
             ];
             $this->binary = $binary;
             $process = proc_open($cmd, $descriptorspec, $pipes);
@@ -70,8 +72,7 @@ class InvokeExecutionPromiseSCCP
             }
             echo "Invoking $cmd\n";
             $descriptorspec = [
-                ['pipe', 'rb'],
-                ['pipe', 'wb'],
+                2 => ['pipe', 'wb'],
             ];
             $this->binary = $binary;
             $process = proc_open($cmd, $descriptorspec, $pipes);
@@ -82,12 +83,12 @@ class InvokeExecutionPromiseSCCP
             }
             $this->process = $process;
 
-            self::streamPutContents($pipes[0], $file_contents);
+            // self::streamPutContents($pipes[0], $file_contents);
         }
         $this->pipes = $pipes;
 
-        if (!stream_set_blocking($pipes[1], false)) {
-            $this->error = "unable to set read stdout to non-blocking";
+        if (!stream_set_blocking($pipes[2], false)) {
+            $this->error = "unable to set read stderr to non-blocking";
         }
         $this->abs_path = $abs_path;
     }
@@ -138,28 +139,30 @@ class InvokeExecutionPromiseSCCP
         if ($this->done) {
             return true;
         }
-        $stdout = $this->pipes[1];
-        while (!feof($stdout)) {
-            $bytes = fread($stdout, 4096);
-            if (strlen($bytes) === 0) {
-                break;
+        $stderr = $this->pipes[2];
+        while (!feof($stderr)) {
+            if (!feof($stderr)) {
+                $bytes = fread($stderr, 4096);
+                if (strlen($bytes) === 0) {
+                    break;
+                }
+                $this->raw_stderr .= $bytes;
             }
-            $this->raw_stdout .= $bytes;
         }
-        if (!feof($stdout)) {
+        if (!feof($stderr)) {
             return false;
         }
-        fclose($stdout);
+        fclose($stderr);
 
         $this->done = true;
 
         $exit_code = proc_close($this->process);
         if ($exit_code === 0) {
-            $this->output = str_replace("\r", "", trim($this->raw_stdout));
+            $this->output = str_replace("\r", "", trim($this->raw_stderr));
             $this->error = null;
             return true;
         }
-        $output = str_replace("\r", "", trim($this->raw_stdout));
+        $output = str_replace("\r", "", trim($this->raw_stderr));
         $first_line = explode("\n", $output)[0];
         $this->error = $first_line;
         return true;
@@ -174,8 +177,8 @@ class InvokeExecutionPromiseSCCP
         if ($this->done) {
             return;
         }
-        if (!stream_set_blocking($this->pipes[1], true)) {
-            throw new Error("Unable to make stdout blocking");
+        if (!stream_set_blocking($this->pipes[2], true)) {
+            throw new Error("Unable to make stderr blocking");
         }
         if (!$this->read()) {
             throw new Error("Failed to read");
@@ -217,6 +220,151 @@ class InvokeExecutionPromiseSCCP
     }
 }
 
+class SCCPOpline
+{
+    /** @var string */
+    public $opline;
+    /** @var string */
+    public $opcode;
+    public $valid = false;
+
+    public function __construct(string $opline) {
+        $this->opline = $opline;
+        $this->opcode = preg_split('/\s+/', $opline, 4)[2] ?? '';
+        $this->valid = $this->opcode !== '';
+    }
+
+    /**
+     * This is a heuristic
+     */
+    public function isDynamic() {
+        return preg_match('/NEW|CALL|JMP|FETCH_/', $this->opcode) > 0;
+    }
+
+    public function isSimpleReturn() {
+        return preg_match('/^(RETURN$|CV[0-9]+\()/', $this->opcode) > 0;
+    }
+}
+
+class SCCPFunction
+{
+    /** @var array<int,string> */
+    public $lines;
+    /** @var ?string */
+    public $function_name;
+
+    /** @var bool */
+    public $valid = false;
+
+    /** @var ?array{0:int,1:int} */
+    public $range;
+
+    /** @var bool */
+    public $oplines = false;
+
+    /** @param array<int,string> $lines */
+    public function __construct(array $lines) {
+        $remaining_lines = array_reverse($lines);
+        if (preg_match('/^(\S+): ; \(lines=/', $lines[0], $matches)) {
+            $this->function_name = $matches[1];
+            echo "Found a function name $this->function_name\n";
+        } else {
+            return;
+        }
+        array_pop($remaining_lines);
+        while (count($remaining_lines) > 0) {
+            $line = array_pop($remaining_lines);
+            echo "Checking $line\n";
+            if (preg_match('/^\s+;\s+.*([0-9]+)-([0-9]+)$/', $line, $matches)) {
+                echo "Found a range\n";
+                $this->range = [(int)$matches[1], (int)$matches[2]];
+                break;
+            }
+        }
+        if (!$this->range) {
+            return;
+        }
+        $expected_opline = 0;
+        while (count($remaining_lines) > 0) {
+            $line = array_pop($remaining_lines);
+            $pattern = '/^L' . $expected_opline . ' \([0-9]+\):/';
+            if (preg_match($pattern, $line)) {
+                $this->oplines[$expected_opline] = new SCCPOpline($line);
+                $expected_opline++;
+            }
+        }
+        // Even a void has at least one opcode?
+        $this->valid = $expected_opline > 0;
+    }
+
+    // Implies isSimpleReturn() is false
+    public function isDynamic() : bool {
+        assert($this->valid === true);
+        // There should be at least one opline
+        foreach ($this->oplines as $opline) {
+            if ($opline->isDynamic()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function isSimpleReturn() : bool {
+        assert($this->valid === true);
+        foreach ($this->oplines as $opline) {
+            if (!$opline->isSimpleReturn()) {
+                return false;
+            }
+        }
+        return true;
+    }
+}
+
+class SCCPHeuristicParser
+{
+    /**
+     * @return array<int,SCCPFunction>
+     */
+    private static function parseSections(string $raw) : array {
+        $sections = [];
+        $current_section = [];
+        foreach (explode("\n", $raw) as $line) {
+            // String literals make this hard to work with.
+            // A machine readable representation such as JSON would be easier.
+            if (!trim($line)) {
+                continue;
+            }
+            if (preg_match('/.* ; \(lines=[0-9]+, args=[0-9]+, vars=[0-9]+, tmps=[0-9]+/', $line)) {
+                if ($current_section) {
+                    $sections[] = new SCCPFunction($current_section);
+                    $current_section = [];
+                }
+            }
+            $current_section[] = $line;
+        }
+        if ($current_section) {
+            $sections[] = new SCCPFunction($current_section);
+            $current_section = [];
+        }
+        return $sections;
+    }
+
+    /**
+     * @return array<string,SCCPFunction>
+     */
+    public static function parse(string $raw) : array {
+        $sections = self::parseSections($raw);
+        $section_map = [];
+        foreach ($sections as $section) {
+            if (!$section->valid) {
+                continue;
+            }
+            $section_map[$section->function_name] = $section;
+        }
+        return $section_map;
+    }
+}
+
 class SCCPChecker {
     private $php_file_name;
 
@@ -231,10 +379,10 @@ class SCCPChecker {
             exit(2);
         }
         $contents = file_get_contents($php_file_name);
-        $unoptimized_opcode_promise = new InvokeExecutionPromiseSCCP(PHP_BINARY, $contents, $php_file_name, '0');
-        $optimized_opcode_promise   = new InvokeExecutionPromiseSCCP(PHP_BINARY, $contents, $php_file_name, '-1');
-
+        $unoptimized_opcode_promise = new InvokeExecutionPromiseSCCP(PHP_BINARY, $contents, $php_file_name, false);
         $unoptimized_opcode_promise->blockingRead();
+        $optimized_opcode_promise   = new InvokeExecutionPromiseSCCP(PHP_BINARY, $contents, $php_file_name, true);
+
         $optimized_opcode_promise->blockingRead();
         $err1 = $unoptimized_opcode_promise->getError();
         $err2 = $optimized_opcode_promise->getError();
@@ -248,7 +396,28 @@ class SCCPChecker {
         }
         $output1 = $unoptimized_opcode_promise->getOutput();
         $output2 = $optimized_opcode_promise->getOutput();
-        echo "Unoptimized:\n$output1\n\n#######################\n\nOptimized:\n$output2\n";
+
+        $unoptimized_map = SCCPHeuristicParser::parse($output1);
+        $optimized_map = SCCPHeuristicParser::parse($output2);
+        unset($unoptimized_map['$_main']);
+        unset($optimized_map['$_main']);
+        var_export($unoptimized_map);
+        var_export($optimized_map);
+
+        $failure = false;
+        foreach ($unoptimized_map as $function_name => $unoptimized_function) {
+            $optimized_function = $optimized_map[$function_name] ?? null;
+            if (!$optimized_function) {
+                continue;
+            }
+            if ($optimized_function->isSimpleReturn() && $unoptimized_function->isDynamic()) {
+                printf("WARNING: Failed to optimize $function_name at %d:%d\n", $optimized_function->range[0], $optimized_function->range[1]);
+                $failure = true;
+            }
+        }
+        if ($failure) {
+            printf("At least one function is a complicated no-op\n");
+        }
     }
 
     public static function main() {
