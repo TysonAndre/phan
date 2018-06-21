@@ -10,7 +10,17 @@ New features(CLI, Configs)
   (excluding classes listed in `exception_classes_with_optional_throws_phpdoc` and their subclasses)
   This does not yet check function and method calls within the checked function that may themselves throw.
 
-  New issue types: `PhanThrowTypeAbsent`, `PhanThrowTypeMismatch`
+  Add `warn_about_undocumented_exceptions_thrown_by_invoked_functions`.
+  If enabled (and `warn_about_undocumented_throw_statements` is enabled),
+  Phan will warn about function/closure/method invocations that have `@throws`
+  that aren't caught or documented in the invoking method.
+  New issue types: `PhanThrowTypeAbsent`, `PhanThrowTypeAbsentForCall`,
+  `PhanThrowTypeMismatch`, `PhanThrowTypeMismatchForCall`
+
+  Add `exception_classes_with_optional_throws_phpdoc` config.
+  Phan will not warn about lack of documentation of `@throws` for any of the configured classes or their subclasses.
+  The default is the empty array (Don't suppress any warnings.)
+  (E.g. Phan suppresses `['RuntimeException', 'AssertionError', 'TypeError']` for self-analysis)
 + Warn when string literals refer to invalid class names (E.g. `$myClass::SOME_CONSTANT`). (#1794)
   New issue types: `PhanTypeExpectedObjectOrClassNameInvalidName` (emitted if the name can't be used as a class)
   This will also emit `PhanUndeclaredClass` if the class name could not be found.
@@ -19,6 +29,7 @@ New features(Analysis)
 + Support analysis of [`list()` reference assignment](https://wiki.php.net/rfc/list_reference_assignment) for php 7.3 (which is still in alpha). (#1537)
 
 Bug fixes:
++ Fix a bug causing Phan to infer extra wrong types (`ancestorClass[][]`) for `@return className[]` (#1822)
 + Start warning about assignment operations (e.g. `+=`) when the modified variable isn't referenced later in the function.
 + Fix another rare bug that can cause crashes in the polyfill/fallback parser when parsing invalid or incomplete ASTs.
 
