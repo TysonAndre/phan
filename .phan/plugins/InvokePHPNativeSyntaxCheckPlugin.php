@@ -34,8 +34,6 @@ class InvokePHPNativeSyntaxCheckPlugin extends PluginV2 implements
     private $processes = [];
 
     /**
-     * TODO: Disable in LSP mode?
-     *
      * @param CodeBase $code_base @phan-unused-param
      * The code base in which the node exists
      *
@@ -61,8 +59,6 @@ class InvokePHPNativeSyntaxCheckPlugin extends PluginV2 implements
     }
 
     /**
-     * TODO: Disable in LSP mode?
-     *
      * @param CodeBase $code_base
      * The code base in which the node exists
      *
