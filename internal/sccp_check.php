@@ -34,7 +34,7 @@ class InvokeExecutionPromiseSCCP
 
         $optimization_level = $optimize ? '-1' : '0';
         $debug_level = $optimize ? '0x20000' : '0x10000';
-        $cmd = $binary . " -d opcache.enable_cli=1 -d opcache.opt_debug_level=$debug_level -d opcache.optimization_level=$optimization_level --syntax-check $abs_path";
+        $cmd = $binary . " -d opcache.enable_cli=1 -d opcache.opt_debug_level=$debug_level -d opcache.optimization_level=$optimization_level --syntax-check $abs_path 1>&2";
 
         if (DIRECTORY_SEPARATOR === "\\") {
 
@@ -70,7 +70,7 @@ class InvokeExecutionPromiseSCCP
                 $extension = 'opcache.so';
                 $cmd .= " -d zend_extension=$extension";
             }
-            echo "Invoking $cmd\n";
+            //echo "Invoking $cmd\n";
             $descriptorspec = [
                 2 => ['pipe', 'wb'],
             ];
@@ -226,23 +226,26 @@ class SCCPOpline
     public $opline;
     /** @var string */
     public $opcode;
+    /** @var bool */
     public $valid = false;
 
     public function __construct(string $opline) {
-        $this->opline = $opline;
-        $this->opcode = preg_split('/\s+/', $opline, 4)[2] ?? '';
+        $parts = preg_split('/\s+/', $opline, 4);
+        $this->opcode = $parts[2] ?? '';
+        $this->opline = trim($this->opcode . ' ' . ($parts[3] ?? ''));
         $this->valid = $this->opcode !== '';
     }
 
     /**
      * This is a heuristic
      */
-    public function isDynamic() {
-        return preg_match('/NEW|CALL|JMP|FETCH_/', $this->opcode) > 0;
+    public function isDynamic() : bool {
+        // This excludes DO_FCALL, JMP, etc.
+        return !preg_match('/^(RETURN\b|CV[0-9]+\(|[TV][0-9]+\s+=|VERIFY_RETURN_TYPE\b)/', $this->opline);
     }
 
-    public function isSimpleReturn() {
-        return preg_match('/^(RETURN$|CV[0-9]+\()/', $this->opcode) > 0;
+    public function isSimpleReturn() : bool {
+        return preg_match('/^(RETURN\b|CV[0-9]+\(|V[0-9]+\s+=|VERIFY_RETURN_TYPE\b)/', $this->opline) > 0;
     }
 }
 
@@ -267,16 +270,16 @@ class SCCPFunction
         $remaining_lines = array_reverse($lines);
         if (preg_match('/^(\S+): ; \(lines=/', $lines[0], $matches)) {
             $this->function_name = $matches[1];
-            echo "Found a function name $this->function_name\n";
+            //echo "Found a function name $this->function_name\n";
         } else {
             return;
         }
         array_pop($remaining_lines);
         while (count($remaining_lines) > 0) {
             $line = array_pop($remaining_lines);
-            echo "Checking $line\n";
+            //echo "Checking $line\n";
             if (preg_match('/^\s+;\s+.*([0-9]+)-([0-9]+)$/', $line, $matches)) {
-                echo "Found a range\n";
+                //echo "Found a range\n";
                 $this->range = [(int)$matches[1], (int)$matches[2]];
                 break;
             }
@@ -317,6 +320,15 @@ class SCCPFunction
             }
         }
         return true;
+    }
+
+    public function opcodeDump() : string
+    {
+        $result = '';
+        foreach ($this->oplines as $opline) {
+            $result .= $opline->opline . "\n";
+        }
+        return $result;
     }
 }
 
@@ -401,8 +413,8 @@ class SCCPChecker {
         $optimized_map = SCCPHeuristicParser::parse($output2);
         unset($unoptimized_map['$_main']);
         unset($optimized_map['$_main']);
-        var_export($unoptimized_map);
-        var_export($optimized_map);
+        //var_export($unoptimized_map);
+        //var_export($optimized_map);
 
         $failure = false;
         foreach ($unoptimized_map as $function_name => $unoptimized_function) {
@@ -411,7 +423,10 @@ class SCCPChecker {
                 continue;
             }
             if ($optimized_function->isSimpleReturn() && $unoptimized_function->isDynamic()) {
-                printf("WARNING: Failed to optimize $function_name at %d:%d\n", $optimized_function->range[0], $optimized_function->range[1]);
+                printf("WARNING: %s returns a constant in a less than optimal way at %d:%d\n", $function_name, $optimized_function->range[0], $optimized_function->range[1]);
+                echo $unoptimized_function->opcodeDump();
+                echo "vs optimized\n" . $optimized_function->opcodeDump();
+                echo "end\n";
                 $failure = true;
             }
         }
