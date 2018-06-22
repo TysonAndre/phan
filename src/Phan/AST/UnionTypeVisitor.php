@@ -34,6 +34,7 @@ use Phan\Language\Type\BoolType;
 use Phan\Language\Type\CallableType;
 use Phan\Language\Type\ClosureType;
 use Phan\Language\Type\FloatType;
+use Phan\Language\Type\GenericArrayInterface;
 use Phan\Language\Type\GenericArrayType;
 use Phan\Language\Type\LiteralIntType;
 use Phan\Language\Type\LiteralStringType;
@@ -50,6 +51,7 @@ use Phan\Language\UnionType;
 use Phan\Language\UnionTypeBuilder;
 use ast\Node;
 use ast;
+use Closure;
 use AssertionError;
 
 /**
@@ -123,8 +125,8 @@ class UnionTypeVisitor extends AnalysisVisitor
         bool $should_catch_issue_exception = true
     ) : UnionType {
         if (!($node instanceof Node)) {
-            // TODO: String null shouldn't be a special case (or should be case insensitive)?
             if ($node === null) {
+                // NOTE: Parameter default checks expect this to return empty
                 return UnionType::empty();
             }
             return Type::fromObject($node)->asUnionType();
@@ -1954,10 +1956,8 @@ class UnionTypeVisitor extends AnalysisVisitor
                     if ($union_type->genericArrayElementTypes()->hasStaticType()) {
                         // Find the static type on the list
                         $static_type = $union_type->findTypeMatchingCallback(function (Type $type) : bool {
-                            return (
-                                $type->isGenericArray()
-                                && $type->genericArrayElementUnionType()->hasStaticType()
-                            );
+                            return $type instanceof GenericArrayInterface
+                                && $type->genericArrayElementUnionType()->hasStaticType();  // @phan-suppress-current-line PhanUndeclaredMethod TODO: Support intersection types
                         });
 
                         // Remove it from the list
@@ -2032,30 +2032,71 @@ class UnionTypeVisitor extends AnalysisVisitor
             $node->children['expr']
         );
         if ($flags === \ast\flags\UNARY_MINUS) {
+            $this->warnAboutInvalidUnaryOp(
+                $node,
+                function (Type $type) {
+                    // TODO: Stricten this to warn about strings based on user config.
+                    return $type->isValidNumericOperand();
+                },
+                $result,
+                '-',
+                Issue::TypeInvalidUnaryOperandNumeric
+            );
             return $result->applyUnaryMinusOperator();
-        } elseif ($flags === \ast\flags\UNARY_BITWISE_NOT) {
-            return $result->applyUnaryBitwiseNotOperator();
         } elseif ($flags === \ast\flags\UNARY_PLUS) {
+            $this->warnAboutInvalidUnaryOp(
+                $node,
+                function (Type $type) {
+                    // NOTE: Don't be as strict because this is a way to cast to a number
+                    return $type->isValidNumericOperand();
+                },
+                $result,
+                '+',
+                Issue::TypeInvalidUnaryOperandNumeric
+            );
             return $result->applyUnaryPlusOperator();
+        } elseif ($flags === \ast\flags\UNARY_BITWISE_NOT) {
+            $this->warnAboutInvalidUnaryOp(
+                $node,
+                function (Type $type) {
+                    // Adding $type instanceof StringType in case it becomes necessary later
+                    return $type->isValidNumericOperand() || $type instanceof StringType;
+                },
+                $result,
+                '~',
+                Issue::TypeInvalidUnaryOperandBitwiseNot
+            );
+            return $result->applyUnaryBitwiseNotOperator();
         }
-        // UNARY_SILENCE or UNARY_PLUS
+        // UNARY_SILENCE
         return $result;
     }
 
     /**
-     * Visit a node with kind `\ast\AST_UNARY_MINUS`
-     *
-     * @param Node $node
-     * A node of the type indicated by the method name that we'd
-     * like to figure out the type that it produces.
-     *
-     * @return UnionType
-     * The set of types that are possibly produced by the
-     * given node
+     * @param Node $node with type AST_BINARY_OP
+     * @param Closure(Type):bool $is_valid_type
+     * @return void
      */
-    public function visitUnaryMinus(Node $node) : UnionType
-    {
-        return Type::fromObject($node->children['expr'])->asUnionType();
+    private function warnAboutInvalidUnaryOp(
+        Node $node,
+        Closure $is_valid_type,
+        UnionType $type,
+        string $operator,
+        string $issue_type
+    ) {
+        if ($type->isEmpty()) {
+            return;
+        }
+        if (!$type->hasTypeMatchingCallback($is_valid_type)) {
+            Issue::maybeEmit(
+                $this->code_base,
+                $this->context,
+                $issue_type,
+                $node->children['left']->lineno ?? $node->lineno,
+                $operator,
+                $type
+            );
+        }
     }
 
     /**
@@ -2813,7 +2854,7 @@ class UnionTypeVisitor extends AnalysisVisitor
     }
 
     /**
-     * @param Node $node
+     * @param Node|array|string|bool|float|int|null $node
      * @return ?string - One of the values for the LiteralStringType, or null
      */
     public static function anyStringLiteralForNode(

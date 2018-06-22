@@ -371,6 +371,18 @@ class Config
         // are not documented in the PHPDoc of functions, methods, and closures.
         'warn_about_undocumented_throw_statements' => false,
 
+        // If enabled (and `warn_about_undocumented_throw_statements` is enabled),
+        // Phan will warn about function/closure/method invocations that have `@throws`
+        // that aren't caught or documented in the invoking method.
+
+        'warn_about_undocumented_exceptions_thrown_by_invoked_functions' => false,
+
+        // Phan will not warn about lack of documentation of (at)throws for any of the configured classes or their subclasses.
+        // This only matters when warn_about_undocumented_throw_statements is true.
+        // The default is the empty array (Don't suppress any warnings)
+        // (E.g. ['RuntimeException', 'AssertionError', 'TypeError'])
+        'exception_classes_with_optional_throws_phpdoc' => [ ],
+
         // This setting maps case insensitive strings to union types.
         // This is useful if a project uses phpdoc that differs from the phpdoc2 standard.
         // If the corresponding value is the empty string, Phan will ignore that union type (E.g. can ignore 'the' in `@return the value`)
@@ -733,6 +745,10 @@ class Config
         // This should only be set via CLI (--language-server-enable-go-to-definition)
         // Affects "go to definition" and "go to type definition"
         'language_server_enable_go_to_definition' => false,
+
+        // Don't show the category name in issue messages.
+        // This makes error messages slightly shorter.
+        'language_server_hide_category_of_issues' => false,
 
         // Can be set to false to disable the plugins Phan uses to infer more accurate return types of array_map, array_filter, etc.
         // Phan is slightly faster when these are disabled.

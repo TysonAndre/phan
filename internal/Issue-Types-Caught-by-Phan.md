@@ -1456,6 +1456,12 @@ Expected an object instance but saw expression with type {TYPE}
 Expected an object instance or the name of a class but saw expression with type {TYPE}
 ```
 
+## PhanTypeExpectedObjectOrClassNameInvalidName
+
+```
+Expected an object instance or the name of a class but saw an invalid class name '{STRING_LITERAL}'
+```
+
 ## PhanTypeExpectedObjectPropAccess
 
 ```
@@ -1598,6 +1604,18 @@ Invalid operator: right operand is {TYPE} (expected number)
 
 ```
 @throws annotation of {FUNCTIONLIKE} has suspicious class type {TYPE}, which does not extend Error/Exception
+```
+
+## PhanTypeInvalidUnaryOperandBitwiseNot
+
+```
+Invalid operator: unary operand of {STRING_LITERAL} is {TYPE} (expected number or string)
+```
+
+## PhanTypeInvalidUnaryOperandNumeric
+
+```
+Invalid operator: unary operand of {STRING_LITERAL} is {TYPE} (expected number)
 ```
 
 ## PhanTypeInvalidYieldFrom
@@ -2349,13 +2367,25 @@ Saw misspelled annotation {COMMENT}, should be one of {COMMENT}
 ## PhanThrowTypeAbsent
 
 ```
-{METHOD}() can throw {TYPE} here, but has no '@throws' declarations
+{METHOD}() can throw {TYPE} here, but has no '@throws' declarations for that class
+```
+
+## PhanThrowTypeAbsentForCall
+
+```
+{METHOD}() can throw {TYPE} because it calls {FUNCTIONLIKE}(), but has no '@throws' declarations for that class
 ```
 
 ## PhanThrowTypeMismatch
 
 ```
 {METHOD}() throws {TYPE}, but it only has declarations of '@throws {TYPE}'
+```
+
+## PhanThrowTypeMismatchForCall
+
+```
+{METHOD}() throws {TYPE} because it calls {FUNCTIONLIKE}(), but it only has declarations of '@throws {TYPE}'
 ```
 
 ## PhanUnextractableAnnotation

@@ -4,11 +4,42 @@ Phan NEWS
 -------------------------
 
 New features(CLI, Configs)
-+ Add `warn_about_undocumented_throw_statements` config. (#90)
-  If this is enabled, Phan will warn about uncaught throw statements that aren't documented in the function's PHPDoc.
++ Add `warn_about_undocumented_throw_statements` and `exception_classes_with_optional_throws_phpdoc` config. (#90)
+
+  If `warn_about_undocumented_throw_statements` is true, Phan will warn about uncaught throw statements that aren't documented in the function's PHPDoc.
+  (excluding classes listed in `exception_classes_with_optional_throws_phpdoc` and their subclasses)
   This does not yet check function and method calls within the checked function that may themselves throw.
 
-  New issue types: `PhanThrowTypeAbsent`, `PhanThrowTypeMismatch`
+  Add `warn_about_undocumented_exceptions_thrown_by_invoked_functions`.
+  If enabled (and `warn_about_undocumented_throw_statements` is enabled),
+  Phan will warn about function/closure/method invocations that have `@throws`
+  that aren't caught or documented in the invoking method.
+  New issue types: `PhanThrowTypeAbsent`, `PhanThrowTypeAbsentForCall`,
+  `PhanThrowTypeMismatch`, `PhanThrowTypeMismatchForCall`
+
+  Add `exception_classes_with_optional_throws_phpdoc` config.
+  Phan will not warn about lack of documentation of `@throws` for any of the configured classes or their subclasses.
+  The default is the empty array (Don't suppress any warnings.)
+  (E.g. Phan suppresses `['RuntimeException', 'AssertionError', 'TypeError']` for self-analysis)
++ Warn when string literals refer to invalid class names (E.g. `$myClass::SOME_CONSTANT`). (#1794)
+  New issue types: `PhanTypeExpectedObjectOrClassNameInvalidName` (emitted if the name can't be used as a class)
+  This will also emit `PhanUndeclaredClass` if the class name could not be found.
+
+Language Server/Daemon mode:
++ Fix another rare bug that can cause crashes in the polyfill/fallback parser when parsing invalid or incomplete ASTs.
++ Add a `--language-server-hide-category` setting to hide the issue category from diagnostic messages.
++ Remove the numeric diagnostic code from the language server diagnostics (issues).
+  (E.g. LanguageClient-neovim would render that the code in the quickfix menu)
+
+New features(Analysis)
++ Support analysis of [`list()` reference assignment](https://wiki.php.net/rfc/list_reference_assignment) for php 7.3 (which is still in alpha). (#1537)
++ Warn about invalid operands of the unary operators `+`, `-`, and `~`
+  New issue types: `PhanTypeInvalidUnaryOperandNumeric` and `PhanTypeInvalidUnaryOperandBitwiseNot` (#680)
+
+Bug fixes:
++ Fix a bug causing Phan to infer extra wrong types (`ancestorClass[][]`) for `@return className[]` (#1822)
++ Start warning about assignment operations (e.g. `+=`) when the modified variable isn't referenced later in the function.
++ Make exceptions in `catch{}` always include the type `Throwable` even if the declared type doesn't. (#336)
 
 16 Jun 2018, Phan 0.12.13
 -------------------------

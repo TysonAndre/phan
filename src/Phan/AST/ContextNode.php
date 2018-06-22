@@ -43,7 +43,6 @@ use Phan\Library\FileCache;
 use Phan\Library\None;
 use ast\Node;
 use ast;
-use InvalidArgumentException;
 
 if (!\function_exists('spl_object_id')) {
     require_once __DIR__ . '/../../spl_object_id.php';
@@ -160,6 +159,8 @@ class ContextNode
      * @param array<int,FQSEN> $trait_fqsen_list TODO: use this for sanity check
      *
      * @return array<string,TraitAdaptations> maps the lowercase trait fqsen to the corresponding adaptations.
+     *
+     * @throws UnanalyzableException (should be caught and emitted as an issue)
      */
     public function getTraitAdaptationsMap(array $trait_fqsen_list) : array
     {
@@ -522,12 +523,28 @@ class ContextNode
                 foreach ($union_type->getTypeSet() as $type) {
                     if ($type instanceof LiteralStringType) {
                         $type_value = $type->getValue();
-                        if (\preg_match('/\\\\?[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff\\\]*/', $type_value)) {
+                        if (\preg_match('/^\\\\?[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff\\\]*$/', $type_value)) {
                             // TODO: warn about invalid types and unparseable types
                             $fqsen = FullyQualifiedClassName::makeFromExtractedNamespaceAndName($type_value);
                             if ($this->code_base->hasClassWithFQSEN($fqsen)) {
                                 $class_list[] = $this->code_base->getClassByFQSEN($fqsen);
+                            } else {
+                                Issue::maybeEmit(
+                                    $this->code_base,
+                                    $this->context,
+                                    Issue::UndeclaredClass,
+                                    $this->node->lineno ?? 0,
+                                    (string)$fqsen
+                                );
                             }
+                        } else {
+                            Issue::maybeEmit(
+                                $this->code_base,
+                                $this->context,
+                                Issue::TypeExpectedObjectOrClassNameInvalidName,
+                                $this->node->lineno ?? 0,
+                                (string)$type_value
+                            );
                         }
                     }
                 }
@@ -2011,7 +2028,6 @@ class ContextNode
      * @return Node|string[]|int[]|float[]|string|float|int|bool|null -
      *   If this could be resolved and we're certain of the value, this gets an equivalent definition.
      *   Otherwise, this returns $node.
-     * @throws InvalidArgumentException if the object could not be determined - Callers must catch this.
      */
     public function getEquivalentPHPValue(int $flags = self::RESOLVE_DEFAULT)
     {
@@ -2028,7 +2044,6 @@ class ContextNode
      *         If this could be resolved and we're certain of the value, this gets an equivalent definition.
      *         Otherwise, this returns $node. If this would be an array, this returns $node.
      *
-     * @throws InvalidArgumentException if the object could not be determined - Callers must catch this.
      * @suppress PhanPartialTypeMismatchReturn the flags prevent this from returning an array
      */
     public function getEquivalentPHPScalarValue()

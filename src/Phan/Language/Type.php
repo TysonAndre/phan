@@ -1655,8 +1655,9 @@ class Type
 
     /**
      * @return bool
-     * True if this is a generic type such as 'int[]' or
-     * 'string[]'.
+     * True if this is a generic type such as 'int[]' or 'string[]'.
+     * Currently, this is the same as `$type instanceof GenericArrayInterface`
+     * @suppress PhanUnreferencedPublicMethod
      */
     public function isGenericArray() : bool
     {
@@ -1705,19 +1706,6 @@ class Type
             return $type_name !== '[]';
         }
         return false;
-    }
-
-    /**
-     * @return Type
-     * A variation of this type that is not generic.
-     * i.e. 'int[]' becomes 'int'.
-     * @throws Error if this is unexpectedly called on the base class
-     * (callers should check if this is a generic array-like type first)
-     * TODO: Refactor?
-     */
-    public function genericArrayElementType() : Type
-    {
-        throw new \Error("genericArrayElementType should not be called on Type base class");
     }
 
     /**
@@ -1806,17 +1794,6 @@ class Type
             return $template_type_list[1];
         }
         return null;
-    }
-
-    /**
-     * @return UnionType
-     * A variation of this type that is not generic.
-     * i.e. 'int[]' becomes 'int'.
-     * @throws Error if this is unexpectedly called
-     */
-    public function genericArrayElementUnionType() : UnionType
-    {
-        throw new Error("genericArrayElementUnionType should not be called on Type base class");
     }
 
     /**
@@ -2579,5 +2556,10 @@ class Type
     public function asNonLiteralType() : Type
     {
         return $this;
+    }
+
+    public function isValidNumericOperand() : bool
+    {
+        return false;
     }
 }

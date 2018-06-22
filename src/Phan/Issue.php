@@ -78,6 +78,8 @@ class Issue
     const TypeInvalidRightOperandOfAdd = 'PhanTypeInvalidRightOperandOfAdd';
     const TypeInvalidLeftOperandOfNumericOp = 'PhanTypeInvalidLeftOperandOfNumericOp';
     const TypeInvalidRightOperandOfNumericOp = 'PhanTypeInvalidRightOperandOfNumericOp';
+    const TypeInvalidUnaryOperandNumeric = 'PhanTypeInvalidUnaryOperandNumeric';
+    const TypeInvalidUnaryOperandBitwiseNot = 'PhanTypeInvalidUnaryOperandBitwiseNot';
     const TypeInvalidInstanceof     = 'PhanTypeInvalidInstanceof';
     const TypeInvalidDimOffset      = 'PhanTypeInvalidDimOffset';
     const TypeInvalidDimOffsetArrayDestructuring = 'PhanTypeInvalidDimOffsetArrayDestructuring';
@@ -129,6 +131,7 @@ class Issue
     const TypeInvalidCallableObjectOfMethod = 'PhanTypeInvalidCallableObjectOfMethod';
     const TypeExpectedObject        = 'PhanTypeExpectedObject';
     const TypeExpectedObjectOrClassName = 'PhanTypeExpectedObjectOrClassName';
+    const TypeExpectedObjectOrClassNameInvalidName = 'PhanTypeExpectedObjectOrClassNameInvalidName';
     const TypeExpectedObjectPropAccess = 'PhanTypeExpectedObjectPropAccess';
     const TypeExpectedObjectPropAccessButGotNull = 'PhanTypeExpectedObjectPropAccessButGotNull';
     const TypeExpectedObjectStaticPropAccess = 'PhanTypeExpectedObjectStaticPropAccess';
@@ -338,7 +341,9 @@ class Issue
     const CommentOverrideOnNonOverrideConstant = 'PhanCommentOverrideOnNonOverrideConstant';
     const CommentParamOutOfOrder           = 'PhanCommentParamOutOfOrder';
     const ThrowTypeAbsent                  = 'PhanThrowTypeAbsent';
+    const ThrowTypeAbsentForCall           = 'PhanThrowTypeAbsentForCall';
     const ThrowTypeMismatch                = 'PhanThrowTypeMismatch';
+    const ThrowTypeMismatchForCall         = 'PhanThrowTypeMismatchForCall';
 
 
     const CATEGORY_ACCESS            = 1 << 1;
@@ -1198,6 +1203,22 @@ class Issue
                 10073
             ),
             new Issue(
+                self::TypeInvalidUnaryOperandNumeric,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Invalid operator: unary operand of {STRING_LITERAL} is {TYPE} (expected number)",
+                self::REMEDIATION_B,
+                10075
+            ),
+            new Issue(
+                self::TypeInvalidUnaryOperandBitwiseNot,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Invalid operator: unary operand of {STRING_LITERAL} is {TYPE} (expected number or string)",
+                self::REMEDIATION_B,
+                10076
+            ),
+            new Issue(
                 self::TypeParentConstructorCalled,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
@@ -1324,6 +1345,14 @@ class Issue
                 'Expected an object instance or the name of a class but saw expression with type {TYPE}',
                 self::REMEDIATION_B,
                 10037
+            ),
+            new Issue(
+                self::TypeExpectedObjectOrClassNameInvalidName,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                'Expected an object instance or the name of a class but saw an invalid class name \'{STRING_LITERAL}\'',
+                self::REMEDIATION_B,
+                10074
             ),
             new Issue(
                 self::TypeExpectedObjectPropAccess,
@@ -2853,9 +2882,17 @@ class Issue
                 self::ThrowTypeAbsent,
                 self::CATEGORY_COMMENT,
                 self::SEVERITY_LOW,
-                "{METHOD}() can throw {TYPE} here, but has no '@throws' declarations",
+                "{METHOD}() can throw {TYPE} here, but has no '@throws' declarations for that class",
                 self::REMEDIATION_A,
                 16011
+            ),
+            new Issue(
+                self::ThrowTypeAbsentForCall,
+                self::CATEGORY_COMMENT,
+                self::SEVERITY_LOW,
+                "{METHOD}() can throw {TYPE} because it calls {FUNCTIONLIKE}(), but has no '@throws' declarations for that class",
+                self::REMEDIATION_A,
+                16012
             ),
             new Issue(
                 self::ThrowTypeMismatch,
@@ -2863,7 +2900,15 @@ class Issue
                 self::SEVERITY_LOW,
                 "{METHOD}() throws {TYPE}, but it only has declarations of '@throws {TYPE}'",
                 self::REMEDIATION_A,
-                16012
+                16013
+            ),
+            new Issue(
+                self::ThrowTypeMismatchForCall,
+                self::CATEGORY_COMMENT,
+                self::SEVERITY_LOW,
+                "{METHOD}() throws {TYPE} because it calls {FUNCTIONLIKE}(), but it only has declarations of '@throws {TYPE}'",
+                self::REMEDIATION_A,
+                16014
             ),
         ];
 
