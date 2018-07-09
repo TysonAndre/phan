@@ -136,11 +136,17 @@ class ParseVisitor extends ScopeVisitor
                 $class->getInternalScope()
             );
 
+            // Add the class to the code base as a globally
+            // accessible object
+            // This must be done before Comment::fromStringInContext
+            // so that the class definition is available there.
+            $this->code_base->addClass($class);
+
             // Get a comment on the class declaration
             $comment = Comment::fromStringInContext(
                 $node->children['docComment'] ?? '',
                 $this->code_base,
-                $this->context,
+                $class_context,
                 $node->lineno ?? 0,
                 Comment::ON_CLASS
             );
@@ -156,10 +162,6 @@ class ParseVisitor extends ScopeVisitor
             $class->setSuppressIssueList(
                 $comment->getSuppressIssueList()
             );
-
-            // Add the class to the code base as a globally
-            // accessible object
-            $this->code_base->addClass($class);
 
             // Depends on code_base for checking existence of __get and __set.
             // TODO: Add a check in analyzeClasses phase that magic @property declarations
@@ -377,14 +379,14 @@ class ParseVisitor extends ScopeVisitor
     {
         // Bomb out if we're not in a class context
         $class = $this->getContextClass();
-        $docComment = '';
+        $doc_comment = '';
         $first_child_node = $node->children[0] ?? null;
         if ($first_child_node instanceof Node) {
-            $docComment = $first_child_node->children['docComment'] ?? '';
+            $doc_comment = $first_child_node->children['docComment'] ?? '';
         }
         // Get a comment on the property declaration
         $comment = Comment::fromStringInContext(
-            $docComment,
+            $doc_comment,
             $this->code_base,
             $this->context,
             $node->lineno ?? 0,

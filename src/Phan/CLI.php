@@ -26,7 +26,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    const PHAN_VERSION = '0.12.14-dev';
+    const PHAN_VERSION = '0.12.15-dev';
 
     /**
      * @var OutputInterface
@@ -1099,6 +1099,7 @@ EOB;
         }
         assert(
             extension_loaded('ast'),
+            // phpcs:ignore Generic.Files.LineLength.MaxExceeded
             'The php-ast extension must be loaded in order for Phan to work. See https://github.com/phan/phan#getting-it-running for more details. Alternately, invoke Phan with the CLI option --allow-polyfill-parser (which is noticeably slower)'
         );
 

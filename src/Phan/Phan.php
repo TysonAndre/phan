@@ -40,14 +40,14 @@ class Phan implements IgnoredFilesFilterInterface
     }
 
     /**
-     * @param IssueCollectorInterface $issueCollector
+     * @param IssueCollectorInterface $issue_collector
      *
      * @return void
      */
     public static function setIssueCollector(
-        IssueCollectorInterface $issueCollector
+        IssueCollectorInterface $issue_collector
     ) {
-        self::$issue_collector = $issueCollector;
+        self::$issue_collector = $issue_collector;
     }
 
     /**
@@ -398,7 +398,7 @@ class Phan implements IgnoredFilesFilterInterface
             // Collect all issues, blocking
             self::display();
 
-            if (Config::get()->print_memory_usage_summary) {
+            if (Config::getValue('print_memory_usage_summary')) {
                 self::printMemoryUsageSummary();
             }
         } catch (Exception $e) {

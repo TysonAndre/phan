@@ -1,6 +1,9 @@
 Phan NEWS
 
-?? ??? 2018, Phan 0.12.14 (dev)
+08 Jul 2018, Phan 0.12.15 (dev)
+-------------------------
+
+08 Jul 2018, Phan 0.12.14
 -------------------------
 
 New features(CLI, Configs)
@@ -24,12 +27,15 @@ New features(CLI, Configs)
 + Warn when string literals refer to invalid class names (E.g. `$myClass::SOME_CONSTANT`). (#1794)
   New issue types: `PhanTypeExpectedObjectOrClassNameInvalidName` (emitted if the name can't be used as a class)
   This will also emit `PhanUndeclaredClass` if the class name could not be found.
++ Make Phan aware that `$this` doesn't exist in a static closure (#768)
 
 Language Server/Daemon mode:
 + Fix another rare bug that can cause crashes in the polyfill/fallback parser when parsing invalid or incomplete ASTs.
 + Add a `--language-server-hide-category` setting to hide the issue category from diagnostic messages.
-+ Remove the numeric diagnostic code from the language server diagnostics (issues).
-  (E.g. LanguageClient-neovim would render that the code in the quickfix menu)
++ Remove the numeric diagnostic code from the language server diagnostics (a.k.a. issues).
+  (Certain language clients such as LanguageClient-neovim would render that the code in the quickfix menu, wasting space)
++ Support "go to definition" for union types within all code comment types  (#1704)
+  (e.g. can go to definition in `// some annotation or comment mentioning MyType`)
 
 New features(Analysis)
 + Support analysis of [`list()` reference assignment](https://wiki.php.net/rfc/list_reference_assignment) for php 7.3 (which is still in alpha). (#1537)

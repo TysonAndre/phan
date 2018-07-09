@@ -1457,9 +1457,9 @@ class Clazz extends AddressableElement
         }
         if ($method->getHasYield()) {
             // There's no phpdoc standard for template types of Generators at the moment.
-            $newType = UnionType::fromFullyQualifiedString('\\Generator');
-            if (!$newType->canCastToUnionType($method->getUnionType())) {
-                $method->setUnionType($newType);
+            $new_type = UnionType::fromFullyQualifiedString('\\Generator');
+            if (!$new_type->canCastToUnionType($method->getUnionType())) {
+                $method->setUnionType($new_type);
             }
         }
 
@@ -2375,6 +2375,9 @@ class Clazz extends AddressableElement
         } else {
             $issue_type = Issue::RedefinedExtendedClass;
         }
+        if ($this->checkHasSuppressIssueAndIncrementCount($issue_type)) {
+            return;
+        }
         $first_context = $inherited_class->getContext();
         $second_context = $alternate_class->getContext();
 
@@ -2598,7 +2601,7 @@ class Clazz extends AddressableElement
         $class_constant = new ClassConstant(
             $this->getContext(),
             'class',
-            LiteralStringType::instance_for_value(
+            LiteralStringType::instanceForValue(
                 \ltrim($this->getFQSEN()->__toString(), '\\'),
                 false
             )->asUnionType(),

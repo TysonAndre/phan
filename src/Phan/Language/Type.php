@@ -54,6 +54,7 @@ use InvalidArgumentException;
  *
  * @phan-file-suppress PhanPartialTypeMismatchArgument
  * @phan-file-suppress PhanPartialTypeMismatchArgumentInternal
+ * phpcs:disable Generic.NamingConventions.UpperCaseConstantName
  */
 class Type
 {
@@ -600,10 +601,10 @@ class Type
         switch (\gettype($object)) {
             case 'integer':
                 '@phan-var int $object';
-                return LiteralIntType::instance_for_value($object, false);
+                return LiteralIntType::instanceForValue($object, false);
             case 'string':
                 '@phan-var string $object';
-                return LiteralStringType::instance_for_value($object, false);
+                return LiteralStringType::instanceForValue($object, false);
             case 'NULL':
                 return NullType::instance(false);
             case 'double':
@@ -868,7 +869,7 @@ class Type
         }
         $value = filter_var($escaped_literal, FILTER_VALIDATE_INT);
         if (\is_int($value)) {
-            return LiteralIntType::instance_for_value($value, $is_nullable);
+            return LiteralIntType::instanceForValue($value, $is_nullable);
         }
         return FloatType::instance($is_nullable);
     }
@@ -1768,9 +1769,9 @@ class Type
     private function valueTypeOfTraversable()
     {
         $template_type_list = $this->template_parameter_type_list;
-        $N = \count($template_type_list);
-        if ($N >= 1 && $N <= 2) {
-            return $template_type_list[$N - 1];
+        $count = \count($template_type_list);
+        if ($count >= 1 && $count <= 2) {
+            return $template_type_list[$count - 1];
         }
         return null;
     }
@@ -2097,18 +2098,18 @@ class Type
     private function canCastTraversableToIterable(GenericIterableType $type) : bool
     {
         $template_types = $this->template_parameter_type_list;
-        $N = \count($template_types);
+        $count = \count($template_types);
         $name = $this->name;
         if ($name === 'Traversable' || $name === 'Iterator') {
             // Phan supports Traversable<TValue> and Traversable<TKey, TValue>
-            if ($N > 2 || $N < 1) {
+            if ($count > 2 || $count < 1) {
                 // No idea what this means, assume it passes.
                 return true;
             }
-            if (!$this->template_parameter_type_list[$N - 1]->canCastToUnionType($type->getElementUnionType())) {
+            if (!$this->template_parameter_type_list[$count - 1]->canCastToUnionType($type->getElementUnionType())) {
                 return false;
             }
-            if ($N === 2) {
+            if ($count === 2) {
                 if (!$this->template_parameter_type_list[0]->canCastToUnionType($type->getKeyUnionType())) {
                     return false;
                 }
@@ -2122,15 +2123,15 @@ class Type
             // 4. Generator<TKey, TValue, TYield, TReturn> (PHP generators can return a final value, but HHVM cannot)
 
             // TODO: Handle casting Generator to a Generator with a different number of template parameters
-            if ($N > 4 || $N < 1) {
+            if ($count > 4 || $count < 1) {
                 // No idea what this means, assume it passes
                 return true;
             }
 
-            if (!$this->template_parameter_type_list[\min(1, $N - 1)]->canCastToUnionType($type->getElementUnionType())) {
+            if (!$this->template_parameter_type_list[\min(1, $count - 1)]->canCastToUnionType($type->getElementUnionType())) {
                 return false;
             }
-            if ($N >= 2) {
+            if ($count >= 2) {
                 if (!$this->template_parameter_type_list[0]->canCastToUnionType($type->getKeyUnionType())) {
                     return false;
                 }

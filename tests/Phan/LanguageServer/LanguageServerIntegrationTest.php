@@ -206,9 +206,9 @@ EOT;
     public function testDefinitionInOtherFile(string $new_file_contents, Position $position, string $expected_definition_uri, $expected_definition_line, string $requested_uri = null)
     {
         if (function_exists('pcntl_fork')) {
-            $this->_testDefinitionInOtherFileWithPcntlSetting($new_file_contents, $position, $expected_definition_uri, $expected_definition_line, $requested_uri, true);
+            $this->runTestDefinitionInOtherFileWithPcntlSetting($new_file_contents, $position, $expected_definition_uri, $expected_definition_line, $requested_uri, true);
         }
-        $this->_testDefinitionInOtherFileWithPcntlSetting($new_file_contents, $position, $expected_definition_uri, $expected_definition_line, $requested_uri, false);
+        $this->runTestDefinitionInOtherFileWithPcntlSetting($new_file_contents, $position, $expected_definition_uri, $expected_definition_line, $requested_uri, false);
     }
 
     /**
@@ -220,9 +220,9 @@ EOT;
     public function testTypeDefinitionInOtherFile(string $new_file_contents, Position $position, string $expected_definition_uri, $expected_definition_line, string $requested_uri = null)
     {
         if (function_exists('pcntl_fork')) {
-            $this->_testTypeDefinitionInOtherFileWithPcntlSetting($new_file_contents, $position, $expected_definition_uri, $expected_definition_line, $requested_uri, true);
+            $this->runTestTypeDefinitionInOtherFileWithPcntlSetting($new_file_contents, $position, $expected_definition_uri, $expected_definition_line, $requested_uri, true);
         }
-        $this->_testTypeDefinitionInOtherFileWithPcntlSetting($new_file_contents, $position, $expected_definition_uri, $expected_definition_line, $requested_uri, false);
+        $this->runTestTypeDefinitionInOtherFileWithPcntlSetting($new_file_contents, $position, $expected_definition_uri, $expected_definition_line, $requested_uri, false);
     }
 
     /**
@@ -240,7 +240,7 @@ EOT;
      * @param ?int $expected_definition_line
      * @param ?string $requested_uri
      */
-    public function _testDefinitionInOtherFileWithPcntlSetting(
+    public function runTestDefinitionInOtherFileWithPcntlSetting(
         string $new_file_contents,
         Position $position,
         string $expected_definition_uri,
@@ -290,7 +290,7 @@ EOT;
 
             $cur_line = explode("\n", $new_file_contents)[$position->line] ?? '';
 
-            $message = "Unexpected definition for {$position->line}:{$position->character} (0-based) on line " . json_encode($cur_line);
+            $message = "Unexpected definition for {$position->line}:{$position->character} (0-based) on line \"" . $cur_line . '"';
             if ($expected_definition_response != $definition_response) {
                 var_export($definition_response);
             }
@@ -326,7 +326,7 @@ EOT;
      * @param ?int $expected_definition_line
      * @param ?string $requested_uri
      */
-    public function _testTypeDefinitionInOtherFileWithPcntlSetting(
+    public function runTestTypeDefinitionInOtherFileWithPcntlSetting(
         string $new_file_contents,
         Position $position,
         string $expected_definition_uri,
@@ -433,6 +433,11 @@ function example(MyClass $param_clss) {
 }
 use MyNS\SubNS\MyNamespacedClass;
 echo MyNamespacedClass::class;
+
+/** MyNamespacedClass is a class, \MyNS\SubNS\MyNamespacedClass is a different class (line 20) */
+function unused_example() {}
+// This is a comment referring to \MyClass (must be before a ast\Node)
+echo 'something';
 EOT;
         $definitions_file_uri = Utils::pathToUri(self::getLSPFolder() . '/src/definitions.php');
         return [
@@ -559,6 +564,24 @@ EOT;
                 $definitions_file_uri,
                 31,
             ],
+            [
+                $example_file_contents,
+                new Position(20, 10),  // MyNamespacedClass in doc comment
+                $definitions_file_uri,
+                31,
+            ],
+            [
+                $example_file_contents,
+                new Position(20, 40),  // MySub in doc comment
+                $definitions_file_uri,
+                31,
+            ],
+            [
+                $example_file_contents,
+                new Position(22, 35),  // MyClass in line comment
+                $definitions_file_uri,
+                9,
+            ],
         ];
     }
 
@@ -655,7 +678,7 @@ EOT;
                 ],
             ],
             'severity' => LanguageServer::diagnosticSeverityFromPhanSeverity($issue->getSeverity()),
-            'code' => $issue->getTypeId(),
+            'code' => null, // Deliberately leaving out $issue->getTypeId()
             'source' => 'Phan',
             'message' => $expected_message,
         ];

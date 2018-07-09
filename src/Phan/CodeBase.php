@@ -1047,7 +1047,7 @@ class CodeBase
             $signature = [(string)$function_or_method->getUnionType()];
             foreach ($function_or_method->getParameterList() as $param) {
                 $name = $param->getName();
-                $paramType = (string)$param->getUnionType();
+                $param_type = (string)$param->getUnionType();
                 if ($param->isVariadic()) {
                     $name = '...' . $name;
                 }
@@ -1057,7 +1057,7 @@ class CodeBase
                 if ($param->isOptional()) {
                     $name = $name . '=';
                 }
-                $signature[$name] = $paramType;
+                $signature[$name] = $param_type;
             }
             $result[$function_or_method_name] = $signature;
         }
@@ -1341,7 +1341,7 @@ class CodeBase
             // (All of the functions were loaded during initialization)
             //
             // Also, skip over user-defined global functions defined **by Phan** and its dependencies for analysis
-            if (!Config::get()->ignore_undeclared_functions_with_known_signatures) {
+            if (!Config::getValue('ignore_undeclared_functions_with_known_signatures')) {
                 return false;
             }
             // If we already created the alternates, do nothing.

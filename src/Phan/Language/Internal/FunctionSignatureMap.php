@@ -1,9 +1,5 @@
-<?php // @codingStandardsIgnoreFile (phpcs runs out of memory)
+<?php // phpcs:ignoreFile
 namespace Phan\Language\Internal;
-
-<<<PHAN
-@phan-file-suppress PhanPluginMixedKeyNoKey (read by Phan when analyzing this file)
-PHAN;
 
 /**
  * Format
@@ -72,6 +68,7 @@ PHAN;
  * 3. Various websites documenting individual extensions
  * 4. PHPStorm stubs (For anything missing from the above sources)
  *    See internal/internalsignatures.php
+ * @phan-file-suppress PhanPluginMixedKeyNoKey (read by Phan when analyzing this file)
  */
 return [
 '_' => ['string', 'message'=>'string'],
@@ -2770,7 +2767,7 @@ return [
 'filepro_rowcount' => ['int'],
 'filesize' => ['int|false', 'filename'=>'string'],
 'FilesystemIterator::__construct' => ['void', 'path'=>'string', 'flags='=>'int'],
-'FilesystemIterator::current' => ['string'],
+'FilesystemIterator::current' => ['string|SplFileInfo|FilesystemIterator'],
 'FilesystemIterator::getFlags' => ['int'],
 'FilesystemIterator::key' => ['string'],
 'FilesystemIterator::next' => ['void'],
@@ -11031,7 +11028,7 @@ return [
 'SplFileObject::setFlags' => ['void', 'flags'=>'int'],
 'SplFileObject::setMaxLineLen' => ['void', 'max_len'=>'int'],
 'SplFileObject::valid' => ['bool'],
-'SplFixedArray::__construct' => ['void', 'size'=>'int'],
+'SplFixedArray::__construct' => ['void', 'size='=>'int'],
 'SplFixedArray::__wakeup' => ['void'],
 'SplFixedArray::count' => ['int'],
 'SplFixedArray::current' => ['mixed'],

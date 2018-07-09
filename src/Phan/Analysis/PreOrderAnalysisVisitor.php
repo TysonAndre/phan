@@ -339,6 +339,11 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
         Context $context,
         Func $func
     ) {
+        // skip adding $this to internal scope if the closure is a static one
+        if ($func->getFlags() == \ast\flags\MODIFIER_STATIC) {
+            return;
+        }
+
         $override_this_fqsen = self::getOverrideClassFQSEN($code_base, $func);
         if ($override_this_fqsen !== null) {
             if ($context->getScope()->hasVariableWithName('this') || !$context->isInClassScope()) {
@@ -358,8 +363,8 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
         // pass it down into the closure
         if ($context->getScope()->hasVariableWithName('this')) {
             // Normal case: Closures inherit $this from parent scope.
-            $thisVarFromScope = $context->getScope()->getVariableByName('this');
-            $func->getInternalScope()->addVariable($thisVarFromScope);
+            $this_var_from_scope = $context->getScope()->getVariableByName('this');
+            $func->getInternalScope()->addVariable($this_var_from_scope);
         }
     }
 
