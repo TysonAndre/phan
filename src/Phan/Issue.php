@@ -19,6 +19,7 @@ class Issue
     // this is deliberate for issue names
     // Issue::CATEGORY_SYNTAX
     const SyntaxError               = 'PhanSyntaxError';
+    const InvalidConstantExpression = 'PhanInvalidConstantExpression';
 
     // Issue::CATEGORY_UNDEFINED
     const AmbiguousTraitAliasSource = 'PhanAmbiguousTraitAliasSource';
@@ -258,6 +259,7 @@ class Issue
     const UnusedClosureParameter                = 'PhanUnusedClosureParameter';
     const UnusedGlobalFunctionParameter         = 'PhanUnusedGlobalFunctionParameter';
     const UnusedVariableValueOfForeachWithKey   = 'PhanUnusedVariableValueOfForeachWithKey';  // has higher false positive rates than UnusedVariable
+    const UnusedVariableCaughtException         = 'PhanUnusedVariableCaughtException';  // has higher false positive rates than UnusedVariable
 
     // Issue::CATEGORY_REDEFINE
     const RedefineClass             = 'PhanRedefineClass';
@@ -534,6 +536,14 @@ class Issue
                 "%s",
                 self::REMEDIATION_A,
                 17000
+            ),
+            new Issue(
+                self::InvalidConstantExpression,
+                self::CATEGORY_SYNTAX,
+                self::SEVERITY_CRITICAL,
+                "Constant expression contains invalid operations",
+                self::REMEDIATION_A,
+                17001
             ),
 
             // Issue::CATEGORY_UNDEFINED
@@ -2291,6 +2301,14 @@ class Issue
                 'Unused definition of variable ${VARIABLE} as the value of a foreach loop that included keys',
                 self::REMEDIATION_B,
                 6045
+            ),
+            new Issue(
+                self::UnusedVariableCaughtException,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_LOW,
+                'Unused definition of variable ${VARIABLE} as a caught exception',
+                self::REMEDIATION_B,
+                6046
             ),
 
 

@@ -3,6 +3,38 @@ Phan NEWS
 08 Jul 2018, Phan 0.12.15 (dev)
 -------------------------
 
+New features(Analysis)
++ Make Phan's unused variable detection also treat exception variables as variable definitions,
+  and warn if the caught exception is unused. (#1810)
+  New issue types: `PhanUnusedVariableCaughtException`
++ Be more aggressive about inferring that a method has a void return type, when it is safe to do so
++ Emit `PhanInvalidConstantExpression` in some places where PHP would emit `"Constant expression contains invalid operations"`
+
+  Phan will replace the default parameter type (or constant type) with `mixed` for constants and class constants.
+
+  Previously, this could cause Phan to crash, especially with `--use-fallback-parser` on invalid ASTs.
+
+Language Server/Daemon mode:
++ Implement support for hover requests in the Language Server (#1738)
+
+  This will show a preview of the element definition (showing signature types instead of PHPDoc types)
+  along with the snippet of the element description from the doc comment.
+
+  Clients that use this should pass in the CLI option `--language-server-enable-hover` when starting the language server.
+
+  - Note that this implementation assumes that clients sanitize the mix of markdown and HTML before rendering it.
+  - Note that this may slow down some language server clients if they pause while waiting for the hover request to finish.
+
+Bug fixes:
++ Fix a bug in checking if nullable versions of specialized type were compatible with other nullable types. (#1839, #1852)
+  Phan now correctly allows the following type casts:
+
+  - `?1`               can cast to `?int`
+  - `?'a string'`      can cast to `?string`
+  - `?Closure(T1):T2`  can cast to `?Closure`
+  - `?callable(T1):T2` can cast to `?callable`,
++ Make `exclude_file_list` work more consistently on Windows
+
 08 Jul 2018, Phan 0.12.14
 -------------------------
 
@@ -24,6 +56,8 @@ New features(CLI, Configs)
   Phan will not warn about lack of documentation of `@throws` for any of the configured classes or their subclasses.
   The default is the empty array (Don't suppress any warnings.)
   (E.g. Phan suppresses `['RuntimeException', 'AssertionError', 'TypeError']` for self-analysis)
+
+New Features (Analysis):
 + Warn when string literals refer to invalid class names (E.g. `$myClass::SOME_CONSTANT`). (#1794)
   New issue types: `PhanTypeExpectedObjectOrClassNameInvalidName` (emitted if the name can't be used as a class)
   This will also emit `PhanUndeclaredClass` if the class name could not be found.

@@ -2703,7 +2703,7 @@ class UnionType implements \Serializable
                     return true;
                 }
             }
-        } catch (CodeBaseException $e) {
+        } catch (CodeBaseException $_) {
             // Swallow "Cannot find class", go on to emit issue
         }
         return false;

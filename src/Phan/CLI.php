@@ -118,6 +118,7 @@ class CLI
                 'language-server-require-pcntl',
                 'language-server-enable',
                 'language-server-enable-go-to-definition',
+                'language-server-enable-hover',
                 'markdown-issue-messages',
                 'memory-limit:',
                 'minimum-severity:',
@@ -430,6 +431,9 @@ class CLI
                 case 'language-server-enable-go-to-definition':
                     Config::setValue('language_server_enable_go_to_definition', true);
                     break;
+                case 'language-server-enable-hover':
+                    Config::setValue('language_server_enable_hover', true);
+                    break;
                 case 'language-server-verbose':
                     Config::setValue('language_server_debug_level', 'info');
                     break;
@@ -568,13 +572,16 @@ class CLI
         if (count(Config::getValue('exclude_file_list')) > 0) {
             $exclude_file_set = [];
             foreach (Config::getValue('exclude_file_list') as $file) {
-                $exclude_file_set[$file] = true;
+                $normalized_file = str_replace('\\', '/', $file);
+                $exclude_file_set[$normalized_file] = true;
+                $exclude_file_set["./$normalized_file"] = true;
             }
 
             $this->file_list = array_filter(
                 $this->file_list,
                 function (string $file) use ($exclude_file_set) : bool {
-                    return empty($exclude_file_set[$file]);
+                    // Handle edge cases such as 'mydir/subdir\subsubdir' on Windows, if mydir/subdir was in the Phan config.
+                    return !isset($exclude_file_set[\str_replace('\\', '/', $file)]);
                 }
             );
         }
@@ -854,6 +861,10 @@ Extended help:
   Enables support for "Go To Definition" and "Go To Type Definition" in the Phan Language Server.
   Disabled by default.
 
+ --language-server-enable-hover
+  Enables support for "Hover" in the Phan Language Server.
+  Disabled by default.
+
  --language-server-verbose
   Emit verbose logging messages related to the language server implementation to stderr.
   This is useful when developing or debugging language server clients.
@@ -1109,7 +1120,7 @@ EOB;
                 '<' . '?php 42;',
                 Config::AST_VERSION
             );
-        } catch (\LogicException $throwable) {
+        } catch (\LogicException $_) {
             assert(
                 false,
                 'Unknown AST version ('
@@ -1134,7 +1145,7 @@ EOB;
                 . 'You may need to rebuild the latest '
                 . 'version of the php-ast extension.'
             );
-        } catch (\ParseError $throwable) {
+        } catch (\ParseError $_) {
             // error message may validate with locale and version, don't validate that.
         }
     }
