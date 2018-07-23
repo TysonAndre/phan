@@ -1,6 +1,9 @@
 Phan NEWS
 
-08 Jul 2018, Phan 0.12.15 (dev)
+?? ??? 2018, Phan 0.12.16 (dev)
+-------------------------
+
+21 Jul 2018, Phan 0.12.15
 -------------------------
 
 New features(Analysis)
@@ -13,6 +16,12 @@ New features(Analysis)
   Phan will replace the default parameter type (or constant type) with `mixed` for constants and class constants.
 
   Previously, this could cause Phan to crash, especially with `--use-fallback-parser` on invalid ASTs.
++ Improve analysis of arguments passed to `implode()`
+
+New features(CLI)
++ Add `--daemonize-tcp-host` CLI option for specifying the hostname for daemon mode (#1868).
+  The default will remain `127.0.0.1` when not specified.
+  It can be overidden to values such as `0.0.0.0` (publicly accessible, e.g. for usage with Docker)
 
 Language Server/Daemon mode:
 + Implement support for hover requests in the Language Server (#1738)
@@ -24,6 +33,9 @@ Language Server/Daemon mode:
 
   - Note that this implementation assumes that clients sanitize the mix of markdown and HTML before rendering it.
   - Note that this may slow down some language server clients if they pause while waiting for the hover request to finish.
+
+Maintenance:
++ Add a workaround for around a notice in PHP 7.3alpha4  (that Phan treats as fatal) (#1870)
 
 Bug fixes:
 + Fix a bug in checking if nullable versions of specialized type were compatible with other nullable types. (#1839, #1852)
