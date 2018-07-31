@@ -58,6 +58,12 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
      * @return Context
      * A new or an unchanged context resulting from
      * parsing the node
+     *
+     * @throws UnanalyzableException
+     * if the class name is unexpectedly empty
+     *
+     * @throws CodeBaseException
+     * if the class could not be located
      */
     public function visitClass(Node $node) : Context
     {
@@ -118,6 +124,8 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
      * @return Context
      * A new or an unchanged context resulting from
      * parsing the node
+     *
+     * @throws CodeBaseException if the method could not be found
      */
     public function visitMethod(Node $node) : Context
     {
@@ -209,6 +217,8 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
      * @return Context
      * A new or an unchanged context resulting from
      * parsing the node
+     * @throws CodeBaseException
+     * if this function declaration could not be found
      */
     public function visitFuncDecl(Node $node) : Context
     {
@@ -216,18 +226,14 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
         $code_base = $this->code_base;
         $original_context = $this->context;
 
-        try {
-            $canonical_function = (new ContextNode(
-                $code_base,
-                $original_context,
-                $node
-            ))->getFunction($function_name, true);
-        } catch (CodeBaseException $exception) {
-            // This really ought not happen given that
-            // we already successfully parsed the code
-            // base
-            throw $exception;
-        }
+        // This really ought not to throw given that
+        // we already successfully parsed the code
+        // base
+        $canonical_function = (new ContextNode(
+            $code_base,
+            $original_context,
+            $node
+        ))->getFunction($function_name, true);
 
         // Hunt for the alternate associated with the file we're
         // looking at currently in this context.
@@ -333,10 +339,15 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
         Context $context,
         Func $func
     ) {
+        // skip adding $this to internal scope if the closure is a static one
+        if ($func->getFlags() == \ast\flags\MODIFIER_STATIC) {
+            return;
+        }
+
         $override_this_fqsen = self::getOverrideClassFQSEN($code_base, $func);
         if ($override_this_fqsen !== null) {
             if ($context->getScope()->hasVariableWithName('this') || !$context->isInClassScope()) {
-                // Handle @phan-closure-scope - Should set $this to the overriden class, as well as handling self:: and parent::
+                // Handle @phan-closure-scope - Should set $this to the overridden class, as well as handling self:: and parent::
                 $func->getInternalScope()->addVariable(
                     new Variable(
                         $context,
@@ -352,8 +363,8 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
         // pass it down into the closure
         if ($context->getScope()->hasVariableWithName('this')) {
             // Normal case: Closures inherit $this from parent scope.
-            $thisVarFromScope = $context->getScope()->getVariableByName('this');
-            $func->getInternalScope()->addVariable($thisVarFromScope);
+            $this_var_from_scope = $context->getScope()->getVariableByName('this');
+            $func->getInternalScope()->addVariable($this_var_from_scope);
         }
     }
 
@@ -556,6 +567,9 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
      * @return Context
      * A new or an unchanged context resulting from
      * parsing the node
+     *
+     * @throws NodeException
+     * if the key is invalid
      */
     public function visitForeach(Node $node) : Context
     {
@@ -907,6 +921,13 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
                 $node->children['class']
             ))->getClassList(false, ContextNode::CLASS_LIST_ACCEPT_OBJECT_OR_CLASS_NAME);
 
+            if (Config::get_closest_target_php_version_id() < 70100 && \count($class_list) > 1) {
+                $this->emitIssue(
+                    Issue::CompatibleMultiExceptionCatchPHP70,
+                    $node->lineno ?? 0
+                );
+            }
+
             foreach ($class_list as $class) {
                 $class->addReference($this->context);
             }
@@ -919,8 +940,11 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
                 [(string)$exception->getFQSEN()],
                 IssueFixSuggester::suggestSimilarClassForGenericFQSEN($this->code_base, $this->context, $exception->getFQSEN())
             );
+        }
 
-            $union_type = $union_type->withType(Type::fromFullyQualifiedString('\Throwable'));
+        $throwable_type = Type::fromFullyQualifiedString('\Throwable');
+        if ($union_type->isEmpty() || !$union_type->asExpandedTypes($this->code_base)->hasType($throwable_type)) {
+            $union_type = $union_type->withType($throwable_type);
         }
 
         $variable_name = (new ContextNode(

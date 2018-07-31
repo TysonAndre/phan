@@ -16,7 +16,6 @@ use Phan\Language\Element\Variable;
 use Phan\Language\Type;
 use Phan\Language\Type\FalseType;
 use Phan\Language\Type\NullType;
-use Phan\Language\Type\StringType;
 use Phan\Language\UnionType;
 use Phan\PluginV2\StopParamAnalysisException;
 use ast\Node;
@@ -52,7 +51,7 @@ class ArgumentType
         if ($method->hasFunctionCallAnalyzer()) {
             try {
                 $method->analyzeFunctionCall($code_base, $context->withLineNumberStart($node->lineno ?? 0), $node->children['args']->children);
-            } catch (StopParamAnalysisException $e) {
+            } catch (StopParamAnalysisException $_) {
                 return;
             }
         }
@@ -525,14 +524,14 @@ class ArgumentType
         if ($method->isPHPInternal()) {
             // If we are not in strict mode and we accept a string parameter
             // and the argument we are passing has a __toString method then it is ok
-            if (!$context->getIsStrictTypes() && $parameter_type->hasType(StringType::instance(false))) {
+            if (!$context->getIsStrictTypes() && $parameter_type->hasNonNullStringType()) {
                 try {
                     foreach ($argument_type_expanded->asClassList($code_base, $context) as $clazz) {
                         if ($clazz->hasMethodWithName($code_base, "__toString")) {
                             return;
                         }
                     }
-                } catch (CodeBaseException $e) {
+                } catch (CodeBaseException $_) {
                     // Swallow "Cannot find class", go on to emit issue
                 }
             }
@@ -587,7 +586,7 @@ class ArgumentType
                 if ($method->isPHPInternal()) {
                     // If we are not in strict mode and we accept a string parameter
                     // and the argument we are passing has a __toString method then it is ok
-                    if (!$context->getIsStrictTypes() && $parameter_type->hasType(StringType::instance(false))) {
+                    if (!$context->getIsStrictTypes() && $parameter_type->hasNonNullStringType()) {
                         if ($individual_type_expanded->hasClassWithToStringMethod($code_base, $context)) {
                             continue;  // don't warn about $type
                         }
@@ -703,7 +702,7 @@ class ArgumentType
                             return true;
                         }
                     }
-                } catch (IssueException $e) {
+                } catch (IssueException $_) {
                     // Swallow any issue esceptions here. They'll be caught elsewhere.
                 }
             }

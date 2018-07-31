@@ -31,6 +31,9 @@ final class VariableTrackerPlugin extends PluginV2 implements
 }
 
 /**
+ * This will analyze any variable definition and uses within function-like scopes,
+ * and warn about unused variable definitions.
+ *
  * TODO: Hook into the global scope as well?
  */
 final class VariableTrackerElementVisitor extends PluginAwarePostAnalysisVisitor
@@ -152,7 +155,7 @@ final class VariableTrackerElementVisitor extends PluginAwarePostAnalysisVisitor
             try {
                 $class = $context->getClassInScope($this->code_base);
                 return $class->isFinal();
-            } catch (CodeBaseException $e) {
+            } catch (CodeBaseException $_) {
             }
         }
         return false;
@@ -192,16 +195,16 @@ final class VariableTrackerElementVisitor extends PluginAwarePostAnalysisVisitor
                 $issue_type = $issue_overrides_for_definition_ids[$definition_id] ?? Issue::UnusedVariable;
                 if ($issue_type === Issue::UnusedPublicMethodParameter) {
                     // Narrow down issues about parameters into more specific issues
-                    $docComment = $method_node->children['docComment'] ?? null;
-                    if ($docComment && preg_match('/@param[^$]*\$' . preg_quote($variable_name) . '\b.*@phan-unused-param\b/', $docComment)) {
+                    $doc_comment = $method_node->children['docComment'] ?? null;
+                    if ($doc_comment && preg_match('/@param[^$]*\$' . preg_quote($variable_name) . '\b.*@phan-unused-param\b/', $doc_comment)) {
                         // Don't warn about parameters marked with phan-unused-param
                         break;
                     }
                     $issue_type = $this->getParameterCategory($method_node);
-                } else {
-                    if ($graph->isLoopValueDefinitionId($definition_id)) {
-                        $issue_type = Issue::UnusedVariableValueOfForeachWithKey;
-                    }
+                } elseif ($graph->isLoopValueDefinitionId($definition_id)) {
+                    $issue_type = Issue::UnusedVariableValueOfForeachWithKey;
+                } elseif ($graph->isCaughtException($definition_id)) {
+                    $issue_type = Issue::UnusedVariableCaughtException;
                 }
                 Issue::maybeEmit(
                     $this->code_base,

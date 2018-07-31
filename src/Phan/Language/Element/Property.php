@@ -106,7 +106,7 @@ class Property extends ClassElement
             if ($union_type !== '') {
                 $string .= "$union_type ";
             } // Don't emit 2 spaces if there is no union type
-        } catch (\Exception $exception) {
+        } catch (\Exception $_) {
             // do nothing
         }
 
@@ -141,7 +141,7 @@ class Property extends ClassElement
     public function getUnionType() : UnionType
     {
         if (null !== ($union_type = $this->getFutureUnionType())) {
-            $this->setUnionType(parent::getUnionType()->withUnionType($union_type));
+            $this->setUnionType(parent::getUnionType()->withUnionType($union_type->asNonLiteralType()));
         }
 
         return parent::getUnionType();
@@ -157,6 +157,20 @@ class Property extends ClassElement
         \assert(!empty($this->fqsen), "FQSEN must be defined");
         return $this->fqsen;
     }
+
+    public function getMarkupDescription() : string
+    {
+        $string = $this->getVisibilityName() . ' ';
+
+        if ($this->isStatic()) {
+            $string .= 'static ';
+        }
+
+        $string .= "\${$this->getName()}";
+
+        return $string;
+    }
+
 
     public function toStub()
     {

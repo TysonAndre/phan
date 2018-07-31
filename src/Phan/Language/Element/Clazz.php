@@ -23,7 +23,7 @@ use Phan\Language\Scope\ClassScope;
 use Phan\Language\Scope\GlobalScope;
 use Phan\Language\Type;
 use Phan\Language\Type\IterableType;
-use Phan\Language\Type\StringType;
+use Phan\Language\Type\LiteralStringType;
 use Phan\Language\Type\TemplateType;
 use Phan\Language\UnionType;
 use Phan\Library\None;
@@ -62,7 +62,7 @@ class Clazz extends AddressableElement
     private $trait_fqsen_list = [];
 
     /**
-     * @var array<int,TraitAdaptations>
+     * @var array<string,TraitAdaptations>
      * Maps lowercase fqsen of a method to the trait names which are hidden
      * and the trait aliasing info
      */
@@ -1457,9 +1457,9 @@ class Clazz extends AddressableElement
         }
         if ($method->getHasYield()) {
             // There's no phpdoc standard for template types of Generators at the moment.
-            $newType = UnionType::fromFullyQualifiedString('\\Generator');
-            if (!$newType->canCastToUnionType($method->getUnionType())) {
-                $method->setUnionType($newType);
+            $new_type = UnionType::fromFullyQualifiedString('\\Generator');
+            if (!$new_type->canCastToUnionType($method->getUnionType())) {
+                $method->setUnionType($new_type);
             }
         }
 
@@ -1510,6 +1510,8 @@ class Clazz extends AddressableElement
     /**
      * @return Method
      * The method with the given name
+     *
+     * @throws CodeBaseException if the method (or a placeholder) could not be found (or created)
      */
     public function getMethodByName(
         CodeBase $code_base,
@@ -2259,7 +2261,7 @@ class Clazz extends AddressableElement
             return;
         }
         $next_class_fqsen = $class_fqsen->withAlternateId($class_fqsen->getAlternateId() + 1);
-        if ($code_base->hasClassWithFQSEN($next_class_fqsen)) {
+        if (!$this->isPHPInternal() && $code_base->hasClassWithFQSEN($next_class_fqsen)) {
             $this->warnAboutAmbiguousInheritance($code_base, $class, $next_class_fqsen);
         }
 
@@ -2372,6 +2374,9 @@ class Clazz extends AddressableElement
             $issue_type = Issue::RedefinedInheritedInterface;
         } else {
             $issue_type = Issue::RedefinedExtendedClass;
+        }
+        if ($this->checkHasSuppressIssueAndIncrementCount($issue_type)) {
+            return;
         }
         $first_context = $inherited_class->getContext();
         $second_context = $alternate_class->getContext();
@@ -2521,6 +2526,32 @@ class Clazz extends AddressableElement
         return $string;
     }
 
+    public function getMarkupDescription() : string
+    {
+        $string = '';
+
+        if ($this->isFinal()) {
+            $string .= 'final ';
+        }
+
+        if ($this->isAbstract() && !$this->isInterface()) {
+            $string .= 'abstract ';
+        }
+
+        if ($this->isInterface()) {
+            $string .= 'interface ';
+        } elseif ($this->isTrait()) {
+            $string .= 'trait ';
+        } else {
+            $string .= 'class ';
+        }
+
+        // TODO: Also render the namespace?
+        $string .= (string)$this->getFQSEN()->getName();
+        return $string;
+    }
+
+
     /**
      * @suppress PhanUnreferencedPublicMethod (toStubInfo is used by callers for more flexibility)
      */
@@ -2596,7 +2627,10 @@ class Clazz extends AddressableElement
         $class_constant = new ClassConstant(
             $this->getContext(),
             'class',
-            StringType::instance(false)->asUnionType(),
+            LiteralStringType::instanceForValue(
+                \ltrim($this->getFQSEN()->__toString(), '\\'),
+                false
+            )->asUnionType(),
             0,
             FullyQualifiedClassConstantName::make(
                 $this->getFQSEN(),

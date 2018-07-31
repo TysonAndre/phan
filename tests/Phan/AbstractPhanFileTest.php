@@ -69,15 +69,15 @@ abstract class AbstractPhanFileTest extends BaseTest implements CodeBaseAwareTes
     /**
      * Placeholder for getTestFiles dataProvider
      *
-     * @param string $sourceDir
+     * @param string $source_dir
      * @return string[][]
      */
-    protected function scanSourceFilesDir(string $sourceDir, string $expectedDir)
+    protected function scanSourceFilesDir(string $source_dir, string $expected_dir)
     {
         // TODO: Make Phan know that array_filter with a single argument implies elements aren't falsey
         $files = array_filter(
             array_filter(
-                scandir($sourceDir),
+                scandir($source_dir),
                 function ($filename) {
                     // Ignore directories and hidden files.
                     return !in_array($filename, ['.', '..'], true) && substr($filename, 0, 1) !== '.' && preg_match('@\.php$@', $filename);
@@ -97,10 +97,10 @@ abstract class AbstractPhanFileTest extends BaseTest implements CodeBaseAwareTes
         return array_combine(
             $files,
             array_map(
-                function ($filename) use ($sourceDir, $expectedDir, $suffix) {
+                function ($filename) use ($source_dir, $expected_dir, $suffix) {
                     return [
-                        [self::getFileForPHPVersion($sourceDir . DIRECTORY_SEPARATOR . $filename, $suffix)],
-                        self::getFileForPHPVersion($expectedDir . DIRECTORY_SEPARATOR . $filename . self::EXPECTED_SUFFIX, $suffix),
+                        [self::getFileForPHPVersion($source_dir . DIRECTORY_SEPARATOR . $filename, $suffix)],
+                        self::getFileForPHPVersion($expected_dir . DIRECTORY_SEPARATOR . $filename . self::EXPECTED_SUFFIX, $suffix),
                     ];
                 },
                 $files
@@ -116,6 +116,10 @@ abstract class AbstractPhanFileTest extends BaseTest implements CodeBaseAwareTes
         }
         return $path;
     }
+
+    const WHITELIST = [
+        '0338_magic_const_types.php.expected',
+    ];
 
     /**
      * This reads all files in a test directory (e.g. `tests/files/src`), runs
@@ -135,7 +139,9 @@ abstract class AbstractPhanFileTest extends BaseTest implements CodeBaseAwareTes
             $expected_output =
                 trim(file_get_contents($expected_file_path));
         }
-        $this->assertNotRegExp('@tests[/\\\\]files[/\\\\]@', $expected_output, 'Expected output should contain a %s placeholder instead of the relative path to the file');
+        if (!in_array(basename($expected_file_path), self::WHITELIST)) {
+            $this->assertNotRegExp('@tests[/\\\\]files[/\\\\]@', $expected_output, 'Expected output should contain a %s placeholder instead of the relative path to the file');
+        }
 
         // Overlay any test-specific config modifiers
         if ($config_file_path) {
@@ -180,10 +186,10 @@ abstract class AbstractPhanFileTest extends BaseTest implements CodeBaseAwareTes
         // do preg_quote, but miss out any %r delimited sections
         $temp = "";
         $r = "%r";
-        $startOffset = 0;
+        $start_offset = 0;
         $length = strlen($wanted_re);
-        while ($startOffset < $length) {
-            $start = strpos($wanted_re, $r, $startOffset);
+        while ($start_offset < $length) {
+            $start = strpos($wanted_re, $r, $start_offset);
             if ($start !== false) {
                 // we have found a start tag
                 $end = strpos($wanted_re, $r, $start + 2);
@@ -196,12 +202,12 @@ abstract class AbstractPhanFileTest extends BaseTest implements CodeBaseAwareTes
                 $start = $end = $length;
             }
             // quote a non re portion of the string
-            $temp = $temp . preg_quote(substr($wanted_re, $startOffset, ($start - $startOffset)), '/');
+            $temp = $temp . preg_quote(substr($wanted_re, $start_offset, ($start - $start_offset)), '/');
             // add the re unquoted.
             if ($end > $start) {
                 $temp = $temp . '(' . substr($wanted_re, $start + 2, ($end - $start - 2)) . ')';
             }
-            $startOffset = $end + 2;
+            $start_offset = $end + 2;
         }
         $wanted_re = $temp;
         $wanted_re = str_replace(['%binary_string_optional%'], 'string', $wanted_re);

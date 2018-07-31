@@ -6,10 +6,12 @@ use Phan\Config;
 use Phan\Issue;
 use Phan\IssueFixSuggester;
 use Phan\Language\Element\FunctionInterface;
+use Phan\Language\Element\Func;
 use Phan\Language\Element\Method;
 use Phan\Language\FQSEN\FullyQualifiedClassName;
 use Phan\Language\Type\GenericArrayType;
 use Phan\Language\Type\TemplateType;
+use Phan\Language\Type\VoidType;
 use Phan\Language\UnionType;
 
 class ReturnTypesAnalyzer
@@ -33,7 +35,7 @@ class ReturnTypesAnalyzer
         // are valid
 
         // Look at each type in the function's return union type
-        foreach ($return_type->withFlattenedArrayShapeTypeInstances()->getTypeSet() as $outer_type) {
+        foreach ($return_type->withFlattenedArrayShapeOrLiteralTypeInstances()->getTypeSet() as $outer_type) {
             $type = $outer_type;
             // TODO: Expand this to ArrayShapeType, add unit test of `@return array{key:MissingClazz}`
             while ($type instanceof GenericArrayType) {
@@ -119,6 +121,11 @@ class ReturnTypesAnalyzer
                         }
                     }
                 }
+            }
+        }
+        if ($return_type->isEmpty() && !$method->getHasReturn()) {
+            if ($method instanceof Func || ($method instanceof Method && ($method->isPrivate() || $method->isFinal()))) {
+                $method->setUnionType(VoidType::instance(false)->asUnionType());
             }
         }
     }

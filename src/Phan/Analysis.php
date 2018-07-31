@@ -23,6 +23,7 @@ use Phan\Parse\ParseVisitor;
 use Phan\Plugin\ConfigPluginSet;
 
 use ast\Node;
+use InvalidArgumentException;
 use ParseError;
 
 /**
@@ -54,6 +55,8 @@ class Analysis
      * See autoload_internal_extension_signatures.
      *
      * @return Context
+     *
+     * @throws InvalidArgumentException for invalid stub files
      */
     public static function parseFile(CodeBase $code_base, string $file_path, bool $suppress_parse_errors = false, string $override_contents = null, bool $is_php_internal_stub = false) : Context
     {
@@ -79,7 +82,7 @@ class Analysis
         $file_contents = $cache_entry->getContents();
         if ($file_contents === '') {
             if ($is_php_internal_stub) {
-                throw new \InvalidArgumentException("Unexpected empty php file for autoload_internal_extension_signatures: path=" . json_encode($original_file_path, JSON_UNESCAPED_SLASHES));
+                throw new InvalidArgumentException("Unexpected empty php file for autoload_internal_extension_signatures: path=" . json_encode($original_file_path, JSON_UNESCAPED_SLASHES));
             }
             // php-ast would return null for 0 byte files as an implementation detail.
             // Make Phan consistently emit this warning.
@@ -124,8 +127,8 @@ class Analysis
 
         if (Config::getValue('simplify_ast')) {
             try {
-                $newNode = ASTSimplifier::applyStatic($node);  // Transform the original AST, leaving the original unmodified.
-                $node = $newNode;  // Analyze the new AST instead.
+                // Transform the original AST, and if successful, then analyze the new AST instead of the original
+                $node = ASTSimplifier::applyStatic($node);
             } catch (\Exception $e) {
                 Issue::maybeEmit(
                     $code_base,
@@ -184,7 +187,6 @@ class Analysis
             $context->withLineNumberStart($node->lineno ?? 0)
         ))->{Element::VISIT_LOOKUP_TABLE[$node->kind] ?? 'handleMissingNodeKind'}($node);
 
-        \assert(!empty($context), 'Context cannot be null');
         $kind = $node->kind;
 
         // \ast\AST_GROUP_USE has \ast\AST_USE as a child.
@@ -206,14 +208,12 @@ class Analysis
             // Step into each child node and get an
             // updated context for the node
             $child_context = self::parseNodeInContext($code_base, $child_context, $child_node);
-
-            \assert(!empty($child_context), 'Context cannot be null');
         }
 
         // For closed context elements (that have an inner scope)
         // return the outer context instead of their inner context
         // after we finish parsing their children.
-        if (in_array($kind, [
+        if (\in_array($kind, [
             \ast\AST_CLASS,
             \ast\AST_METHOD,
             \ast\AST_FUNC_DECL,
@@ -511,8 +511,8 @@ class Analysis
 
         if (Config::getValue('simplify_ast')) {
             try {
-                $newNode = ASTSimplifier::applyStatic($node);  // Transform the original AST, leaving the original unmodified.
-                $node = $newNode;  // Analyze the new AST instead.
+                // Transform the original AST, and if successful, then analyze the new AST instead of the original
+                $node = ASTSimplifier::applyStatic($node);
             } catch (\Exception $e) {
                 Issue::maybeEmit(
                     $code_base,

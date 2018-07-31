@@ -41,10 +41,11 @@ class ArrayType extends IterableType
         $result = new UnionTypeBuilder();
         $array_shape_types = [];
         foreach ($union_type->getTypeSet() as $type) {
-            if ($type->isGenericArray()) {
+            if ($type instanceof GenericArrayInterface) {
                 if ($type instanceof ArrayShapeType) {
                     $array_shape_types[] = $type;
                 } else {
+                    // @phan-suppress-next-line PhanTypeMismatchArgument TODO support intersection types
                     $result->addType($type);
                 }
             } elseif ($type instanceof ArrayType) {
@@ -55,7 +56,7 @@ class ArrayType extends IterableType
             return ArrayShapeType::union($array_shape_types)->asUnionType();
         }
         foreach ($array_shape_types as $type) {
-            foreach ($type->withFlattenedArrayShapeTypeInstances() as $type_part) {
+            foreach ($type->withFlattenedArrayShapeOrLiteralTypeInstances() as $type_part) {
                 $result->addType($type_part);
             }
         }
@@ -74,10 +75,11 @@ class ArrayType extends IterableType
         $result = new UnionTypeBuilder();
         $left_array_shape_types = [];
         foreach ($left->getTypeSet() as $type) {
-            if ($type->isGenericArray()) {
+            if ($type instanceof GenericArrayInterface) {
                 if ($type instanceof ArrayShapeType) {
                     $left_array_shape_types[] = $type;
                 } else {
+                    // @phan-suppress-next-line PhanTypeMismatchArgument TODO support intersection types
                     $result->addType($type);
                 }
             } elseif ($type instanceof ArrayType) {
@@ -86,10 +88,11 @@ class ArrayType extends IterableType
         }
         $right_array_shape_types = [];
         foreach ($right->getTypeSet() as $type) {
-            if ($type->isGenericArray()) {
+            if ($type instanceof GenericArrayInterface) {
                 if ($type instanceof ArrayShapeType) {
                     $right_array_shape_types[] = $type;
                 } else {
+                    // @phan-suppress-next-line PhanTypeMismatchArgument TODO support intersection types
                     $result->addType($type);
                 }
             } elseif ($type instanceof ArrayType) {
@@ -110,7 +113,7 @@ class ArrayType extends IterableType
             )->asUnionType();
         }
         foreach (\array_merge($left_array_shape_types, $right_array_shape_types) as $type) {
-            foreach ($type->withFlattenedArrayShapeTypeInstances() as $type_part) {
+            foreach ($type->withFlattenedArrayShapeOrLiteralTypeInstances() as $type_part) {
                 $result->addType($type_part);
             }
         }

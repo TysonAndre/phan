@@ -11,6 +11,7 @@ use Phan\Daemon\Request;
 use Phan\Issue;
 use Phan\Language\Context;
 use Phan\Phan;
+use Phan\Plugin\ConfigPluginSet;
 
 use ast\Node;
 use ParseError;
@@ -77,7 +78,7 @@ class Parser
             $errors = [];
             try {
                 $node = $converter->parseCodeAsPHPAST($file_contents, Config::AST_VERSION, $errors);
-            } catch (\Exception $e) {
+            } catch (\Exception $_) {
                 // Generic fallback. TODO: log.
                 throw $native_parse_error;
             }
@@ -157,7 +158,13 @@ class Parser
     {
         if ($request && $request->shouldUseMappingPolyfill($file_path)) {
             // TODO: Rename to something better
-            return new TolerantASTConverterWithNodeMapping($request->getTargetByteOffset($file_contents));
+            return new TolerantASTConverterWithNodeMapping(
+                $request->getTargetByteOffset($file_contents),
+                function (Node $node) {
+                    // @phan-suppress-next-line PhanAccessMethodInternal
+                    ConfigPluginSet::instance()->prepareNodeSelectionPluginForNode($node);
+                }
+            );
         }
 
         return new TolerantASTConverter();

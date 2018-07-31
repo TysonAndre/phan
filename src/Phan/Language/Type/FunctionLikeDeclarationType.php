@@ -629,10 +629,6 @@ abstract class FunctionLikeDeclarationType extends Type implements FunctionInter
     public function toFunctionSignatureArray() : array
     {
         // no need for returns ref yet
-        $stub .= '(' . implode(', ', array_map(function (Parameter $parameter) : string {
-            return $parameter->toStubString();
-        }, $this->getRealParameterList())) . ')';
-
         $return_type = $this->return_type;
         $stub = [$return_type->__toString()];
         foreach ($this->params as $i => $parameter) {
@@ -656,6 +652,32 @@ abstract class FunctionLikeDeclarationType extends Type implements FunctionInter
     {
         // Probably unused
         return Type::fromFullyQualifiedString('\Generator');
+    }
+
+    public function getDocComment()
+    {
+        return null;
+    }
+
+    public function getMarkupDescription() : string
+    {
+        $parts = $this->toFunctionSignatureArray();
+        $return_type = $parts[0];
+        unset($parts[0]);
+
+        $fragments = [];
+        foreach ($parts as $name => $signature) {
+            $fragment = '\$' . $name;
+            if ($signature) {
+                $fragment = "$signature $fragment";
+            }
+        }
+        $signature = static::NAME . '(' . implode(',', $fragments) . ')';
+        if ($return_type) {
+            // TODO: Make this unambiguous
+            $signature .= ':' . $return_type;
+        }
+        return $signature;
     }
 
     ////////////////////////////////////////////////////////////////////////////////

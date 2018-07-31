@@ -352,7 +352,8 @@ class Comment
         int $comment_type
     ) : Comment {
 
-        if (!Config::getValue('read_type_annotations')) {
+        // Don't parse the comment if this doesn't need to.
+        if (!$comment || !Config::getValue('read_type_annotations')) {
             return new Comment(
                 0,
                 [],
@@ -386,15 +387,15 @@ class Comment
         $comment_lines_count = \count($lines);
 
         /**
-         * @param array<int,int> $validTypes
+         * @param array<int,int> $valid_types
          * @return void
          */
-        $check_compatible = function (string $paramName, array $validTypes, int $i, string $line) use ($code_base, $context, $comment_type, $lineno, $comment_lines_count) {
-            if (!\in_array($comment_type, $validTypes, true)) {
+        $check_compatible = function (string $param_name, array $valid_types, int $i, string $line) use ($code_base, $context, $comment_type, $lineno, $comment_lines_count) {
+            if (!\in_array($comment_type, $valid_types, true)) {
                 self::emitInvalidCommentForDeclarationType(
                     $code_base,
                     $context,
-                    $paramName,
+                    $param_name,
                     $comment_type,
                     self::guessActualLineLocation($context, $lineno, $i, $comment_lines_count, $line)
                 );
@@ -633,7 +634,8 @@ class Comment
     }
 
     // TODO: Is `@return &array` valid phpdoc2?
-    const return_comment_regex = '/@(?:phan-)?(?:return|throws)\s+(&\s*)?(' . UnionType::union_type_regex_or_this . '+)/';
+    /** @internal */
+    const RETURN_COMMENT_REGEX = '/@(?:phan-)?(?:return|throws)\s+(&\s*)?(' . UnionType::union_type_regex_or_this . '+)/';
 
     /**
      * @param Context $context
@@ -655,7 +657,7 @@ class Comment
     ) {
         $return_union_type_string = '';
 
-        if (\preg_match(self::return_comment_regex, $line, $match)) {
+        if (\preg_match(self::RETURN_COMMENT_REGEX, $line, $match)) {
             $return_union_type_string = $match[2];
             $raw_match = $match[0];
             $char_at_end_offset = $line[\strpos($line, $raw_match) + \strlen($raw_match)] ?? ' ';
@@ -696,14 +698,15 @@ class Comment
         string $original_type
     ) : string {
         // TODO: Would need to pass in CodeBase to emit an issue:
-        $type = Config::get()->phpdoc_type_mapping[\strtolower($original_type)] ?? null;
+        $type = Config::getValue('phpdoc_type_mapping')[\strtolower($original_type)] ?? null;
         if (\is_string($type)) {
             return $type;
         }
         return $original_type;
     }
 
-    const param_comment_regex =
+    /** @internal */
+    const PARAM_COMMENT_REGEX =
         '/@(?:phan-)?(param|var)\b\s*(' . UnionType::union_type_regex . ')?(?:\s*(\.\.\.)?\s*&?(?:\\$' . self::WORD_REGEX . '))?/';
 
     /**
@@ -737,7 +740,7 @@ class Comment
         int $i,
         int $comment_lines_count
     ) {
-        $matched = \preg_match(self::param_comment_regex, $line, $match);
+        $matched = \preg_match(self::PARAM_COMMENT_REGEX, $line, $match);
         // Parse https://docs.phpdoc.org/references/phpdoc/tags/param.html
         // Exceptions: Deliberately allow "&" in "@param int &$x" when documenting references.
         // Warn if there is neither a union type nor a variable
@@ -922,7 +925,7 @@ class Comment
     }
 
     /** @internal */
-    const magic_param_regex = '/^(' . UnionType::union_type_regex . ')?\s*(?:(\.\.\.)\s*)?(?:\$' . self::WORD_REGEX . ')?((?:\s*=.*)?)$/';
+    const MAGIC_PARAM_REGEX = '/^(' . UnionType::union_type_regex . ')?\s*(?:(\.\.\.)\s*)?(?:\$' . self::WORD_REGEX . ')?((?:\s*=.*)?)$/';
 
     /**
      * Parses a magic method based on https://phpdoc.org/docs/latest/references/phpdoc/tags/method.html
@@ -943,7 +946,7 @@ class Comment
         // https://github.com/phpDocumentor/phpDocumentor2/pull/1271/files - phpdoc allows passing an default value.
         // Phan allows `=.*`, to indicate that a parameter is optional
         // TODO: in another PR, check that optional parameters aren't before required parameters.
-        if (preg_match(self::magic_param_regex, $param_string, $param_match)) {
+        if (preg_match(self::MAGIC_PARAM_REGEX, $param_string, $param_match)) {
             // Note: a magic method parameter can be variadic, but it can't be pass-by-reference? (No support in __call)
             $union_type_string = $param_match[1];
             $union_type = UnionType::fromStringInContext(

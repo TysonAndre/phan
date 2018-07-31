@@ -11,7 +11,7 @@ use Phan\Config;
 /**
  * This is generated from phpdoc such as array{field:int}
  */
-final class ArrayShapeType extends ArrayType
+final class ArrayShapeType extends ArrayType implements GenericArrayInterface
 {
     /** @phan-override */
     const NAME = 'array';
@@ -75,11 +75,11 @@ final class ArrayShapeType extends ArrayType
     public function withoutField($field_key) : ArrayShapeType
     {
         $field_types = $this->field_types;
-        // @phan-suppress-next-line PhanPartialTypeMismatchArgumentInternal
-        if (!\array_key_exists($field_key, $field_types)) {
+        // This check is written this way to avoid https://github.com/phan/phan/issues/1831
+        unset($field_types[$field_key]);
+        if (\count($field_types) === \count($this->field_types)) {
             return $this;
         }
-        unset($field_types[$field_key]);
         return self::fromFieldTypes($field_types, $this->is_nullable);
     }
 
@@ -105,13 +105,19 @@ final class ArrayShapeType extends ArrayType
     }
 
     /** @override */
+    public function hasArrayShapeOrLiteralTypeInstances() : bool
+    {
+        return true;
+    }
+
+    /** @override */
     public function hasArrayShapeTypeInstances() : bool
     {
         return true;
     }
 
     /**
-     * @return array<int,ArrayType>
+     * @return array<int,ArrayType> the array shape transformed to remove literal keys and values.
      */
     private function computeGenericArrayTypeInstances() : array
     {
@@ -124,7 +130,11 @@ final class ArrayShapeType extends ArrayType
         $union_type_builder = new UnionTypeBuilder();
         foreach ($field_types as $key => $field_union_type) {
             foreach ($field_union_type->getTypeSet() as $type) {
-                $union_type_builder->addType(GenericArrayType::fromElementType($type, $this->is_nullable, \is_string($key) ? GenericArrayType::KEY_STRING : GenericArrayType::KEY_INT));
+                $union_type_builder->addType(GenericArrayType::fromElementType(
+                    $type->asNonLiteralType(),
+                    $this->is_nullable,
+                    \is_string($key) ? GenericArrayType::KEY_STRING : GenericArrayType::KEY_INT
+                ));
             }
         }
         // @phan-suppress-next-line PhanPartialTypeMismatchReturn
@@ -428,7 +438,7 @@ final class ArrayShapeType extends ArrayType
      * @return array<int,ArrayType>
      * @override
      */
-    public function withFlattenedArrayShapeTypeInstances() : array
+    public function withFlattenedArrayShapeOrLiteralTypeInstances() : array
     {
         $instances = $this->as_generic_array_type_instances;
         if (\is_array($instances)) {

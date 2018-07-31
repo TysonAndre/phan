@@ -292,7 +292,7 @@ This category of issue is emitted when there are compatibility issues. They will
 
 This issue will be thrown if there is an expression that may be treated differently in PHP7 than it was in previous major versions of the PHP runtime. Take a look at the [PHP7 Migration Manual](http://php.net/manual/en/migration70.incompatible.php) to understand changes in behavior.
 
-The config `Config::get()->backward_compatibility_checks` must be enabled for this to run such as by passing the command line argument `--backward-compatibility-checks` or by defining it in a `.phan/config.php` file such as [Phan's own config](https://github.com/phan/phan/blob/master/.phan/config.php).
+The config `backward_compatibility_checks` must be enabled for this to run such as by passing the command line argument `--backward-compatibility-checks` or by defining it in a `.phan/config.php` file such as [Phan's own config](https://github.com/phan/phan/blob/master/.phan/config.php).
 
 ```
 {CLASS} expression may not be PHP 7 compatible
@@ -308,6 +308,18 @@ Return type '{TYPE}' means a Traversable/array value starting in PHP 7.1. In PHP
 
 ```
 Using array keys in an array destructuring assignment is not compatible with PHP 7.0
+```
+
+## PhanCompatibleMultiExceptionCatchPHP70
+
+```
+Catching multiple exceptions is not supported before PHP 7.1
+```
+
+## PhanCompatibleNegativeStringOffset
+
+```
+Using negative string offsets is not supported before PHP 7.1 (emits an 'Uninitialized string offset' notice)
 ```
 
 ## PhanCompatibleNullableTypePHP70
@@ -326,7 +338,7 @@ Type '{TYPE}' refers to any object starting in PHP 7.2. In PHP 7.1 and earlier, 
 
 This issue will be thrown if there is an expression that may be treated differently in PHP7 than it was in previous major versions of the PHP runtime. Take a look at the [PHP7 Migration Manual](http://php.net/manual/en/migration70.incompatible.php) to understand changes in behavior.
 
-The config `Config::get()->backward_compatibility_checks` must be enabled for this to run such as by passing the command line argument `--backward-compatibility-checks` or by defining it in a `.phan/config.php` file such as [Phan's own config](https://github.com/phan/phan/blob/master/.phan/config.php).
+The config `backward_compatibility_checks` must be enabled for this to run such as by passing the command line argument `--backward-compatibility-checks` or by defining it in a `.phan/config.php` file such as [Phan's own config](https://github.com/phan/phan/blob/master/.phan/config.php).
 
 ```
 Expression may not be PHP 7 compatible
@@ -359,13 +371,13 @@ Using '{TYPE}' as object will be a syntax error in PHP 7.2 (object becomes a nat
 ## PhanCompatibleUseVoidPHP70
 
 ```
-Using '{TYPE}' as void will be a syntax error in PHP 7.1 (void becomes the absense of a return type).
+Using '{TYPE}' as void will be a syntax error in PHP 7.1 (void becomes the absence of a return type).
 ```
 
 ## PhanCompatibleVoidTypePHP70
 
 ```
-Return type '{TYPE}' means the absense of a return value starting in PHP 7.1. In PHP 7.0, void refers to a class/interface with the name 'void'
+Return type '{TYPE}' means the absence of a return value starting in PHP 7.1. In PHP 7.0, void refers to a class/interface with the name 'void'
 ```
 
 # Context
@@ -588,13 +600,13 @@ Catch statement for {CLASSLIKE} is unreachable. An earlier catch statement at li
 
 Similar issues exist for PhanUnreferencedProperty, PhanUnreferencedConstant, PhanUnreferencedMethod, and PhanUnreferencedFunction
 
-This issue is disabled by default, but can be enabled by setting `Config::get()->dead_code_detection` to enabled. It indicates that the given element is (possibly) unused.
+This issue is disabled by default, but can be enabled by setting `dead_code_detection` to enabled. It indicates that the given element is (possibly) unused.
 
 ```
 Possibly zero references to class {CLASS}
 ```
 
-This will be emitted for the following code so long as `Config::get()->dead_code_detection` is enabled.
+This will be emitted for the following code so long as `dead_code_detection` is enabled.
 
 ```php
 class C {}
@@ -767,6 +779,12 @@ to detect if a variable or parameter is unused.
 
 ```
 Unused definition of variable ${VARIABLE}
+```
+
+## PhanUnusedVariableCaughtException
+
+```
+Unused definition of variable ${VARIABLE} as a caught exception
 ```
 
 ## PhanUnusedVariableValueOfForeachWithKey
@@ -1444,6 +1462,12 @@ Expected an object instance but saw expression with type {TYPE}
 Expected an object instance or the name of a class but saw expression with type {TYPE}
 ```
 
+## PhanTypeExpectedObjectOrClassNameInvalidName
+
+```
+Expected an object instance or the name of a class but saw an invalid class name '{STRING_LITERAL}'
+```
+
 ## PhanTypeExpectedObjectPropAccess
 
 ```
@@ -1534,10 +1558,34 @@ Found an instanceof class name of type {TYPE}, but class name must be a valid ob
 Invalid operator: right operand is array and left is not
 ```
 
+## PhanTypeInvalidLeftOperandOfAdd
+
+```
+Invalid operator: left operand is {TYPE} (expected array or number)
+```
+
+## PhanTypeInvalidLeftOperandOfNumericOp
+
+```
+Invalid operator: left operand is {TYPE} (expected number)
+```
+
 ## PhanTypeInvalidRightOperand
 
 ```
 Invalid operator: left operand is array and right is not
+```
+
+## PhanTypeInvalidRightOperandOfAdd
+
+```
+Invalid operator: right operand is {TYPE} (expected array or number)
+```
+
+## PhanTypeInvalidRightOperandOfNumericOp
+
+```
+Invalid operator: right operand is {TYPE} (expected number)
 ```
 
 ## PhanTypeInvalidThrowsIsInterface
@@ -1562,6 +1610,18 @@ Invalid operator: left operand is array and right is not
 
 ```
 @throws annotation of {FUNCTIONLIKE} has suspicious class type {TYPE}, which does not extend Error/Exception
+```
+
+## PhanTypeInvalidUnaryOperandBitwiseNot
+
+```
+Invalid operator: unary operand of {STRING_LITERAL} is {TYPE} (expected number or string)
+```
+
+## PhanTypeInvalidUnaryOperandNumeric
+
+```
+Invalid operator: unary operand of {STRING_LITERAL} is {TYPE} (expected number)
 ```
 
 ## PhanTypeInvalidYieldFrom
@@ -2075,7 +2135,7 @@ Reference to undeclared static method {METHOD} in callable
 
 ## PhanUndeclaredStaticProperty
 
-Attempting to read a property that doesn't exist will result in this issue. You'll also see this issue if you write to an undeclared static property so long as `Config::get()->allow_missing_property` is false (which defaults to true).
+Attempting to read a property that doesn't exist will result in this issue. You'll also see this issue if you write to an undeclared static property so long as `allow_missing_property` is false (which defaults to true).
 
 ```
 Static property '{PROPERTY}' on {CLASS} is undeclared
@@ -2154,6 +2214,12 @@ An example would be
 
 ```php
 $v9 = $v10;
+```
+
+## PhanUndeclaredVariableAssignOp
+
+```
+Variable ${VARIABLE} was undeclared, but it is being used as the left hand side of an assignment operation
 ```
 
 ## PhanUndeclaredVariableDim
@@ -2304,6 +2370,30 @@ The phpdoc comment for {COMMENT} cannot occur on a {TYPE}
 Saw misspelled annotation {COMMENT}, should be one of {COMMENT}
 ```
 
+## PhanThrowTypeAbsent
+
+```
+{METHOD}() can throw {TYPE} here, but has no '@throws' declarations for that class
+```
+
+## PhanThrowTypeAbsentForCall
+
+```
+{METHOD}() can throw {TYPE} because it calls {FUNCTIONLIKE}(), but has no '@throws' declarations for that class
+```
+
+## PhanThrowTypeMismatch
+
+```
+{METHOD}() throws {TYPE}, but it only has declarations of '@throws {TYPE}'
+```
+
+## PhanThrowTypeMismatchForCall
+
+```
+{METHOD}() throws {TYPE} because it calls {FUNCTIONLIKE}(), but it only has declarations of '@throws {TYPE}'
+```
+
 ## PhanUnextractableAnnotation
 
 ```
@@ -2331,6 +2421,12 @@ Saw a token Phan may have failed to parse after '{COMMENT}': after {TYPE}, saw '
 # Syntax
 
 Emitted for syntax errors.
+
+## PhanInvalidConstantExpression
+
+```
+Constant expression contains invalid operations
+```
 
 ## PhanSyntaxError
 

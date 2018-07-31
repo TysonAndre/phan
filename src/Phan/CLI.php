@@ -8,6 +8,8 @@ use Phan\Output\Filter\ChainedIssueFilter;
 use Phan\Output\Filter\FileIssueFilter;
 use Phan\Output\Filter\MinimumSeverityFilter;
 use Phan\Output\PrinterFactory;
+
+use InvalidArgumentException;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Output\StreamOutput;
@@ -24,7 +26,84 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    const PHAN_VERSION = '0.12.13-dev';
+    const PHAN_VERSION = '0.12.16-dev';
+
+    /**
+     * List of short flags passed to getopt
+     * still available: g,n,t,u,w
+     * @internal
+     */
+    const GETOPT_SHORT_OPTIONS = 'f:m:o:c:k:aeqbr:pid:3:y:l:xj:zhvs:';
+
+    /**
+     * List of long flags passed to getopt
+     * @internal
+     */
+    const GETOPT_LONG_OPTIONS = [
+        'allow-polyfill-parser',
+        'backward-compatibility-checks',
+        'color',
+        'config-file:',
+        'daemonize-socket:',
+        'daemonize-tcp-host:',
+        'daemonize-tcp-port:',
+        'dead-code-detection',
+        'directory:',
+        'disable-plugins',
+        'dump-ast',
+        'dump-parsed-file-list',
+        'dump-signatures-file:',
+        'exclude-directory-list:',
+        'exclude-file:',
+        'extended-help',
+        'file-list:',
+        'file-list-only:',
+        'force-polyfill-parser',
+        'help',
+        'ignore-undeclared',
+        'include-analysis-file-list:',
+        'init',
+        'init-level:',
+        'init-analyze-dir:',
+        'init-analyze-file:',
+        'init-no-composer',
+        'init-overwrite',
+        'language-server-analyze-only-on-save',
+        'language-server-on-stdin',
+        'language-server-tcp-connect:',
+        'language-server-tcp-server:',
+        'language-server-verbose',
+        'language-server-hide-category',
+        'language-server-allow-missing-pcntl',
+        'language-server-force-missing-pcntl',
+        'language-server-require-pcntl',
+        'language-server-enable',
+        'language-server-enable-go-to-definition',
+        'language-server-enable-hover',
+        'markdown-issue-messages',
+        'memory-limit:',
+        'minimum-severity:',
+        'output:',
+        'output-mode:',
+        'parent-constructor-required:',
+        'polyfill-parse-all-element-doc-comments',
+        'plugin:',
+        'print-memory-usage-summary',
+        'processes:',
+        'progress-bar',
+        'project-root-directory:',
+        'quick',
+        'require-config-exists',
+        'signature-compatibility',
+        'strict-param-checking',
+        'strict-property-checking',
+        'strict-return-checking',
+        'strict-type-checking',
+        'target-php-version',
+        'unused-variable-detection',
+        'use-fallback-parser',
+        'version',
+    ];
 
     /**
      * @var OutputInterface
@@ -74,72 +153,7 @@ class CLI
         global $argv;
 
         // Parse command line args
-        // still available: g,n,t,u,w
-        $opts = getopt(
-            "f:m:o:c:k:aeqbr:pid:3:y:l:xj:zhvs:",
-            [
-                'allow-polyfill-parser',
-                'backward-compatibility-checks',
-                'color',
-                'config-file:',
-                'daemonize-socket:',
-                'daemonize-tcp-port:',
-                'dead-code-detection',
-                'directory:',
-                'disable-plugins',
-                'dump-ast',
-                'dump-parsed-file-list',
-                'dump-signatures-file:',
-                'exclude-directory-list:',
-                'exclude-file:',
-                'extended-help',
-                'file-list:',
-                'file-list-only:',
-                'force-polyfill-parser',
-                'help',
-                'ignore-undeclared',
-                'include-analysis-file-list:',
-                'init',
-                'init-level:',
-                'init-analyze-dir:',
-                'init-analyze-file:',
-                'init-no-composer',
-                'init-overwrite',
-                'language-server-analyze-only-on-save',
-                'language-server-on-stdin',
-                'language-server-tcp-connect:',
-                'language-server-tcp-server:',
-                'language-server-verbose',
-                'language-server-allow-missing-pcntl',
-                'language-server-force-missing-pcntl',
-                'language-server-require-pcntl',
-                'language-server-enable',
-                'language-server-enable-go-to-definition',
-                'markdown-issue-messages',
-                'memory-limit:',
-                'minimum-severity:',
-                'output:',
-                'output-mode:',
-                'parent-constructor-required:',
-                'polyfill-parse-all-element-doc-comments',
-                'plugin:',
-                'print-memory-usage-summary',
-                'processes:',
-                'progress-bar',
-                'project-root-directory:',
-                'quick',
-                'require-config-exists',
-                'signature-compatibility',
-                'strict-param-checking',
-                'strict-property-checking',
-                'strict-return-checking',
-                'strict-type-checking',
-                'target-php-version',
-                'unused-variable-detection',
-                'use-fallback-parser',
-                'version',
-            ]
-        );
+        $opts = getopt(self::GETOPT_SHORT_OPTIONS, self::GETOPT_LONG_OPTIONS);
         $opts = $opts ?? [];
 
         if (\array_key_exists('extended-help', $opts)) {
@@ -154,15 +168,15 @@ class CLI
         }
 
         // Determine the root directory of the project from which
-        // we root all relative paths passed in as args
-        $overriden_project_root_directory = $opts['d'] ?? $opts['project-root-directory'] ?? null;
-        if (\is_string($overriden_project_root_directory)) {
-            if (!\is_dir($overriden_project_root_directory)) {
-                $this->usage(\json_encode($overriden_project_root_directory) . ' is not a directory', EXIT_FAILURE);
+        // we route all relative paths passed in as args
+        $overridden_project_root_directory = $opts['d'] ?? $opts['project-root-directory'] ?? null;
+        if (\is_string($overridden_project_root_directory)) {
+            if (!\is_dir($overridden_project_root_directory)) {
+                $this->usage(\json_encode($overridden_project_root_directory) . ' is not a directory', EXIT_FAILURE);
             }
             // Set the current working directory so that relative paths within the project will work.
             // TODO: Add an option to allow searching ancestor directories?
-            \chdir($overriden_project_root_directory);
+            \chdir($overridden_project_root_directory);
         }
         $cwd = \getcwd();
         if (!is_string($cwd)) {
@@ -251,9 +265,9 @@ class CLI
                             }
                             $this->file_list_in_config = array_merge(
                                 $this->file_list,
-                                $this->directoryNameToFileList(
+                                array_values($this->directoryNameToFileList(
                                     $directory_name
-                                )
+                                ))
                             );
                         }
                     }
@@ -353,6 +367,9 @@ class CLI
                 case 'language-server-force-missing-pcntl':
                 case 'language-server-require-pcntl':
                     break;  // handled earlier
+                case 'language-server-hide-category':
+                    Config::setValue('language_server_hide_category_of_issues', true);
+                    break;
                 case 'disable-plugins':
                     // Slightly faster, e.g. for daemon mode with lowest latency (along with --quick).
                     Config::setValue('plugins', []);
@@ -385,7 +402,7 @@ class CLI
                     break;
                 case 's':
                 case 'daemonize-socket':
-                    $this->checkCanDaemonize('unix');
+                    $this->checkCanDaemonize('unix', $key);
                     $socket_dirname = realpath(dirname($value));
                     if (!file_exists($socket_dirname) || !is_dir($socket_dirname)) {
                         $msg = sprintf('Requested to create unix socket server in %s, but folder %s does not exist', json_encode($value), json_encode($socket_dirname));
@@ -395,17 +412,26 @@ class CLI
                     }
                     break;
                     // TODO: HTTP server binding to 127.0.0.1, daemonize-port.
-                case 'daemonize-tcp-port':
-                    $this->checkCanDaemonize('tcp');
-                    if (strcasecmp($value, 'default') === 0) {
-                        $port = 4846;
-                    } else {
-                        $port = filter_var($value, FILTER_VALIDATE_INT);
+                case 'daemonize-tcp-host':
+                    $this->checkCanDaemonize('tcp', $key);
+                    Config::setValue('daemonize_tcp', true);
+                    $host = filter_var($value, FILTER_VALIDATE_IP);
+                    if (strcasecmp($value, 'default') !== 0 && !$host) {
+                        $this->usage("daemonize-tcp-host must be the string 'default' or a valid hostname, got '$value'", 1);
                     }
-                    if ($port >= 1024 && $port <= 65535) {
-                        Config::setValue('daemonize_tcp_port', $port);
-                    } else {
+                    if ($host) {
+                        Config::setValue('daemonize_tcp_host', $host);
+                    }
+                    break;
+                case 'daemonize-tcp-port':
+                    $this->checkCanDaemonize('tcp', $key);
+                    Config::setValue('daemonize_tcp', true);
+                    $port = filter_var($value, FILTER_VALIDATE_INT);
+                    if (strcasecmp($value, 'default') !== 0 && !($port >= 1024 && $port <= 65535)) {
                         $this->usage("daemonize-tcp-port must be the string 'default' or a value between 1024 and 65535, got '$value'", 1);
+                    }
+                    if ($port) {
+                        Config::setValue('daemonize_tcp_port', $port);
                     }
                     break;
                 case 'language-server-on-stdin':
@@ -423,6 +449,9 @@ class CLI
                     break;
                 case 'language-server-enable-go-to-definition':
                     Config::setValue('language_server_enable_go_to_definition', true);
+                    break;
+                case 'language-server-enable-hover':
+                    Config::setValue('language_server_enable_hover', true);
                     break;
                 case 'language-server-verbose':
                     Config::setValue('language_server_debug_level', 'info');
@@ -466,7 +495,7 @@ class CLI
                     Config::setValue('color_issue_messages', true);
                     break;
                 default:
-                    $this->usage("Unknown option '-$key'", EXIT_FAILURE);
+                    $this->usage("Unknown option '-$key'" . self::getFlagSuggestionString($key), EXIT_FAILURE);
                     break;
             }
         }
@@ -549,7 +578,7 @@ class CLI
             foreach (Config::getValue('directory_list') as $directory_name) {
                 $this->file_list = array_merge(
                     $this->file_list,
-                    $this->directoryNameToFileList($directory_name)
+                    array_values($this->directoryNameToFileList($directory_name))
                 );
             }
 
@@ -562,30 +591,35 @@ class CLI
         if (count(Config::getValue('exclude_file_list')) > 0) {
             $exclude_file_set = [];
             foreach (Config::getValue('exclude_file_list') as $file) {
-                $exclude_file_set[$file] = true;
+                $normalized_file = str_replace('\\', '/', $file);
+                $exclude_file_set[$normalized_file] = true;
+                $exclude_file_set["./$normalized_file"] = true;
             }
 
             $this->file_list = array_filter(
                 $this->file_list,
                 function (string $file) use ($exclude_file_set) : bool {
-                    return empty($exclude_file_set[$file]);
+                    // Handle edge cases such as 'mydir/subdir\subsubdir' on Windows, if mydir/subdir was in the Phan config.
+                    return !isset($exclude_file_set[\str_replace('\\', '/', $file)]);
                 }
             );
         }
     }
 
     /** @return void - exits on usage error */
-    private function checkCanDaemonize(string $protocol)
+    private function checkCanDaemonize(string $protocol, string $opt)
     {
-        $opt = $protocol === 'unix' ? '--daemonize-socket' : '--daemonize-tcp-port';
+        $opt = strlen($opt) >= 2 ? "--$opt" : "-$opt";
         if (!in_array($protocol, stream_get_transports())) {
             $this->usage("The $protocol:///path/to/file schema is not supported on this system, cannot create a daemon with $opt", 1);
         }
         if (!Config::getValue('language_server_use_pcntl_fallback') && !function_exists('pcntl_fork')) {
             $this->usage("The pcntl extension is not available to fork a new process, so $opt will not be able to create workers to respond to requests.", 1);
         }
-        if (Config::getValue('daemonize_socket') || Config::getValue('daemonize_tcp_port')) {
+        if ($opt === '--daemonize-socket' && Config::getValue('daemonize_tcp')) {
             $this->usage('Can specify --daemonize-socket or --daemonize-tcp-port only once', 1);
+        } else if (($opt === '--daemonize-tcp-host' || $opt === '--daemonize-tcp-port') && Config::getValue('daemonize_socket')) {
+            $this->usage("Can specify --daemonize-socket or $opt only once", 1);
         }
     }
 
@@ -782,6 +816,11 @@ Usage: {$argv[0]} [options] [files...]
  -s, --daemonize-socket </path/to/file.sock>
   Unix socket for Phan to listen for requests on, in daemon mode.
 
+ --daemonize-tcp-host
+  TCP hostname for Phan to listen for JSON requests on, in daemon mode.
+  (e.g. 'default', which is an alias for host 127.0.0.1, or `0.0.0.0` for
+  usage with Docker). `phan_client` can be used to communicate with the Phan Daemon.
+
  --daemonize-tcp-port <default|1024-65535>
   TCP port for Phan to listen for JSON requests on, in daemon mode.
   (e.g. 'default', which is an alias for port 4846.)
@@ -848,6 +887,10 @@ Extended help:
   Enables support for "Go To Definition" and "Go To Type Definition" in the Phan Language Server.
   Disabled by default.
 
+ --language-server-enable-hover
+  Enables support for "Hover" in the Phan Language Server.
+  Disabled by default.
+
  --language-server-verbose
   Emit verbose logging messages related to the language server implementation to stderr.
   This is useful when developing or debugging language server clients.
@@ -856,6 +899,10 @@ Extended help:
   Noop (This is the default behavior).
   Allow the fallback that doesn't use pcntl (New and experimental) to be used if the pcntl extension is not installed.
   This is useful for running the language server on Windows.
+
+ --language-server-hide-category
+  Remove the Phan issue category from diagnostic messages.
+  Makes issue messages slightly shorter.
 
  --language-server-force-missing-pcntl
   Force Phan to use the fallback for when pcntl is absent (New and experimental). Useful for debugging that fallback.
@@ -872,11 +919,80 @@ EOB;
     }
 
     /**
+     * Finds potentially misspelled flags and returns them as a string
+     *
+     * This will use levenshtein distance, showing the first one or two flags
+     * which match with a distance of <= 5
+     *
+     * @param string $key Misspelled key to attempt to correct
+     * @return string
+     * @internal
+     */
+    public static function getFlagSuggestionString(
+        string $key
+    ) : string {
+        $trim = function (string $s) : string {
+            return rtrim($s, ':');
+        };
+        $generate_suggestion = function (string $suggestion) {
+            return (strlen($suggestion) === 1 ? '-' : '--') . $suggestion;
+        };
+        $generate_suggestion_text = function (string $suggestion, string ...$other_suggestions) use ($generate_suggestion) {
+            $suggestions = array_merge([$suggestion], $other_suggestions);
+            return ' (did you mean ' . implode(' or ', array_map($generate_suggestion, $suggestions)) . '?)';
+        };
+        $short_options = array_filter(array_map($trim, str_split(self::GETOPT_SHORT_OPTIONS)));
+        if (strlen($key) === 1) {
+            $alternate = ctype_lower($key) ? strtoupper($key) : strtolower($key);
+            if (in_array($alternate, $short_options)) {
+                return $generate_suggestion_text($alternate);
+            }
+            return '';
+        } elseif ($key === '') {
+            return '';
+        }
+        // include short options incase a typo is made like -aa instead of -a
+        $known_flags = array_merge(self::GETOPT_LONG_OPTIONS, $short_options);
+
+        $known_flags = array_map($trim, $known_flags);
+
+        $similarities = [];
+
+        $key_lower = strtolower($key);
+        foreach ($known_flags as $flag) {
+            if (strlen($flag) === 1 && stripos($key, $flag) === false) {
+                // Skip over suggestions of flags that have no common characters
+                continue;
+            }
+            $distance = levenshtein($key_lower, strtolower($flag));
+            // distance > 5 is to far off to be a typo
+            if ($distance <= 5) {
+                $similarities[$flag] = $distance;
+            }
+        }
+
+        asort($similarities); // retain keys and sort descending
+        $similar_flags = array_keys($similarities);
+        $similarity_values = array_values($similarities);
+
+        if (count($similar_flags) >= 2 && ($similarity_values[1] <= $similarity_values[0] + 1)) {
+            // If the next-closest suggestion isn't close to as similar as the closest suggestion, just return the closest suggestion
+            return $generate_suggestion_text($similar_flags[0], $similar_flags[1]);
+        } elseif (count($similar_flags) >= 1) {
+            return $generate_suggestion_text($similar_flags[0]);
+        }
+        return '';
+    }
+
+    /**
      * @param string $directory_name
      * The name of a directory to scan for files ending in `.php`.
      *
      * @return array<string,string>
      * A list of PHP files in the given directory
+     *
+     * @throws InvalidArgumentException
+     * if there is nothing to analyze
      */
     private function directoryNameToFileList(
         string $directory_name
@@ -887,7 +1003,7 @@ EOB;
             $file_extensions = Config::getValue('analyzed_file_extensions');
 
             if (!\is_array($file_extensions) || count($file_extensions) === 0) {
-                throw new \InvalidArgumentException(
+                throw new InvalidArgumentException(
                     'Empty list in config analyzed_file_extensions. Nothing to analyze.'
                 );
             }
@@ -947,7 +1063,7 @@ EOB;
     {
         return Config::getValue('progress_bar') &&
             !Config::getValue('dump_ast') &&
-            !Config::getValue('daemonize_tcp_port') &&
+            !Config::getValue('daemonize_tcp') &&
             !Config::getValue('daemonize_socket');
     }
 
@@ -1053,11 +1169,15 @@ EOB;
             ]);
 
         // Totally cool if the file isn't there
-        if (!file_exists($config_file_name)) {
+        if ($config_file_name === false || !file_exists($config_file_name)) {
             if ($require_config_exists) {
                 // But if the CLI option --require-config-exists is provided, exit immediately.
                 // (Include extended help documenting that option)
-                $this->usage("Could not find a config file at '$config_file_name', but --require-config-exists was set", EXIT_FAILURE, true);
+                if ($config_file_name !== false) {
+                    $this->usage("Could not find a config file at '$config_file_name', but --require-config-exists was set", EXIT_FAILURE, true);
+                } else {
+                    $this->usage(sprintf("Could not figure out the path for config file '%s', but --require-config-exists was set", $this->config_file), EXIT_FAILURE, true);
+                }
             }
             return;
         }
@@ -1082,6 +1202,7 @@ EOB;
         }
         assert(
             extension_loaded('ast'),
+            // phpcs:ignore Generic.Files.LineLength.MaxExceeded
             'The php-ast extension must be loaded in order for Phan to work. See https://github.com/phan/phan#getting-it-running for more details. Alternately, invoke Phan with the CLI option --allow-polyfill-parser (which is noticeably slower)'
         );
 
@@ -1091,7 +1212,7 @@ EOB;
                 '<' . '?php 42;',
                 Config::AST_VERSION
             );
-        } catch (\LogicException $throwable) {
+        } catch (\LogicException $_) {
             assert(
                 false,
                 'Unknown AST version ('
@@ -1116,7 +1237,7 @@ EOB;
                 . 'You may need to rebuild the latest '
                 . 'version of the php-ast extension.'
             );
-        } catch (\ParseError $throwable) {
+        } catch (\ParseError $_) {
             // error message may validate with locale and version, don't validate that.
         }
     }

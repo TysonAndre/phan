@@ -24,7 +24,6 @@ use Phan\Language\Type\ArrayShapeType;
 use Phan\Language\Type\ArrayType;
 use Phan\Language\Type\FalseType;
 use Phan\Language\Type\GenericArrayType;
-use Phan\Language\Type\IntType;
 use Phan\Language\Type\MixedType;
 use Phan\Language\Type\NullType;
 use Phan\Language\Type\StringType;
@@ -308,65 +307,79 @@ class AssignmentVisitor extends AnalysisVisitor
                 $element_type = $get_fallback_element_type();
             }
 
-
-            $value_node = $child_node->children['value'];
-
-            if ($value_node instanceof Node) {
-                $kind = $value_node->kind;
-                if ($kind === \ast\AST_VAR) {
-                    $variable = Variable::fromNodeInContext(
-                        $value_node,
-                        $this->context,
-                        $this->code_base,
-                        false
-                    );
-
-                    // Set the element type on each element of
-                    // the list
-                    $variable->setUnionType($element_type);
-
-                    // Note that we're not creating a new scope, just
-                    // adding variables to the existing scope
-                    $this->context->addScopeVariable($variable);
-                } elseif ($kind === \ast\AST_PROP) {
-                    try {
-                        $property = (new ContextNode(
-                            $this->code_base,
-                            $this->context,
-                            $value_node
-                        ))->getProperty(false);
-
-                        // Set the element type on each element of
-                        // the list
-                        $property->setUnionType($element_type);
-                    } catch (UnanalyzableException $exception) {
-                        // Ignore it. There's nothing we can do.
-                    } catch (NodeException $exception) {
-                        // Ignore it. There's nothing we can do.
-                    } catch (IssueException $exception) {
-                        Issue::maybeEmitInstance(
-                            $this->code_base,
-                            $this->context,
-                            $exception->getIssueInstance()
-                        );
-                        continue;
-                    }
-                } else {
-                    $this->context = (new AssignmentVisitor(
-                        $this->code_base,
-                        $this->context,
-                        $node,
-                        $element_type,
-                        0
-                    ))->__invoke($value_node);
-                }
-            }  // TODO: Warn if $value_node is not a node. NativeSyntaxCheckPlugin already does this.
+            $this->analyzeValueNodeOfShapedArray($element_type, $child_node->children['value']);
         }
 
         if (!Config::getValue('scalar_array_key_cast')) {
             $this->checkMismatchArrayDestructuringKey($expect_int_keys_lineno, $expect_string_keys_lineno);
         }
     }
+
+    /**
+     * @return void
+     */
+    private function analyzeValueNodeOfShapedArray(
+        UnionType $element_type,
+        $value_node
+    ) {
+        if (!$value_node instanceof Node) {
+            return;
+        }
+        $kind = $value_node->kind;
+        if ($kind === \ast\AST_REF) {
+            $value_node = $value_node->children['expr'];
+            if (!$value_node instanceof Node) {
+                return;
+            }
+        }
+        if ($kind === \ast\AST_VAR) {
+            $variable = Variable::fromNodeInContext(
+                $value_node,
+                $this->context,
+                $this->code_base,
+                false
+            );
+
+            // Set the element type on each element of
+            // the list
+            $variable->setUnionType($element_type);
+
+            // Note that we're not creating a new scope, just
+            // adding variables to the existing scope
+            $this->context->addScopeVariable($variable);
+        } elseif ($kind === \ast\AST_PROP) {
+            try {
+                $property = (new ContextNode(
+                    $this->code_base,
+                    $this->context,
+                    $value_node
+                ))->getProperty(false);
+
+                // Set the element type on each element of
+                // the list
+                $property->setUnionType($element_type);
+            } catch (UnanalyzableException $_) {
+                // Ignore it. There's nothing we can do.
+            } catch (NodeException $_) {
+                // Ignore it. There's nothing we can do.
+            } catch (IssueException $exception) {
+                Issue::maybeEmitInstance(
+                    $this->code_base,
+                    $this->context,
+                    $exception->getIssueInstance()
+                );
+                return;
+            }
+        } else {
+            $this->context = (new AssignmentVisitor(
+                $this->code_base,
+                $this->context,
+                $value_node,
+                $element_type,
+                0
+            ))->__invoke($value_node);
+        }
+    }  // TODO: Warn if $value_node is not a node. NativeSyntaxCheckPlugin already does this.
 
     /**
      * Analyzes code such as list($a) = function_returning_array();
@@ -457,7 +470,7 @@ class AssignmentVisitor extends AnalysisVisitor
                 $this->context = (new AssignmentVisitor(
                     $this->code_base,
                     $this->context,
-                    $node,
+                    $value_node,
                     $element_type,
                     0
                 ))->__invoke($value_node);
@@ -525,7 +538,6 @@ class AssignmentVisitor extends AnalysisVisitor
         // For most types, it should be int|string, but SplObjectStorage and a few user-defined types will be exceptions.
         // Infer it from offsetSet?
         $dim_node = $node->children['dim'];
-        $dim_value = null;
         if ($dim_node instanceof Node) {
             // TODO: Use ContextNode to infer dim_value
             $dim_type = UnionTypeVisitor::unionTypeFromNode(
@@ -533,12 +545,14 @@ class AssignmentVisitor extends AnalysisVisitor
                 $this->context,
                 $dim_node
             );
+            $dim_value = $dim_type->asSingleScalarValueOrNull();
         } elseif (\is_scalar($dim_node) && $dim_node !== null) {
             $dim_value = $dim_node;
             $dim_type = Type::fromObject($dim_node)->asUnionType();
         } else {
             // TODO: If the array shape has only one set of keys, then appending should add to that shape? Possibly not a common use case.
             $dim_type = null;
+            $dim_value = null;
         }
 
         if ($dim_value !== null) {
@@ -690,7 +704,7 @@ class AssignmentVisitor extends AnalysisVisitor
                 ))->getOrCreateProperty($property_name, false);
 
                 $this->addTypesToProperty($property, $node);
-            } catch (\Exception $exception) {
+            } catch (\Exception $_) {
                 // swallow it
             }
         } elseif (!empty($class_list)) {
@@ -744,7 +758,7 @@ class AssignmentVisitor extends AnalysisVisitor
 
                 // TODO: If the codebase explicitly sets a phpdoc array shape type on a property assignment,
                 // then preserve the array shape type.
-                $new_types = $this->typeCheckDimAssignment($property_union_type, $node)->withFlattenedArrayShapeTypeInstances();
+                $new_types = $this->typeCheckDimAssignment($property_union_type, $node)->withFlattenedArrayShapeOrLiteralTypeInstances();
 
                 // TODO: More precise than canCastToExpandedUnionType
                 if (!$new_types->canCastToExpandedUnionType(
@@ -872,26 +886,43 @@ class AssignmentVisitor extends AnalysisVisitor
      */
     private function addTypesToProperty(Property $property, Node $node)
     {
-        $property_types = $property->getUnionType();
-        if ($property_types->isEmpty()) {
+        $original_property_types = $property->getUnionType();
+        if ($original_property_types->isEmpty()) {
             // TODO: Be more precise?
-            $property->setUnionType($this->right_type->withFlattenedArrayShapeTypeInstances());
+            $property->setUnionType($this->right_type->withFlattenedArrayShapeOrLiteralTypeInstances());
             return;
         }
+
         if ($this->dim_depth > 0) {
-            $new_types = $this->typeCheckDimAssignment($property_types, $node);
+            $new_types = $this->typeCheckDimAssignment($original_property_types, $node);
         } else {
             $new_types = $this->right_type;
         }
-        // Don't add MixedType to a non-empty property - It makes inferences on that property useless.
-        if ($new_types->hasType(MixedType::instance(false))) {
-            $new_types = $new_types->withoutType(MixedType::instance(false));
+        $new_types = $new_types->withFlattenedArrayShapeOrLiteralTypeInstances();
+        $updated_property_types = $original_property_types;
+        foreach ($new_types->getTypeSet() as $new_type) {
+            if ($new_type instanceof MixedType) {
+                // Don't add MixedType to a non-empty property - It makes inferences on that property useless.
+                continue;
+            }
+
+            // Only allow compatible types to be added to declared properties.
+            // Allow anything to be added to dynamic properties.
+            // TODO: Be more permissive about declared properties without phpdoc types.
+            if (!$new_type->asExpandedTypes($this->code_base)->canCastToUnionType($original_property_types) && !$property->isDynamicProperty()) {
+                continue;
+            }
+
+            // Check for adding a specific array to as generic array as a workaround for #1783
+            if (\get_class($new_type) === ArrayType::class && $original_property_types->hasGenericArray()) {
+                continue;
+            }
+            $updated_property_types = $updated_property_types->withType($new_type);
         }
-        $new_types = $new_types->withFlattenedArrayShapeTypeInstances();
 
         // TODO: Add an option to check individual types, not just the whole union type?
         //       If that is implemented, verify that generic arrays will properly cast to regular arrays (public $x = [];)
-        $property->setUnionType($property_types->withUnionType($new_types));
+        $property->setUnionType($updated_property_types);
     }
 
     /**
@@ -1092,16 +1123,12 @@ class AssignmentVisitor extends AnalysisVisitor
     public function typeCheckDimAssignment(UnionType $assign_type, Node $node) : UnionType
     {
         static $int_or_string_type = null;
-        static $int_type = null;
-        static $string_type = null;
         static $mixed_type = null;
         static $string_array_type = null;
         static $simple_xml_element_type = null;
 
         if ($int_or_string_type === null) {
             $int_or_string_type = UnionType::fromFullyQualifiedString('int|string');
-            $int_type = IntType::instance(false);
-            $string_type = StringType::instance(false);
             $mixed_type = MixedType::instance(false);
             $string_array_type = UnionType::fromFullyQualifiedString('string[]');
             $simple_xml_element_type =
@@ -1131,22 +1158,22 @@ class AssignmentVisitor extends AnalysisVisitor
         }
 
         if (!$assign_type_expanded->hasArrayLike()) {
-            if ($assign_type->hasType($string_type)) {
+            if ($assign_type->hasNonNullStringType()) {
                 // Are we assigning to a variable/property of type 'string' (with no ArrayAccess or array types)?
                 if (\is_null($dim_type)) {
                     $this->emitIssue(
                         Issue::TypeMismatchDimEmpty,
                         $node->lineno ?? 0,
                         (string)$assign_type,
-                        (string)$int_type
+                        'int'
                     );
-                } elseif (!$dim_type->isEmpty() && !$dim_type->hasType($int_type)) {
+                } elseif (!$dim_type->isEmpty() && !$dim_type->hasNonNullIntType()) {
                     $this->emitIssue(
                         Issue::TypeMismatchDimAssignment,
                         $node->lineno,
                         (string)$assign_type,
                         (string)$dim_type,
-                        (string)$int_type
+                        'int'
                     );
                 } else {
                     if ($right_type->canCastToUnionType($string_array_type)) {

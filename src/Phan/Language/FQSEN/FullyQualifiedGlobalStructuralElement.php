@@ -31,6 +31,9 @@ abstract class FullyQualifiedGlobalStructuralElement extends AbstractFQSEN
      * @param int $alternate_id
      * An alternate ID for the element for use when
      * there are multiple definitions of the element
+     *
+     * @throws EmptyFQSENException
+     * if the name component of this FullyQualifiedGlobalStructuralElement is empty
      */
     protected function __construct(
         string $namespace,
@@ -338,7 +341,7 @@ abstract class FullyQualifiedGlobalStructuralElement extends AbstractFQSEN
     }
 
     /** @var string|null */
-    private $asString = null;
+    private $as_string = null;
 
     /**
      * @return string
@@ -347,15 +350,15 @@ abstract class FullyQualifiedGlobalStructuralElement extends AbstractFQSEN
      */
     public function __toString() : string
     {
-        $asString = $this->asString;
-        if ($asString === null) {
-            $asString = static::toString(
+        $as_string = $this->as_string;
+        if ($as_string === null) {
+            $as_string = static::toString(
                 $this->getNamespace(),
                 $this->getName(),
                 $this->getAlternateId()
             );
-            $this->asString = $asString;
+            $this->as_string = $as_string;
         }
-        return $asString;
+        return $as_string;
     }
 }

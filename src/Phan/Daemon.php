@@ -4,7 +4,9 @@ namespace Phan;
 use Phan\Daemon\Request;
 use Phan\Daemon\Transport\StreamResponder;
 use Phan\Daemon\ExitException;
+
 use Closure;
+use InvalidArgumentException;
 
 /**
  * A simple analyzing daemon that can be used by IDEs. (see `phan_client`)
@@ -47,13 +49,13 @@ class Daemon
         // TODO: Limit the maximum number of active processes to a small number(4?)
         // TODO: accept SIGCHLD when child terminates, somehow?
         try {
-            $gotSignal = false;
-            pcntl_signal(SIGCHLD, function (...$args) use (&$gotSignal) {
-                $gotSignal = true;
+            $got_signal = false;
+            pcntl_signal(SIGCHLD, function (...$args) use (&$got_signal) {
+                $got_signal = true;
                 Request::childSignalHandler(...$args);
             });
             while (true) {
-                $gotSignal = false;  // reset this.
+                $got_signal = false;  // reset this.
                 // We get an error from stream_socket_accept. After the RuntimeException is thrown, pcntl_signal is called.
                 /**
                  * @param int $severity
@@ -62,10 +64,10 @@ class Daemon
                  * @param int $line
                  * @return bool
                  * @phan-suppress-next-line PhanPluginUnusedVariable https://github.com/mattriverm/PhanUnusedVariable/issues/30 */
-                $previousErrorHandler = set_error_handler(function ($severity, $message, $file, $line) use (&$previousErrorHandler) {
+                $previous_error_handler = set_error_handler(function ($severity, $message, $file, $line) use (&$previous_error_handler) {
                     self::debugf("In new error handler '$message'");
                     if (!preg_match('/stream_socket_accept/i', $message)) {
-                        return $previousErrorHandler($severity, $message, $file, $line);
+                        return $previous_error_handler($severity, $message, $file, $line);
                     }
                     throw new \RuntimeException("Got signal");
                 });
@@ -73,11 +75,11 @@ class Daemon
                 $conn = false;
                 try {
                     $conn = stream_socket_accept($socket_server, -1);
-                } catch (\RuntimeException $e) {
+                } catch (\RuntimeException $_) {
                     self::debugf("Got signal");
                     pcntl_signal_dispatch();
                     self::debugf("done processing signals");
-                    if ($gotSignal) {
+                    if ($got_signal) {
                         continue;  // Ignore notices from stream_socket_accept if it's due to being interrupted by a child process terminating.
                     }
                 } finally {
@@ -115,13 +117,13 @@ class Daemon
         $socket_server = self::createDaemonStreamSocketServer();
         try {
             while (true) {
-                $gotSignal = false;  // reset this.
+                $got_signal = false;  // reset this.
                 // We get an error from stream_socket_accept. After the RuntimeException is thrown, pcntl_signal is called.
                 // @phan-suppress-next-line PhanPluginUnusedVariable
-                $previousErrorHandler = set_error_handler(function ($severity, $message, $file, $line) use (&$previousErrorHandler) {
+                $previous_error_handler = set_error_handler(function ($severity, $message, $file, $line) use (&$previous_error_handler) {
                     self::debugf("In new error handler '$message'");
                     if (!preg_match('/stream_socket_accept/i', $message)) {
-                        return $previousErrorHandler($severity, $message, $file, $line);
+                        return $previous_error_handler($severity, $message, $file, $line);
                     }
                     throw new \RuntimeException("Got signal");
                 });
@@ -129,11 +131,11 @@ class Daemon
                 $conn = false;
                 try {
                     $conn = stream_socket_accept($socket_server, -1);
-                } catch (\RuntimeException $e) {
+                } catch (\RuntimeException $_) {
                     self::debugf("Got signal");
                     pcntl_signal_dispatch();
                     self::debugf("done processing signals");
-                    if ($gotSignal) {
+                    if ($got_signal) {
                         continue;  // Ignore notices from stream_socket_accept if it's due to being interrupted by a child process terminating.
                     }
                 } finally {
@@ -144,7 +146,7 @@ class Daemon
                     // If we didn't get a connection, and it wasn't due to a signal from a child process, then stop the daemon.
                     break;
                 }
-                // We **are** the only process. Imitate the worker proces
+                // We **are** the only process. Imitate the worker process
                 $request = Request::accept(
                     $code_base,
                     $file_path_lister,
@@ -188,7 +190,7 @@ class Daemon
 
         try {
             Phan::finishAnalyzingRemainingStatements($code_base, $request, $analyze_file_path_list, $temporary_file_mapping);
-        } catch (ExitException $e) {
+        } catch (ExitException $_) {
             // This is normal and expected, do nothing
         } finally {
             $code_base->restoreFromRestorePoint($restore_point);
@@ -197,16 +199,17 @@ class Daemon
 
     /**
      * @return resource (resource is not a reserved keyword)
+     * @throws InvalidArgumentException if the config does not specify a method. (should not happen)
      */
     private static function createDaemonStreamSocketServer()
     {
         $listen_url = null;
         if (Config::getValue('daemonize_socket')) {
             $listen_url = 'unix://' . Config::getValue('daemonize_socket');
-        } elseif (Config::getValue('daemonize_tcp_port')) {
-            $listen_url = sprintf('tcp://127.0.0.1:%d', Config::getValue('daemonize_tcp_port'));
+        } elseif (Config::getValue('daemonize_tcp')) {
+            $listen_url = sprintf('tcp://%s:%d', Config::getValue('daemonize_tcp_host'), Config::getValue('daemonize_tcp_port'));
         } else {
-            throw new \InvalidArgumentException("Should not happen, no port/socket for daemon to listen on.");
+            throw new InvalidArgumentException("Should not happen, no port/socket for daemon to listen on.");
         }
         printf(
             "Listening for Phan analysis requests at %s\nAwaiting analysis requests for directory %s\n",

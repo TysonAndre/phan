@@ -22,6 +22,8 @@ use Phan\Language\Type\FunctionLikeDeclarationType;
 use Phan\Language\Type\GenericArrayType;
 use Phan\Language\Type\GenericIterableType;
 use Phan\Language\Type\GenericMultiArrayType;
+use Phan\Language\Type\LiteralIntType;
+use Phan\Language\Type\LiteralStringType;
 use Phan\Language\Type\IntType;
 use Phan\Language\Type\IterableType;
 use Phan\Language\Type\MixedType;
@@ -30,6 +32,7 @@ use Phan\Language\Type\NullType;
 use Phan\Language\Type\ObjectType;
 use Phan\Language\Type\ResourceType;
 use Phan\Language\Type\ScalarRawType;
+use Phan\Language\Type\ScalarType;
 use Phan\Language\Type\StaticType;
 use Phan\Language\Type\StringType;
 use Phan\Language\Type\TrueType;
@@ -40,6 +43,7 @@ use Phan\Library\Option;
 use Phan\Library\Some;
 use Phan\Library\Tuple5;
 
+use Error;
 use AssertionError;
 use InvalidArgumentException;
 
@@ -50,6 +54,7 @@ use InvalidArgumentException;
  *
  * @phan-file-suppress PhanPartialTypeMismatchArgument
  * @phan-file-suppress PhanPartialTypeMismatchArgumentInternal
+ * phpcs:disable Generic.NamingConventions.UpperCaseConstantName
  */
 class Type
 {
@@ -74,6 +79,16 @@ class Type
 
     const shape_key_regex =
         '[-._a-zA-Z0-9\x7f-\xff]+\??';
+
+    /**
+     * A literal integer or string.
+     *
+     * Note that string literals can only contain a whitelist of characters.
+     * NOTE: The / is escaped
+     */
+    const noncapturing_literal_regex =
+        '\??(?:-?(?:0|[1-9][0-9]*)|\'(?:[- ,.\/?:;"!#$%^&*_+=a-zA-Z0-9_\x80-\xff]|\\\\(?:[\'\\\\]|x[0-9a-fA-F]{2}))*\')';
+        // '\??(?:-?(?:0|[1-9][0-9]*)|\'(?:[a-zA-Z0-9_])*\')';
 
     /**
      * @var string
@@ -105,6 +120,7 @@ class Type
             . ')'
           . ')?'
         . ')|'
+        . self::noncapturing_literal_regex . '|'
         . '(' . self::simple_type_regex . ')'  // ?T or T. TODO: Get rid of pattern for '?'?
         . '(?:'
           . '<'
@@ -147,6 +163,7 @@ class Type
                 . ')'
               . ')?'
             . ')|'
+            . self::noncapturing_literal_regex . '|'
             . '(' . self::simple_type_regex_or_this . ')'  // 3 patterns
             . '(?:<'
               . '('
@@ -291,14 +308,18 @@ class Type
     // Override two magic methods to ensure that Type isn't being cloned accidentally.
     // (It has previously been accidentally cloned in unit tests by phpunit (global_state helper),
     //  which saves and restores some static properties)
+
+    /** @throws Error this should not be called accidentally */
     public function __wakeup()
     {
-        throw new \Error("Cannot unserialize Type");
+        debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
+        throw new Error("Cannot unserialize Type");
     }
 
+    /** @throws Error this should not be called accidentally */
     public function __clone()
     {
-        throw new \Error("Cannot clone Type");
+        throw new Error("Cannot clone Type");
     }
 
     /**
@@ -322,6 +343,8 @@ class Type
      *
      * @return Type
      * A single canonical instance of the given type.
+     *
+     * @throws AssertionError if an unparseable string is passed in
      */
     protected static function make(
         string $namespace,
@@ -406,6 +429,8 @@ class Type
                     $template_parameter_type_list,
                     $is_nullable
                 );
+                // FIXME Phan warns that array<string,static> can't be assigned to array<string,Type>
+                '@phan-var Type $value';
             }
             self::$canonical_object_map[$key] = $value;
         }
@@ -545,16 +570,16 @@ class Type
 
     /**
      * @return Type
-     * Get a type for the given object
+     * Get a type for the given object. Equivalent to Type::fromObject($object)->asNonLiteralType()
      */
-    public static function fromObject($object) : Type
+    public static function nonLiteralFromObject($object) : Type
     {
         static $type_map = null;
         if ($type_map === null) {
             $type_map = [
                 'integer' => IntType::instance(false),
                 'boolean' => BoolType::instance(false),
-                'double'   => FloatType::instance(false),
+                'double'  => FloatType::instance(false),
                 'string'  => StringType::instance(false),
                 'object'  => ObjectType::instance(false),
                 'NULL'    => NullType::instance(false),
@@ -564,6 +589,39 @@ class Type
         }
         // gettype(2) doesn't return 'int', it returns 'integer', so use FROM_PHPDOC
         return $type_map[\gettype($object)];
+    }
+
+    /**
+     * @return Type
+     * Get a type for the given object
+     * @throws AssertionError if the type was unexpected
+     */
+    public static function fromObject($object) : Type
+    {
+        switch (\gettype($object)) {
+            case 'integer':
+                '@phan-var int $object';
+                return LiteralIntType::instanceForValue($object, false);
+            case 'string':
+                '@phan-var string $object';
+                return LiteralStringType::instanceForValue($object, false);
+            case 'NULL':
+                return NullType::instance(false);
+            case 'double':
+                return FloatType::instance(false);
+            case 'object':
+                return ObjectType::instance(false);
+            case 'boolean':
+                // TODO: Does this have many side effects?
+                // Probably not, 'false' is an AST_CONST Node.
+                return $object ? TrueType::instance(false) : FalseType::instance(false);
+            case 'array':
+                return ArrayType::instance(false);
+            case 'resource':
+                return ResourceType::instance(false);  // For inferring the type of constants STDIN, etc.
+            default:
+                throw new \AssertionError("Unknown type " . gettype($object));
+        }
     }
 
     /**
@@ -578,6 +636,8 @@ class Type
      *
      * @return Type
      * Get a type for the given type name
+     *
+     * @throws AssertionError if the type was unexpected
      */
     public static function fromInternalTypeName(
         string $type_name,
@@ -700,11 +760,15 @@ class Type
         return $type_cache[$fully_qualified_string] ?? ($type_cache[$fully_qualified_string] = self::fromFullyQualifiedStringInner($fully_qualified_string));
     }
 
+    /**
+     * @throws EmptyFQSENException if the type name was the empty string
+     * @throws InvalidArgumentException if namespace is missing from something that should have a namespace
+     */
     public static function fromFullyQualifiedStringInner(
         string $fully_qualified_string
     ) : Type {
         \assert(
-            !empty($fully_qualified_string),
+            $fully_qualified_string !== '',
             "Type cannot be empty"
         );
         while (\substr($fully_qualified_string, -1) === ')') {
@@ -736,6 +800,9 @@ class Type
         $template_parameter_type_name_list = $tuple->_2;
         $is_nullable = $tuple->_3;
         $shape_components = $tuple->_4;
+        if (\preg_match('/^(' . self::noncapturing_literal_regex . ')$/', $type_name)) {
+            return self::fromEscapedLiteralScalar($type_name);
+        }
         if (\is_array($shape_components)) {
             if (\strcasecmp($type_name, 'array') === 0) {
                 return ArrayShapeType::fromFieldTypes(
@@ -791,6 +858,22 @@ class Type
         );
     }
 
+    private static function fromEscapedLiteralScalar(string $escaped_literal) : ScalarType
+    {
+        $is_nullable = $escaped_literal[0] === '?';
+        if ($is_nullable) {
+            $escaped_literal = \substr($escaped_literal, 1);
+        }
+        if ($escaped_literal[0] === "'") {
+            return LiteralStringType::fromEscapedString($escaped_literal, $is_nullable);
+        }
+        $value = filter_var($escaped_literal, FILTER_VALIDATE_INT);
+        if (\is_int($value)) {
+            return LiteralIntType::instanceForValue($value, $is_nullable);
+        }
+        return FloatType::instance($is_nullable);
+    }
+
     /**
      * @param array<int,string> $template_parameter_type_name_list
      * @return array<int,UnionType>
@@ -806,17 +889,19 @@ class Type
      * @param bool $is_closure_type
      * @param array<int,string> $shape_components
      * @param bool $is_nullable
+     * @throws AssertionError if creating a closure/callable from the arguments failed
      */
     private static function fromFullyQualifiedFunctionLike(
         bool $is_closure_type,
         array $shape_components,
         bool $is_nullable
     ) : FunctionLikeDeclarationType {
-        $return_type = \array_pop($shape_components);
-        if (!$return_type) {
+        if (\count($shape_components) === 0) {
+            // The literal int '0' is a valid union type, but it's falsey, so check the count instead.
             // shouldn't happen
             throw new AssertionError("Expected at least one component of a closure phpdoc type");
         }
+        $return_type = \array_pop($shape_components);
         if ($return_type[0] === '(' && \substr($return_type, -1) === ')') {
             // TODO: Maybe catch that in UnionType parsing instead
             $return_type = \substr($return_type, 1, -1);
@@ -956,6 +1041,11 @@ class Type
         $template_parameter_type_name_list = $tuple->_2;
         $is_nullable = $tuple->_3;
         $shape_components = $tuple->_4;
+
+        if (\preg_match('/^(' . self::noncapturing_literal_regex . ')$/', $type_name)) {
+            return self::fromEscapedLiteralScalar($type_name);
+        }
+
         if (\is_array($shape_components)) {
             if (\strcasecmp($type_name, 'array') === 0) {
                 return ArrayShapeType::fromFieldTypes(
@@ -1148,6 +1238,7 @@ class Type
      * @param Context $context
      * @param int $source
      * @param bool $is_nullable
+     * @throws AssertionError if the components were somehow invalid
      */
     private static function fromFunctionLikeInContext(
         bool $is_closure_type,
@@ -1565,8 +1656,9 @@ class Type
 
     /**
      * @return bool
-     * True if this is a generic type such as 'int[]' or
-     * 'string[]'.
+     * True if this is a generic type such as 'int[]' or 'string[]'.
+     * Currently, this is the same as `$type instanceof GenericArrayInterface`
+     * @suppress PhanUnreferencedPublicMethod
      */
     public function isGenericArray() : bool
     {
@@ -1615,16 +1707,6 @@ class Type
             return $type_name !== '[]';
         }
         return false;
-    }
-
-    /**
-     * @return Type
-     * A variation of this type that is not generic.
-     * i.e. 'int[]' becomes 'int'.
-     */
-    public function genericArrayElementType() : Type
-    {
-        throw new \Error("genericArrayElementType should not be called on Type base class");
     }
 
     /**
@@ -1687,9 +1769,9 @@ class Type
     private function valueTypeOfTraversable()
     {
         $template_type_list = $this->template_parameter_type_list;
-        $N = \count($template_type_list);
-        if ($N >= 1 && $N <= 2) {
-            return $template_type_list[$N - 1];
+        $count = \count($template_type_list);
+        if ($count >= 1 && $count <= 2) {
+            return $template_type_list[$count - 1];
         }
         return null;
     }
@@ -1713,16 +1795,6 @@ class Type
             return $template_type_list[1];
         }
         return null;
-    }
-
-    /**
-     * @return UnionType
-     * A variation of this type that is not generic.
-     * i.e. 'int[]' becomes 'int'.
-     */
-    public function genericArrayElementUnionType() : UnionType
-    {
-        throw new \Error("genericArrayElementUnionType should not be called on Type base class");
     }
 
     /**
@@ -2026,18 +2098,18 @@ class Type
     private function canCastTraversableToIterable(GenericIterableType $type) : bool
     {
         $template_types = $this->template_parameter_type_list;
-        $N = \count($template_types);
+        $count = \count($template_types);
         $name = $this->name;
         if ($name === 'Traversable' || $name === 'Iterator') {
             // Phan supports Traversable<TValue> and Traversable<TKey, TValue>
-            if ($N > 2 || $N < 1) {
+            if ($count > 2 || $count < 1) {
                 // No idea what this means, assume it passes.
                 return true;
             }
-            if (!$this->template_parameter_type_list[$N - 1]->canCastToUnionType($type->getElementUnionType())) {
+            if (!$this->template_parameter_type_list[$count - 1]->canCastToUnionType($type->getElementUnionType())) {
                 return false;
             }
-            if ($N === 2) {
+            if ($count === 2) {
                 if (!$this->template_parameter_type_list[0]->canCastToUnionType($type->getKeyUnionType())) {
                     return false;
                 }
@@ -2051,15 +2123,15 @@ class Type
             // 4. Generator<TKey, TValue, TYield, TReturn> (PHP generators can return a final value, but HHVM cannot)
 
             // TODO: Handle casting Generator to a Generator with a different number of template parameters
-            if ($N > 4 || $N < 1) {
+            if ($count > 4 || $count < 1) {
                 // No idea what this means, assume it passes
                 return true;
             }
 
-            if (!$this->template_parameter_type_list[\min(1, $N - 1)]->canCastToUnionType($type->getElementUnionType())) {
+            if (!$this->template_parameter_type_list[\min(1, $count - 1)]->canCastToUnionType($type->getElementUnionType())) {
                 return false;
             }
-            if ($N >= 2) {
+            if ($count >= 2) {
                 if (!$this->template_parameter_type_list[0]->canCastToUnionType($type->getKeyUnionType())) {
                     return false;
                 }
@@ -2262,15 +2334,26 @@ class Type
         $match = [];
         $is_nullable = false;
         if (\preg_match('/^' . self::type_regex_or_this . '$/', $type_string, $match)) {
-            if ($match[3] !== '') {
-                return self::closureTypeStringComponents($type_string, $match[3]);
+            $closure_components = $match[3] ?? '';
+            if ($closure_components !== '') {
+                return self::closureTypeStringComponents($type_string, $closure_components);
             }
             if (!isset($match[2])) {
                 // Parse '(X)' as 'X'
                 return self::typeStringComponents(\substr($match[1], 1, -1));
             } elseif (!isset($match[4])) {
-                // Parse '?(X[]) as '?X[]'
-                return self::typeStringComponents('?' . \substr($match[2], 2, -1));
+                if (\substr($type_string, -1) === ')') {
+                    // Parse '?(X[]) as '?X[]'
+                    return self::typeStringComponents('?' . \substr($match[2], 2, -1));
+                } else {
+                    return new Tuple5(
+                        '',
+                        $match[0],
+                        [],
+                        false,
+                        null
+                    );
+                }
             }
             $type_string = $match[4];
 
@@ -2432,6 +2515,11 @@ class Type
         return $this->is_nullable ? self::_bit_nullable : 0;
     }
 
+    public function hasArrayShapeOrLiteralTypeInstances() : bool
+    {
+        return false;
+    }
+
     public function hasArrayShapeTypeInstances() : bool
     {
         return false;
@@ -2447,10 +2535,32 @@ class Type
     }
 
     /**
+     * @deprecated - Use withFlattenedArrayShapeOrLiteralTypeInstances
+     * @suppress PhanUnreferencedPublicMethod
+     */
+    final public function withFlattenedArrayShapeInstances() : array
+    {
+        return $this->withFlattenedArrayShapeOrLiteralTypeInstances();
+    }
+
+    /**
      * @return Type[]
      */
-    public function withFlattenedArrayShapeTypeInstances() : array
+    public function withFlattenedArrayShapeOrLiteralTypeInstances() : array
     {
         return [$this];
+    }
+
+    /**
+     * Overridden in subclasses such as LiteralIntType
+     */
+    public function asNonLiteralType() : Type
+    {
+        return $this;
+    }
+
+    public function isValidNumericOperand() : bool
+    {
+        return false;
     }
 }

@@ -16,16 +16,22 @@ use Phan\Language\Type\ArrayType;
 use Phan\Language\Type\BoolType;
 use Phan\Language\Type\FalseType;
 use Phan\Language\Type\FloatType;
+use Phan\Language\Type\GenericArrayInterface;
 use Phan\Language\Type\GenericArrayType;
+use Phan\Language\Type\LiteralIntType;
+use Phan\Language\Type\LiteralStringType;
+use Phan\Language\Type\LiteralTypeInterface;
 use Phan\Language\Type\IntType;
 use Phan\Language\Type\MixedType;
 use Phan\Language\Type\MultiType;
 use Phan\Language\Type\NullType;
+use Phan\Language\Type\ScalarType;
 use Phan\Language\Type\StaticType;
 use Phan\Language\Type\StringType;
 use Phan\Language\Type\TemplateType;
 use Phan\Language\Type\TrueType;
 use ast\Node;
+use Closure;
 use Generator;
 
 if (!\function_exists('spl_object_id')) {
@@ -39,6 +45,7 @@ class UnionType implements \Serializable
      * A list of one or more types delimited by the '|'
      * character (e.g. 'int|DateTime|string[]')
      */
+    // phpcs:ignore Generic.NamingConventions.UpperCaseConstantName
     const union_type_regex =
         Type::type_regex
         . '(\|' . Type::type_regex . ')*';
@@ -51,6 +58,7 @@ class UnionType implements \Serializable
      *
      * TODO: Equivalent variants with no capturing? (May not improve performance much)
      */
+    // phpcs:ignore Generic.NamingConventions.UpperCaseConstantName
     const union_type_regex_or_this =
         Type::type_regex_or_this
         . '(\|' . Type::type_regex_or_this . ')*';
@@ -347,6 +355,7 @@ class UnionType implements \Serializable
      * be thrown for optional issues.
      *
      * @deprecated - Use UnionTypeVisitor::unionTypeFromNode
+     * @suppress PhanUnreferencedPublicMethod
      */
     public static function fromNode(
         Context $context,
@@ -969,6 +978,115 @@ class UnionType implements \Serializable
         return false;
     }
 
+    /**
+     * Returns true if this contains at least one non-null IntType or LiteralIntType
+     */
+    public function hasNonNullIntType() : bool
+    {
+        foreach ($this->type_set as $type) {
+            if ($type instanceof IntType && !$type->getIsNullable()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns true if this is exclusively non-null IntType or LiteralIntType
+     */
+    public function isNonNullIntType() : bool
+    {
+        if (\count($this->type_set) === 0) {
+            return false;
+        }
+        foreach ($this->type_set as $type) {
+            if (!($type instanceof IntType) || $type->getIsNullable()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Returns true if this is exclusively non-null IntType or FloatType or subclasses
+     */
+    public function isNonNullNumberType() : bool
+    {
+        if (\count($this->type_set) === 0) {
+            return false;
+        }
+        foreach ($this->type_set as $type) {
+            if (!($type instanceof IntType || $type instanceof FloatType) || $type->getIsNullable()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Returns true if this contains at least one non-null StringType or LiteralStringType
+     */
+    public function hasStringType() : bool
+    {
+        foreach ($this->type_set as $type) {
+            if ($type instanceof StringType) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns true if this contains at least one non-null StringType or LiteralStringType
+     */
+    public function hasNonNullStringType() : bool
+    {
+        foreach ($this->type_set as $type) {
+            if ($type instanceof StringType && !$type->getIsNullable()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns true if this is exclusively non-null StringType or LiteralStringType
+     */
+    public function isNonNullStringType() : bool
+    {
+        if (\count($this->type_set) === 0) {
+            return false;
+        }
+        foreach ($this->type_set as $type) {
+            if (!($type instanceof StringType) || $type->getIsNullable()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public function hasLiterals() : bool
+    {
+        foreach ($this->type_set as $type) {
+            if ($type instanceof LiteralTypeInterface) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function asNonLiteralType() : UnionType
+    {
+        if (!$this->hasLiterals()) {
+            return $this;
+        }
+        $result = UnionType::empty();
+        foreach ($this->type_set as $type) {
+            $result = $result->withType($type->asNonLiteralType());
+        }
+        return $result;
+    }
+
     public function nonTruthyClone() : UnionType
     {
         $builder = new UnionTypeBuilder();
@@ -1439,7 +1557,7 @@ class UnionType implements \Serializable
     public function hasGenericArray() : bool
     {
         return $this->hasTypeMatchingCallback(function (Type $type) : bool {
-            return $type->isGenericArray();
+            return $type instanceof GenericArrayInterface;
         });
     }
 
@@ -1498,7 +1616,7 @@ class UnionType implements \Serializable
         }
 
         return !$this->hasTypeMatchingCallback(function (Type $type) : bool {
-            return $type !== ArrayType::instance(false) && !$type->isGenericArray();
+            return !($type instanceof ArrayType) || $type->getIsNullable();
         });
     }
 
@@ -1678,7 +1796,7 @@ class UnionType implements \Serializable
     public function nonGenericArrayTypes() : UnionType
     {
         return $this->makeFromFilter(function (Type $type) : bool {
-            return !$type->isGenericArray();
+            return !($type instanceof GenericArrayInterface);
         });
     }
 
@@ -1693,7 +1811,7 @@ class UnionType implements \Serializable
     public function genericArrayTypes() : UnionType
     {
         return $this->makeFromFilter(function (Type $type) : bool {
-            return $type->isGenericArray();
+            return $type instanceof GenericArrayInterface;
         });
     }
 
@@ -1855,8 +1973,7 @@ class UnionType implements \Serializable
     {
         return $this->makeFromFilter(
             function (Type $type) : bool {
-                return !$type->isGenericArray()
-                    && $type !== ArrayType::instance(false);
+                return !($type instanceof ArrayType);
             }
         );
     }
@@ -1872,7 +1989,7 @@ class UnionType implements \Serializable
         }
 
         return !$this->hasTypeMatchingCallback(function (Type $type) : bool {
-            return !$type->isGenericArray();
+            return !($type instanceof GenericArrayInterface);
         });
     }
 
@@ -1990,7 +2107,7 @@ class UnionType implements \Serializable
         $builder = new UnionTypeBuilder();
         $type_set = $this->type_set;
         foreach ($type_set as $type) {
-            if ($type->isGenericArray()) {
+            if ($type instanceof GenericArrayInterface) {
                 if ($type instanceof ArrayShapeType) {
                     $builder->addUnionType($type->genericArrayElementUnionType());
                 } else {
@@ -2461,10 +2578,23 @@ class UnionType implements \Serializable
         return false;
     }
 
+    /**
+     * @suppress PhanUnreferencedPublicMethod
+     */
     public function hasArrayShapeTypeInstances() : bool
     {
         foreach ($this->type_set as $type) {
             if ($type->hasArrayShapeTypeInstances()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function hasArrayShapeOrLiteralTypeInstances() : bool
+    {
+        foreach ($this->type_set as $type) {
+            if ($type->hasArrayShapeOrLiteralTypeInstances()) {
                 return true;
             }
         }
@@ -2481,16 +2611,29 @@ class UnionType implements \Serializable
         return false;
     }
 
+    /**
+     * @deprecated alias of withFlattenedArrayShapeOrLiteralTypeInstances
+     * @suppress PhanUnreferencedPublicMethod
+     */
     public function withFlattenedArrayShapeTypeInstances() : UnionType
     {
-        if (!$this->hasArrayShapeTypeInstances()) {
+        return $this->withFlattenedArrayShapeOrLiteralTypeInstances();
+    }
+
+    /**
+     * Flatten literals in keys and values into non-literal types
+     * E.g. convert array{2:3} to array<int,string>
+     */
+    public function withFlattenedArrayShapeOrLiteralTypeInstances() : UnionType
+    {
+        if (!$this->hasArrayShapeOrLiteralTypeInstances()) {
             return $this;
         }
 
         $result = new UnionTypeBuilder();
         foreach ($this->type_set as $type) {
-            if ($type->hasArrayShapeTypeInstances()) {
-                foreach ($type->withFlattenedArrayShapeTypeInstances() as $type_part) {
+            if ($type->hasArrayShapeOrLiteralTypeInstances()) {
+                foreach ($type->withFlattenedArrayShapeOrLiteralTypeInstances() as $type_part) {
                     $result->addType($type_part);
                 }
             } else {
@@ -2560,7 +2703,7 @@ class UnionType implements \Serializable
                     return true;
                 }
             }
-        } catch (CodeBaseException $e) {
+        } catch (CodeBaseException $_) {
             // Swallow "Cannot find class", go on to emit issue
         }
         return false;
@@ -2611,7 +2754,7 @@ class UnionType implements \Serializable
      */
     public function getReferencedClasses() : Generator
     {
-        foreach ($this->withFlattenedArrayShapeTypeInstances()->getTypeSet() as $outer_type) {
+        foreach ($this->withFlattenedArrayShapeOrLiteralTypeInstances()->getTypeSet() as $outer_type) {
             $type = $outer_type;
 
             while ($type instanceof GenericArrayType) {
@@ -2621,6 +2764,128 @@ class UnionType implements \Serializable
                 continue;
             }
             yield $outer_type => $type;
+        }
+    }
+
+    public function applyUnaryMinusOperator() : UnionType
+    {
+        // TODO: Extend to LiteralFloatType
+        /** @param int|float $value */
+        return $this->applyNumericOperation(function ($value) : ScalarType {
+            $result = -$value;
+            if (\is_int($result)) {
+                return LiteralIntType::instanceForValue($result, false);
+            }
+            // -INT_MIN is a float.
+            return FloatType::instance(false);
+        }, true);
+    }
+
+    public function applyUnaryBitwiseNotOperator() : UnionType
+    {
+        if ($this->isEmpty()) {
+            return IntType::instance(false)->asUnionType();
+        }
+        $added_fallbacks = false;
+        $type_set = UnionType::empty();
+        foreach ($this->type_set as $type) {
+            if ($type instanceof LiteralIntType) {
+                $type_set = $type_set->withType(LiteralIntType::instanceForValue(~$type->getValue(), false));
+                if ($type->getIsNullable()) {
+                    $type_set = $type_set->withType(LiteralIntType::instanceForValue(0, false));
+                }
+            } elseif ($type instanceof StringType) {
+                // Not going to bother being more specific (this applies bitwise not to each character for LiteralStringType)
+                $type_set = $type_set->withType(StringType::instance(false));
+            } else {
+                if ($added_fallbacks) {
+                    continue;
+                }
+                $type_set = $type_set->withType(IntType::instance(false));
+                $added_fallbacks = true;
+            }
+        }
+        return $type_set;
+    }
+
+    public function applyUnaryPlusOperator() : UnionType
+    {
+        /** @param int|float $value */
+        return $this->applyNumericOperation(function ($value) : ScalarType {
+            $result = -$value;
+            if (\is_int($result)) {
+                return LiteralIntType::instanceForValue($result, false);
+            }
+            // -INT_MIN is a float.
+            return FloatType::instance(false);
+        }, true);
+    }
+
+    /**
+     * @param Closure(int): ScalarType $operation
+     */
+    private function applyNumericOperation(Closure $operation, bool $can_be_float) : UnionType
+    {
+        $added_fallbacks = false;
+        $type_set = UnionType::empty();
+        foreach ($this->type_set as $type) {
+            if ($type instanceof LiteralIntType) {
+                $type_set = $type_set->withType($operation($type->getValue()));
+                if ($type->getIsNullable()) {
+                    $type_set = $type_set->withType(LiteralIntType::instanceForValue(0, false));
+                }
+            } else {
+                if ($added_fallbacks) {
+                    continue;
+                }
+                if ($can_be_float) {
+                    if (!($type instanceof IntType)) {
+                        $type_set = $type_set->withType(FloatType::instance(false));
+                        if (!($type instanceof FloatType)) {
+                            $type_set = $type_set->withType(IntType::instance(false));
+                        }
+                        $added_fallbacks = true;
+                    } else {
+                        $type_set = $type_set->withType(IntType::instance(false));
+                        // Keep added_fallbacks false in case this needs to add FloatType
+                    }
+                } else {
+                    $type_set = $type_set->withType(IntType::instance(false));
+                    $added_fallbacks = true;
+                }
+            }
+        }
+        return $type_set;
+    }
+
+    /**
+     * @return ?string|?float|?int|bool|null
+     * If this union type can be represented by a single scalar value,
+     * then this returns that scalar value.
+     *
+     * Otherwise, this returns null.
+     */
+    public function asSingleScalarValueOrNull()
+    {
+        $type_set = $this->type_set;
+        if (\count($type_set) !== 1) {
+            return null;
+        }
+        $type = \reset($type_set);
+        switch (\get_class($type)) {
+            case LiteralIntType::class:
+                '@phan-var LiteralIntType $type';  // TODO: support switches
+                return $type->getIsNullable() ? null : $type->getValue();
+            case LiteralStringType::class:
+                '@phan-var LiteralStringType $type';  // TODO: support switches
+                return $type->getIsNullable() ? null : $type->getValue();
+            case FalseType::class:
+                return false;
+            case TrueType::class:
+                return true;
+            // case NullType::class:
+            default:
+                return null;
         }
     }
 }
