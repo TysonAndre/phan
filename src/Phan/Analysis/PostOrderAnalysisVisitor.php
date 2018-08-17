@@ -14,6 +14,7 @@ use Phan\Exception\UnanalyzableException;
 use Phan\Issue;
 use Phan\IssueFixSuggester;
 use Phan\Language\Context;
+use Phan\Language\Element\Clazz;
 use Phan\Language\Element\FunctionInterface;
 use Phan\Language\Element\Method;
 use Phan\Language\Element\Parameter;
@@ -1138,7 +1139,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         return $context;
     }
 
-    private function checkCanCastToReturnType(CodeBase $code_base, UnionType $expression_type, UnionType $method_return_type)
+    private function checkCanCastToReturnType(CodeBase $code_base, UnionType $expression_type, UnionType $method_return_type) : bool
     {
         if ($method_return_type->hasTemplateParameterTypes()) {
             // TODO: Better casting logic for template types (E.g. should be able to cast None to Option<MyClass>, but not Some<int> to Option<MyClass>
@@ -1633,7 +1634,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             $static_class = (string)$node->children['class']->children['name'];
         }
 
-        $method = $this->getStaticMethodOrEmitIssue($node);
+        $method = $this->getStaticMethodOrEmitIssue($node, $method_name);
 
         if ($method === null) {
             // Short circuit on a constructor being called statically
@@ -1816,12 +1817,12 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
 
     /**
      * gets the static method, or emits an issue.
-     * @return Method|null
+     * @param Node $node
+     * @param string $method_name - NOTE: The caller should convert constants/class constants/etc in $node->children['method'] to a string.
+     * @return ?Method
      */
-    private function getStaticMethodOrEmitIssue(Node $node)
+    private function getStaticMethodOrEmitIssue(Node $node, string $method_name)
     {
-        $method_name = $node->children['method'];
-
         try {
             // Get a reference to the method being called
             return (new ContextNode(
@@ -1852,6 +1853,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             // If we can't figure out what kind of a call
             // this is, don't worry about it
         }
+        return null;
     }
 
     /**
@@ -2201,13 +2203,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             if (!$is_static) {
                 // Find out of any of them have a __get magic method
                 // (Only check if looking for instance properties)
-                $has_getter =
-                    \array_reduce($class_list, function ($carry, $class) {
-                        return (
-                            $carry ||
-                            $class->hasGetMethod($this->code_base)
-                        );
-                    }, false);
+                $has_getter = $this->hasGetter($class_list);
 
                 // If they don't, then analyze for Noops.
                 if (!$has_getter) {
@@ -2225,6 +2221,17 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         }
 
         return $this->context;
+    }
+
+    /** @param Clazz[] $class_list */
+    private function hasGetter(array $class_list) : bool
+    {
+        foreach ($class_list as $class) {
+            if ($class->hasGetMethod($this->code_base)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -2616,6 +2623,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
 
     /**
      * @param Variable|Property $variable
+     * @return void
      */
     private function analyzePregMatch(array $argument_list, $variable)
     {
@@ -2635,12 +2643,14 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         $offset_flags_node = $argument_list[3];
         $bit = (new ContextNode($this->code_base, $this->context, $offset_flags_node))->getEquivalentPHPScalarValue();
         if (!\is_int($bit)) {
-            return $array_type;
+            $variable->setUnionType($array_type);
+            return;
         }
         if ($bit & PREG_OFFSET_CAPTURE) {
-            return $shape_array_type;
+            $variable->setUnionType($shape_array_type);
+            return;
         }
-        return $string_array_type;
+        $variable->setUnionType($string_array_type);
     }
 
     /**
@@ -2698,7 +2708,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         try {
             // Even though we don't modify the parameter list, we still need to know the types
             // -- as an optimization, we don't run quick mode again if the types didn't change?
-            $parameter_list = \array_map(function (Parameter $parameter) {
+            $parameter_list = \array_map(/** @return Parameter */ function (Parameter $parameter) {
                 return clone($parameter);
             }, $method->getParameterList());
 

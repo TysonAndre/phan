@@ -102,8 +102,8 @@ class DuplicateArrayKeyVisitor extends PluginAwarePostAnalysisVisitor
             return;
         }
 
-        $hasEntryWithoutKey = false;
-        $keySet = [];
+        $has_entry_without_key = false;
+        $key_set = [];
         foreach ($children as $entry) {
             if ($entry === null) {
                 continue;  // Triggered by code such as `list(, $a) = $expr`. In php 7.1, the array and list() syntax was unified.
@@ -111,7 +111,7 @@ class DuplicateArrayKeyVisitor extends PluginAwarePostAnalysisVisitor
             $key = $entry->children['key'];
             // Skip array entries without literal keys. (Do it before resolving the key value)
             if ($key === null) {
-                $hasEntryWithoutKey = true;
+                $has_entry_without_key = true;
                 continue;
             }
             $key = $this->tryToResolveKey($key);
@@ -120,7 +120,7 @@ class DuplicateArrayKeyVisitor extends PluginAwarePostAnalysisVisitor
                 // Skip non-literal keys.
                 continue;
             }
-            if (isset($keySet[$key])) {
+            if (isset($key_set[$key])) {
                 $normalized_key = self::normalizeKey($key);
                 $this->emitPluginIssue(
                     $this->code_base,
@@ -133,9 +133,9 @@ class DuplicateArrayKeyVisitor extends PluginAwarePostAnalysisVisitor
                     15071
                 );
             }
-            $keySet[$key] = true;
+            $key_set[$key] = true;
         }
-        if ($hasEntryWithoutKey && count($keySet) > 0) {
+        if ($has_entry_without_key && count($key_set) > 0) {
             // This is probably a typo in most codebases. (e.g. ['foo' => 'bar', 'baz'])
             // In phan, InternalFunctionSignatureMap.php does this deliberately with the first parameter being the return type.
             $this->emit(
@@ -151,7 +151,7 @@ class DuplicateArrayKeyVisitor extends PluginAwarePostAnalysisVisitor
 
     /**
      * @param int|string|float|array|Node $key (not actually an array)
-     * @return int|string|float|Node|array - If possible, converted to a scalar.
+     * @return int|string|float|Node|array|bool|null - If possible, converted to a scalar.
      */
     private function tryToResolveKey($key)
     {
@@ -193,7 +193,7 @@ class DuplicateArrayKeyVisitor extends PluginAwarePostAnalysisVisitor
      * Converts a key to the value it would be if used as an array key.
      * E.g. 0, 0.5, and "0" all become the same value(0) when used as an array key.
      *
-     * @param int|string|float $key - The array key literal to be normalized.
+     * @param int|string|float|bool|null $key - The array key literal to be normalized.
      * @return string - The normalized representation.
      */
     private static function normalizeKey($key) : string

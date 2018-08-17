@@ -1,8 +1,6 @@
 #!/usr/bin/env php
 <?php declare(strict_types=1);
-<<<PHAN
-@phan-file-suppress PhanNativePHPSyntaxCheckPlugin
-PHAN;
+// @phan-file-suppress PhanNativePHPSyntaxCheckPlugin
 
 use Phan\Analysis;
 use Phan\CodeBase;
@@ -22,10 +20,13 @@ define('ORIGINAL_SIGNATURE_PATH', dirname(__DIR__) . '/src/Phan/Language/Interna
 
 abstract class IncompatibleSignatureDetectorBase
 {
-    const FUNCTIONLIKE_BLACKLIST = '@(^___PHPSTORM_HELPERS)|PS_UNRESERVE_PREFIX@';
-
     use Memoize;
 
+    const FUNCTIONLIKE_BLACKLIST = '@(^___PHPSTORM_HELPERS)|PS_UNRESERVE_PREFIX@';
+
+    /**
+     * @return void (does not return)
+     */
     protected static function printUsageAndExit(int $exit_code = 1)
     {
         global $argv;
@@ -203,6 +204,7 @@ EOT;
 
     /**
      * @param string $msg @phan-unused-param
+     * @return void
      */
     protected static function debug(string $msg)
     {
@@ -210,6 +212,9 @@ EOT;
         // fwrite(STDERR, $msg);
     }
 
+    /**
+     * @return void
+     */
     protected static function info(string $msg)
     {
         // comment out the below line to hide debug output
@@ -218,6 +223,7 @@ EOT;
 
     /**
      * @param array<string,array> &$phan_signatures
+     * @return void
      */
     public static function sortSignatureMap(array &$phan_signatures)
     {
@@ -272,23 +278,24 @@ EOT;
 
     /**
      * @param array<string,array<int|string,string>> $signatures
+     * @return string
      */
     public static function serializeSignatures(array $signatures) : string
     {
-        $parts = ["return [\n"];
+        $parts = "return [\n";
         foreach ($signatures as $function_like_name => $arguments) {
-            $parts[] = static::encodeSingleSignature($function_like_name, $arguments);
+            $parts .= static::encodeSingleSignature($function_like_name, $arguments);
         }
-        $parts[] = "];\n";
-        return implode('', $parts);
+        $parts .= "];\n";
+        return $parts;
     }
 
-    private static function encodeScalar($scalar)
+    private static function encodeScalar($scalar) : string
     {
         if (is_string($scalar)) {
             return "'" . addcslashes($scalar, "'") . "'";
         }
-        return $scalar;
+        return (string)$scalar;
     }
 
     public static function encodeSingleSignature(string $function_like_name, array $arguments) : string
@@ -361,7 +368,8 @@ class IncompatibleXMLSignatureDetector extends IncompatibleSignatureDetectorBase
     private $files_for_function_name_list;
 
 
-    private function getFilesForFunctionNameList()
+    /** @return array<string,array<string,string>> a set of unique file names */
+    private function getFilesForFunctionNameList() : array
     {
         if ($this->files_for_function_name_list === null) {
             $this->files_for_function_name_list = $this->populateFilesForFunctionNameList();
@@ -395,7 +403,10 @@ class IncompatibleXMLSignatureDetector extends IncompatibleSignatureDetectorBase
         '__autoload',
     ];
 
-    private function populateFilesForFunctionNameList()
+    /**
+     * @return array<string,array<string,string>>
+     */
+    private function populateFilesForFunctionNameList() : array
     {
         $this->files_for_function_name_list = [];
         $reference_directory = $this->reference_directory;
@@ -421,10 +432,15 @@ class IncompatibleXMLSignatureDetector extends IncompatibleSignatureDetectorBase
         return $this->files_for_function_name_list;
     }
 
-    /** @var array<string,array<string,string>>|null */
+    /**
+     * @var array<string,array<string,string>>
+     */
     private $folders_for_class_name_list;
 
-    private function getFoldersForClassNameList()
+    /**
+     * @return array<string,array<string,string>>
+     */
+    private function getFoldersForClassNameList() : array
     {
         if ($this->folders_for_class_name_list === null) {
             $this->folders_for_class_name_list = $this->populateFoldersForClassNameList();
@@ -432,6 +448,9 @@ class IncompatibleXMLSignatureDetector extends IncompatibleSignatureDetectorBase
         return $this->folders_for_class_name_list;
     }
 
+    /**
+     * @return array<string,array<string,string>>
+     */
     private function populateFoldersForClassNameList()
     {
         $this->folders_for_class_name_list = [];
@@ -454,6 +473,7 @@ class IncompatibleXMLSignatureDetector extends IncompatibleSignatureDetectorBase
     public static function main()
     {
         error_reporting(E_ALL);
+        ini_set('memory_limit', '2G');
         global $argv;
         if (\count($argv) < 2) {
             // TODO: CLI flags
@@ -478,28 +498,33 @@ class IncompatibleXMLSignatureDetector extends IncompatibleSignatureDetectorBase
 
                 $detector->addMissingFunctionLikeSignatures();
                 $detector->updateFunctionSignatures();
+                // TODO: Sort .php.extra_signatures and .php.new
                 break;
             case 'update-stubs':
                 if (count($argv) !== 3) {
                     fwrite(STDERR, "Invalid argument count, update-stubs expects 1 argument\n");
                     static::printUsageAndExit();
                 }
+                // TODO: Add a way to exclude /tests/
                 $detector = new IncompatibleStubsSignatureDetector($argv[2]);
                 $detector->selfTest();
                 $detector->addMissingFunctionLikeSignatures();
                 $detector->updateFunctionSignatures();
+                // TODO: Sort .php.extra_signatures and .php.new
 
                 break;
             case 'help':
             case '--help':
             case '-h':
                 static::printUsageAndExit(0);
+                return;  // unreachable
             default:
                 fwrite(STDERR, "Invalid command '$command'\n");
                 static::printUsageAndExit(1);
         }
     }
 
+    /** @return void */
     public static function sortSignatureMapInPlace()
     {
         $phan_signatures = static::readSignatureMap();
@@ -768,7 +793,10 @@ class IncompatibleXMLSignatureDetector extends IncompatibleSignatureDetectorBase
      */
     private $known_entities = null;
 
-    private function computeKnownEntities()
+    /**
+     * @return array<string,true>
+     */
+    private function computeKnownEntities() : array
     {
         $this->known_entities = [];
         foreach (['doc-base/entities/global.ent', 'en/contributors.ent', 'en/extensions.ent', 'en/language-defs.ent', 'en/language-snippets.ent'] as $sub_path) {
@@ -796,7 +824,7 @@ class IncompatibleXMLSignatureDetector extends IncompatibleSignatureDetectorBase
     private function normalizeEntityFile(string $contents) : string
     {
         $entities = $this->getKnownEntities();
-        return preg_replace_callback('/&([-a-zA-Z_.0-9]+);/', function ($matches) use ($entities) {
+        return preg_replace_callback('/&([-a-zA-Z_.0-9]+);/', function ($matches) use ($entities) : string {
             $entity_name = $matches[1];
             if (isset($entities[strtolower($entity_name)])) {
                 return "BEGINENTITY{$entity_name}ENDENTITY";
@@ -888,6 +916,7 @@ class IncompatibleStubsSignatureDetector extends IncompatibleSignatureDetectorBa
     }
 
     /**
+     * @return void
      * @suppress PhanPluginMixedKeyNoKey
      */
     public function selfTest()
@@ -924,7 +953,7 @@ class IncompatibleStubsSignatureDetector extends IncompatibleSignatureDetectorBa
                     \RecursiveDirectoryIterator::FOLLOW_SYMLINKS
                 )
             ),
-            function (\SplFileInfo $file_info) {
+            function (\SplFileInfo $file_info) : bool {
                 if ($file_info->getExtension() !== 'php') {
                     return false;
                 }
@@ -942,6 +971,9 @@ class IncompatibleStubsSignatureDetector extends IncompatibleSignatureDetectorBa
         return array_keys(iterator_to_array($iterator));
     }
 
+    /**
+     * @return void
+     */
     public function initStubs()
     {
         if ($this->initialized) {
@@ -1040,7 +1072,7 @@ class IncompatibleStubsSignatureDetector extends IncompatibleSignatureDetectorBa
      */
     protected function getAvailableMethodSignatures() : array
     {
-        return $this->memoize(__METHOD__, function () {
+        return $this->memoize(__METHOD__, function () : array {
             $code_base = $this->code_base;
             $function_name_map = [];
             foreach ($code_base->getMethodSet() as $method) {
