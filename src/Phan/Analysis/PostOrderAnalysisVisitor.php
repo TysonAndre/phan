@@ -35,6 +35,7 @@ use ast\flags;
 
 /**
  * @phan-file-suppress PhanPartialTypeMismatchArgument
+ * @phan-file-suppress PhanPluginNoAssert
  */
 class PostOrderAnalysisVisitor extends AnalysisVisitor
 {
@@ -2398,7 +2399,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         // parameters
         $argument_list = $node->children['args']->children;
         foreach ($argument_list as $i => $argument) {
-            if (!$argument instanceof \ast\Node) {
+            if (!$argument instanceof Node) {
                 continue;
             }
 
@@ -2466,7 +2467,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         // Take another pass over pass-by-reference parameters
         // and assign types to passed in variables
         foreach ($argument_list as $i => $argument) {
-            if (!$argument instanceof \ast\Node) {
+            if (!$argument instanceof Node) {
                 continue;
             }
             $parameter = $method->getParameterForCaller($i);
@@ -2953,7 +2954,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             return;
         }
 
-        if (!$argument instanceof \ast\Node) {
+        if (!$argument instanceof Node) {
             return;
         }
 

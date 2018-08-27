@@ -29,8 +29,10 @@ use Phan\Language\Type\StaticType;
 use Phan\Language\Type\StringType;
 use Phan\Language\Type\TemplateType;
 use Phan\Language\Type\TrueType;
+
 use Closure;
 use Generator;
+use RuntimeException;
 
 if (!\function_exists('spl_object_id')) {
     require_once __DIR__ . '/../../spl_object_id.php';
@@ -347,7 +349,7 @@ class UnionType implements \Serializable
     }
 
     /**
-     * @return string[]
+     * @return array<string,string>
      * Get a map from property name to its type for the given
      * class name.
      */
@@ -2180,10 +2182,9 @@ class UnionType implements \Serializable
         CodeBase $code_base,
         int $recursion_depth = 0
     ) : UnionType {
-        \assert(
-            $recursion_depth < 12,
-            "Recursion has gotten out of hand"
-        );
+        if ($recursion_depth >= 12) {
+            throw new RuntimeException("Recursion has gotten out of hand");
+        }
 
         $type_set = $this->type_set;
         if (\count($type_set) === 0) {

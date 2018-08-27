@@ -34,6 +34,7 @@ use ast\Node;
  * @see $this->visit
  *
  * @phan-file-suppress PhanPartialTypeMismatchArgument
+ * @phan-file-suppress PhanPluginNoAssert
  */
 class BlockAnalysisVisitor extends AnalysisVisitor
 {
@@ -81,8 +82,6 @@ class BlockAnalysisVisitor extends AnalysisVisitor
             $node
         );
 
-        \assert(!empty($context), 'Context cannot be null');
-
         // With a context that is inside of the node passed
         // to this method, we analyze all children of the
         // node.
@@ -111,6 +110,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor
     /**
      * Analyzes a namespace block or statement (e.g. `namespace NS\SubNS;` or `namespace OtherNS { ... }`)
      * @param Node $node a node of type AST_NAMESPACE
+     * @suppress PhanAccessMethodInternal
      */
     public function visitNamespace(Node $node) : Context
     {
@@ -131,8 +131,6 @@ class BlockAnalysisVisitor extends AnalysisVisitor
             $this->code_base,
             $context
         ))->visitNamespace($node);
-
-        \assert(!empty($context), 'Context cannot be null');
 
         // We already imported namespace constants earlier; use those.
         $context->importNamespaceMapFromParsePhase($this->code_base);
@@ -372,8 +370,6 @@ class BlockAnalysisVisitor extends AnalysisVisitor
             $node
         );
 
-        \assert(!empty($context), 'Context cannot be null');
-
         // With a context that is inside of the node passed
         // to this method, we analyze all children of the
         // node.
@@ -474,8 +470,6 @@ class BlockAnalysisVisitor extends AnalysisVisitor
                 $init_node
             );
         }
-        $context = $this->preOrderAnalyze($context, $node);
-        \assert(!empty($context), 'Context cannot be null');
 
         $condition_node = $node->children['cond'];
         if ($condition_node instanceof Node) {
@@ -495,6 +489,18 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         }
 
         if ($stmts_node = $node->children['stmts']) {
+            // Look to see if any proofs we do within the condition of the for
+            // can say anything about types within the statement
+            // list.
+            // TODO: Distinguish between inner and outer context.
+            //   E.g. `for (; $x = cond(); ) {}` will have truthy $x within the loop
+            //   but falsey outside the loop, if there are no breaks.
+            if ($condition_node instanceof Node) {
+                $context = (new ConditionVisitor(
+                    $this->code_base,
+                    $context
+                ))->__invoke($condition_node);
+            }
             if ($stmts_node instanceof Node) {
                 $context = $this->analyzeAndGetUpdatedContext(
                     $context->withScope(
@@ -565,15 +571,17 @@ class BlockAnalysisVisitor extends AnalysisVisitor
             $node->lineno ?? 0
         );
 
-        $context = $this->preOrderAnalyze($context, $node);
-
-        \assert(!empty($context), 'Context cannot be null');
+        // Let any configured plugins do a pre-order
+        // analysis of the node.
+        ConfigPluginSet::instance()->preAnalyzeNode(
+            $this->code_base,
+            $context,
+            $node
+        );
 
         $condition_node = $node->children['cond'];
         if ($condition_node instanceof Node) {
-            // The typical case is `for (init; $x; loop) {}`
-            // But `for (init; $x; loop) {}` is rare but possible, which requires evaluating those in order.
-            // Evaluate the list of cond expressions in order.
+            // Analyze the cond expression.
             $context = $this->analyzeAndGetUpdatedContext(
                 $context->withLineNumberStart($condition_node->lineno ?? 0),
                 $node,
@@ -582,6 +590,19 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         }
 
         if ($stmts_node = $node->children['stmts']) {
+            // Look to see if any proofs we do within the condition of the while
+            // can say anything about types within the statement
+            // list.
+            // TODO: Distinguish between inner and outer context.
+            //   E.g. `while ($x = cond()) {}` will have truthy $x within the loop
+            //   but falsey outside the loop, if there are no breaks.
+            if ($condition_node instanceof Node) {
+                $context = (new ConditionVisitor(
+                    $this->code_base,
+                    $this->context
+                ))->__invoke($condition_node);
+            }
+
             if ($stmts_node instanceof Node) {
                 $context = $this->analyzeAndGetUpdatedContext(
                     $context->withScope(
@@ -642,8 +663,6 @@ class BlockAnalysisVisitor extends AnalysisVisitor
 
         $context = $this->preOrderAnalyze($context, $node);
 
-        \assert(!empty($context), 'Context cannot be null');
-
         if ($stmts_node = $node->children['stmts']) {
             if ($stmts_node instanceof Node) {
                 $context = $this->analyzeAndGetUpdatedContext(
@@ -699,8 +718,6 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         ));
 
         $context = $this->preOrderAnalyze($context, $node);
-
-        \assert(!empty($context), 'Context cannot be null');
 
         // We collect all child context so that the
         // PostOrderAnalysisVisitor can optionally operate on
@@ -818,8 +835,6 @@ class BlockAnalysisVisitor extends AnalysisVisitor
 
         $context = $this->preOrderAnalyze($context, $node);
 
-        \assert(!empty($context), 'Context cannot be null');
-
         // We collect all child context so that the
         // PostOrderAnalysisVisitor can optionally operate on
         // them
@@ -914,8 +929,6 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         );
 
         $context = $this->preOrderAnalyze($context, $node);
-
-        \assert(!empty($context), 'Context cannot be null');
 
         // With a context that is inside of the node passed
         // to this method, we analyze all children of the
@@ -1235,8 +1248,6 @@ class BlockAnalysisVisitor extends AnalysisVisitor
             $node
         );
 
-        \assert(!empty($context), 'Context cannot be null');
-
         $true_node = $node->children['true'] ?? null;
         $false_node = $node->children['false'] ?? null;
 
@@ -1455,8 +1466,6 @@ class BlockAnalysisVisitor extends AnalysisVisitor
             $node
         );
 
-        \assert(!empty($context), 'Context cannot be null');
-
         $context = $this->postOrderAnalyze($context, $node);
 
         return $context;
@@ -1484,8 +1493,6 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         ))->withLineNumberStart(
             $node->lineno ?? 0
         );
-
-        \assert(!empty($context), 'Context cannot be null');
 
         // Don't bother calling PreOrderAnalysisVisitor, it does nothing
 

@@ -22,7 +22,9 @@ use Phan\Language\Type;
 use Phan\Language\Type\GenericArrayType;
 use Phan\Language\Type\VoidType;
 use Phan\Language\UnionType;
+
 use ast\Node;
+use AssertionError;
 
 class PreOrderAnalysisVisitor extends ScopeVisitor
 {
@@ -83,7 +85,6 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
             // Class name
             throw new UnanalyzableException($node, "Class name cannot be empty");
         }
-        \assert(!empty($class_name), "Class name cannot be empty");
 
         $alternate_id = 0;
 
@@ -133,10 +134,9 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
         $code_base = $this->code_base;
         $context = $this->context;
 
-        \assert(
-            $context->isInClassScope(),
-            "Must be in class context to see a method"
-        );
+        if (!($context->isInClassScope())) {
+            throw new AssertionError("Must be in class context to see a method");
+        }
 
         $clazz = $this->getContextClass();
 
@@ -176,10 +176,9 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
 
         // Add $this to the scope of non-static methods
         if (!($node->flags & \ast\flags\MODIFIER_STATIC)) {
-            \assert(
-                $clazz->getInternalScope()->hasVariableWithName('this'),
-                "Classes must have a \$this variable."
-            );
+            if (!($clazz->getInternalScope()->hasVariableWithName('this'))) {
+                throw new AssertionError("Classes must have a \$this variable.");
+            }
 
             $context->addScopeVariable(
                 $clazz->getInternalScope()->getVariableByName('this')
@@ -247,7 +246,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
             }
         }
 
-        if (empty($function)) {
+        if (!($function instanceof Func)) {
             // No alternate was found
             throw new CodeBaseException(
                 null,
@@ -255,7 +254,6 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
             );
         }
 
-        \assert($function instanceof Func);
         $function->ensureScopeInitialized($code_base);
 
         $context = $original_context->withScope(
@@ -631,7 +629,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
 
         // If there's a key, make a variable out of that too
         $key_node = $node->children['key'];
-        if ($key_node instanceof \ast\Node) {
+        if ($key_node instanceof Node) {
             if ($key_node->kind == \ast\AST_LIST) {
                 throw new NodeException(
                     $node,
@@ -719,10 +717,9 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
             $value_elem_node = $child_node->children['value'] ?? null;
 
             // for syntax like: foreach ([] as list(, $a));
-            if ($value_elem_node === null) {
+            if (!($value_elem_node instanceof Node)) {
                 continue;
             }
-            \assert($value_elem_node instanceof Node);
 
             // Get the key and value nodes for each
             // array element we're assigning to
@@ -815,10 +812,9 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
             $value_elem_node = $child_node->children['value'] ?? null;
 
             // for syntax like: foreach ([] as list(, $a));
-            if ($value_elem_node === null) {
+            if (!($value_elem_node instanceof Node)) {
                 continue;
             }
-            \assert($value_elem_node instanceof Node);
 
             $key_node = $child_node->children['key'];
             if (!$scalar_array_key_cast) {
@@ -995,29 +991,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
         ))->__invoke($cond);
     }
 
-    /**
-     * @param Node $node
-     * A node to parse
-     *
-     * @return Context
-     * A new or an unchanged context resulting from
-     * parsing the node
-     */
-    public function visitWhile(Node $node) : Context
-    {
-        $cond = $node->children['cond'];
-        if (!($cond instanceof Node)) {
-            return $this->context;
-        }
-
-        // Look to see if any proofs we do within the condition of the while
-        // can say anything about types within the statement
-        // list.
-        return (new ConditionVisitor(
-            $this->code_base,
-            $this->context
-        ))->__invoke($cond);
-    }
+    // visitWhile is unnecessary, this has special logic in BlockAnalysisVisitor to handle conditions assigning variables to the loop
 
     /**
      * @param Node $node

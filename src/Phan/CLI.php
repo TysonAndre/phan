@@ -20,13 +20,14 @@ use Symfony\Component\Console\Output\StreamOutput;
  * for the analyzed project.
  *
  * @phan-file-suppress PhanPartialTypeMismatchArgumentInternal
+ * @phan-file-suppress PhanPluginNoAssert TODO: Fix
  */
 class CLI
 {
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    const PHAN_VERSION = '1.0.1-dev';
+    const PHAN_VERSION = '1.0.2-dev';
 
     /**
      * List of short flags passed to getopt

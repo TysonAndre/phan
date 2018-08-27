@@ -41,6 +41,8 @@ use Phan\Language\Type\StringType;
 use Phan\Language\UnionType;
 use Phan\Library\FileCache;
 use Phan\Library\None;
+
+use AssertionError;
 use ast\Node;
 use ast;
 
@@ -168,7 +170,6 @@ class ContextNode
         if (!($node instanceof Node)) {
             return [];
         }
-        \assert($node->kind === ast\AST_TRAIT_ADAPTATIONS);
 
         // NOTE: This fetches fully qualified names more than needed,
         // but this isn't optimized, since traits aren't frequently used in classes.
@@ -179,13 +180,15 @@ class ContextNode
         }
 
         foreach ($this->node->children as $adaptation_node) {
-            \assert($adaptation_node instanceof Node);
+            if (!$adaptation_node instanceof Node) {
+                throw new AssertionError('Expected adaptation_node to be Node');
+            }
             if ($adaptation_node->kind === ast\AST_TRAIT_ALIAS) {
                 $this->handleTraitAlias($adaptations_map, $adaptation_node);
             } elseif ($adaptation_node->kind === ast\AST_TRAIT_PRECEDENCE) {
                 $this->handleTraitPrecedence($adaptations_map, $adaptation_node);
             } else {
-                \assert(false, ("Unknown adaptation node kind " . $adaptation_node->kind));
+                throw new AssertionError("Unknown adaptation node kind " . $adaptation_node->kind);
             }
         }
         return $adaptations_map;
@@ -203,8 +206,12 @@ class ContextNode
         $trait_original_class_name_node = $trait_method_node->children['class'];
         $trait_original_method_name = $trait_method_node->children['method'];
         $trait_new_method_name = $adaptation_node->children['alias'] ?? $trait_original_method_name;
-        \assert(\is_string($trait_original_method_name));
-        \assert(\is_string($trait_new_method_name));
+        if (!\is_string($trait_original_method_name)) {
+            throw new AssertionError("Expected original method name of a trait use to be a string");
+        }
+        if (!\is_string($trait_new_method_name)) {
+            throw new AssertionError("Expected new method name of a trait use to be a string");
+        }
         $trait_fqsen = (new ContextNode(
             $this->code_base,
             $this->context,
@@ -264,6 +271,9 @@ class ContextNode
         // $trait_chosen_class_name_node = $trait_method_node->children['class'];
         $trait_chosen_method_name = $trait_method_node->children['method'];
         $trait_chosen_class_name_node = $trait_method_node->children['class'];
+        if (!is_string($trait_chosen_method_name)) {
+            throw new AssertionError("Expected the insteadof method's name to be a string");
+        }
 
         $trait_chosen_fqsen = (new ContextNode(
             $this->code_base,
@@ -292,7 +302,6 @@ class ContextNode
 
         // This is the class which will have the method hidden
         foreach ($adaptation_node->children['insteadof']->children as $trait_insteadof_class_name) {
-            \assert(\is_string($trait_chosen_method_name));
             $trait_insteadof_fqsen = (new ContextNode(
                 $this->code_base,
                 $this->context,
@@ -329,13 +338,13 @@ class ContextNode
      */
     public function getVariableName() : string
     {
-        if (!($this->node instanceof ast\Node)) {
+        if (!($this->node instanceof Node)) {
             return (string)$this->node;
         }
 
         $node = $this->node;
 
-        while (($node instanceof ast\Node)
+        while (($node instanceof Node)
             && ($node->kind != ast\AST_VAR)
             && ($node->kind != ast\AST_STATIC)
             && ($node->kind != ast\AST_MAGIC_CONST)
@@ -343,7 +352,7 @@ class ContextNode
             $node = \array_values($node->children)[0];
         }
 
-        if (!($node instanceof ast\Node)) {
+        if (!($node instanceof Node)) {
             return (string)$node;
         }
 
@@ -352,7 +361,7 @@ class ContextNode
             return '';
         }
 
-        if ($name_node instanceof ast\Node) {
+        if ($name_node instanceof Node) {
             // This is nonsense. Give up, but check if it's a type other than int/string.
             // (e.g. to catch typos such as $$this->foo = bar;)
             try {
@@ -613,15 +622,14 @@ class ContextNode
             );
         }
 
-        \assert(
-            \is_string($method_name),
-            "Method name must be a string. Found non-string in context."
-        );
+        if (!\is_string($method_name)) {
+            throw new AssertionError("Method name must be a string. Found non-string in context.");
+        }
 
-        \assert(
-            $this->node instanceof ast\Node,
-            '$this->node must be a node'
-        );
+        $node = $this->node;
+        if (!($node instanceof Node)) {
+            throw new AssertionError('$node must be a node');
+        }
 
         try {
             // Fetch the list of valid classes, and warn about any undefined classes.
@@ -629,15 +637,15 @@ class ContextNode
             $class_list = (new ContextNode(
                 $this->code_base,
                 $this->context,
-                $this->node->children['expr']
-                    ?? $this->node->children['class']
+                $node->children['expr']
+                    ?? $node->children['class']
             ))->getClassList(false, self::CLASS_LIST_ACCEPT_ANY);
         } catch (CodeBaseException $exception) {
             $exception_fqsen = $exception->getFQSEN();
             throw new IssueException(
                 Issue::fromType(Issue::UndeclaredClassMethod)(
                     $this->context->getFile(),
-                    $this->node->lineno ?? 0,
+                    $node->lineno ?? 0,
                     [$method_name, (string)$exception_fqsen],
                     ($exception_fqsen instanceof FullyQualifiedClassName
                         ? IssueFixSuggester::suggestSimilarClassForMethod($this->code_base, $this->context, $exception_fqsen, $method_name, $is_static)
@@ -653,8 +661,8 @@ class ContextNode
             $union_type = UnionTypeVisitor::unionTypeFromClassNode(
                 $this->code_base,
                 $this->context,
-                $this->node->children['expr']
-                    ?? $this->node->children['class']
+                $node->children['expr']
+                    ?? $node->children['class']
             );
 
             if (!$union_type->isEmpty()
@@ -673,14 +681,14 @@ class ContextNode
                 throw new IssueException(
                     Issue::fromType(Issue::NonClassMethodCall)(
                         $this->context->getFile(),
-                        $this->node->lineno ?? 0,
+                        $node->lineno ?? 0,
                         [ $method_name, (string)$union_type ]
                     )
                 );
             }
 
             throw new NodeException(
-                $this->node,
+                $node,
                 "Can't figure out method call for $method_name"
             );
         }
@@ -712,7 +720,7 @@ class ContextNode
             throw new IssueException(
                 Issue::fromType(Issue::UndeclaredStaticMethod)(
                     $this->context->getFile(),
-                    $this->node->lineno ?? 0,
+                    $node->lineno ?? 0,
                     [ (string)$method_fqsen ],
                     IssueFixSuggester::suggestSimilarMethod($this->code_base, $this->context, $first_class, $method_name, $is_static)
                 )
@@ -722,7 +730,7 @@ class ContextNode
         throw new IssueException(
             Issue::fromType(Issue::UndeclaredMethod)(
                 $this->context->getFile(),
-                $this->node->lineno ?? 0,
+                $node->lineno ?? 0,
                 [ (string)$method_fqsen ],
                 IssueFixSuggester::suggestSimilarMethod($this->code_base, $this->context, $first_class, $method_name, $is_static)
             )
@@ -914,10 +922,10 @@ class ContextNode
         bool $is_function_declaration = false
     ) : FunctionInterface {
 
-        \assert(
-            $this->node instanceof ast\Node,
-            '$this->node must be a node'
-        );
+        $node = $this->node;
+        if (!($node instanceof Node)) {
+            throw new AssertionError('$this->node must be a node');
+        }
         $code_base = $this->code_base;
         $context = $this->context;
         $namespace = $context->getNamespace();
@@ -927,18 +935,20 @@ class ContextNode
             if ($code_base->hasFunctionWithFQSEN($function_fqsen)) {
                 return $code_base->getFunctionByFQSEN($function_fqsen);
             }
-        } elseif (($this->node->flags & ast\flags\NAME_RELATIVE) !== 0) {
+        } elseif (($node->flags & ast\flags\NAME_RELATIVE) !== 0) {
             $function_fqsen = FullyQualifiedFunctionName::make($namespace, $function_name);
             if (!$code_base->hasFunctionWithFQSEN($function_fqsen)) {
                 $this->throwUndeclaredFunctionIssueException($function_fqsen);
             }
             return $code_base->getFunctionByFQSEN($function_fqsen);
         } else {
-            if (($this->node->flags & ast\flags\NAME_NOT_FQ) !== 0) {
+            if (($node->flags & ast\flags\NAME_NOT_FQ) !== 0) {
                 if ($context->hasNamespaceMapFor(\ast\flags\USE_FUNCTION, $function_name)) {
                     // If we already have `use function_name;`
                     $function_fqsen = $context->getNamespaceMapFor(\ast\flags\USE_FUNCTION, $function_name);
-                    \assert($function_fqsen instanceof FullyQualifiedFunctionName);
+                    if (!($function_fqsen instanceof FullyQualifiedFunctionName)) {
+                        throw new AssertionError("Expected to fetch a fully qualified function name for this namespace use");
+                    }
 
                     // Make sure the method we're calling actually exists
                     if (!$code_base->hasFunctionWithFQSEN($function_fqsen)) {
@@ -957,8 +967,8 @@ class ContextNode
                 if ($namespace === '') {
                     throw new IssueException(
                         Issue::fromType(Issue::UndeclaredFunction)(
-                            $this->context->getFile(),
-                            $this->node->lineno ?? 0,
+                            $context->getFile(),
+                            $node->lineno ?? 0,
                             [ "$function_fqsen()" ]
                         )
                     );
@@ -969,7 +979,7 @@ class ContextNode
             $function_fqsen =
                 FullyQualifiedFunctionName::fromStringInContext(
                     $function_name,
-                    $this->context
+                    $context
                 );
         }
 
@@ -994,17 +1004,17 @@ class ContextNode
      */
     public function getVariable() : Variable
     {
-        \assert(
-            $this->node instanceof ast\Node,
-            '$this->node must be a node'
-        );
+        $node = $this->node;
+        if (!($node instanceof Node)) {
+            throw new AssertionError('$this->node must be a node');
+        }
 
         // Get the name of the variable
         $variable_name = $this->getVariableName();
 
         if ($variable_name === '') {
             throw new NodeException(
-                $this->node,
+                $node,
                 "Variable name not found"
             );
         }
@@ -1014,7 +1024,7 @@ class ContextNode
             throw new IssueException(
                 Issue::fromType(Issue::UndeclaredVariable)(
                     $this->context->getFile(),
-                    $this->node->lineno ?? 0,
+                    $node->lineno ?? 0,
                     [ $variable_name ],
                     IssueFixSuggester::suggestVariableTypoFix($this->code_base, $this->context, $variable_name)
                 )
@@ -1041,14 +1051,14 @@ class ContextNode
             // Swallow it
         }
 
-        \assert(
-            $this->node instanceof ast\Node,
-            '$this->node must be a node'
-        );
+        $node = $this->node;
+        if (!($node instanceof Node)) {
+            throw new AssertionError('$this->node must be a node');
+        }
 
         // Create a new variable
         $variable = Variable::fromNodeInContext(
-            $this->node,
+            $node,
             $this->context,
             $this->code_base,
             false
@@ -1089,10 +1099,9 @@ class ContextNode
     ) : Property {
         $node = $this->node;
 
-        \assert(
-            $node instanceof ast\Node,
-            '$this->node must be a node'
-        );
+        if (!($node instanceof Node)) {
+            throw new AssertionError('$this->node must be a node');
+        }
 
         $property_name = $node->children['prop'];
 
@@ -1326,10 +1335,10 @@ class ContextNode
             // because we'll create our own property
         }
 
-        \assert(
-            $this->node instanceof ast\Node,
-            '$this->node must be a node'
-        );
+        $node = $this->node;
+        if (!($node instanceof Node)) {
+            throw new AssertionError('$this->node must be a node');
+        }
 
         try {
             $expected_type_categories = $is_static ? self::CLASS_LIST_ACCEPT_OBJECT_OR_CLASS_NAME : self::CLASS_LIST_ACCEPT_OBJECT;
@@ -1337,13 +1346,13 @@ class ContextNode
             $class_list = (new ContextNode(
                 $this->code_base,
                 $this->context,
-                $this->node->children['expr'] ?? null
+                $node->children['expr'] ?? null
             ))->getClassList(false, $expected_type_categories, $expected_issue);
         } catch (CodeBaseException $exception) {
             throw new IssueException(
                 Issue::fromType(Issue::UndeclaredClassReference)(
                     $this->context->getFile(),
-                    $this->node->lineno ?? 0,
+                    $node->lineno ?? 0,
                     [ $exception->getFQSEN() ]
                 )
             );
@@ -1354,13 +1363,13 @@ class ContextNode
         if (!($class instanceof Clazz)) {
             // empty list
             throw new UnanalyzableException(
-                $this->node,
+                $node,
                 "Could not get class name from node"
             );
         }
 
         $flags = 0;
-        if ($this->node->kind == ast\AST_STATIC_PROP) {
+        if ($node->kind == ast\AST_STATIC_PROP) {
             $flags |= ast\flags\MODIFIER_STATIC;
         }
 
@@ -1401,15 +1410,13 @@ class ContextNode
     public function getConst() : GlobalConstant
     {
         $node = $this->node;
-        \assert(
-            $node instanceof ast\Node,
-            '$node must be a node'
-        );
+        if (!$node instanceof Node) {
+            throw new AssertionError('$node must be a node');
+        }
 
-        \assert(
-            $node->kind === ast\AST_CONST,
-            "Node must be of type ast\AST_CONST"
-        );
+        if ($node->kind !== ast\AST_CONST) {
+            throw new AssertionError("Node must be of type ast\AST_CONST");
+        }
 
         $constant_name = $node->children['name']->children['name'] ?? null;
         if (!\is_string($constant_name)) {
@@ -1512,12 +1519,12 @@ class ContextNode
      */
     public function getClassConst() : ClassConstant
     {
-        \assert(
-            $this->node instanceof Node,
-            '$this->node must be a node'
-        );
+        $node = $this->node;
+        if (!($node instanceof Node)) {
+            throw new AssertionError('$this->node must be a node');
+        }
 
-        $constant_name = $this->node->children['const'];
+        $constant_name = $node->children['const'];
         if (!\strcasecmp($constant_name, 'class')) {
             $constant_name = 'class';
         }
@@ -1528,14 +1535,14 @@ class ContextNode
             $class_list = (new ContextNode(
                 $this->code_base,
                 $this->context,
-                $this->node->children['class']
+                $node->children['class']
             ))->getClassList(false, self::CLASS_LIST_ACCEPT_OBJECT_OR_CLASS_NAME);
         } catch (CodeBaseException $exception) {
             $exception_fqsen = $exception->getFQSEN();
             throw new IssueException(
                 Issue::fromType(Issue::UndeclaredClassConstant)(
                     $this->context->getFile(),
-                    $this->node->lineno ?? 0,
+                    $node->lineno ?? 0,
                     [$constant_name, (string)$exception_fqsen],
                     IssueFixSuggester::suggestSimilarClassForGenericFQSEN($this->code_base, $this->context, $exception_fqsen)
                 )
@@ -1569,7 +1576,7 @@ class ContextNode
                 throw new IssueException(
                     Issue::fromType(Issue::AccessClassConstantInternal)(
                         $this->context->getFile(),
-                        $this->node->lineno ?? 0,
+                        $node->lineno ?? 0,
                         [
                             (string)$constant->getFQSEN(),
                             $constant->getFileRef()->getFile(),
@@ -1588,7 +1595,7 @@ class ContextNode
             throw new IssueException(
                 Issue::fromType(Issue::UndeclaredConstant)(
                     $this->context->getFile(),
-                    $this->node->lineno ?? 0,
+                    $node->lineno ?? 0,
                     [ "$class_fqsen::$constant_name" ],
                     IssueFixSuggester::suggestSimilarClassConstant($this->code_base, $this->context, $class_constant_fqsen)
                 )
@@ -1596,7 +1603,7 @@ class ContextNode
         }
 
         throw new NodeException(
-            $this->node,
+            $node,
             "Can't figure out constant {$constant_name} in node"
         );
     }
@@ -1607,15 +1614,14 @@ class ContextNode
      */
     public function getUnqualifiedNameForAnonymousClass() : string
     {
-        \assert(
-            $this->node instanceof ast\Node,
-            '$this->node must be a node'
-        );
+        $node = $this->node;
+        if (!($node instanceof Node)) {
+            throw new AssertionError('$this->node must be a node');
+        }
 
-        \assert(
-            (bool)($this->node->flags & ast\flags\CLASS_ANONYMOUS),
-            "Node must be an anonymous class node"
-        );
+        if (!($node->flags & ast\flags\CLASS_ANONYMOUS)) {
+            throw new AssertionError('Node must be an anonymous class node');
+        }
 
         $class_name = 'anonymous_class_'
             . \substr(\md5(
@@ -1660,7 +1666,7 @@ class ContextNode
             return;
         }
 
-        if (!($this->node instanceof ast\Node) || empty($this->node->children['expr'])) {
+        if (!($this->node instanceof Node) || empty($this->node->children['expr'])) {
             return;
         }
 
@@ -1768,8 +1774,7 @@ class ContextNode
             )
         ) {
             $cache_entry = FileCache::getOrReadEntry($this->context->getFile());
-            $line = $cache_entry->getLine($this->node->lineno);
-            \assert(\is_string($line));
+            $line = $cache_entry->getLine($this->node->lineno) ?? '';
             unset($cache_entry);
             if (strpos($line, '}[') === false
                 || strpos($line, ']}') === false
@@ -1977,7 +1982,9 @@ class ContextNode
     public function getValueForMagicConst()
     {
         $node = $this->node;
-        \assert($node instanceof Node && $node->kind === ast\AST_MAGIC_CONST);
+        if (!($node instanceof Node && $node->kind === ast\AST_MAGIC_CONST)) {
+            throw new AssertionError(__METHOD__ . ' expected AST_MAGIC_CONST');
+        }
         return $this->getValueForMagicConstByNode($node);
     }
 

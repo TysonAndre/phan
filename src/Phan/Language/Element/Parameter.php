@@ -21,6 +21,8 @@ use Phan\Language\Type\StringType;
 use Phan\Language\Type\TrueType;
 use Phan\Language\UnionType;
 use Phan\Parse\ParseVisitor;
+
+use AssertionError;
 use ast\Node;
 use InvalidArgumentException;
 
@@ -317,7 +319,9 @@ class Parameter extends Variable
                 // Set the default value
                 $parameter->setDefaultValueType($default_value_union_type);
             } else {
-                \assert($default_node instanceof Node);
+                if (!($default_node instanceof Node)) {
+                    throw new AssertionError("Somehow failed to infer type for the default_node - not a scalar or a Node");
+                }
 
                 if ($default_node->kind === \ast\AST_ARRAY) {
                     // We know the parameter default is some sort of array, but we don't know any more (e.g. key types, value types).
@@ -508,7 +512,7 @@ class Parameter extends Variable
 
         if ($this->hasDefaultValue() && !$this->isVariadic()) {
             $default_value = $this->getDefaultValue();
-            if ($default_value instanceof \ast\Node) {
+            if ($default_value instanceof Node) {
                 $string .= ' = null';
             } else {
                 $string .= ' = ' . var_export($default_value, true);
@@ -549,7 +553,7 @@ class Parameter extends Variable
 
         if ($this->hasDefaultValue() && !$this->isVariadic()) {
             $default_value = $this->getDefaultValue();
-            if ($default_value instanceof \ast\Node) {
+            if ($default_value instanceof Node) {
                 $kind = $default_value->kind;
                 if ($kind === \ast\AST_NAME) {
                     $default_repr = $default_value->children['name'];
