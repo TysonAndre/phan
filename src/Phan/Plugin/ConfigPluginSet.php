@@ -49,12 +49,14 @@ use Phan\PluginV2\ReturnTypeOverrideCapability;
 use Phan\PluginV2\SuppressionCapability;
 use Phan\Suggestion;
 
+use AssertionError;
 use Closure;
 use ReflectionException;
 use ReflectionProperty;
 use Throwable;
 use UnusedSuppressionPlugin;
 use ast\Node;
+use function is_null;
 
 /**
  * The root plugin that calls out each hook
@@ -62,7 +64,6 @@ use ast\Node;
  *
  * (Note: This is called almost once per each AST node being analyzed.
  * Speed is preferred over using Phan\Memoize.)
- * @phan-file-suppress PhanPluginNoAssert
  */
 final class ConfigPluginSet extends PluginV2 implements
     AfterAnalyzeFileCapability,
@@ -426,7 +427,10 @@ final class ConfigPluginSet extends PluginV2 implements
         return $result;
     }
 
-    /** @return array<int,SuppressionCapability> */
+    /**
+     * @return array<int,SuppressionCapability>
+     * @suppress PhanPossiblyNullTypeReturn should always be initialized before any issues get emitted.
+     */
     public function getSuppressionPluginSet() : array
     {
         return $this->suppression_plugin_set;
@@ -508,7 +512,9 @@ final class ConfigPluginSet extends PluginV2 implements
      */
     public function hasAnalyzeFunctionPlugins() : bool
     {
-        \assert(!\is_null($this->plugin_set));
+        if (is_null($this->plugin_set)) {
+            throw new AssertionError("Expected plugins to be loaded in " . __METHOD__);
+        }
         return \count($this->analyze_function_plugin_set) > 0;
     }
 
@@ -517,7 +523,9 @@ final class ConfigPluginSet extends PluginV2 implements
      */
     public function hasAnalyzeMethodPlugins() : bool
     {
-        \assert(!\is_null($this->plugin_set));
+        if (is_null($this->plugin_set)) {
+            throw new AssertionError("Expected plugins to be loaded in " . __METHOD__);
+        }
         return \count($this->analyze_method_plugin_set) > 0;
     }
 
@@ -527,8 +535,10 @@ final class ConfigPluginSet extends PluginV2 implements
      */
     public function getAnalyzeFunctionCallClosures(CodeBase $code_base) : array
     {
+        if (is_null($this->plugin_set)) {
+            throw new AssertionError("Expected plugins to be loaded in " . __METHOD__);
+        }
         $result = [];
-        \assert(!\is_null($this->plugin_set));
         foreach ($this->analyze_function_call_plugin_set as $plugin) {
             // TODO: Make this case insensitive.
             foreach ($plugin->getAnalyzeFunctionCallClosures($code_base) as $fqsen_name => $closure) {
@@ -552,8 +562,10 @@ final class ConfigPluginSet extends PluginV2 implements
      */
     public function getReturnTypeOverrides(CodeBase $code_base) : array
     {
+        if (is_null($this->plugin_set)) {
+            throw new AssertionError("Expected plugins to be loaded in " . __METHOD__);
+        }
         $result = [];
-        \assert(!\is_null($this->plugin_set));
         foreach ($this->return_type_override_plugin_set as $plugin) {
             $result += $plugin->getReturnTypeOverrides($code_base);
         }
@@ -579,7 +591,9 @@ final class ConfigPluginSet extends PluginV2 implements
         // TODO: Track if this has been added already(not necessary yet)
 
         $kind = $node->kind;
-        \assert(\is_int($kind));
+        if (!\is_int($kind)) {
+            throw new AssertionError("Invalid kind for node");
+        }
 
         /**
          * @phan-closure-scope NodeSelectionVisitor
@@ -651,7 +665,9 @@ final class ConfigPluginSet extends PluginV2 implements
      */
     private function hasAnalyzePropertyPlugins() : bool
     {
-        \assert(!\is_null($this->plugin_set));
+        if (is_null($this->plugin_set)) {
+            throw new AssertionError("Expected plugins to be loaded in " . __METHOD__);
+        }
         return \count($this->analyze_property_plugin_set) > 0;
     }
 
@@ -661,7 +677,7 @@ final class ConfigPluginSet extends PluginV2 implements
      */
     private function ensurePluginsExist()
     {
-        if (!\is_null($this->plugin_set)) {
+        if (!is_null($this->plugin_set)) {
             return;
         }
         // Add user-defined plugins.
@@ -692,15 +708,13 @@ final class ConfigPluginSet extends PluginV2 implements
                     exit(EXIT_FAILURE);
                 }
 
-                \assert(
-                    !empty($plugin_instance),
-                    "Plugins must return an instance of the plugin. The plugin at $plugin_file_name does not."
-                );
+                if (!is_object($plugin_instance)) {
+                    throw new AssertionError("Plugins must return an instance of the plugin. The plugin at $plugin_file_name does not.");
+                }
 
-                \assert(
-                    $plugin_instance instanceof PluginV2,
-                    "Plugins must extend \Phan\PluginV2. The plugin at $plugin_file_name does not."
-                );
+                if (!($plugin_instance instanceof PluginV2)) {
+                    throw new AssertionError("Plugins must extend \Phan\PluginV2. The plugin at $plugin_file_name does not.");
+                }
 
                 return $plugin_instance;
             },

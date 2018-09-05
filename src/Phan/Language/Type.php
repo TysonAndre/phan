@@ -6,6 +6,7 @@ use Phan\CodeBase;
 use Phan\Config;
 use Phan\Exception\EmptyFQSENException;
 use Phan\Exception\IssueException;
+use Phan\Issue;
 use Phan\Language\Element\Comment;
 use Phan\Language\FQSEN\FullyQualifiedClassName;
 use Phan\Language\Type\ArrayType;
@@ -43,9 +44,10 @@ use Phan\Library\Option;
 use Phan\Library\Some;
 use Phan\Library\Tuple5;
 
-use Error;
 use AssertionError;
+use Error;
 use InvalidArgumentException;
+use RuntimeException;
 
 /**
  * The base class for all of Phan's types.
@@ -54,7 +56,6 @@ use InvalidArgumentException;
  *
  * @phan-file-suppress PhanPartialTypeMismatchArgument
  * @phan-file-suppress PhanPartialTypeMismatchArgumentInternal
- * @phan-file-suppress PhanPluginNoAssert
  * phpcs:disable Generic.NamingConventions.UpperCaseConstantName
  */
 class Type
@@ -768,10 +769,9 @@ class Type
     public static function fromFullyQualifiedStringInner(
         string $fully_qualified_string
     ) : Type {
-        \assert(
-            $fully_qualified_string !== '',
-            "Type cannot be empty"
-        );
+        if ($fully_qualified_string === '') {
+            throw new InvalidArgumentException("Type cannot be empty");
+        }
         while (\substr($fully_qualified_string, -1) === ')') {
             if ($fully_qualified_string[0] === '?') {
                 $fully_qualified_string = '?' . \substr($fully_qualified_string, 2, -1);
@@ -992,10 +992,9 @@ class Type
         int $source,
         CodeBase $code_base = null
     ) : Type {
-        \assert(
-            $string !== '',
-            "Type cannot be empty"
-        );
+        if ($string === '') {
+            throw new AssertionError("Type cannot be empty");
+        }
         while (\substr($string, -1) === ')') {
             if ($string[0] === '?') {
                 if ($string[1] !== '(') {
@@ -1055,6 +1054,9 @@ class Type
                 );
             }
             if ($type_name === 'Closure' || $type_name === 'callable') {
+                if ($type_name === 'Closure' && $code_base !== null) {
+                    self::checkClosureString($code_base, $context, $string);
+                }
                 return self::fromFunctionLikeInContext($type_name === 'Closure', $shape_components, $context, $source, $is_nullable);
             }
         }
@@ -1062,8 +1064,8 @@ class Type
         // Map the names of the types to actual types in the
         // template parameter type list
         $template_parameter_type_list =
-            \array_map(function (string $type_name) use ($context, $source) : UnionType {
-                return UnionType::fromStringInContext($type_name, $context, $source);
+            \array_map(function (string $type_name) use ($code_base, $context, $source) : UnionType {
+                return UnionType::fromStringInContext($type_name, $context, $source, $code_base);
             }, $template_parameter_type_name_list);
 
         // @var bool
@@ -1217,6 +1219,41 @@ class Type
         );
     }
 
+
+    private static function checkClosureString(
+        CodeBase $code_base,
+        Context $context,
+        string $string
+    ) {
+        // Note: Because of the regex, the namespace should be either empty or '\\'
+        if (preg_match('/^\??\\\\/', $string) > 0) {
+            // This is fully qualified
+            return;
+        }
+        // This check is probably redundant, we can't parse
+        if ($context->hasNamespaceMapFor(
+            \ast\flags\USE_NORMAL,
+            'Closure'
+        )) {
+            $fqsen = $context->getNamespaceMapFor(
+                \ast\flags\USE_NORMAL,
+                'Closure'
+            );
+            $namespace = $fqsen->getNamespace();
+        } else {
+            $namespace = $context->getNamespace();
+        }
+        if (($namespace ?: '\\') !== '\\') {
+            Issue::maybeEmit(
+                $code_base,
+                $context,
+                Issue::CommentAmbiguousClosure,
+                $context->getLineNumberStart(),
+                $string,
+                $namespace . '\\Closure'
+            );
+        }
+    }
     /**
      * @throws IssueException (TODO: Catch, emit, and proceed?
      */
@@ -1663,6 +1700,11 @@ class Type
             && $this->getNamespace() === '\\');
     }
 
+    public function isArrayOrArrayAccessSubType(CodeBase $code_base) : bool
+    {
+        return $this->asExpandedTypes($code_base)->hasArrayAccess();
+    }
+
     /**
      * @return bool - Returns true if this is \Traversable (nullable or not)
      */
@@ -1834,13 +1876,11 @@ class Type
     public function getTemplateParameterTypeMap(CodeBase $code_base)
     {
         return $this->memoize(__METHOD__, function () use ($code_base) : array {
-            $fqsen = $this->asFQSEN();
+            $fqsen = FullyQualifiedClassName::fromType($this);
 
             if (!($fqsen instanceof FullyQualifiedClassName)) {
                 return [];
             }
-
-            \assert($fqsen instanceof FullyQualifiedClassName);
 
             if (!$code_base->hasClassWithFQSEN($fqsen)) {
                 return [];
@@ -1882,10 +1922,9 @@ class Type
         // We're going to assume that if the type hierarchy
         // is taller than some value we probably messed up
         // and should bail out.
-        \assert(
-            $recursion_depth < 20,
-            "Recursion has gotten out of hand"
-        );
+        if ($recursion_depth >= 20) {
+            throw new RuntimeException("Recursion has gotten out of hand");
+        }
         $union_type = $this->memoize(__METHOD__, /** @return UnionType */ function () use ($code_base, $recursion_depth) {
             $union_type = $this->asUnionType();
 
@@ -1894,8 +1933,6 @@ class Type
             if (!($class_fqsen instanceof FullyQualifiedClassName)) {
                 return $union_type;
             }
-
-            \assert($class_fqsen instanceof FullyQualifiedClassName);
 
             if (!$code_base->hasClassWithFQSEN($class_fqsen)) {
                 return $union_type;
@@ -1958,15 +1995,13 @@ class Type
      */
     public function isSubclassOf(CodeBase $code_base, Type $parent) : bool
     {
-        $fqsen = $this->asFQSEN();
-        \assert($fqsen instanceof FullyQualifiedClassName);
+        $fqsen = FullyQualifiedClassName::fromType($this);
 
         $this_clazz = $code_base->getClassByFQSEN(
             $fqsen
         );
 
-        $parent_fqsen = $parent->asFQSEN();
-        \assert($parent_fqsen instanceof FullyQualifiedClassName);
+        $parent_fqsen = FullyQualifiedClassName::fromType($parent);
 
         $parent_clazz = $code_base->getClassByFQSEN(
             $parent_fqsen

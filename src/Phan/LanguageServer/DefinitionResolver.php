@@ -17,6 +17,7 @@ use Phan\Language\Type;
 use Phan\Language\UnionType;
 use ast;
 use ast\Node;
+use Closure;
 use AssertionError;
 
 /**
@@ -121,10 +122,7 @@ class DefinitionResolver
             if ($type->isNativeType()) {
                 continue;
             }
-            $class_fqsen = $type->asFQSEN();
-            if (!$class_fqsen instanceof FullyQualifiedClassName) {
-                continue;
-            }
+            $class_fqsen = FullyQualifiedClassName::fromType($type);
             if (!$code_base->hasClassWithFQSEN($class_fqsen)) {
                 continue;
             }

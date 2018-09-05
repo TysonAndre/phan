@@ -126,6 +126,7 @@ class Parameter extends Variable
                 $this->default_value_future_type = null;
             }
         }
+        // @phan-suppress-next-line PhanPossiblyNullTypeReturn callers should check hasDefaultType
         return $this->default_value_type;
     }
 
@@ -190,7 +191,6 @@ class Parameter extends Variable
                 && !$is_optional_seen
                 && $parameter->getNonVariadicUnionType()->isEmpty()
             ) {
-                // @phan-suppress-next-line PhanPluginUnusedVariable
                 $is_optional_seen = true;
             }
 

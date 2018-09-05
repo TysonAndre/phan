@@ -42,10 +42,10 @@ final class GenericArrayType extends ArrayType implements GenericArrayInterface
     ];
 
     /**
-     * @var Type|null
+     * @var Type
      * The type of every value in this array
      */
-    private $element_type = null;
+    private $element_type;
 
     /**
      * @var int
@@ -304,11 +304,8 @@ final class GenericArrayType extends ArrayType implements GenericArrayInterface
         return $this->memoize(__METHOD__, function () use ($code_base, $recursion_depth) : UnionType {
             $union_type = $this->asUnionType();
 
-            $class_fqsen = $this->genericArrayElementType()->asFQSEN();
+            $class_fqsen = FullyQualifiedClassName::fromType($this->genericArrayElementType());
 
-            if (!($class_fqsen instanceof FullyQualifiedClassName)) {
-                return $union_type;
-            }
 
             if (!$code_base->hasClassWithFQSEN($class_fqsen)) {
                 return $union_type;

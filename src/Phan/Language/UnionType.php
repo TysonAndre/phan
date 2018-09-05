@@ -48,7 +48,7 @@ class UnionType implements \Serializable
     // phpcs:ignore Generic.NamingConventions.UpperCaseConstantName
     const union_type_regex =
         Type::type_regex
-        . '(\|' . Type::type_regex . ')*';
+        . '(\s*\|\s*' . Type::type_regex . ')*';
 
     /**
      * @var string
@@ -61,7 +61,7 @@ class UnionType implements \Serializable
     // phpcs:ignore Generic.NamingConventions.UpperCaseConstantName
     const union_type_regex_or_this =
         Type::type_regex_or_this
-        . '(\|' . Type::type_regex_or_this . ')*';
+        . '(\s*\|\s*' . Type::type_regex_or_this . ')*';
 
     /**
      * @var array<int,Type> This is an immutable list of unique types.
@@ -1517,6 +1517,20 @@ class UnionType implements \Serializable
     }
 
     /**
+     * @return UnionType
+     */
+    public function asArrayOrArrayAccessSubTypes(CodeBase $code_base) : UnionType
+    {
+        $result = UnionType::empty();
+        foreach ($this->type_set as $type) {
+            if ($type->isArrayOrArrayAccessSubType($code_base)) {
+                $result = $result->withType($type);
+            }
+        }
+        return $result;
+    }
+
+    /**
      * @return bool
      * True if this union contains the Traversable type.
      * (Call asExpandedTypes() first to check for subclasses of Traversable)
@@ -1623,11 +1637,7 @@ class UnionType implements \Serializable
                 continue;
             }
             // Get the class FQSEN
-            $class_fqsen = $class_type->asFQSEN();
-            if (!($class_fqsen instanceof FullyQualifiedClassName)) {
-                // Should be impossible, but skip to satisfy the type checker
-                continue;
-            }
+            $class_fqsen = FullyQualifiedClassName::fromType($class_type);
 
             if ($class_type->isStaticType()) {
                 if (!$context->isInClassScope()) {

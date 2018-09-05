@@ -7,6 +7,7 @@ use Phan\Config;
 use Phan\Language\Context;
 use Phan\Language\Element\Comment\Builder;
 use Phan\Language\Element\Comment\Parameter as CommentParameter;
+use Phan\Language\Element\Comment\Property as CommentProperty;
 use Phan\Language\Element\Comment\Method as CommentMethod;
 use Phan\Language\Element\Flags;
 use Phan\Language\Type;
@@ -15,6 +16,8 @@ use Phan\Language\UnionType;
 use Phan\Library\None;
 use Phan\Library\Option;
 
+use AssertionError;
+
 /**
  * Handles extracting information(param types, return types, magic methods/properties, etc.) from phpdoc comments.
  * Instances of Comment contain the extracted information.
@@ -22,6 +25,8 @@ use Phan\Library\Option;
  * TODO: Pass the doccomment line's index to the Element that will use the client,
  * so that it can be used for more precise line numbers (E.g. for where magic methods were declared,
  * where functions with no signature types but phpdoc types declared types that are invalid class names, etc.
+ *
+ * @see Builder for the logic to create an instance of this class.
  */
 class Comment
 {
@@ -115,7 +120,7 @@ class Comment
     private $suppress_issue_list = [];
 
     /**
-     * @var array<string,CommentParameter>
+     * @var array<string,CommentProperty>
      * A mapping from magic property parameters to types.
      */
     private $magic_property_map = [];
@@ -164,7 +169,7 @@ class Comment
      * @param array<int,string> $suppress_issue_list
      * A list of tags for error type to be suppressed
      *
-     * @param array<int,CommentParameter> $magic_property_list
+     * @param array<int,CommentProperty> $magic_property_list
      *
      * @param array<int,CommentMethod> $magic_method_list
      *
@@ -404,7 +409,11 @@ class Comment
      */
     public function getReturnType() : UnionType
     {
-        return $this->return_union_type;
+        $return_union_type = $this->return_union_type;
+        if (!$return_union_type) {
+            throw new AssertionError('Should check hasReturnUnionType');
+        }
+        return $return_union_type;
     }
 
     /**
@@ -530,19 +539,19 @@ class Comment
     }
 
     /**
-     * @return CommentParameter
-     * The magic property with the given name. May or may not have a type.
+     * Returns the magic property with the given name.
+     * May or may not have a type.
      * @unused
      * @suppress PhanUnreferencedPublicMethod not used right now, but making it available for plugins
      */
     public function getMagicPropertyWithName(
         string $name
-    ) : CommentParameter {
+    ) : CommentProperty {
         return $this->magic_property_map[$name];
     }
 
     /**
-     * @return array<string,CommentParameter> map from parameter name to parameter
+     * @return array<string,CommentProperty> map from parameter name to parameter
      */
     public function getMagicPropertyMap() : array
     {

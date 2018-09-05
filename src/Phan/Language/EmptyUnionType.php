@@ -12,7 +12,7 @@ use Generator;
 /**
  * NOTE: there may also be instances of UnionType that are empty, due to the constructor being public
  *
- * @phan-file-suppress PhanPluginUnusedPublicFinalMethodArgument, PhanUnusedPublicFinalMethodParameter the results don't depend on passed in parameters
+ * @phan-file-suppress PhanUnusedPublicFinalMethodParameter the results don't depend on passed in parameters
  */
 final class EmptyUnionType extends UnionType
 {
@@ -492,6 +492,11 @@ final class EmptyUnionType extends UnionType
     public function hasArrayLike() : bool
     {
         return false;
+    }
+
+    public function asArrayOrArrayAccessSubTypes(CodeBase $unused_code_base) : UnionType
+    {
+        return $this;
     }
 
     /**

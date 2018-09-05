@@ -21,9 +21,10 @@ class Issue
     // phpcs:disable Generic.NamingConventions.UpperCaseConstantName.ClassConstantNotUpperCase
     // this is deliberate for issue names
     // Issue::CATEGORY_SYNTAX
-    const SyntaxError               = 'PhanSyntaxError';
-    const InvalidConstantExpression = 'PhanInvalidConstantExpression';
-    const InvalidNode               = 'PhanInvalidNode';
+    const SyntaxError                    = 'PhanSyntaxError';
+    const InvalidConstantExpression      = 'PhanInvalidConstantExpression';
+    const InvalidNode                    = 'PhanInvalidNode';
+    const InvalidWriteToTemporaryExpression = 'PhanInvalidWriteToTemporaryExpression';
 
     // Issue::CATEGORY_UNDEFINED
     const AmbiguousTraitAliasSource = 'PhanAmbiguousTraitAliasSource';
@@ -89,6 +90,7 @@ class Issue
     const TypeInvalidInstanceof     = 'PhanTypeInvalidInstanceof';
     const TypeInvalidDimOffset      = 'PhanTypeInvalidDimOffset';
     const TypeInvalidDimOffsetArrayDestructuring = 'PhanTypeInvalidDimOffsetArrayDestructuring';
+    const TypeInvalidExpressionArrayDestructuring = 'PhanTypeInvalidExpressionArrayDestructuring';
     const TypeInvalidThrowsNonObject             = 'PhanTypeInvalidThrowsNonObject';
     const TypeInvalidThrowsNonThrowable          = 'PhanTypeInvalidThrowsNonThrowable';
     const TypeInvalidThrowsIsTrait               = 'PhanTypeInvalidThrowsIsTrait';
@@ -351,6 +353,7 @@ class Issue
     const ThrowTypeAbsentForCall           = 'PhanThrowTypeAbsentForCall';
     const ThrowTypeMismatch                = 'PhanThrowTypeMismatch';
     const ThrowTypeMismatchForCall         = 'PhanThrowTypeMismatchForCall';
+    const CommentAmbiguousClosure          = 'PhanCommentAmbiguousClosure';
     // phpcs:enable Generic.NamingConventions.UpperCaseConstantName.ClassConstantNotUpperCase
     // end of issue name constants
 
@@ -557,6 +560,14 @@ class Issue
                 "%s",
                 self::REMEDIATION_A,
                 17002
+            ),
+            new Issue(
+                self::InvalidWriteToTemporaryExpression,
+                self::CATEGORY_SYNTAX,
+                self::SEVERITY_CRITICAL,
+                "Cannot use temporary expression (of type {TYPE}) in write context",
+                self::REMEDIATION_A,
+                17003
             ),
 
             // Issue::CATEGORY_UNDEFINED
@@ -1451,6 +1462,14 @@ class Issue
                 "Invalid offset {SCALAR} of array type {TYPE} in an array destructuring assignment",
                 self::REMEDIATION_B,
                 10047
+            ),
+            new Issue(
+                self::TypeInvalidExpressionArrayDestructuring,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Invalid value of type {TYPE} in an array destructuring assignment, expected {TYPE}",
+                self::REMEDIATION_B,
+                10077
             ),
             new Issue(
                 self::TypeSuspiciousEcho,
@@ -2944,6 +2963,14 @@ class Issue
                 self::REMEDIATION_A,
                 16014
             ),
+            new Issue(
+                self::CommentAmbiguousClosure,
+                self::CATEGORY_COMMENT,
+                self::SEVERITY_LOW,
+                "Comment {STRING_LITERAL} refers to {TYPE} instead of \\Closure - Assuming \\Closure",
+                self::REMEDIATION_A,
+                16015
+            ),
         ];
         // phpcs:enable Generic.Files.LineLength
 
@@ -2993,7 +3020,6 @@ class Issue
                     $expected_category_for_type_id_bitpos
                 ));
             }
-            // @phan-suppress-next-line PhanPluginUnusedVariable
             $error_map[$error_type] = $error;
         }
     }

@@ -3,6 +3,30 @@ Phan NEWS
 ?? ??? 2018, Phan 1.0.2 (dev)
 -----------------------
 
+New features(Analysis)
++ Allow spaces on either side of `|` in union types
+  (e.g. `@param array | ArrayAccess $x`)
++ Warn about array destructuring assignments from non-arrays (#1818)
+  (E.g. `[$x] = 2`)
+
+  New issue type: `PhanTypeInvalidExpressionArrayDestructuring`
++ Infer the number of groups for $matches in `preg_match()`
+
+  Named subpatterns, non-capturing patterns, and regular expression options are not supported yet.
+  Phan will just infer a more generic type such as `string[]` (depending on the bit flags).
++ Warn about ambiguous uses of `Closure():void` in phpdoc.
+  Also, make that syntax count as a reference to `use Closure;` in that namespace.
++ Track the line number of magic method and magic properties (Instead of reporting the line number of the class).
+
+Bug fixes
++ Fix a crash seen when using a temporary expression in a write context. (#1915)
+
+  New issue type: `PhanInvalidWriteToTemporaryExpression`
++ Fix a crash seen with --use-fallback-parser with an invalid expression after `new`
++ Properly infer that closures have a class name of `Closure` for some issue types.
+  (e.g. `call_user_func([function() {}, 'invalidMethod'])`)
++ Fix a bug analyzing nested assignment in conditionals (#1919)
+
 26 Aug 2018, Phan 1.0.1
 -----------------------
 

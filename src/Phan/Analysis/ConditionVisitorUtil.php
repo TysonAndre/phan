@@ -2,6 +2,7 @@
 namespace Phan\Analysis;
 
 use Phan\AST\UnionTypeVisitor;
+use Phan\BlockAnalysisVisitor;
 use Phan\CodeBase;
 use Phan\Config;
 use Phan\Exception\IssueException;
@@ -312,7 +313,6 @@ trait ConditionVisitorUtil
                         return $this->removeFalseyFromVariable($var_node, $context, false);
                     }
                     return $this->removeFalseFromVariable($var_node, $context);
-                    ;
                 } elseif ($expr == null) {
                     return $this->removeNullFromVariable($var_node, $context, false);
                 } elseif ($expr == true) {  // e.g. 1, "1", -1
@@ -389,6 +389,7 @@ trait ConditionVisitorUtil
                 }
                 $kind = $tmp->kind;
                 if ($kind === \ast\AST_VAR) {
+                    $this->context = (new BlockAnalysisVisitor($this->code_base, $this->context))->__invoke($tmp);
                     return $analyzer($tmp, $right);
                 }
             }
@@ -404,6 +405,7 @@ trait ConditionVisitorUtil
                 if (!$tmp instanceof Node) {
                     break;
                 }
+                $this->context = (new BlockAnalysisVisitor($this->code_base, $this->context))->__invoke($right);
                 $kind = $tmp->kind;
                 if ($kind === \ast\AST_VAR) {
                     return $analyzer($tmp, $left);

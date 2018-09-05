@@ -33,7 +33,7 @@ use AssertionError;
 use ast\Node;
 
 /**
- * @phan-file-suppress PhanPartialTypeMismatchArgument
+ * Analyzes assignments.
  */
 class AssignmentVisitor extends AnalysisVisitor
 {
@@ -391,8 +391,22 @@ class AssignmentVisitor extends AnalysisVisitor
     private function analyzeGenericArrayAssignment(Node $node)
     {
         // Figure out the type of elements in the list
-        $element_type =
-            $this->right_type->genericArrayElementTypes();
+        $right_type = $this->right_type;
+        if ($right_type->isEmpty()) {
+            $element_type = UnionType::empty();
+        } else {
+            $array_access_types = $right_type->asArrayOrArrayAccessSubTypes($this->code_base);
+            if ($array_access_types->isEmpty()) {
+                $this->emitIssue(
+                    Issue::TypeInvalidExpressionArrayDestructuring,
+                    $node->lineno,
+                    $right_type,
+                    'array|ArrayAccess'
+                );
+            }
+            $element_type =
+                $array_access_types->genericArrayElementTypes();
+        }
 
         $expect_string_keys_lineno = false;
         $expect_int_keys_lineno = false;
@@ -524,6 +538,14 @@ class AssignmentVisitor extends AnalysisVisitor
     public function visitDim(Node $node) : Context
     {
         $expr_node = $node->children['expr'];
+        if (!($expr_node instanceof Node)) {
+            $this->emitIssue(
+                Issue::InvalidWriteToTemporaryExpression,
+                $node->lineno,
+                Type::fromObject($expr_node)
+            );
+            return $this->context;
+        }
         if ($expr_node->kind == \ast\AST_VAR) {
             $variable_name = (new ContextNode(
                 $this->code_base,
