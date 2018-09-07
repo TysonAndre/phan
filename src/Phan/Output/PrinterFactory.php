@@ -25,6 +25,9 @@ class PrinterFactory
         return ['text', 'json', 'csv', 'codeclimate', 'checkstyle', 'pylint', 'phplike'];
     }
 
+    /**
+     * @param ?string $type
+     */
     public function getPrinter($type, OutputInterface $output):IssuePrinterInterface
     {
         switch ($type) {

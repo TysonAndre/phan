@@ -1,6 +1,12 @@
 Phan NEWS
 
-?? ??? 2018, Phan 1.0.2 (dev)
+?? ??? 2018, Phan 1.0.3 (dev)
+-----------------------
+
+Bug fixes
++ Fix bugs in analysis of assignments within conditionals (#1937)
+
+06 Sep 2018, Phan 1.0.2
 -----------------------
 
 New features(Analysis)
