@@ -38,8 +38,11 @@ final class LanguageServerIntegrationTest extends BaseTest
         return self::getLSPFolder() . '/src/example.php';
     }
 
-    // Incrementing message id for language client requests.
-    // Each test case has its own instance property $this->messageId
+    /**
+     * Incrementing message id for language client requests.
+     * Each test case has its own instance property $this->messageId
+     * @var int
+     */
     private $messageId = 0;
 
     /**
@@ -264,6 +267,16 @@ function example(MyClass $arg) {
     $c = new ExampleClass();
     $c->counter += 1;
     var_export(ExampleClass::HTTP_500);  // line 10
+    var_export($c);
+}
+
+/**
+ * @param string|false $strVal line 15
+ * @param array<string,stdClass> $arrVal
+ */
+function example2($strVal, array $arrVal) {
+    var_export($strVal);
+    var_export($arrVal);  // line 20
 }
 EOT;
         return [
@@ -367,6 +380,34 @@ EOT
                 null,
                 true
             ],
+            [
+                $example_file_contents,
+                new Position(11, 16),  // $c
+                <<<'EOT'
+```php
+class ExampleClass
+```
+
+description of ExampleClass
+EOT
+                ,
+                null,
+                true
+            ],
+            [
+                $example_file_contents,
+                new Position(19, 15),  // $strVal
+                '`false|string`',
+                null,
+                true
+            ],
+            [
+                $example_file_contents,
+                new Position(20, 20),  // $arrVal
+                '`array<string,\stdClass>`',
+                null,
+                true
+            ],
         ];
     }
 
@@ -435,7 +476,7 @@ EOT
 
             $cur_line = explode("\n", $new_file_contents)[$position->line] ?? '';
 
-            $message = "Unexpected definition for {$position->line}:{$position->character} (0-based) on line \"" . $cur_line . '"';
+            $message = "Unexpected definition for {$position->line}:{$position->character} (0-based) on line \"" . $cur_line . '"' . ' at "' . substr($cur_line, $position->character, 10) . '"';
             $this->assertEquals($expected_definition_response, $definition_response, $message);  // slightly better diff view than assertSame
             $this->assertSame($expected_definition_response, $definition_response, $message);
 
@@ -518,7 +559,7 @@ EOT
 
             $cur_line = explode("\n", $new_file_contents)[$position->line] ?? '';
 
-            $message = "Unexpected type definition for {$position->line}:{$position->character} (0-based) on line " . json_encode($cur_line);
+            $message = "Unexpected type definition for {$position->line}:{$position->character} (0-based) on line " . json_encode($cur_line) . ' at "' . substr($cur_line, $position->character, 10) . '"';
             $this->assertEquals($expected_definition_response, $definition_response, $message);  // slightly better diff view than assertSame
             $this->assertSame($expected_definition_response, $definition_response, $message);
 
@@ -596,7 +637,7 @@ EOT
 
             $cur_line = explode("\n", $new_file_contents)[$position->line] ?? '';
 
-            $message = "Unexpected type definition for {$position->line}:{$position->character} (0-based) on line " . json_encode($cur_line);
+            $message = "Unexpected hover response for {$position->line}:{$position->character} (0-based) on line " . json_encode($cur_line) . ' at "' . substr($cur_line, $position->character, 10) . '"';
             $this->assertEquals($expected_hover_response, $hover_response, $message);  // slightly better diff view than assertSame
             $this->assertSame($expected_hover_response, $hover_response, $message);
 

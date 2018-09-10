@@ -27,7 +27,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    const PHAN_VERSION = '1.0.3-dev';
+    const PHAN_VERSION = '1.0.5-dev';
 
     /**
      * List of short flags passed to getopt
@@ -107,7 +107,7 @@ class CLI
     ];
 
     /**
-     * @var OutputInterface
+     * @var OutputInterface used for outputting the formatted issue messages.
      */
     private $output;
 

@@ -8,13 +8,16 @@ use Phan\Output\BufferedPrinterInterface;
 use AssertionError;
 use Symfony\Component\Console\Output\OutputInterface;
 
+/**
+ * This will print an issue as CSVs (Comma Separated Values) to the configured OutputInterface.
+ */
 final class CSVPrinter implements BufferedPrinterInterface
 {
 
-    /** @var  OutputInterface */
+    /** @var OutputInterface for writing comma separated values to */
     private $output;
 
-    /** @var resource */
+    /** @var resource in-memory stream for fputcsv() */
     private $stream;
 
     /** @param IssueInstance $instance */

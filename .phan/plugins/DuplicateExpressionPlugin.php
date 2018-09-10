@@ -24,7 +24,7 @@ use ast\Node;
  *
  * A plugin file must
  *
- * - Contain a class that inherits from \Phan\Plugin
+ * - Contain a class that inherits from \Phan\PluginV2
  *
  * - End by returning an instance of that class.
  *
@@ -46,6 +46,10 @@ class DuplicateExpressionPlugin extends PluginV2 implements PostAnalyzeNodeCapab
     }
 }
 
+/**
+ * This visitor analyzes node kinds that can be the root of expressions
+ * containing duplicate expressions.
+ */
 class RedundantNodeVisitor extends PluginAwarePostAnalysisVisitor
 {
     /**
@@ -125,7 +129,7 @@ class RedundantNodeVisitor extends PluginAwarePostAnalysisVisitor
             );
             return;
         }
-        if ($cond_node->kind === ast\AST_ISSET) {
+        if ($cond_node instanceof Node && $cond_node->kind === ast\AST_ISSET) {
             if (ASTHasher::hash($cond_node->children['var']) === $true_node_hash) {
                 $this->emitPluginIssue(
                     $this->code_base,

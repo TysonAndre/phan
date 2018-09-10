@@ -21,6 +21,12 @@ if (!class_exists('\ast\Node')) {
     require_once __DIR__ . '/../src/Phan/AST/TolerantASTConverter/ast_shim.php';
 }
 
+/**
+ * Generates PHP stubs for extensions that can be used in the autoload_internal_extension_signatures `.phan/config.php` setting.
+ * These are regular PHP files stubbing PHP modules, containing empty method implementations, etc.
+ *
+ * Configured stubs can be used in IDEs, analysis, etc. where extensions aren't installed or enabled (e.g. xdebug)
+ */
 class StubsGenerator {
 
     /**
@@ -154,18 +160,22 @@ EOT;
 
 StubsGenerator::main();
 
+/**
+ * A representation of the collection of stubs for elements of a PHP module(a.k.a. extension).
+ */
 class StubCollection {
     /** @var CodeBase */
     private $code_base;
+
     public function __construct(CodeBase $code_base) {
         $this->code_base = $code_base;
     }
 
-    /** @var string[][] */
+    /** @var string[][] a list of class stubs for a PHP module */
     public $class_stubs = [];
-    /** @var string[][] */
+    /** @var string[][] a list of function stubs for a PHP module */
     public $function_stubs = [];
-    /** @var string[][] */
+    /** @var string[][] a list of global constant stubs for a PHP module */
     public $global_constant_stubs = [];
 
     /** @return void */

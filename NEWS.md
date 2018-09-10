@@ -1,6 +1,32 @@
 Phan NEWS
 
-?? ??? 2018, Phan 1.0.3 (dev)
+?? ??? 2018, Phan 1.0.5 (dev)
+-----------------------
+
+10 Sep 2018, Phan 1.0.4
+-----------------------
+
+Plugins:
++ Fix a crash in `DuplicateExpressionPlugin`.
++ Add `HasPHPDocPlugin`, which checks if an element (class or property) has a PHPDoc comment,
+  and that Phan can extract a plaintext summary/description from that comment.
+
+Language Server/Daemon mode:
++ Support generating a hover description for variables.
+
+  - For union types with a single non-nullable class/interface type, the hover text include the full summary description of that class-like.
+  - For non-empty union types, this will just show the raw union type (e.g. `string|false`)
++ Improve extraction of summaries of elements (e.g. hover description)
+
+  - Support using `@return` as a summary for function-likes.
+  - Parse the lines after `@var` tag (before subsequent tags)
+    as an additional part of the summary for constants/properties.
+
+Maintenance:
++ Update Phar file to contain missing LICENSEs (#1950)
++ Add more documentation to Phan's code.
+
+07 Sep 2018, Phan 1.0.3
 -----------------------
 
 Bug fixes
@@ -17,7 +43,6 @@ Plugins:
 
   New setting: `$config['plugin_config']['sleep_transient_warning_blacklist_regex']`
   can be used to prevent Phan from warning about certain properties missing `@phan-transient`
-
 
 06 Sep 2018, Phan 1.0.2
 -----------------------
@@ -45,7 +70,7 @@ Bug fixes
 + Properly infer that closures have a class name of `Closure` for some issue types.
   (e.g. `call_user_func([function() {}, 'invalidMethod'])`)
 + Fix a bug analyzing nested assignment in conditionals (#1919)
-+ Don't include impossibly types when analyzing assertions such as `is_string($var)` (#1932)
++ Don't include impossible types when analyzing assertions such as `is_string($var)` (#1932)
 
 26 Aug 2018, Phan 1.0.1
 -----------------------

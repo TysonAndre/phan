@@ -10,6 +10,9 @@ use Phan\Language\UnionType;
 use Closure;
 use TypeError;
 
+/**
+ * Phan's representation of a class/trait/interface's property (including magic and dynamic properties)
+ */
 class Property extends ClassElement
 {
     use ElementFutureUnionType;
@@ -81,7 +84,7 @@ class Property extends ClassElement
         return $this->real_defining_fqsen ?? $this->getDefiningFQSEN();
     }
 
-    private function getVisibilityName() : string
+    public function getVisibilityName() : string
     {
         if ($this->isPrivate()) {
             return 'private';
