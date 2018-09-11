@@ -3,6 +3,11 @@ Phan NEWS
 ?? ??? 2018, Phan 1.0.5 (dev)
 -----------------------
 
+Bug fixes:
++ Don't infer bad types for variables when analyzing `array_push` using expressions containing those variables. (#1955)
+  (also fixes other `array_*` functions taking references)
++ Fix false negatives in PHP5 backwards compatibility heuristic checks (#1939)
+
 10 Sep 2018, Phan 1.0.4
 -----------------------
 

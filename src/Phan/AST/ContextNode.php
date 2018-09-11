@@ -340,6 +340,8 @@ class ContextNode
     /**
      * @return string
      * A variable name associated with the given node
+     *
+     * TODO: Deprecate this and use more precise ways to locate the desired element
      */
     public function getVariableName() : string
     {
@@ -1039,6 +1041,54 @@ class ContextNode
 
     /**
      * @return Variable
+     * A variable in scope
+     *
+     * @throws NodeException
+     * An exception is thrown if we can't understand the node
+     *
+     * @throws IssueException
+     * A IssueException is thrown if the variable doesn't
+     * exist
+     */
+    public function getVariableStrict() : Variable
+    {
+        $node = $this->node;
+        if (!($node instanceof Node)) {
+            throw new AssertionError('$this->node must be a node');
+        }
+
+        if ($node->kind === ast\AST_VAR) {
+            $variable_name = $node->children['name'];
+
+            if (!is_string($variable_name)) {
+                throw new NodeException(
+                    $node,
+                    "Variable name not found"
+                );
+            }
+
+            // Check to see if the variable exists in this scope
+            $scope = $this->context->getScope();
+            if (!$scope->hasVariableWithName($variable_name)) {
+                throw new IssueException(
+                    Issue::fromType(Issue::UndeclaredVariable)(
+                        $this->context->getFile(),
+                        $node->lineno ?? 0,
+                        [ $variable_name ],
+                        IssueFixSuggester::suggestVariableTypoFix($this->code_base, $this->context, $variable_name)
+                    )
+                );
+            }
+
+            return $scope->getVariableByName(
+                $variable_name
+            );
+        }
+        throw new NodeException($node, 'Not a variable node');
+    }
+
+    /**
+     * @return Variable
      * A variable in scope or a new variable
      *
      * @throws NodeException
@@ -1651,6 +1701,8 @@ class ContextNode
      * This ignores union types, and can be run in the parse phase.
      * (It often should, because outside quick mode, it may be run multiple times per node)
      *
+     * TODO: This is repetitive, move these checks into ParseVisitor?
+     *
      * @return void
      */
     public function analyzeBackwardCompatibility()
@@ -1770,8 +1822,8 @@ class ContextNode
             $line = $cache_entry->getLine($this->node->lineno) ?? '';
             unset($cache_entry);
             if (strpos($line, '}[') === false
-                || strpos($line, ']}') === false
-                || strpos($line, '>{') === false
+                && strpos($line, ']}') === false
+                && strpos($line, '>{') === false
             ) {
                 Issue::maybeEmit(
                     $this->code_base,
