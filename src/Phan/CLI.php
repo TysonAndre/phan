@@ -1,6 +1,8 @@
 <?php declare(strict_types=1);
 namespace Phan;
 
+use AssertionError;
+use InvalidArgumentException;
 use Phan\Config\Initializer;
 use Phan\Output\Collector\BufferingCollector;
 use Phan\Output\Filter\CategoryIssueFilter;
@@ -8,9 +10,6 @@ use Phan\Output\Filter\ChainedIssueFilter;
 use Phan\Output\Filter\FileIssueFilter;
 use Phan\Output\Filter\MinimumSeverityFilter;
 use Phan\Output\PrinterFactory;
-
-use AssertionError;
-use InvalidArgumentException;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Output\StreamOutput;
@@ -641,7 +640,7 @@ class CLI
     {
         global $argv;
 
-        if (!empty($msg)) {
+        if ($msg !== '') {
             echo "$msg\n";
         }
 
@@ -828,7 +827,7 @@ Usage: {$argv[0]} [options] [files...]
   `phan_client` can be used to communicate with the Phan Daemon.
 
  -v, --version
-  Print phan's version number
+  Print Phan's version number
 
  -h, --help
   This help information
@@ -952,7 +951,7 @@ EOB;
         } elseif ($key === '') {
             return '';
         }
-        // include short options incase a typo is made like -aa instead of -a
+        // include short options in case a typo is made like -aa instead of -a
         $known_flags = array_merge(self::GETOPT_LONG_OPTIONS, $short_options);
 
         $known_flags = array_map($trim, $known_flags);
@@ -1156,7 +1155,7 @@ EOB;
 
         // If the file doesn't exist here, try a directory up
         $config_file_name =
-            !empty($this->config_file)
+            $this->config_file
             ? realpath($this->config_file)
             : implode(DIRECTORY_SEPARATOR, [
                 Config::getProjectRootDirectory(),

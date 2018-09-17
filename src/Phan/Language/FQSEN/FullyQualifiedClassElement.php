@@ -1,11 +1,10 @@
 <?php declare(strict_types=1);
 namespace Phan\Language\FQSEN;
 
-use Phan\Language\Context;
-use Phan\Language\FQSEN;
-
 use AssertionError;
 use InvalidArgumentException;
+use Phan\Language\Context;
+use Phan\Language\FQSEN;
 
 /**
  * A Fully-Qualified Class Name
@@ -101,7 +100,7 @@ abstract class FullyQualifiedClassElement extends AbstractFQSEN
      * @param $fully_qualified_string
      * An FQSEN string like '\Namespace\Class::methodName'
      *
-     * @throws InvalidArgumentException if the $fully_qualified_string doesn't have a '::' delimeter
+     * @throws InvalidArgumentException if the $fully_qualified_string doesn't have a '::' delimiter
      */
     public static function fromFullyQualifiedString(
         string $fully_qualified_string

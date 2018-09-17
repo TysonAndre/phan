@@ -1,10 +1,13 @@
 <?php declare(strict_types=1);
 namespace Phan\Language;
 
+use Closure;
+use Generator;
 use Phan\CodeBase;
 use Phan\Config;
 use Phan\Exception\CodeBaseException;
 use Phan\Exception\IssueException;
+use Phan\Exception\RecursionDepthException;
 use Phan\Issue;
 use Phan\Language\AnnotatedUnionType;
 use Phan\Language\FQSEN\FullyQualifiedClassName;
@@ -17,10 +20,10 @@ use Phan\Language\Type\FalseType;
 use Phan\Language\Type\FloatType;
 use Phan\Language\Type\GenericArrayInterface;
 use Phan\Language\Type\GenericArrayType;
+use Phan\Language\Type\IntType;
 use Phan\Language\Type\LiteralIntType;
 use Phan\Language\Type\LiteralStringType;
 use Phan\Language\Type\LiteralTypeInterface;
-use Phan\Language\Type\IntType;
 use Phan\Language\Type\MixedType;
 use Phan\Language\Type\MultiType;
 use Phan\Language\Type\NullType;
@@ -29,10 +32,6 @@ use Phan\Language\Type\StaticType;
 use Phan\Language\Type\StringType;
 use Phan\Language\Type\TemplateType;
 use Phan\Language\Type\TrueType;
-
-use Closure;
-use Generator;
-use RuntimeException;
 use Serializable;
 
 if (!\function_exists('spl_object_id')) {
@@ -229,7 +228,8 @@ class UnionType implements Serializable
         int $source,
         CodeBase $code_base = null
     ) : UnionType {
-        if (empty($type_string)) {
+        if ($type_string === '') {
+            // NOTE: '0' is a valid LiteralIntType
             return self::$empty_instance;
         }
 
@@ -1189,7 +1189,7 @@ class UnionType implements Serializable
         // TODO: Allow casting MyClass<TemplateType> to MyClass (Without the template?
 
         // Resolve 'static' for the given context to
-        // determine whats actually being referred
+        // determine what's actually being referred
         // to in concrete terms.
         $other_resolved_type =
             $union_type->withStaticResolvedInContext($context);
@@ -2279,7 +2279,7 @@ class UnionType implements Serializable
         int $recursion_depth = 0
     ) : UnionType {
         if ($recursion_depth >= 12) {
-            throw new RuntimeException("Recursion has gotten out of hand");
+            throw new RecursionDepthException("Recursion has gotten out of hand");
         }
 
         $type_set = $this->type_set;

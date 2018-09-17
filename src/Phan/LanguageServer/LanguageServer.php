@@ -2,8 +2,8 @@
 namespace Phan\LanguageServer;
 
 use AdvancedJsonRpc;
+use AssertionError;
 use Closure;
-use Phan\Phan;
 use Phan\CodeBase;
 use Phan\Config;
 use Phan\Daemon\ExitException;
@@ -24,13 +24,12 @@ use Phan\LanguageServer\Protocol\SaveOptions;
 use Phan\LanguageServer\Protocol\ServerCapabilities;
 use Phan\LanguageServer\Protocol\TextDocumentSyncKind;
 use Phan\LanguageServer\Protocol\TextDocumentSyncOptions;
-use Phan\LanguageServer\Server\TextDocument;
 use Phan\LanguageServer\ProtocolReader;
-use Phan\LanguageServer\ProtocolWriter;
 use Phan\LanguageServer\ProtocolStreamReader;
 use Phan\LanguageServer\ProtocolStreamWriter;
-
-use AssertionError;
+use Phan\LanguageServer\ProtocolWriter;
+use Phan\LanguageServer\Server\TextDocument;
+use Phan\Phan;
 use Sabre\Event\Loop;
 use Sabre\Event\Promise;
 use Throwable;
@@ -293,7 +292,7 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
         }
         return null;
          */
-        if (!empty($options['tcp'])) {
+        if (isset($options['tcp'])) {
             // Connect to a TCP server
             $address = $options['tcp'];
             $socket = stream_socket_client('tcp://' . $address, $errno, $errstr);
@@ -309,7 +308,7 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
             $most_recent_request = $ls->most_recent_request;
             $ls->most_recent_request = null;
             return $most_recent_request;
-        } elseif (!empty($options['tcp-server'])) {
+        } elseif (isset($options['tcp-server'])) {
             // Run a TCP Server
             $address = $options['tcp-server'];
             $tcpServer = stream_socket_server('tcp://' . $address, $errno, $errstr);
@@ -666,7 +665,12 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
             $diagnostics[$normalized_requested_uri] = [];  // send an empty diagnostic list on failure.
         }
 
-        foreach ($response_data['issues'] ?? [] as $issue) {
+        $issues = $response_data['issues'] ?? [];
+        if (!is_array($issues)) {
+            Logger::logInfo("Failed to fetch 'issues' from JSON:" . json_encode($response_data));
+            return;
+        }
+        foreach ($issues as $issue) {
             list($issue_uri, $diagnostic) = self::generateDiagnostic($issue);
             if ($diagnostic instanceof Diagnostic) {
                 $diagnostics[$issue_uri][] = $diagnostic;
@@ -804,7 +808,7 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
             $serverCapabilities = new ServerCapabilities();
 
             // FULL: Ask the client to return always return full documents (because we need to rebuild the AST from scratch)
-            // NONE: Don't sync until the user explitly saves a document.
+            // NONE: Don't sync until the user explicitly saves a document.
             $serverCapabilities->textDocumentSync = $this->makeTextDocumentSyncOptions();
 
             // TODO: Support "Find all symbols"?

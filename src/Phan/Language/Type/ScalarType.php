@@ -3,9 +3,9 @@ namespace Phan\Language\Type;
 
 use Phan\CodeBase;
 use Phan\Config;
+use Phan\Language\Context;
 use Phan\Language\Type;
 use Phan\Language\UnionType;
-use Phan\Language\Context;
 
 /**
  * The base class for various scalar types (BoolType, StringType, ScalarRawType,
@@ -69,7 +69,7 @@ abstract class ScalarType extends NativeType
      */
     protected function canCastToNonNullableType(Type $type) : bool
     {
-        // Scalars may be configured to always cast to eachother
+        // Scalars may be configured to always cast to each other.
         if ($type->isScalar()) {
             if (Config::getValue('scalar_implicit_cast')) {
                 return true;

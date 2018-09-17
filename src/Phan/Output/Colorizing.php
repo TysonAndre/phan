@@ -3,14 +3,14 @@ declare(strict_types=1);
 
 namespace Phan\Output;
 
-use Phan\Issue;
 use Phan\Config;
+use Phan\Issue;
 use Phan\Language\FQSEN;
 use Phan\Language\Type;
 use Phan\Language\UnionType;
 
 /**
- * Contains utilities for colorizing Phan's issue messages (and colorized CLI ouptut in general)
+ * Contains utilities for colorizing Phan's issue messages (and colorized CLI output in general)
  *
  * Colorizing codes are based on https://github.com/kevinlebrun/colors.php/
  */

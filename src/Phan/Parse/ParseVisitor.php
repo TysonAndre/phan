@@ -1,8 +1,12 @@
 <?php declare(strict_types=1);
 namespace Phan\Parse;
 
-use Phan\AST\ContextNode;
+use AssertionError;
+use ast;
+use ast\Node;
+use InvalidArgumentException;
 use Phan\Analysis\ScopeVisitor;
+use Phan\AST\ContextNode;
 use Phan\CodeBase;
 use Phan\Config;
 use Phan\Daemon;
@@ -35,11 +39,6 @@ use Phan\Language\Type\StringType;
 use Phan\Language\UnionType;
 use Phan\Library\FileCache;
 use Phan\Library\None;
-
-use AssertionError;
-use ast;
-use ast\Node;
-use InvalidArgumentException;
 
 /**
  * The class is a visitor for AST nodes that does parsing. Each
@@ -1027,7 +1026,7 @@ class ParseVisitor extends ScopeVisitor
             return $this->context;
         }
         // Analyze the assignment for compatibility with some
-        // breaking changes betweeen PHP5 and PHP7.
+        // breaking changes between PHP5 and PHP7.
         $var_node = $node->children['var'];
         if ($var_node instanceof Node) {
             $this->analyzeBackwardCompatibility($var_node);

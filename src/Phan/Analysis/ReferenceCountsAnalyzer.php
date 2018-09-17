@@ -12,16 +12,15 @@ use Phan\Language\Element\ClassElement;
 use Phan\Language\Element\Func;
 use Phan\Language\Element\Method;
 use Phan\Language\Element\Property;
-use Phan\Library\Map;
 use Phan\Language\FQSEN\FullyQualifiedClassConstantName;
 use Phan\Language\FQSEN\FullyQualifiedClassElement;
 use Phan\Language\FQSEN\FullyQualifiedClassName;
 use Phan\Language\FQSEN\FullyQualifiedFunctionName;
-use Phan\Language\FQSEN\FullyQualifiedMethodName;
 use Phan\Language\FQSEN\FullyQualifiedGlobalConstantName;
 use Phan\Language\FQSEN\FullyQualifiedGlobalStructuralElement;
+use Phan\Language\FQSEN\FullyQualifiedMethodName;
 use Phan\Language\FQSEN\FullyQualifiedPropertyName;
-
+use Phan\Library\Map;
 use TypeError;
 
 /**
@@ -440,7 +439,7 @@ class ReferenceCountsAnalyzer
         if ($old_fqsen instanceof FullyQualifiedGlobalStructuralElement) {
             $fqsen = $old_fqsen->getCanonicalFQSEN();
             if ($fqsen === $old_fqsen) {
-                return null;  // $old_fqsen was not an alternaive
+                return null;  // $old_fqsen was not an alternative
             }
             if ($fqsen instanceof FullyQualifiedFunctionName) {
                 if ($code_base->hasFunctionWithFQSEN($fqsen)) {

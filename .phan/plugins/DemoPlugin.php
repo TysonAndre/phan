@@ -1,5 +1,6 @@
 <?php declare(strict_types=1);
 
+use ast\Node;
 use Phan\CodeBase;
 use Phan\Language\Element\Clazz;
 use Phan\Language\Element\Func;
@@ -12,7 +13,6 @@ use Phan\PluginV2\AnalyzeMethodCapability;
 use Phan\PluginV2\AnalyzePropertyCapability;
 use Phan\PluginV2\PluginAwarePostAnalysisVisitor;
 use Phan\PluginV2\PostAnalyzeNodeCapability;
-use ast\Node;
 
 /**
  * This file demonstrates plugins for Phan.
@@ -171,7 +171,7 @@ class DemoPlugin extends PluginV2 implements
         Property $property
     ) {
         // As an example, we test to see if the name of the
-        // function is `foo`, and emit an issue if it is.
+        // property is `property`, and emit an issue if it is.
         if ($property->getName() == 'property') {
             $this->emitIssue(
                 $code_base,

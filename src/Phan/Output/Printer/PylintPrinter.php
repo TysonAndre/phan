@@ -1,15 +1,14 @@
 <?php declare(strict_types = 1);
 namespace Phan\Output\Printer;
 
+use AssertionError;
 use Phan\Issue;
 use Phan\IssueInstance;
 use Phan\Output\IssuePrinterInterface;
-
-use AssertionError;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * Prints `IssueInstance`s in the pylint error format to the configued OutputInterface
+ * Prints `IssueInstance`s in the pylint error format to the configured OutputInterface
  */
 final class PylintPrinter implements IssuePrinterInterface
 {

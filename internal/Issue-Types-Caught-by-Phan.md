@@ -266,7 +266,7 @@ Access level to {PROPERTY} must be compatible with internal {PROPERTY}
 
 This category will be emitted when Phan doesn't know how to analyze something.
 
-Please do file an issue or otherwise get in touch if you get one of these (or an uncaught exception, or anything else thats shitty).
+Please do file an issue or otherwise get in touch if you get one of these (or an uncaught exception, or anything else that's shitty).
 
 [![Gitter](https://badges.gitter.im/phan/phan.svg)](https://gitter.im/phan/phan?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
@@ -523,7 +523,7 @@ Unused result of a numeric literal {STRING_LITERAL} near this line
 
 ## PhanNoopProperty
 
-Emitted when you have a refence to a property that is unused.
+Emitted when you have a reference to a property that is unused.
 
 ```
 Unused property
@@ -864,7 +864,7 @@ Declaration of real/@method {METHOD} should be compatible with real/@method {MET
 ## PhanParamSignaturePHPDocMismatchHasParamType
 
 ```
-Declaration of real/@method {METHOD} should be compatible with real/@method {METHOD} (parameter #{INDEX} has type '{TYPE}' cannot replace original parameter with no type) defined in {FILE}:{LINE}
+Declaration of real/@method {METHOD} should be compatible with real/@method {METHOD} (parameter #{INDEX} has type '{TYPE}' which cannot replace original parameter with no type) defined in {FILE}:{LINE}
 ```
 
 ## PhanParamSignaturePHPDocMismatchParamIsNotReference
@@ -930,13 +930,13 @@ Declaration of {METHOD} should be compatible with internal {METHOD} (parameter #
 ## PhanParamSignatureRealMismatchHasParamType
 
 ```
-Declaration of {METHOD} should be compatible with {METHOD} (parameter #{INDEX} has type '{TYPE}' cannot replace original parameter with no type) defined in {FILE}:{LINE}
+Declaration of {METHOD} should be compatible with {METHOD} (parameter #{INDEX} has type '{TYPE}' which cannot replace original parameter with no type) defined in {FILE}:{LINE}
 ```
 
 ## PhanParamSignatureRealMismatchHasParamTypeInternal
 
 ```
-Declaration of {METHOD} should be compatible with internal {METHOD} (parameter #{INDEX} has type '{TYPE}' cannot replace original parameter with no type)
+Declaration of {METHOD} should be compatible with internal {METHOD} (parameter #{INDEX} has type '{TYPE}' which cannot replace original parameter with no type)
 ```
 
 ## PhanParamSignatureRealMismatchParamIsNotReference
@@ -2338,6 +2338,24 @@ This is emitted for some (but not all) comments which Phan thinks are invalid or
 
 ```
 Comment {STRING_LITERAL} refers to {TYPE} instead of \Closure - Assuming \Closure
+```
+
+## PhanCommentDuplicateMagicMethod
+
+```
+Comment declares @method {METHOD} multiple times
+```
+
+## PhanCommentDuplicateMagicProperty
+
+```
+Comment declares @property* ${PROPERTY} multiple times
+```
+
+## PhanCommentDuplicateParam
+
+```
+Comment declares @param ${PARAMETER} multiple times
 ```
 
 ## PhanCommentOverrideOnNonOverrideConstant

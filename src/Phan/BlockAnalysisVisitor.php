@@ -1,29 +1,35 @@
 <?php declare(strict_types=1);
 namespace Phan;
 
-use Phan\AST\AnalysisVisitor;
-use Phan\AST\Visitor\Element;
-use Phan\AST\UnionTypeVisitor;
+use AssertionError;
+use ast\Node;
 use Phan\Analysis\BlockExitStatusChecker;
 use Phan\Analysis\ConditionVisitor;
-use Phan\Analysis\NegatedConditionVisitor;
 use Phan\Analysis\ContextMergeVisitor;
+use Phan\Analysis\NegatedConditionVisitor;
 use Phan\Analysis\PostOrderAnalysisVisitor;
 use Phan\Analysis\PreOrderAnalysisVisitor;
+use Phan\AST\AnalysisVisitor;
+use Phan\AST\UnionTypeVisitor;
+use Phan\AST\Visitor\Element;
 use Phan\Language\Context;
 use Phan\Language\Element\Comment;
 use Phan\Language\Element\Comment\Builder;
 use Phan\Language\Element\Variable;
 use Phan\Language\FQSEN\FullyQualifiedPropertyName;
-use Phan\Language\Type;
-use Phan\Language\UnionType;
 use Phan\Language\Scope\BranchScope;
 use Phan\Language\Scope\GlobalScope;
 use Phan\Language\Scope\PropertyScope;
+use Phan\Language\Type;
+use Phan\Language\UnionType;
 use Phan\Plugin\ConfigPluginSet;
 
-use AssertionError;
-use ast\Node;
+use function array_map;
+use function count;
+use function explode;
+use function json_encode;
+use function preg_match;
+use function rtrim;
 
 /**
  * Analyze blocks of code
@@ -163,7 +169,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         $context = $this->context;
         // Only invoke post-order plugins, needed for NodeSelectionPlugin.
         // PostOrderAnalysisVisitor and PreOrderAnalysisVisitor don't do anything.
-        // Optimized beause this is frequently called
+        // Optimized because this is frequently called
         ConfigPluginSet::instance()->postAnalyzeNode(
             $this->code_base,
             $context,
@@ -438,7 +444,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor
      *   ●──●──▶●
      *   stmts  │
      *          │
-     *          ● 'loop' child node (after inner statments)
+     *          ● 'loop' child node (after inner statements)
      *          │
      *          ▼
      *
@@ -790,21 +796,21 @@ class BlockAnalysisVisitor extends AnalysisVisitor
                 $has_default = true;
             }
             // We can improve analysis of `case` blocks by using
-            // a BlockExitStatusChecker to avoid propogating invalid inferences.
+            // a BlockExitStatusChecker to avoid propagating invalid inferences.
             $stmts_node = $child_node->children['stmts'];
             if (!BlockExitStatusChecker::willUnconditionallyThrowOrReturn($stmts_node)) {
                 // Skip over empty case statements (incomplete heuristic), TODO: test
-                if (\count($stmts_node->children ?? []) !== 0 || $i === \count($node->children) - 1) {
+                if (count($stmts_node->children ?? []) !== 0 || $i === count($node->children) - 1) {
                     $child_context_list[] = $child_context;
                 }
             }
         }
 
-        if (\count($child_context_list) > 0) {
+        if (count($child_context_list) > 0) {
             if (!$has_default) {
                 $child_context_list[] = $context;
             }
-            if (\count($child_context_list) >= 2) {
+            if (count($child_context_list) >= 2) {
                 // For case statements, we need to merge the contexts
                 // of all child context into a single scope based
                 // on any possible branching structure
@@ -867,7 +873,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor
             $child_context = $this->analyzeAndGetUpdatedContext($child_context, $node, $child_node);
 
             // Issue #406: We can improve analysis of `if` blocks by using
-            // a BlockExitStatusChecker to avoid propogating invalid inferences.
+            // a BlockExitStatusChecker to avoid propagating invalid inferences.
             // TODO: we may wish to check for a try block between this line's scope
             // and the parent function's (or global) scope,
             // to reduce false positives.
@@ -1289,8 +1295,8 @@ class BlockAnalysisVisitor extends AnalysisVisitor
             $child_context = $this->analyzeAndGetUpdatedContext($false_context, $node, $false_node);
             $child_context_list[] = $child_context;
         }
-        if (\count($child_context_list) >= 1) {
-            if (\count($child_context_list) < 2) {
+        if (count($child_context_list) >= 1) {
+            if (count($child_context_list) < 2) {
                 $child_context_list[] = $context;
             }
             $context = (new ContextMergeVisitor(

@@ -1,6 +1,8 @@
 <?php declare(strict_types=1);
 namespace Phan;
 
+use AssertionError;
+use Closure;
 use Phan\CodeBase\ClassMap;
 use Phan\CodeBase\UndoTracker;
 use Phan\Language\Context;
@@ -24,13 +26,9 @@ use Phan\Language\NamespaceMapEntry;
 use Phan\Language\UnionType;
 use Phan\Library\Map;
 use Phan\Library\Set;
-
-use AssertionError;
-use Closure;
 use ReflectionClass;
-
-use function strtolower;
 use function strlen;
+use function strtolower;
 
 /**
  * A CodeBase represents the known state of a code base
@@ -373,14 +371,15 @@ class CodeBase
     /**
      * @param array<int,string> $new_file_list
      * @param array<string,string> $file_mapping_contents maps relative path to absolute paths
+     * @param ?(string[]) $reanalyze_files files to re-analyze
      * @return array<int,string> - Subset of $new_file_list which changed on disk and has to be parsed again. Automatically unparses the old versions of files which were modified.
      */
-    public function updateFileList(array $new_file_list, array $file_mapping_contents = [])
+    public function updateFileList(array $new_file_list, array $file_mapping_contents = [], array $reanalyze_files = null)
     {
         if ($this->undo_tracker) {
             $this->invalidateDependentCacheEntries();
 
-            return $this->undo_tracker->updateFileList($this, $new_file_list, $file_mapping_contents);
+            return $this->undo_tracker->updateFileList($this, $new_file_list, $file_mapping_contents, $reanalyze_files);
         }
         throw new \RuntimeException("Calling updateFileList without undo tracker");
     }
@@ -934,7 +933,7 @@ class CodeBase
         // method, map the name to the FQSEN so we can do hail-
         // mary references.
         if (Config::get_track_references()) {
-            if (empty($this->name_method_map[$method->getFQSEN()->getNameWithAlternateId()])) {
+            if (!isset($this->name_method_map[$method->getFQSEN()->getNameWithAlternateId()])) {
                 $this->name_method_map[$method->getFQSEN()->getNameWithAlternateId()] = new Set();
             }
             $this->name_method_map[$method->getFQSEN()->getNameWithAlternateId()]->attach($method);

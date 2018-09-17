@@ -1,13 +1,13 @@
 <?php declare(strict_types=1);
 namespace Phan\Language;
 
+use Generator;
 use Phan\CodeBase;
 use Phan\Exception\CodeBaseException;
 use Phan\Exception\IssueException;
+use Phan\Language\FQSEN\FullyQualifiedClassName;
 use Phan\Language\Type\ArrayType;
 use Phan\Language\Type\IntType;
-use Phan\Language\FQSEN\FullyQualifiedClassName;
-use Generator;
 
 /**
  * NOTE: there may also be instances of UnionType that are empty, due to the constructor being public
@@ -372,7 +372,7 @@ final class EmptyUnionType extends UnionType
         // TODO: Allow casting MyClass<TemplateType> to MyClass (Without the template?
 
         // Resolve 'static' for the given context to
-        // determine whats actually being referred
+        // determine what's actually being referred
         // to in concrete terms.
         $other_resolved_type =
             $union_type->withStaticResolvedInContext($context);

@@ -3,13 +3,29 @@ Phan NEWS
 ?? ??? 2018, Phan 1.0.5 (dev)
 -----------------------
 
+New Features(Analysis)
++ Warn if a PHPDoc annotation for an element(`@param`, `@method`, or `@property*`) is repeated. (#1963)
+
+  New issue types: `PhanCommentDuplicateMagicMethod`, `PhanCommentDuplicateMagicProperty`, `PhanCommentDuplicateParam`
+
+Plugins:
++ Properly warn about code after `break` and `continue` in `UnreachableCodePlugin`.
+  Previously, Phan only warned about code after `throw` and `return`.
+
 Bug fixes:
 + Don't infer bad types for variables when analyzing `array_push` using expressions containing those variables. (#1955)
+
   (also fixes other `array_*` functions taking references)
 + Fix false negatives in PHP5 backwards compatibility heuristic checks (#1939)
++ Fix false positive PhanUnanalyzableInheritance for a method inherited from a trait (which itself uses trait) (#1968)
++ Fix an uncaught RuntimeException when type checking an array that was roughly 12 or more levels deep (#1962)
++ Improve checks of the return type of magic methods against methods inherited from ancestor classes (#1975)
+
+  Don't emit a false positive `PhanParamSignaturePHPDocMismatchReturnType`
 
 Language Server/Daemon mode:
 + Fix an uncaught exception when extracting a URL with an unexpected scheme (not `file:/...`) (#1960)
++ Fix false positive `PhanUnreferencedUseNormal` issues seen when the daemon was running without pcntl (#1860)
 
 10 Sep 2018, Phan 1.0.4
 -----------------------
@@ -162,7 +178,7 @@ New features(Analysis)
 New features(CLI)
 + Add `--daemonize-tcp-host` CLI option for specifying the hostname for daemon mode (#1868).
   The default will remain `127.0.0.1` when not specified.
-  It can be overidden to values such as `0.0.0.0` (publicly accessible, e.g. for usage with Docker)
+  It can be overridden to values such as `0.0.0.0` (publicly accessible, e.g. for usage with Docker)
 
 Language Server/Daemon mode:
 + Implement support for hover requests in the Language Server (#1738)
@@ -568,7 +584,7 @@ New Features(CLI, Configs)
   or with `@phan-file-suppress`, or with `@suppress`.
 + Add a `--strict-type-checking` CLI flag, to enable all of the new strict property/param/return type checks.
 + Add a `guess_unknown_parameter_type_using_default` config,
-  which can be enabled to make Phan more aggresively infer the types of undocument optional parameters
+  which can be enabled to make Phan more aggressively infer the types of undocumented optional parameters
   from the parameter's default value.
   E.g. `function($x = 'val')` would make Phan infer that the function expects $x to have a type of `string`, not `string|mixed`.
 
