@@ -1626,7 +1626,7 @@ class UnionType implements Serializable
      * A memory efficient way to create a UnionType from a filter operation.
      * If this the filter preserves everything, returns $this instead
      */
-    public function makeFromFilter(\Closure $cb) : UnionType
+    public function makeFromFilter(Closure $cb) : UnionType
     {
         $new_type_list = [];
         foreach ($this->type_set as $type) {
@@ -2036,7 +2036,7 @@ class UnionType implements Serializable
      * @return bool
      * True if any of the types in this UnionType made $matcher_callback return true
      */
-    public function hasTypeMatchingCallback(\Closure $matcher_callback) : bool
+    public function hasTypeMatchingCallback(Closure $matcher_callback) : bool
     {
         foreach ($this->type_set as $type) {
             if ($matcher_callback($type)) {
@@ -2050,7 +2050,7 @@ class UnionType implements Serializable
      * @return Type|false
      * Returns the first type in this UnionType made $matcher_callback return true
      */
-    public function findTypeMatchingCallback(\Closure $matcher_callback)
+    public function findTypeMatchingCallback(Closure $matcher_callback)
     {
         foreach ($this->type_set as $type) {
             if ($matcher_callback($type)) {
@@ -2206,14 +2206,14 @@ class UnionType implements Serializable
     }
 
     /**
-     * @param \Closure $closure
+     * @param Closure $closure
      * A closure mapping `Type` to `Type`
      *
      * @return UnionType
      * A new UnionType with each type mapped through the
      * given closure
      */
-    public function asMappedUnionType(\Closure $closure) : UnionType
+    public function asMappedUnionType(Closure $closure) : UnionType
     {
         $parts = \array_map($closure, $this->type_set);
         if (\count($parts) <= 1) {
