@@ -24,6 +24,7 @@ class Issue
     const InvalidConstantExpression      = 'PhanInvalidConstantExpression';
     const InvalidNode                    = 'PhanInvalidNode';
     const InvalidWriteToTemporaryExpression = 'PhanInvalidWriteToTemporaryExpression';
+    const InvalidTraitUse                = 'PhanInvalidTraitUse';
 
     // Issue::CATEGORY_UNDEFINED
     const AmbiguousTraitAliasSource = 'PhanAmbiguousTraitAliasSource';
@@ -40,7 +41,9 @@ class Issue
     const UndeclaredClassConstant   = 'PhanUndeclaredClassConstant';
     const UndeclaredClassInstanceof = 'PhanUndeclaredClassInstanceof';
     const UndeclaredClassMethod     = 'PhanUndeclaredClassMethod';
+    const UndeclaredClassProperty   = 'PhanUndeclaredClassProperty';
     const UndeclaredClassReference  = 'PhanUndeclaredClassReference';
+    const UndeclaredClassStaticProperty = 'PhanUndeclaredClassStaticProperty';
     const UndeclaredClosureScope    = 'PhanUndeclaredClosureScope';
     const UndeclaredConstant        = 'PhanUndeclaredConstant';
     const UndeclaredExtendedClass   = 'PhanUndeclaredExtendedClass';
@@ -150,6 +153,7 @@ class Issue
     // Issue::CATEGORY_ANALYSIS
     const Unanalyzable              = 'PhanUnanalyzable';
     const UnanalyzableInheritance   = 'PhanUnanalyzableInheritance';
+    const InvalidConstantFQSEN      = 'PhanInvalidConstantFQSEN';
 
     // Issue::CATEGORY_VARIABLE
     const VariableUseClause         = 'PhanVariableUseClause';
@@ -572,6 +576,14 @@ class Issue
                 self::REMEDIATION_A,
                 17003
             ),
+            new Issue(
+                self::InvalidTraitUse,
+                self::CATEGORY_SYNTAX,
+                self::SEVERITY_CRITICAL,
+                'Invalid trait use: {DETAILS}',
+                self::REMEDIATION_A,
+                17004
+            ),
 
             // Issue::CATEGORY_UNDEFINED
             new Issue(
@@ -653,6 +665,22 @@ class Issue
                 "Call to method {METHOD} from undeclared class {CLASS}",
                 self::REMEDIATION_B,
                 11009
+            ),
+            new Issue(
+                self::UndeclaredClassProperty,
+                self::CATEGORY_UNDEFINED,
+                self::SEVERITY_NORMAL,
+                "Reference to instance property {PROPERTY} from undeclared class {CLASS}",
+                self::REMEDIATION_B,
+                11038
+            ),
+            new Issue(
+                self::UndeclaredClassStaticProperty,
+                self::CATEGORY_UNDEFINED,
+                self::SEVERITY_CRITICAL,
+                "Reference to static property {PROPERTY} from undeclared class {CLASS}",
+                self::REMEDIATION_B,
+                11039
             ),
             new Issue(
                 self::UndeclaredClassReference,
@@ -895,6 +923,14 @@ class Issue
                 "Unable to determine the method(s) which {METHOD} overrides, but Phan inferred that it did override something earlier. Please create an issue at https://github.com/phan/phan/issues/new with a test case.",
                 self::REMEDIATION_B,
                 2001
+            ),
+            new Issue(
+                self::InvalidConstantFQSEN,
+                self::CATEGORY_ANALYSIS,
+                self::SEVERITY_LOW,
+                "{CONST} is an invalid FQSEN for a constant",
+                self::REMEDIATION_B,
+                2002
             ),
 
             // Issue::CATEGORY_TYPE

@@ -1,10 +1,45 @@
 Phan NEWS
 
-?? ??? 2018, Phan 1.0.6 (dev)
+?? ??? 2018, Phan 1.0.7 (dev)
 -----------------------
 
+25 Sep 2018, Phan 1.0.6
+-----------------------
+
+New features:
++ Be more consistent about warning about undeclared properties in some edge cases.
+  New issue types: `PhanUndeclaredClassProperty`, `PhanUndeclaredClassStaticProperty`
+
+Maintenance:
++ Restore test files in future published releases' **git tags** (#1986)
+  (But exclude them from the zip/tar archives published on GitHub Releases)
+
+  - When `--prefer-dist` (the default) is used in composer to download a stable release,
+    the test files will not be part of the downloaded files.
+
+Language Server/Daemon mode:
++ Add support for code completion suggestions. (#1706)
+
+  This can be enabled by passing `--language-server-enable-completion`
+
+  This will complete references to the following element types:
+
+  - variable names (using superglobals and local variables that have been declared in the scope)
+  - global constants, global functions, and class names.
+  - class constants, instance and static properties, and instance and static method names.
+
+  NOTE: If you are completing from the empty string (e.g. immediately after `->` or `::`),
+  Phan may interpret the next word token (e.g. on the next line) as the property/constant name/etc. to complete,
+  due to the nature of the parser used (The cursor position doesn't affect the parsing logic).
+
+  - Completion requests before tokens that can't be treated that way will not cause that problem.
+    (such as `}`, `;`, `)`, the end of the file, etc.)
+
 Bug fixes:
-+ Fix various uncaught errors in Phan that occurred when parsing invalid ASTs
++ Fix various uncaught errors in Phan that occurred when parsing invalid ASTs.
+  Instead of crashing, warn about the bug or invalid AST.
+
+  New issue types: `PhanInvalidConstantFQSEN`, `PhanContextNotObjectUsingSelf`, `PhanInvalidTraitUse` (for unparseable trait uses)
 
 21 Sep 2018, Phan 1.0.5
 -----------------------

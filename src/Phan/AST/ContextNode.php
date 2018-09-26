@@ -211,10 +211,20 @@ class ContextNode
         $trait_original_method_name = $trait_method_node->children['method'];
         $trait_new_method_name = $adaptation_node->children['alias'] ?? $trait_original_method_name;
         if (!\is_string($trait_original_method_name)) {
-            throw new AssertionError("Expected original method name of a trait use to be a string");
+            $this->emitIssue(
+                Issue::InvalidTraitUse,
+                $trait_original_class_name_node->lineno ?? 0,
+                "Expected original method name of a trait use to be a string"
+            );
+            return;
         }
         if (!\is_string($trait_new_method_name)) {
-            throw new AssertionError("Expected new method name of a trait use to be a string");
+            $this->emitIssue(
+                Issue::InvalidTraitUse,
+                $trait_original_class_name_node->lineno ?? 0,
+                "Expected new method name of a trait use to be a string"
+            );
+            return;
         }
         $trait_fqsen = (new ContextNode(
             $this->code_base,
@@ -291,7 +301,12 @@ class ContextNode
         $trait_chosen_method_name = $trait_method_node->children['method'];
         $trait_chosen_class_name_node = $trait_method_node->children['class'];
         if (!is_string($trait_chosen_method_name)) {
-            throw new AssertionError("Expected the insteadof method's name to be a string");
+            $this->emitIssue(
+                Issue::InvalidTraitUse,
+                $trait_method_node->lineno ?? 0,
+                "Expected the insteadof method's name to be a string"
+            );
+            return;
         }
 
         $trait_chosen_fqsen = (new ContextNode(
@@ -352,6 +367,7 @@ class ContextNode
      * A variable name associated with the given node
      *
      * TODO: Deprecate this and use more precise ways to locate the desired element
+     * TODO: Distinguish between the empty string and the lack of a name
      */
     public function getVariableName() : string
     {
@@ -373,8 +389,8 @@ class ContextNode
             return (string)$node;
         }
 
-        $name_node = $node->children['name'] ?? null;
-        if (empty($name_node)) {
+        $name_node = $node->children['name'] ?? '';
+        if ($name_node === '') {
             return '';
         }
 
@@ -507,7 +523,8 @@ class ContextNode
      * If set to CLASS_LIST_ACCEPT_OBJECT_OR_CLASS_NAME, this will warn if the inferred type is exclusively non-object and non-string types.
      *
      * @param ?string $custom_issue_type
-     * If this exists, emit the given issue type (passing in union type as format arg) instead of the default issue type.
+     * If this exists, emit the given issue type (passing in the class's union type as format arg) instead of the default issue type.
+     * The issue type passed in must have exactly one template string parameter (e.g. {CLASS}, {TYPE})
      *
      * @return array<int,Clazz>
      * A list of classes representing the non-native types
@@ -755,6 +772,10 @@ class ContextNode
         $code_base = $this->code_base;
         $context = $this->context;
 
+        if (!($expression instanceof Node)) {
+            // TODO: this might need to account for 'myFunction'()
+            return;
+        }
         if ($expression->kind == ast\AST_VAR) {
             $variable_name = (new ContextNode(
                 $code_base,
@@ -1158,7 +1179,11 @@ class ContextNode
 
         // Give up for things like C::$prop_name
         if (!\is_string($property_name)) {
-            $property_name = UnionTypeVisitor::anyStringLiteralForNode($this->code_base, $this->context, $property_name);
+            if ($property_name instanceof Node) {
+                $property_name = UnionTypeVisitor::anyStringLiteralForNode($this->code_base, $this->context, $property_name);
+            } else {
+                $property_name = (string)$property_name;
+            }
             if (!\is_string($property_name)) {
                 throw new NodeException(
                     $node,
@@ -1177,8 +1202,18 @@ class ContextNode
                 $this->context,
                 $node->children['expr'] ??
                     $node->children['class']
-            ))->getClassList(true, $expected_type_categories, $expected_issue);
+            ))->getClassList(false, $expected_type_categories, $expected_issue);
         } catch (CodeBaseException $exception) {
+            $exception_fqsen = $exception->getFQSEN();
+            if ($exception_fqsen instanceof FullyQualifiedClassName) {
+                throw new IssueException(
+                    Issue::fromType($is_static ? Issue::UndeclaredClassStaticProperty : Issue::UndeclaredClassProperty)(
+                        $this->context->getFile(),
+                        $node->lineno ?? 0,
+                        [ $property_name, $exception_fqsen ]
+                    )
+                );
+            }
             // TODO: Is this ever used? The undeclared property issues should instead be caused by the hasPropertyWithFQSEN checks below.
             if ($is_static) {
                 throw new IssueException(
@@ -1921,7 +1956,7 @@ class ContextNode
                     $node->lineno,
                     "Cannot use empty array elements in arrays"
                 );
-                return null;
+                continue;
             }
             $key_node = ($flags & self::RESOLVE_ARRAY_KEYS) != 0 ? $child_node->children['key'] : null;
             $value_node = $child_node->children['value'];

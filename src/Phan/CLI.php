@@ -26,7 +26,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    const PHAN_VERSION = '1.0.6-dev';
+    const PHAN_VERSION = '1.0.7-dev';
 
     /**
      * List of short flags passed to getopt
@@ -80,6 +80,7 @@ class CLI
         'language-server-enable',
         'language-server-enable-go-to-definition',
         'language-server-enable-hover',
+        'language-server-enable-completion',
         'markdown-issue-messages',
         'memory-limit:',
         'minimum-severity:',
@@ -453,6 +454,9 @@ class CLI
                     break;
                 case 'language-server-enable-hover':
                     Config::setValue('language_server_enable_hover', true);
+                    break;
+                case 'language-server-enable-completion':
+                    Config::setValue('language_server_enable_completion', true);
                     break;
                 case 'language-server-verbose':
                     Config::setValue('language_server_debug_level', 'info');
@@ -889,6 +893,10 @@ Extended help:
 
  --language-server-enable-hover
   Enables support for "Hover" in the Phan Language Server.
+  Disabled by default.
+
+ --language-server-enable-completion
+  Enables support for "Completion" in the Phan Language Server.
   Disabled by default.
 
  --language-server-verbose

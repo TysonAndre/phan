@@ -2181,6 +2181,8 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             // We'll check out some reasons it might not exist
             // before logging the issue
             $exception_or_null = $exception;
+        } catch (NodeException $exception) {
+            $exception_or_null = $exception;
         } catch (\Exception $exception) {
             // Swallow any exceptions. We'll catch it later.
         }
@@ -2227,6 +2229,14 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                             $exception_or_null->getIssueInstance()
                         );
                     }
+                }
+            } else {
+                if ($exception_or_null instanceof IssueException) {
+                    Issue::maybeEmitInstance(
+                        $this->code_base,
+                        $this->context,
+                        $exception_or_null->getIssueInstance()
+                    );
                 }
             }
         }
@@ -2939,20 +2949,23 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
 
         $variable = null;
         if ($argument->kind == \ast\AST_VAR) {
-            $variable = (new ContextNode(
-                $this->code_base,
-                $this->context,
-                $argument
-            ))->getOrCreateVariable();
-        } elseif ($argument->kind == \ast\AST_STATIC_PROP) {
             try {
-                // TODO: shouldn't call getOrCreateProperty for a static property. You can't create a static property.
                 $variable = (new ContextNode(
                     $this->code_base,
                     $this->context,
                     $argument
-                ))->getOrCreateProperty(
-                    $argument->children['prop'] ?? '',
+                ))->getOrCreateVariable();
+            } catch (NodeException $_) {
+                // Could not figure out the node name
+                return;
+            }
+        } elseif ($argument->kind == \ast\AST_STATIC_PROP) {
+            try {
+                $variable = (new ContextNode(
+                    $this->code_base,
+                    $this->context,
+                    $argument
+                ))->getProperty(
                     true
                 );
             } catch (UnanalyzableException $_) {
