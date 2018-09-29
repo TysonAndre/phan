@@ -552,6 +552,10 @@ final class TypeTest extends BaseTest
                 'array{0:int,1:string}'
             ],
             [
+                'array<int,int>|array<int,string>|array<string,stdClass>',
+                'array{0:int, 1:string, key : stdClass}'
+            ],
+            [
                 'array<int,int>|array<int,stdClass>|array<int,string>',
                 'array{0:int,1:string,2:stdClass}'
             ],
@@ -582,20 +586,21 @@ final class TypeTest extends BaseTest
         ];
     }
 
-    /** @dataProvider unparseableTypeProvider */
-    public function testUnparseableType(string $type_string)
+    /** @dataProvider unparsableTypeProvider */
+    public function testUnparsableType(string $type_string)
     {
         $this->assertFalse(\preg_match('@^' . Type::type_regex . '$@', $type_string) > 0, "Failed to parse '$type_string' with type_regex");
         $this->assertFalse(\preg_match('@^' . Type::type_regex_or_this . '$@', $type_string) > 0, "Failed to parse '$type_string' with type_regex_or_this");
     }
 
-    public function unparseableTypeProvider() : array
+    public function unparsableTypeProvider() : array
     {
         return [
             ['array{'],
             ['{}'],
             ['array{,field:int}'],
             ['array{field:}'],
+            ['array{ field:int}'],
             ['array{::int}'],
             ["-'a'"],
             ["'@var'"],  // Ambiguous to support @, force hex escape

@@ -87,7 +87,7 @@ class UnionType implements Serializable
 
     /**
      * @param array<int,Type> $type_list
-     * @param bool $is_unique - Whether or not this is already unique. Only set to true within UnionSet code.
+     * @param bool $is_unique - Whether or not this is already unique. Only set to true within UnionType code.
      *
      * An optional list of types represented by this union
      */
@@ -330,7 +330,7 @@ class UnionType implements Serializable
                 if ($delta <= 0) {
                     if ($delta === 0) {
                         $results[] = \implode('|', $prev_parts);
-                    }  // ignore unparseable data such as "<T,T2>>"
+                    }  // ignore unparsable data such as "<T,T2>>"
                     $prev_parts = [];
                     $delta = 0;
                     continue;
@@ -347,7 +347,7 @@ class UnionType implements Serializable
                 $results[] = $part;
             } elseif ($delta > 0) {
                 $prev_parts[] = $part;
-            }  // otherwise ignore unparseable data such as ">" (should be impossible)
+            }  // otherwise ignore unparsable data such as ">" (should be impossible)
         }
         return $results;
     }
@@ -382,12 +382,12 @@ class UnionType implements Serializable
     }
 
     /**
-     * @return array
+     * @return array<string,array<string,string>>
      * A map from builtin class properties to type information
      *
      * @see \Phan\Language\Internal\PropertyMap
      */
-    private static function internalPropertyMap() : array
+    public static function internalPropertyMap() : array
     {
         static $map = [];
 
