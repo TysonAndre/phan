@@ -41,4 +41,4 @@ php -r 'function_exists("ast\parse_code") || (print("Failed to enable php-ast\n"
 
 # Disable xdebug, since we aren't currently gathering code coverage data and
 # having xdebug slows down Composer a bit.
-phpenv config-rm xdebug.ini
+phpenv config-rm xdebug.ini || true
