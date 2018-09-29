@@ -1,17 +1,19 @@
 language: php
 
-# The 0.12 releases can be used with any PHP version from 7.0 to 7.2.
+# The 1.0 releases can be used with any PHP version from 7.0 to 7.2.
+# Some small tasks remain for php 7.3
 php:
   - 7.0
   - 7.1
   - 7.2
+  - 7.3.0RC1
 
 # NOTE: Travis starts up 5 tests at a time. So, it's easier to run all of the tests at once.
 #env:
 #  - TEST_SUITES="PhanTest UtilTest PHP72Test RasmusTest LanguageTest __FakePHP70Test __FakeSelfTest __FakeSelfFallbackTest __FakeRewritingTest __FakePluginTest __FakeFallbackTest __FakeToolTest __FakeConfigOverrideTest"
 
-sudo: false
-dist: trusty
+dist: xenial
+sudo: required
 
 cache:
   directories:
@@ -20,6 +22,8 @@ cache:
 
 # We invoke php multiple times via CLI in several tests, so enable the opcache file cache.
 before_install:
+  - sudo apt-get update -y
+  - sudo apt-get install -y libzip4
   - ./tests/travis_setup.sh
   - mkdir /tmp/opcache || true; echo -e 'opcache.enable_cli=1\nopcache.file_cache=/tmp/opcache' >> ~/.phpenv/versions/$(phpenv version-name)/etc/conf.d/travis.ini
   - composer validate
