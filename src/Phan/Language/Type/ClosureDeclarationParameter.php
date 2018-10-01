@@ -10,16 +10,16 @@ use Phan\Language\UnionType;
  */
 final class ClosureDeclarationParameter
 {
-    /** @var UnionType */
+    /** @var UnionType the union type of the arguments expected for this variadic/non-variadic parameter */
     private $type;
 
-    /** @var bool */
+    /** @var bool is this parameter variadic? */
     private $is_variadic;
 
-    /** @var bool */
+    /** @var bool is this parameter pass-by-reference? */
     private $is_reference;
 
-    /** @var bool */
+    /** @var bool is this parameter optional? */
     private $is_optional;
 
     public function __construct(UnionType $type, bool $is_variadic, bool $is_reference, bool $is_optional)
@@ -31,6 +31,9 @@ final class ClosureDeclarationParameter
     }
 
     /**
+     * Gets the non-variadic type of this parameter.
+     * (i.e. the type of individual arguments the closure expects to be passed in by the caller)
+     *
      * @suppress PhanUnreferencedPublicMethod
      */
     public function getNonVariadicUnionType() : UnionType
@@ -70,6 +73,9 @@ final class ClosureDeclarationParameter
     }
 
     /**
+     * Checks if this parameter can be used as an equivalent or more permissive form of the parameter $other.
+     * This is used to check if closure/callable types can be cast to other closure/callable types.
+     *
      * @see \Phan\Analysis\ParameterTypesAnalyzer::analyzeOverrideSignatureForOverriddenMethod() - Similar logic using LSP
      */
     public function canCastToParameterIgnoringVariadic(ClosureDeclarationParameter $other) : bool

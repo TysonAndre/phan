@@ -16,7 +16,7 @@ final class ClosureType extends Type
     const NAME = 'Closure';
 
     /**
-     * @var FQSEN|null
+     * @var FQSEN|null the FQSEN of the function-like from which this ClosureType was derived
      */
     private $fqsen;
 
@@ -97,7 +97,7 @@ final class ClosureType extends Type
      * @param bool $is_nullable
      * If true, returns a nullable instance of this closure type
      *
-     * @return static
+     * @return static an instance of this closure type with appropriate nullability
      */
     public static function instance(bool $is_nullable)
     {

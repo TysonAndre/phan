@@ -63,6 +63,7 @@ use function is_string;
  *
  * @phan-file-suppress PhanPartialTypeMismatchArgument node is complicated
  * @phan-file-suppress PhanPartialTypeMismatchArgumentInternal node is complicated
+ * @phan-file-suppress PhanPluginDescriptionlessCommentOnPublicMethod
  */
 class UnionTypeVisitor extends AnalysisVisitor
 {
@@ -2012,7 +2013,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                     }
 
                     return $union_type;
-                } catch (IssueException $exception) {
+                } catch (IssueException $_) {
                     return UnionType::empty();
                 }
             }
@@ -2274,7 +2275,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                     continue;
                 }
                 // TODO: warn about invalid types and unparsable types
-                $fqsen = FullyQualifiedClassName::makeFromExtractedNamespaceAndName($value);
+                $fqsen = FullyQualifiedClassName::fromFullyQualifiedString($value);
                 if (!$this->code_base->hasClassWithFQSEN($fqsen)) {
                     $is_valid = false;
                     continue;
@@ -2410,7 +2411,6 @@ class UnionTypeVisitor extends AnalysisVisitor
         }
 
         // We're going to convert the class reference to a type
-        $type = null;
 
         // Check to see if the name is fully qualified
         if ($node->flags & \ast\flags\NAME_NOT_FQ) {
@@ -2674,7 +2674,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                 return $class->getParentClassFQSEN();  // may or may not exist.
             default:
                 // TODO: Reject invalid/empty class names earlier
-                return FullyQualifiedClassName::makeFromExtractedNamespaceAndName($class_name);
+                return FullyQualifiedClassName::fromFullyQualifiedString($class_name);
         }
     }
 

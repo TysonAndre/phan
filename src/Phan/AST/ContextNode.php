@@ -51,23 +51,24 @@ if (!\function_exists('spl_object_id')) {
 /**
  * Methods for an AST node in context
  * @phan-file-suppress PhanPartialTypeMismatchArgument
+ * @phan-file-suppress PhanPluginDescriptionlessCommentOnPublicMethod
  */
 class ContextNode
 {
 
-    /** @var CodeBase */
+    /** @var CodeBase The code base within which we're operating */
     private $code_base;
 
-    /** @var Context */
+    /** @var Context The context in which we are requesting information about the Node $this->node */
     private $context;
 
-    /** @var Node|array|bool|string|float|int|bool|null */
+    /** @var Node|array|bool|string|float|int|bool|null the node which we're requesting information about. */
     private $node;
 
     /**
-     * @param CodeBase $code_base
-     * @param Context $context
-     * @param Node|array|string|float|int|bool|null $node
+     * @param CodeBase $code_base The code base within which we're operating
+     * @param Context $context The context in which we are requesting information about the Node.
+     * @param Node|array|string|float|int|bool|null $node the node which we're requesting information about.
      */
     public function __construct(
         CodeBase $code_base,
@@ -115,7 +116,7 @@ class ContextNode
     /**
      * Gets the FQSEN for a trait.
      * NOTE: does not validate that it is really used on a trait
-     * @return array<int,FQSEN>
+     * @return array<int,FullyQualifiedClassName>
      */
     public function getTraitFQSENList() : array
     {
@@ -126,7 +127,7 @@ class ContextNode
         /**
          * @param Node|int|string|float|null $name_node
          */
-        return \array_map(function ($name_node) : FQSEN {
+        return \array_map(function ($name_node) : FullyQualifiedClassName {
             return (new ContextNode(
                 $this->code_base,
                 $this->context,
@@ -139,7 +140,7 @@ class ContextNode
      * Gets the FQSEN for a trait.
      * NOTE: does not validate that it is really used on a trait
      * @param array<string,TraitAdaptations> $adaptations_map
-     * @return ?FQSEN (If this returns null, the caller is responsible for emitting an issue or falling back)
+     * @return ?FullyQualifiedClassName (If this returns null, the caller is responsible for emitting an issue or falling back)
      */
     public function getTraitFQSEN(array $adaptations_map)
     {
@@ -162,7 +163,7 @@ class ContextNode
      * Get a list of traits adaptations from a node of kind ast\AST_TRAIT_ADAPTATIONS
      * (with fully qualified names and `as`/`instead` info)
      *
-     * @param array<int,FQSEN> $trait_fqsen_list TODO: use this for sanity check
+     * @param array<int,FullyQualifiedClassName> $trait_fqsen_list TODO: use this for sanity check
      *
      * @return array<string,TraitAdaptations> maps the lowercase trait fqsen to the corresponding adaptations.
      *
@@ -566,7 +567,7 @@ class ContextNode
                         $type_value = $type->getValue();
                         if (\preg_match('/^\\\\?[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff\\\]*$/', $type_value)) {
                             // TODO: warn about invalid types and unparsable types
-                            $fqsen = FullyQualifiedClassName::makeFromExtractedNamespaceAndName($type_value);
+                            $fqsen = FullyQualifiedClassName::fromFullyQualifiedString($type_value);
                             if ($this->code_base->hasClassWithFQSEN($fqsen)) {
                                 $class_list[] = $this->code_base->getClassByFQSEN($fqsen);
                             } else {

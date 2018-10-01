@@ -4,6 +4,7 @@ namespace Phan\Analysis;
 use AssertionError;
 use ast\flags;
 use ast\Node;
+use Exception;
 use Phan\AST\AnalysisVisitor;
 use Phan\AST\ContextNode;
 use Phan\AST\PhanAnnotationAdder;
@@ -46,7 +47,8 @@ use Phan\Language\UnionType;
 class PostOrderAnalysisVisitor extends AnalysisVisitor
 {
     /**
-     * @var array<int,Node>
+     * @var array<int,Node> a list of parent nodes of the currently analyzed node,
+     * within the current global or function-like scope
      */
     private $parent_node_list;
 
@@ -757,7 +759,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 $context,
                 $exception->getIssueInstance()
             );
-        } catch (\Exception $_) {
+        } catch (Exception $_) {
             // Swallow any other types of exceptions. We'll log the errors
             // elsewhere.
         }
@@ -796,7 +798,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 $this->context,
                 $exception->getIssueInstance()
             );
-        } catch (\Exception $_) {
+        } catch (Exception $_) {
             // Swallow any other types of exceptions. We'll log the errors
             // elsewhere.
         }
@@ -1565,7 +1567,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 $this->context,
                 $exception->getIssueInstance()
             );
-        } catch (\Exception $_) {
+        } catch (Exception $_) {
             // If we can't figure out what kind of a call
             // this is, don't worry about it
             return $this->context;
@@ -1738,7 +1740,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 $this->context,
                 $exception->getIssueInstance()
             );
-        } catch (\Exception $_) {
+        } catch (Exception $_) {
             // If we can't figure out the class for this method
             // call, cry YOLO and mark every method with that
             // name with a reference.
@@ -1848,7 +1850,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 $this->context,
                 $exception->getIssueInstance()
             );
-        } catch (\Exception $_) {
+        } catch (Exception $_) {
             // If we can't figure out the class for this method
             // call, cry YOLO and mark every method with that
             // name with a reference.
@@ -1895,7 +1897,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             try {
                 $class = $method->getClass($this->code_base);
                 $has_interface_class = $class->isInterface();
-            } catch (\Exception $_) {
+            } catch (Exception $_) {
             }
 
             if (!$method->isAbstract()
@@ -2183,7 +2185,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             $exception_or_null = $exception;
         } catch (NodeException $exception) {
             $exception_or_null = $exception;
-        } catch (\Exception $exception) {
+        } catch (Exception $_) {
             // Swallow any exceptions. We'll catch it later.
         }
 
@@ -2464,7 +2466,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                                 $context,
                                 $exception->getIssueInstance()
                             );
-                        } catch (\Exception $exception) {
+                        } catch (Exception $exception) {
                             // If we can't figure out what kind of a call
                             // this is, don't worry about it
                         }
@@ -2581,7 +2583,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                         $context,
                         $exception->getIssueInstance()
                     );
-                } catch (\Exception $_) {
+                } catch (Exception $_) {
                     // If we can't figure out what kind of a call
                     // this is, don't worry about it
                 }
@@ -2658,7 +2660,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             ))->getClosure();
 
             $method->addReference($inner_context);
-        } catch (\Exception $_) {
+        } catch (Exception $_) {
             // Swallow it
         }
     }

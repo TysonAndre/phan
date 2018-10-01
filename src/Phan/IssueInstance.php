@@ -13,19 +13,20 @@ use Phan\Output\Colorizing;
  *
  * @see Issue for how these are emitted. Visitors and plugins often have helper methods to emit issues.
  * @see OutputPrinter for how this is converted to various output formats
+ * @phan-file-suppress PhanPluginDescriptionlessCommentOnPublicMethod
  */
 class IssueInstance
 {
-    /** @var Issue */
+    /** @var Issue the generic category of issues */
     private $issue;
 
-    /** @var string */
+    /** @var string the file in which this issue was emitted. */
     private $file;
 
-    /** @var int */
+    /** @var int the line in which this issue was emitted. */
     private $line;
 
-    /** @var string the issue message */
+    /** @var string the formatted issue message */
     private $message;
 
     /** @var ?Suggestion If this is non-null, this contains suggestions on how to resolve the error. */

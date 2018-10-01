@@ -22,6 +22,7 @@ use stdClass;
  * (integration test timeouts weren't implemented or tested yet).
  *
  * @phan-file-suppress PhanThrowTypeAbsent, PhanThrowTypeAbsentForCall it's a test
+ * @phan-file-suppress PhanPluginDescriptionlessCommentOnPublicMethod
  */
 final class LanguageServerIntegrationTest extends BaseTest
 {
@@ -1595,7 +1596,6 @@ EOT;
         $content_length = 0;
         $headers = [];
         '@phan-var array<string,string> $headers';
-        $c = false;
         $parsing_mode = ProtocolStreamReader::PARSE_HEADERS;
         while (($c = fgetc($proc_out)) !== false && $c !== '') {
             $buffer .= $c;

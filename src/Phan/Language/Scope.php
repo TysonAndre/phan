@@ -23,17 +23,19 @@ use Phan\Language\Type\TemplateType;
 abstract class Scope
 {
     /**
-     * @var Scope|null
+     * @var Scope|null the parent scope, if this is not the global scope
      */
     protected $parent_scope = null;
 
     /**
-     * @var FQSEN|null
+     * @var FQSEN|null the FQSEN that this scope is within,
+     * if this scope is within an element such as a function body or class definition.
      */
     protected $fqsen = null;
 
     /**
-     * @var array<string,Variable>
+     * @var array<string,Variable> the map of variable names to variables within this scope.
+     * Some variable definitions must be retrieved from parent scopes.
      */
     protected $variable_map = [];
 
@@ -87,7 +89,8 @@ abstract class Scope
     }
 
     /**
-     * @return FQSEN
+     * @return FQSEN in which this scope was declared
+     * (e.g. a FullyQualifiedFunctionName, FullyQualifiedClassName, etc.)
      * @suppress PhanPossiblyNullTypeReturn callers should call hasFQSEN
      */
     public function getFQSEN()
@@ -175,7 +178,8 @@ abstract class Scope
     }
 
     /**
-     * @return Variable
+     * Locates the variable with name $name.
+     * Callers should check $this->hasVariableWithName() first.
      */
     public function getVariableByName(string $name) : Variable
     {
@@ -195,7 +199,7 @@ abstract class Scope
      * @param Variable $variable
      * A variable to add to the local scope
      *
-     * @return Scope
+     * @return Scope a clone of this scope with $variable added
      */
     public function withVariable(Variable $variable) : Scope
     {
@@ -235,6 +239,9 @@ abstract class Scope
     }
 
     /**
+     * Add $variable to the current scope.
+     *
+     * @see $this->withVariable() for creating a clone of a scope with $variable instead
      * @return void
      */
     public function addVariable(Variable $variable)
@@ -249,6 +256,8 @@ abstract class Scope
     }
 
     /**
+     * Add $variable to the set of global variables
+     *
      * @param Variable $variable
      * A variable to add to the set of global variables
      *
@@ -336,6 +345,11 @@ abstract class Scope
     }
 
     /**
+     * Adds a template type to the current scope.
+     *
+     * The TemplateType is resolved during analysis based on the passed in union types
+     * for the parameters (e.g. of __construct()) using those template types
+     *
      * @param TemplateType $template_type
      * A template type parameterizing the generic class in scope
      *

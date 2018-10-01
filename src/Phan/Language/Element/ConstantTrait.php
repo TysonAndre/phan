@@ -14,7 +14,7 @@ trait ConstantTrait
 {
     use ElementFutureUnionType;
 
-    /** @var Node|string|float|int */
+    /** @var Node|string|float|int the node which defined the value of this constant. */
     protected $defining_node;
 
     /**
@@ -50,7 +50,8 @@ trait ConstantTrait
     }
 
     /**
-     * @internal - Used by daemon mode to restore an element to the state it had before parsing.
+     * Used by daemon mode to restore an element to the state it had before parsing.
+     * @internal
      * @return ?Closure
      */
     public function createRestoreCallback()

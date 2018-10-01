@@ -25,7 +25,8 @@ trait Analyzable
     private $node = null;
 
     /**
-     * @var bool
+     * @var bool has $this->node already been annotated with any extra information
+     * from the class using this trait?
      */
     private $did_annotate_node = false;
 
@@ -37,9 +38,10 @@ trait Analyzable
     private static $recursion_depth = 0;
 
     /**
+     * Keep a reference to the Node which declared this analyzable object so that we can use it later.
+     *
      * @param Node $node
      * The AST Node defining this object.
-     * We keep a reference to this so that we can use it later.
      * @return void
      */
     public function setNode(Node $node)

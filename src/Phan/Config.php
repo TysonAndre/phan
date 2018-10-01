@@ -12,6 +12,7 @@ namespace Phan;
  *
  * For efficiency, all of these methods are static methods.
  * Configuration is fetched frequently, and static methods were much faster than magic __get().
+ * @phan-file-suppress PhanPluginDescriptionlessCommentOnPublicMethod
  */
 class Config
 {
@@ -46,35 +47,35 @@ class Config
     private static $configuration = self::DEFAULT_CONFIGURATION;
 
     // The most commonly accessed configs:
-    /** @var bool */
+    /** @var bool mirror of configuration with the same name */
     private static $null_casts_as_any_type = false;
 
-    /** @var bool */
+    /** @var bool replicates configuration with the same name */
     private static $null_casts_as_array = false;
 
-    /** @var bool */
+    /** @var bool replicates configuration with the same name */
     private static $array_casts_as_null = false;
 
-    /** @var bool */
+    /** @var bool replicates configuration with the same name */
     private static $strict_param_checking = false;
 
-    /** @var bool */
+    /** @var bool replicates configuration with the same name */
     private static $strict_property_checking = false;
 
-    /** @var bool */
+    /** @var bool replicates configuration with the same name */
     private static $strict_return_checking = false;
 
-    /** @var bool */
+    /** @var bool replicates configuration with the same name */
     private static $track_references = false;
 
-    /** @var bool */
+    /** @var bool replicates configuration with the same name */
     private static $backward_compatibility_checks = false;
 
-    /** @var bool */
+    /** @var bool replicates configuration with the same name */
     private static $quick_mode = false;
-    // End of the 4 most commonly accessed configs.
+    // End of the most commonly accessed configs.
 
-    /** @var int */
+    /** @var int the 5-digit PHP version id which is closest to matching the PHP_VERSION_ID for the 'target_php_version' string */
     private static $closest_target_php_version_id;
 
     const DEFAULT_CONFIGURATION = [
@@ -460,6 +461,9 @@ class Config
         // If empty, no filter against issues types will be applied.
         // If this white-list is non-empty, only issues within the list
         // will be emitted by Phan.
+        //
+        // See https://github.com/phan/phan/wiki/Issue-Types-Caught-by-Phan
+        // for the full list of issues that Phan detects.
         'whitelist_issue_types' => [
             // 'PhanAccessClassConstantInternal',
             // 'PhanAccessClassConstantPrivate',
@@ -904,6 +908,7 @@ class Config
     }
 
     /**
+     * Resets the configuration to the initial state, prior to parsing config files and CLI arguments.
      * @return void
      * @internal - this should only be used in unit tests.
      */

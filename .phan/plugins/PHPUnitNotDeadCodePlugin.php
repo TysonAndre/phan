@@ -40,14 +40,14 @@ class PHPUnitNotDeadCodePlugin extends PluginV2 implements PostAnalyzeNodeCapabi
  */
 class PHPUnitNotDeadPluginVisitor extends PluginAwarePostAnalysisVisitor
 {
-    /** @var FullyQualifiedClassName */
+    /** @var FullyQualifiedClassName for the base class of all PHPUnit tests */
     private static $phpunit_test_case_fqsen;
 
-    /** @var Type */
+    /** @var Type for the base class of all PHPUnit tests */
     private static $phpunit_test_case_type;
 
-    /** @var bool */
-    private static $did_warn_unused = false;
+    /** @var bool did this plugin already warn that TestCase was missing? */
+    private static $did_warn_missing_class = false;
 
     /**
      * This is called after the parse phase is completely finished, so $this->code_base contains all class definitions
@@ -61,9 +61,9 @@ class PHPUnitNotDeadPluginVisitor extends PluginAwarePostAnalysisVisitor
         }
         $code_base = $this->code_base;
         if (!$code_base->hasClassWithFQSEN(self::$phpunit_test_case_fqsen)) {
-            if (!self::$did_warn_unused) {
+            if (!self::$did_warn_missing_class) {
                 fprintf(STDERR, "Using plugin %s but could not find PHPUnit\Framework\TestCase\n", self::class);
-                self::$did_warn_unused = true;
+                self::$did_warn_missing_class = true;
             }
             return;
         }
@@ -117,6 +117,10 @@ class PHPUnitNotDeadPluginVisitor extends PluginAwarePostAnalysisVisitor
             }
         }
     }
+
+    /**
+     * @return bool true if $method is a PHPUnit test case
+     */
     protected static function isTestCase(Method $method) : bool
     {
         if (!$method->isPublic()) {
@@ -132,6 +136,7 @@ class PHPUnitNotDeadPluginVisitor extends PluginAwarePostAnalysisVisitor
     }
 
     /**
+     * Static initializer for this plugin - Gets called below before any methods can be used
      * @return void
      */
     public static function init()
@@ -144,5 +149,5 @@ class PHPUnitNotDeadPluginVisitor extends PluginAwarePostAnalysisVisitor
 PHPUnitNotDeadPluginVisitor::init();
 
 // Every plugin needs to return an instance of itself at the
-// end of the file in which its defined.
+// end of the file in which it's defined.
 return new PHPUnitNotDeadCodePlugin();

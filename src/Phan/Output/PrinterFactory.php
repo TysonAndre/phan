@@ -18,7 +18,7 @@ class PrinterFactory
 {
 
     /**
-     * @return array<int,string>
+     * @return array<int,string> the supported types of Printers
      */
     public function getTypes():array
     {
@@ -26,7 +26,8 @@ class PrinterFactory
     }
 
     /**
-     * @param ?string $type
+     * Return an IssuePrinterInterface of type $type that outputs issues to $output
+     * @param ?string $type the configured type of printer
      */
     public function getPrinter($type, OutputInterface $output):IssuePrinterInterface
     {

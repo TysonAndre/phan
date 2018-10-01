@@ -20,6 +20,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
 
 /**
  * Represents the state of a client request to a daemon, and contains methods for sending formatted responses.
+ * @phan-file-suppress PhanPluginDescriptionlessCommentOnPublicMethod
  */
 class Request
 {
@@ -44,16 +45,20 @@ class Request
     /** @var Responder|null - Null after the response is sent. */
     private $responder;
 
-    /** @var array{method:string,files:array<int,string>,format:string,temporary_file_mapping_contents:array<string,string>} */
-    private $config;
+    /**
+     * @var array{method:string,files:array<int,string>,format:string,temporary_file_mapping_contents:array<string,string>}
+     *
+     * The configuration passed in with the request to the daemon.
+     */
+    private $request_config;
 
-    /** @var BufferedOutput */
+    /** @var BufferedOutput this collects the serialized issues emitted by this worker to be sent back to the master process */
     private $buffered_output;
 
-    /** @var string */
+    /** @var string the method of the daemon being invoked */
     private $method;
 
-    /** @var array<int,string>|null */
+    /** @var array<int,string>|null the list of files the client has requested to be analyzed */
     private $files = null;
 
     /**
@@ -93,7 +98,7 @@ class Request
     private function __construct(Responder $responder, array $config, $most_recent_node_info_request, bool $should_exit)
     {
         $this->responder = $responder;
-        $this->config = $config;
+        $this->request_config = $config;
         $this->buffered_output = new BufferedOutput();
         $this->method = $config[self::PARAM_METHOD];
         if ($this->method === self::METHOD_ANALYZE_FILES) {
@@ -195,9 +200,9 @@ class Request
 
     public function getPrinter() : IssuePrinterInterface
     {
-        // TODO: check $this->config['format']
+        // TODO: check $this->request_config['format']
         $factory = new PrinterFactory();
-        $format = $this->config['format'] ?? 'json';
+        $format = $this->request_config['format'] ?? 'json';
         if (!in_array($format, $factory->getTypes())) {
             $this->sendJSONResponse([
                 "status" => self::STATUS_INVALID_FORMAT,
@@ -214,7 +219,7 @@ class Request
     public function respondWithIssues(int $issue_count)
     {
         $raw_issues = $this->buffered_output->fetch();
-        if (($this->config[self::PARAM_FORMAT] ?? null) === 'json') {
+        if (($this->request_config[self::PARAM_FORMAT] ?? null) === 'json') {
             $issues = json_decode($raw_issues, true);
             if (!\is_array($issues)) {
                 $issues = "(Failed to decode) " . json_last_error_msg() . ': ' . $raw_issues;
@@ -282,7 +287,7 @@ class Request
      */
     public function getTemporaryFileMapping() : array
     {
-        $mapping = $this->config[self::PARAM_TEMPORARY_FILE_MAPPING_CONTENTS] ?? [];
+        $mapping = $this->request_config[self::PARAM_TEMPORARY_FILE_MAPPING_CONTENTS] ?? [];
         if (!is_array($mapping)) {
             $mapping = [];
         }

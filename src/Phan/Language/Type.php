@@ -115,8 +115,7 @@ class Type
      */
     const type_regex =
         '('
-        . '(?:\??\((?-1)\)|'  // Recursion: "?(T)" or "(T)" with brackets
-        // TODO: Allow parsing nesting.
+        . '(?:\??\((?-1)(?:\|(?-1))*\)|'  // Recursion: "?(T)" or "(T)" with brackets. Also allow parsing (a|b) within brackets.
         . '(?:'
           . '\??(?:\\\\?Closure|callable)(\([^()]*\))'
           . '(?:\s*:\s*'  // optional return type, can be ":T" or ":(T1|T2)" or ": ?(T1|T2)"
@@ -158,8 +157,7 @@ class Type
         '('
         . '('
           . '(?:'
-            . '\??\((?-1)\)|'
-            // TODO: Support nesting
+            . '\??\((?-1)(?:\|(?-1))*\)|'  // Recursion: "?(T)" or "(T)" with brackets. Also allow parsing (a|b) within brackets.
             . '(?:'
               . '\??(?:\\\\?Closure|callable)(\([^()]*\))'
               . '(?:\s*:\s*'  // optional return type, can be ":T" or ":(T1|T2)"
@@ -464,6 +462,9 @@ class Type
 
 
     /**
+     * Constructs a type based on the input type and the provided mapping
+     * from template type identifiers to concrete union types.
+     *
      * @param Type $type
      * The base type of this generic type referencing a
      * generic class
@@ -760,6 +761,7 @@ class Type
      * A fully qualified type name
      *
      * @return Type
+     * The type with that fully qualified type name (cached for efficiency)
      */
     public static function fromFullyQualifiedString(
         string $fully_qualified_string
@@ -769,10 +771,13 @@ class Type
     }
 
     /**
+     * Extracts the parts of this Type from the passed in fully qualified type name.
+     * Callers should ensure that the type regex accepts $fully_qualified_string
+     *
      * @throws EmptyFQSENException if the type name was the empty string
      * @throws InvalidArgumentException if namespace is missing from something that should have a namespace
      */
-    public static function fromFullyQualifiedStringInner(
+    protected static function fromFullyQualifiedStringInner(
         string $fully_qualified_string
     ) : Type {
         if ($fully_qualified_string === '') {
@@ -1027,16 +1032,27 @@ class Type
             if ($substring === '') {
                 return ArrayType::instance($is_nullable);
             }
-            return GenericArrayType::fromElementType(
-                self::fromStringInContext(
-                    $substring,
-                    $context,
-                    $source,
-                    $code_base
-                ),
-                $is_nullable,
-                GenericArrayType::KEY_MIXED
+            $types = UnionType::fromStringInContext(
+                $substring,
+                $context,
+                $source,
+                $code_base
             );
+
+            $type_set = $types->getTypeSet();
+            if (count($type_set) === 1) {
+                return GenericArrayType::fromElementType(
+                    \reset($type_set),
+                    $is_nullable,
+                    GenericArrayType::KEY_MIXED
+                );
+            } else {
+                return new GenericMultiArrayType(
+                    $type_set,
+                    $is_nullable,
+                    GenericArrayType::KEY_MIXED
+                );
+            }
         }
 
         // Extract the namespace, type and parameter type name list
@@ -2564,7 +2580,9 @@ class Type
     }
 
     /**
-     * @internal - Used to check for quick mode
+     * Used to check if this type can be replaced by more specific types, for non-quick mode
+     *
+     * @internal
      */
     public function shouldBeReplacedBySpecificTypes() : bool
     {
@@ -2573,6 +2591,12 @@ class Type
     }
 
     /**
+     * Converts this type to one where array shapes are flattened to generic arrays, and literal scalars are converted to the general type for that scalar.
+     *
+     * E.g. converts the type `array{0:2}` to `array<int,int>`
+     *
+     * This is overridden by subclasses.
+     *
      * @return Type[]
      */
     public function withFlattenedArrayShapeOrLiteralTypeInstances() : array

@@ -38,11 +38,13 @@ class AssignmentVisitor extends AnalysisVisitor
 {
     /**
      * @var Node
+     * The AST node containing the assignment
      */
     private $assignment_node;
 
     /**
      * @var UnionType
+     * The type of the element on the right side of the assignment
      */
     private $right_type;
 
@@ -258,7 +260,6 @@ class AssignmentVisitor extends AnalysisVisitor
             // array element we're assigning to
             // TODO: Check key types are valid?
             $key_node = $child_node->children['key'];
-            $key_value = null;
 
             if ($key_node === null) {
                 $key_set[] = true;

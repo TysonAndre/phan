@@ -1007,7 +1007,6 @@ class ParameterTypesAnalyzer
             ) {
                 $is_exclusively_narrowed = false;
                 if (!$method->checkHasSuppressIssueAndIncrementCount(Issue::TypeMismatchDeclaredParam)) {
-                    $param_name = $parameter->getName();
                     Issue::maybeEmit(
                         $code_base,
                         $context,
@@ -1072,6 +1071,9 @@ class ParameterTypesAnalyzer
     }
 
     /**
+     * Guesses the return number of a method's PHPDoc's (at)return statement.
+     * Returns null if that could not be found.
+     *
      * @return ?int
      * @internal
      */

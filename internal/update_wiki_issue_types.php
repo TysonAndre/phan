@@ -12,9 +12,12 @@ use Phan\Issue;
  */
 class WikiWriter
 {
-    /** @var string */
+    /** @var string the built up contents to save as markdown */
     private $contents = '';
-    /** @var bool */
+    /**
+     * @var bool should this print to stdout while building up the markdown contents?
+     * Useful for debugging.
+     */
     private $print_to_stdout;
 
     public function __construct(bool $print_to_stdout = true)
@@ -22,7 +25,10 @@ class WikiWriter
         $this->print_to_stdout = $print_to_stdout;
     }
 
-    /** @return void */
+    /**
+     * Append $text to the buffer of text to save.
+     * @return void
+     */
     public function append(string $text)
     {
         $this->contents .= $text;
@@ -97,6 +103,8 @@ EOT;
     }
 
     /**
+     * Updates the markdown document of issue types with minimal documentation of missing issue types.
+     *
      * @return void
      * @throws InvalidArgumentException (uncaught) if the documented issue types can't be found.
      */

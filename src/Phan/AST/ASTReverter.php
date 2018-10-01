@@ -24,9 +24,9 @@ use function implode;
  */
 class ASTReverter
 {
-    /** @var array<int,Closure(Node):string> */
+    /** @var array<int,Closure(Node):string> this contains closures to convert node kinds to strings */
     private static $closure_map;
-    /** @var Closure(Node):string */
+    /** @var Closure(Node):string this maps unknown node types to strings */
     private static $noop;
 
     // TODO: Make this configurable, copy instance properties to static properties.
@@ -35,6 +35,10 @@ class ASTReverter
     }
 
     /**
+     * Convert $node to a short PHP string representing $node.
+     *
+     * This does not work for all node kinds, and may be ambiguous.
+     *
      * @param Node|string|int|float $node
      * @return string
      */
@@ -48,6 +52,8 @@ class ASTReverter
     }
 
     /**
+     * Static initializer.
+     *
      * @return void
      */
     public static function init()

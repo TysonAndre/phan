@@ -7,11 +7,13 @@ use Phan\Language\UnionType;
 /**
  * Any PHP structural element that also has a type and is
  * does not store a reference to its context (such as a variable).
+ * @phan-file-suppress PhanPluginDescriptionlessCommentOnPublicMethod
  */
 abstract class UnaddressableTypedElement
 {
     /**
      * @var FileRef
+     * Reference to the file and line number in which the structural element lives
      */
     private $file_ref;
 

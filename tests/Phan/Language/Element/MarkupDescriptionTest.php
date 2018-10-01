@@ -46,13 +46,13 @@ final class MarkupDescriptionTest extends BaseTest
             ],
             // Allow the description of (at)var to be a summary for the property if there is no earlier summary
             [
-                <<<EOT
+                <<<'EOT'
 @var MyClass A annotation of a constant goes here
 
 Rest of this comment
 EOT
                 ,
-                <<<EOT
+                <<<'EOT'
 /**
  * @var MyClass A annotation of a constant goes here
  *
@@ -64,7 +64,7 @@ EOT
             ],
             // Preserve leading whitespace when parsing the comment description
             [
-                <<<EOT
+                <<<'EOT'
 A description goes here
 
 Rest of this description
@@ -73,7 +73,7 @@ Rest of this description
    Rest of that list
 EOT
                 ,
-            <<<EOT
+            <<<'EOT'
 /**
  * A description goes here
  *
@@ -86,7 +86,7 @@ EOT
             ],
             // Preserve leading whitespace when parsing markup after (at)return
             [
-                <<<EOT
+                <<<'EOT'
 @return int
 
 Rest of this description
@@ -95,7 +95,7 @@ Rest of this description
    Rest of that list
 EOT
                 ,
-            <<<EOT
+            <<<'EOT'
 /**
  * @return int
  *
@@ -114,7 +114,7 @@ EOT
             [
                 ''
                 ,
-            <<<EOT
+            <<<'EOT'
 /**
  * @return int
  *
@@ -126,12 +126,12 @@ EOT
             ],
             // Parse summaries on adjacent lines
             [
-                <<<EOT
+                <<<'EOT'
 @return int
 Rest of this description
 EOT
                 ,
-            <<<EOT
+            <<<'EOT'
 /**
  * @return int
  * Rest of this description
@@ -145,7 +145,7 @@ EOT
             // Treat informative (at)return as function-like summaries.
             [
                 '@return int positive',
-            <<<EOT
+            <<<'EOT'
 /**
  * @return int positive
  */
@@ -160,6 +160,34 @@ EOT
                 Comment::ON_METHOD
             ],
             [
+                "@return float\npositive value",
+                <<<'EOT'
+/**
+ * @param int $x
+ * @return float
+ * positive value
+ */
+EOT
+                ,
+                Comment::ON_METHOD
+            ],
+            // Check that it does not fail completely for invalid phpdoc with multiple `(at)return` statements
+            [
+                "@return float\npositive value.",
+                <<<'EOT'
+/**
+ * @param int $x
+ * @return float
+ * positive value.
+ * @internal
+ * @return false
+ * on failure.
+ */
+EOT
+                ,
+                Comment::ON_METHOD
+            ],
+            [
                 '@return int self::MY_ENUM_* description',
                 '/**   @return int self::MY_ENUM_* description */',
                 Comment::ON_METHOD
@@ -167,13 +195,102 @@ EOT
             // Don't treat uninformative (at)return as function-like summaries.
             [
                 '',
-            <<<EOT
+            <<<'EOT'
 /**
  * @return string|false
  */
 EOT
                 ,
                 Comment::ON_FUNCTION
+            ],
+        ];
+    }
+
+    /**
+     * @dataProvider getDocCommentWithoutWhitespaceProvider
+     */
+    public function testGetDocCommentWithoutWhitespace(string $expected, string $doc_comment)
+    {
+        // @phan-suppress-next-line PhanAccessMethodInternal
+        $this->assertSame($expected, MarkupDescription::getDocCommentWithoutWhitespace($doc_comment));
+    }
+
+    /**
+     * @return array<int,array{0:string,1:string}>
+     */
+    public function getDocCommentWithoutWhitespaceProvider()
+    {
+        return [
+            [
+                '',
+                '/** */',
+            ],
+            [
+                '',
+                <<<'EOT'
+/**
+ *
+ *
+ *
+ */
+EOT
+            ],
+            [
+                '* A description goes here',
+                '/** A description goes here */',
+            ],
+            [
+                '* @param T $x A parameter annotation goes here',
+                '/** @param T $x A parameter annotation goes here */',
+            ],
+            [
+                '* @var T $x A local variable annotation of a function goes here',
+                '/** @var T $x A local variable annotation of a function goes here*/',
+            ],
+            [
+                <<<'EOT'
+* @var MyClass A annotation of a constant goes here
+*
+* Rest of this comment
+EOT
+                ,
+                <<<'EOT'
+/**
+ * @var MyClass A annotation of a constant goes here
+ *
+ * Rest of this comment
+ */
+EOT
+                ,
+            ],
+            // Preserve leading whitespace when parsing the comment description
+            [
+                <<<'EOT'
+* A description goes here
+*
+* Rest of this description
+
+*
+* -  Example markup list
+*    Rest of that list
+EOT
+                ,
+            <<<'EOT'
+/**
+ *
+ *
+ *
+ * A description goes here
+ *
+ * Rest of this description
+
+ *
+ * -  Example markup list
+ *    Rest of that list
+ *
+ *
+ */
+EOT
             ],
         ];
     }

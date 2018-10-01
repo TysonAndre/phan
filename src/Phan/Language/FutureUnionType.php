@@ -13,13 +13,13 @@ use Phan\Exception\IssueException;
 class FutureUnionType
 {
 
-    /** @var CodeBase */
+    /** @var CodeBase The code base within which we're operating */
     private $code_base;
 
-    /** @var Context */
+    /** @var Context the context from which we're fetching types for $this->node */
     private $context;
 
-    /** @var Node|string|int|bool|float */
+    /** @var Node|string|int|bool|float the node which we will be fetching the type of. */
     private $node;
 
     /**
@@ -60,6 +60,8 @@ class FutureUnionType
     }
 
     /**
+     * Gets the codebase singleton which created this FutureUnionType.
+     * (used to resolve class references, constants, etc.)
      * @internal (May rethink exposing the codebase in the future)
      */
     public function getCodebase() : CodeBase
@@ -68,6 +70,8 @@ class FutureUnionType
     }
 
     /**
+     * Gets the context in which this FutureUnionType was created
+     * (used to resolve class references, constants, etc.)
      * @internal (May rethink exposing the codebase in the future)
      */
     public function getContext() : Context

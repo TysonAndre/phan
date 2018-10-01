@@ -70,6 +70,7 @@ if (!class_exists('ast\Node')) {
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
+ * @phan-file-suppress PhanPluginDescriptionlessCommentOnPublicMethod
  */
 class TolerantASTConverter
 {
@@ -104,16 +105,16 @@ class TolerantASTConverter
      */
     protected static $decl_id = 0;
 
-    /** @var bool */
+    /** @var bool should placeholder nodes be added as child nodes instead of refusing to generate a Node for an invalid statement? */
     protected static $should_add_placeholders = false;
 
-    /** @var string */
+    /** @var string the contents of the file currently being parsed */
     protected static $file_contents = '';
 
-    /** @var FilePositionMap */
+    /** @var FilePositionMap maps byte offsets of the currently parsed file to line numbers */
     protected static $file_position_map;
 
-    /** @var bool */
+    /** @var bool if true, force all doc comments to be parsed */
     private static $parse_all_doc_comments = false;
 
     /** @var bool Sets equivalent static option in self::_start_parsing() */
@@ -126,7 +127,7 @@ class TolerantASTConverter
     protected $instance_php_version_id_parsing = PHP_VERSION_ID;
 
     /**
-     * @var bool can be used to force all doc comments to be parsed
+     * @var bool if true, force all doc comments to be parsed
      */
     private $instance_parse_all_doc_comments = false;
 

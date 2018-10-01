@@ -10,6 +10,7 @@ use Sabre\Event\Promise;
  * @see \Phan\LanguageServer\DefinitionResolver for how this maps the found node to the type in the context.
  * @see \Phan\Plugin\Internal\NodeSelectionPlugin for how the node is found
  * @see \Phan\AST\TolerantASTConverter\TolerantASTConverterWithNodeMapping for how isSelected is set
+ * @phan-file-suppress PhanPluginDescriptionlessCommentOnPublicMethod
  */
 abstract class NodeInfoRequest
 {
@@ -17,9 +18,9 @@ abstract class NodeInfoRequest
     protected $uri;
     /** @var string absolute path for $this->uri */
     protected $path;
-    /** @var Position */
+    /** @var Position the position of the cursor within $this->uri where information is being requested. */
     protected $position;
-    /** @var Promise|null */
+    /** @var Promise|null this should be resolve()d with the requested information, or null on failure or if the request was aborted */
     protected $promise;
 
     public function __construct(
