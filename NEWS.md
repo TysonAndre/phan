@@ -1,6 +1,9 @@
 Phan NEWS
 
-?? ??? 2018, Phan 1.0.7 (dev)
+?? ??? 2018, Phan 1.0.8 (dev)
+-----------------------
+
+02 Oct 2018, Phan 1.0.7
 -----------------------
 
 New features(Analysis):
@@ -8,6 +11,8 @@ New features(Analysis):
 
   e.g. `@param (int|string)[] $paramName`, `@return (int|string)[]`
 + Support spaces after commas in array shapes (#1966)
++ Emit warnings when using non-strings as dynamic method names (e.g. `$o->{$notAString}()`)
+  New issue types: `PhanTypeInvalidMethodName`, `PhanTypeInvalidStaticMethodName`, `PhanTypeInvalidCallableMethodName`
 
 Plugins:
 + In HasPHPDocPlugin, use a more compact representation to show what Phan sees from the raw doc comment.
@@ -26,6 +31,7 @@ Bug fixes:
 + Properly emit `PhanUnusedVariable` for variables where definitions are shadowed by definitions in branches and/or loops. (#2012)
 + Properly emit `PhanUnusedVariable` for variables which are redefined in a 'do while' loop.
 + Be more consistent about emitting `PhanUnusedVariableCaughtException` when exception variable names are reused later on.
++ Fix a crash when parsing `@method` annotations with many parameters (#2019)
 
 25 Sep 2018, Phan 1.0.6
 -----------------------
