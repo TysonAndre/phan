@@ -79,6 +79,7 @@ class TolerantASTConverter
     const AST_VERSION = 50;
 
     // The versions that this supports
+    // TODO: Also enable support for version 60 once there is a stable 1.0.0 release. (Issue #2038)
     const SUPPORTED_AST_VERSIONS = [self::AST_VERSION];
 
     const _IGNORED_STRING_TOKEN_KIND_SET = [
@@ -953,7 +954,7 @@ class TolerantASTConverter
             /**
              * @return ast\Node|string
              */
-            'Microsoft\PhpParser\Node\StringLiteral' => function (PhpParser\Node\StringLiteral $n, int $_) {
+            'Microsoft\PhpParser\Node\StringLiteral' => function (PhpParser\Node\StringLiteral $n, int $start_line) {
                 $children = $n->children;
                 if ($children instanceof Token) {
                     $inner_node = static::parseQuotedString($n);
@@ -984,7 +985,7 @@ class TolerantASTConverter
                     $inner_node = new ast\Node(ast\AST_ENCAPS_LIST, 0, $inner_node_parts, self::getStartLine($children[0]));
                 }
                 if ($n->startQuote !== null && $n->startQuote->kind === TokenKind::BacktickToken) {
-                    return new ast\Node(ast\AST_SHELL_EXEC, 0, ['expr' => $inner_node], self::getStartLine($children[0]));
+                    return new ast\Node(ast\AST_SHELL_EXEC, 0, ['expr' => $inner_node], isset($children[0]) ? self::getStartLine($children[0]) : $start_line);
                     // TODO: verify match
                 }
                 return $inner_node;
@@ -1122,7 +1123,7 @@ class TolerantASTConverter
                 }
                 return static::newAstDecl(
                     ast\AST_METHOD,
-                    static::phpParserVisibilityToAstVisibility($n->modifiers) | ($n->byRefToken !== null ? flags\RETURNS_REF : 0),
+                    static::phpParserVisibilityToAstVisibility($n->modifiers) | ($n->byRefToken !== null ? flags\FUNC_RETURNS_REF : 0),
                     [
                         'params' => static::phpParserParamsToAstParams($n->parameters, $start_line),
                         'uses' => null,
@@ -1891,7 +1892,7 @@ class TolerantASTConverter
     ) : ast\Node {
         return static::newAstDecl(
             ast\AST_CLOSURE,
-            ($by_ref ? flags\RETURNS_REF : 0) | ($static ? flags\MODIFIER_STATIC : 0),
+            ($by_ref ? flags\FUNC_RETURNS_REF : 0) | ($static ? flags\MODIFIER_STATIC : 0),
             [
                 'params' => $params,
                 'uses' => $uses,
@@ -1923,7 +1924,7 @@ class TolerantASTConverter
     ) : ast\Node {
         return static::newAstDecl(
             ast\AST_FUNC_DECL,
-            $by_ref ? flags\RETURNS_REF : 0,
+            $by_ref ? flags\FUNC_RETURNS_REF : 0,
             [
                 'params' => $params,
                 'uses' => null,
