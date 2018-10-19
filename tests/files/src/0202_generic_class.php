@@ -66,4 +66,3 @@ f($tuple_a->getE0(), $tuple_a->getE1());
 
 f($tuple_a->e1, $tuple_a->e0);
 f($tuple_a->getE1(), $tuple_a->getE0());
-

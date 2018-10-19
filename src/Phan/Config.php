@@ -18,7 +18,7 @@ class Config
 {
     /**
      * The version of the AST (defined in php-ast) that we're using.
-     * Other versions are likely to have edge cases we no longer support,
+     * Older versions are likely to have edge cases we no longer support,
      * and version 50 got rid of Decl.
      *
      * TODO: Also enable support for version 60 once there is a stable php-ast 1.0.0 release. (Issue #2038)
@@ -273,13 +273,13 @@ class Config
 
         // If enabled, Phan will warn if **any** type in the argument's type
         // cannot be cast to a type in the parameter's expected type.
-        // Setting this to true will introduce a large number of false positives
+        // Setting this to true will introduce numerous false positives
         // (and reveal some bugs).
         'strict_param_checking' => false,
 
         // If enabled, Phan will warn if **any** type in the return value's type
         // cannot be cast to a type in the declared return type.
-        // Setting this to true will introduce a large number of false positives
+        // Setting this to true will introduce numerous false positives
         // (and reveal some bugs).
         'strict_return_checking' => false,
 
@@ -430,7 +430,7 @@ class Config
         // (E.g. `['RuntimeException', 'AssertionError', 'TypeError']`)
         'exception_classes_with_optional_throws_phpdoc' => [ ],
 
-        // This setting maps case insensitive strings to union types.
+        // This setting maps case-insensitive strings to union types.
         //
         // This is useful if a project uses phpdoc that differs from the phpdoc2 standard.
         //
@@ -494,7 +494,7 @@ class Config
         // if the number of candidates (for a given suggestion category) is greater than `suggestion_check_limit`.
         //
         // Set this to `0` to disable most suggestions for similar names, to other namespaces.
-        // Set this to `INT_MAX` (or other large value) to always suggesting similar names to other namespaces.
+        // Set this to `PHP_INT_MAX` (or other large value) to always suggesting similar names to other namespaces.
         // (Phan will be a bit slower when this config setting is a larger value)
         'suggestion_check_limit' => 50,
 
@@ -807,8 +807,9 @@ class Config
         // Valid values: null, 'info'. Used when developing or debugging a language server client of Phan.
         'language_server_debug_level' => null,
 
-        // You can use the command line option `--language-server-require-pcntl` to set this to false for debugging.
-        'language_server_use_pcntl_fallback' => true,
+        // This should only be set by CLI (`--language-server-force-missing-pcntl` or `language-server-require-pcntl`), which will set this to true for debugging.
+        // When true, this will manually back up the state of the PHP process and restore it.
+        'language_server_use_pcntl_fallback' => false,
 
         // This should only be set via CLI (`--language-server-enable-go-to-definition`)
         // Affects "go to definition" and "go to type definition" of LSP.
@@ -827,7 +828,7 @@ class Config
         // Use `--language-server-hide-category` if you want to enable this.
         'language_server_hide_category_of_issues' => false,
 
-        // Can be set to false to disable the plugins Phan uses to infer more accurate return types of `array_map`, `array_filter`, and many other functions.
+        // Set this to false to disable the plugins that Phan uses to infer more accurate return types of `array_map`, `array_filter`, and many other functions.
         //
         // Phan is slightly faster when these are disabled.
         'enable_internal_return_type_plugins' => true,

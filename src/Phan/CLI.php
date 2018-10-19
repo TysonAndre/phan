@@ -764,7 +764,7 @@ Usage: {$argv[0]} [options] [files...]
  -x, --dead-code-detection
   Emit issues for classes, methods, functions, constants and
   properties that are probably never referenced and can
-  possibly be removed. This implies `--unused-variable-detection`.
+  be removed. This implies `--unused-variable-detection`.
 
  --unused-variable-detection
   Emit issues for variables, parameters and closure use variables
@@ -783,7 +783,7 @@ Usage: {$argv[0]} [options] [files...]
   Don't run any plugins. Slightly faster.
 
  --plugin <pluginName|path/to/Plugin.php>
-  Add an additional plugin to run. This flag can be repeated.
+  Add a plugin to run. This flag can be repeated.
   (Either pass the name of the plugin or a relative/absolute path to the plugin)
 
  --strict-param-checking
@@ -1209,7 +1209,7 @@ EOB;
             fwrite(
                 STDERR,
                 // phpcs:ignore Generic.Files.LineLength.MaxExceeded
-                "The php-ast extension must be loaded in order for Phan to work. See https://github.com/phan/phan#getting-it-running for more details. Alternately, invoke Phan with the CLI option --allow-polyfill-parser (which is noticeably slower)\n"
+                "The php-ast extension must be loaded in order for Phan to work. See https://github.com/phan/phan#getting-started for more details. Alternately, invoke Phan with the CLI option --allow-polyfill-parser (which is noticeably slower)\n"
             );
             exit(EXIT_FAILURE);
         }

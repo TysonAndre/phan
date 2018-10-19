@@ -49,4 +49,12 @@ class MarkupContent
         $this->kind = $kind;
         $this->value = $value;
     }
+
+    public static function fromArray(array $data) : self
+    {
+        return new self(
+            $data['kind'],
+            $data['value']
+        );
+    }
 }

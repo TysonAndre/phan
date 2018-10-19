@@ -182,7 +182,7 @@ $x = A::$prop;
 This issue comes up when there is an attempt to access a private property outside of the scope in which it's defined.
 
 ```
-Cannot access private property {PROPERTY}
+Cannot access private property {PROPERTY} defined at {FILE}:{LINE}
 ```
 
 This will be emitted for the following code.
@@ -197,7 +197,7 @@ print C1::$p;
 This issue comes up when there is an attempt to access a protected property outside of the scope in which it's defined or an implementing child class.
 
 ```
-Cannot access protected property {PROPERTY}
+Cannot access protected property {PROPERTY} defined at {FILE}:{LINE}
 ```
 
 This will be emitted for the following code.
@@ -426,7 +426,7 @@ Return type '{TYPE}' means the absence of a return value starting in PHP 7.1. In
 
 # Context
 
-This category of issue are for when you're doing stuff out of the context in which you're allowed to do it like referencing `self` or `parent` when not in a class, interface or trait.
+This category of issue is for when you're doing stuff out of the context in which you're allowed to do it, e.g. referencing `self` or `parent` when not in a class, interface or trait.
 
 ## PhanContextNotObject
 
@@ -520,7 +520,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/1.0.7/tests/files/expected/0
 
 # NOOPError
 
-This category of issues are emitted when you have reasonable code but it isn't doing anything. They're all low severity.
+Issues in this category are emitted when you have reasonable code but it isn't doing anything. They're all low severity.
 
 ## PhanNoopArray
 
@@ -1309,7 +1309,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/1.0.7/tests/files/expected/0
 
 # RedefineError
 
-This category of issue come up when more than one thing of whatever type have the same name and namespace.
+This category of issue comes up when more than one thing of whatever type have the same name and namespace.
 
 ## PhanIncompatibleCompositionMethod
 
@@ -1947,7 +1947,7 @@ strlen(42);
 ## PhanTypeMismatchArrayDestructuringKey
 
 ```
-Attempting an array destructing assignment with a key of type {TYPE} but the only key types of the right hand side are of type {TYPE}
+Attempting an array destructing assignment with a key of type {TYPE} but the only key types of the right-hand side are of type {TYPE}
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/1.0.7/tests/files/expected/0402_array_destructuring.php.expected#L2) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.0.7/tests/files/src/0402_array_destructuring.php#L4).
@@ -2106,6 +2106,24 @@ This issue is emitted from the following code
 class H { function f() : int {} }
 ```
 
+## PhanTypeNoAccessiblePropertiesForeach
+
+```
+Class {TYPE} was passed to foreach, but it does not extend Traversable and none of its declared properties are accessible from this context. (This check excludes dynamic properties)
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/1.0.7/tests/files/expected/0542_foreach_non_traversable.php.expected#L4) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.0.7/tests/files/src/0542_foreach_non_traversable.php#L41).
+
+## PhanTypeNoPropertiesForeach
+
+Note: This and other checks of `foreach` deliberately don't warn about `stdClass` for now.
+
+```
+Class {TYPE} was passed to foreach, but it does not extend Traversable and doesn't have any declared properties. (This check excludes dynamic properties)
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/1.0.7/tests/files/expected/0246_iterable.php.expected#L3) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.0.7/tests/files/src/0246_iterable.php#L9).
+
 ## PhanTypeNonVarPassByRef
 
 ```
@@ -2117,6 +2135,14 @@ This issue is emitted from the following code
 ```php
 class F { static function f(&$v) {} } F::f('string');
 ```
+
+## PhanTypeObjectUnsetDeclaredProperty
+
+```
+Suspicious attempt to unset class {TYPE}'s property {PROPERTY} declared at {FILE}:{LINE} (This can be done, but is more commonly done for dynamic properties and Phan does not expect this)
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/1.0.7/tests/files/expected/0541_unset.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.0.7/tests/files/src/0541_unset.php#L7).
 
 ## PhanTypeParentConstructorCalled
 
@@ -2141,6 +2167,14 @@ Indirect variable ${(expr)} has invalid inner expression type {TYPE}, expected s
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/1.0.7/tests/files/expected/0298_weird_variable_name.php.expected#L3) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.0.7/tests/files/src/0298_weird_variable_name.php#L10).
+
+## PhanTypeSuspiciousNonTraversableForeach
+
+```
+Class {TYPE} was passed to foreach, but it does not extend Traversable. This may be intentional, because some of that class's declared properties are accessible from this context. (This check excludes dynamic properties)
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/1.0.7/tests/files/expected/0542_foreach_non_traversable.php.expected#L2) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.0.7/tests/files/src/0542_foreach_non_traversable.php#L22).
 
 ## PhanTypeSuspiciousStringExpression
 
@@ -2167,7 +2201,7 @@ $a = (new A)->v();
 
 # UndefError
 
-This category of issue come up when there are references to undefined things. These are a big source of false-positives in Phan given that code bases often take liberties with calling methods on sub-classes of the class defined to be returned by a function and things like that.
+This category of issue comes up when there are references to undefined things. These are a big source of false-positives in Phan given that code bases often take liberties with calling methods on sub-classes of the class defined to be returned by a function and things like that.
 
 You can ignore all errors of this category by passing in the command-line argument `-i` or `--ignore-undeclared`.
 
@@ -2573,7 +2607,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/1.0.7/tests/misc/fallback_te
 ## PhanUndeclaredVariableAssignOp
 
 ```
-Variable ${VARIABLE} was undeclared, but it is being used as the left hand side of an assignment operation
+Variable ${VARIABLE} was undeclared, but it is being used as the left-hand side of an assignment operation
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/1.0.7/tests/files/expected/0300_misc_types.php.expected#L11) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.0.7/tests/files/src/0300_misc_types.php#L21).

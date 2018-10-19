@@ -40,7 +40,8 @@ use function strtolower;
  * before any classes are loaded.
  *
  * # Example
- * ```
+ *
+ * ```php
  * // Grab these before we define our own classes
  * $internal_class_name_list = get_declared_classes();
  * $internal_interface_name_list = get_declared_interfaces();
@@ -55,9 +56,9 @@ use function strtolower;
  *     $internal_trait_name_list,
  *     CodeBase::getPHPInternalConstantNameList(),
  *     $internal_function_name_list
- *  );
+ * );
  *
- *  // Do stuff ...
+ * // Do stuff ...
  * ```
  *
  * This supports undoing some operations in the parse phase,
@@ -505,6 +506,7 @@ class CodeBase
         // TODO: Restore the inner state of Clazz objects as well
         // (e.g. memoizations, types added in method/analysis phases, plugin changes, etc.
         // NOTE: Type::clearAllMemoizations is called elsewhere already.
+        // @phan-suppress-next-line PhanTypeSuspiciousNonTraversableForeach this is intentionally iterating over the private properties of $clone
         foreach ($clone as $key => $value) {
             $this->{$key} = $value;
         }
