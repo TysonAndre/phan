@@ -6,6 +6,13 @@ Phan NEWS
 New features(Analysis):
 + Add `defined at {FILE}:{LINE}` to warnings about property visibility.
 + Warn about missing references (`\n` or `$n`) in the replacement template string of `preg_replace()` (#2047)
++ Make `@suppress` on closures/functions/methods apply more consistently to issues emitted when analyzing the closure/function/method declaration. (#2071)
++ Make `@suppress` on warnings about unparseable doc comments work as expected (e.g. for `PhanInvalidCommentForDeclarationType on a class`) (#1429)
++ Warn about missing/invalid files in `require`/`include`/`require_once`/`include_once` statements.
+
+  New issue types: `PhanRelativePathUsed`, `PhanTypeInvalidEval`, `PhanTypeInvalidRequire`, `PhanInvalidRequireFile`, `PhanMissingRequiredFile`
+
+  New config settings: `include_paths`, `warn_about_relative_include_statement`
 + Warn when attempting to unset a property that was declared (i.e. not a dynamic or magic property) (#569)
   New issue type: `PhanTypeObjectUnsetDeclaredProperty`
 
@@ -17,9 +24,11 @@ New features(Analysis):
   2. Has properties and none are accessible. (`TypeNoAccessiblePropertiesForeach`)
   3. Has properties and some are accessible. (`TypeSuspiciousNonTraversableForeach`)
 + Add `@phan-template` and `@phan-inherits` as aliases for `@template` and `@inherits`
++ Warn about passing non-objects to `clone()` (`PhanTypeInvalidCloneNotObject`) (#1798)
 
 Maintenance:
 + Minor performance improvements.
++ Increase the default value of `max_literal_string_type_length` from 50 to 200.
 
 Bug fixes:
 + Don't crash when parsing an invalid cast expression. Only the fallback/polyfill parsers were affected.

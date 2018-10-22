@@ -27,12 +27,16 @@ define('ORIGINAL_SIGNATURE_PATH', dirname(__DIR__) . '/src/Phan/Language/Interna
  * - Compare the signatures against Phan's to report incomplete or inaccurate signatures of Phan itself (or the external signature)
  *
  * TODO: could extend this to properties (the use of properties in extensions is rare).
+ * TODO: Fix zoookeeperconfig in phpdoc-en svn repo
  *
  * @phan-file-suppress PhanPluginDescriptionlessCommentOnPublicMethod
  */
 abstract class IncompatibleSignatureDetectorBase
 {
     use Memoize;
+
+    /** @var array<string,string> maps aliases to originals - only set for xml parser */
+    protected $aliases = [];
 
     const FUNCTIONLIKE_BLACKLIST = '@(^___PHPSTORM_HELPERS)|PS_UNRESERVE_PREFIX@';
 
@@ -202,6 +206,9 @@ EOT;
      */
     public function parseFunctionLikeSignature(string $method_name)
     {
+        if (isset($this->aliases[$method_name])) {
+            $method_name = $this->aliases[$method_name];
+        }
         if (stripos($method_name, '::') !== false) {
             $parts = \explode('::', $method_name);
             if (\count($parts) !== 2) {
@@ -366,6 +373,28 @@ class IncompatibleXMLSignatureDetector extends IncompatibleSignatureDetectorBase
         }
         $this->reference_directory = self::realpath($en_reference_dir);
         $this->doc_base_directory = self::realpath($dir);
+        $this->aliases = $this->parseAliases();
+    }
+
+    /**
+     * Parse information about which global functions are aliases of other global functions.
+     */
+    private function parseAliases() : array
+    {
+        $file_name = $this->doc_base_directory . '/en/appendices/aliases.xml';
+        $xml = $this->getSimpleXMLForFile($file_name);
+        $result = [];
+        foreach ($xml->children()[2]->table->tgroup->tbody->children() as $row) {
+            $entry = $row->entry;
+            $alias = (string)$entry[0];
+            $original = (string)$entry[1]->function;
+            if (!$original || !$alias) {
+                // E.g. an alias to a method such as ociassignelem
+                continue;
+            }
+            $result[$alias] = $original;
+        }
+        return $result;
     }
 
     /**
@@ -472,22 +501,70 @@ class IncompatibleXMLSignatureDetector extends IncompatibleSignatureDetectorBase
     private function populateFoldersForClassNameList()
     {
         $this->folders_for_class_name_list = [];
-        $reference_directory = $this->reference_directory;
         // TODO: Extract inheritance from classname.xml
 
         // TODO: Just parse every single xml file and extract the class name (including namespace)
         // from the XML itself instead of guessing based on heuristics.
-        foreach (static::scandir($reference_directory) as $subpath) {
-            $extension_directory = "$reference_directory/$subpath";
-            foreach (static::scandir($extension_directory) as $subsubpath) {
-                $class_subpath = "$extension_directory/$subsubpath";
-                $class_name = strtolower($subsubpath);
-                if (is_dir($class_subpath) && $class_name !== 'functions') {
-                    $this->folders_for_class_name_list[strtolower(str_replace('-', '_', $class_name))][$class_subpath] = $class_subpath;
-                }
-            }
+        foreach (static::scandir($this->reference_directory) as $subpath) {
+            $this->populateFoldersRecursively($subpath);
         }
         return $this->folders_for_class_name_list;
+    }
+
+    private function populateFoldersRecursively(string $subpath)
+    {
+        $extension_directory = "$this->reference_directory/$subpath";
+        foreach (static::scandir($extension_directory) as $subsubpath) {
+            $class_subpath = "$extension_directory/$subsubpath";
+            if (is_dir($class_subpath) && strtolower($subsubpath) !== 'functions') {
+                $class_name = $this->parseClassName("$subpath/$subsubpath");
+                $normalized_class_name = strtolower(str_replace(['-', '/'], ['_', '\\'], $class_name));
+                // echo "Reading $class_subpath $normalized_class_name\n";
+                $this->folders_for_class_name_list[$normalized_class_name][$class_subpath] = $class_subpath;
+                $this->populateFoldersRecursively("$subpath/$subsubpath");
+            }
+        }
+    }
+
+    /**
+     * @return Generator<string>
+     */
+    private function getPossibleFilesInReferenceDirectory(string $folder_in_reference_directory)
+    {
+        $file = $this->reference_directory . '/' . $folder_in_reference_directory . '.xml';
+        yield $file;
+        $parts = explode('/', $folder_in_reference_directory, 2);
+        $alternate_basename = str_replace('/', '.', $parts[1]) . '.xml';
+        $alternate_file = $this->reference_directory . '/' . $parts[0] . '/' . $alternate_basename;
+        if ($alternate_file !== $file) {
+            yield $alternate_file;
+        }
+        $alternate_file_2 = $this->reference_directory . '/' . $parts[0] . '/' . str_replace('_', '-', $alternate_basename);
+        if ($alternate_file_2 !== $alternate_file) {
+            yield $alternate_file_2;
+        }
+        yield $this->reference_directory . '/' . $parts[0] . '/' . $parts[0] . '.' . str_replace('_', '-', $alternate_basename);
+    }
+
+    private function parseClassName(string $folder_in_reference_directory) : string
+    {
+        foreach ($this->getPossibleFilesInReferenceDirectory($folder_in_reference_directory) as $file_in_reference_directory) {
+            echo "Looking for $file_in_reference_directory\n";
+            if (file_exists($file_in_reference_directory)) {
+                echo "Found $file_in_reference_directory\n";
+                $xml = $this->getSimpleXMLForFile($file_in_reference_directory);
+                if (!$xml) {
+                    continue;
+                }
+                $results = $xml->xpath('//a:classsynopsisinfo/a:ooclass/a:classname');
+                if (count($results) === 1) {
+                    echo "Returning $results[0]\n";
+                    return (string)$results[0];
+                }
+                break;
+            }
+        }
+        return preg_replace('@^[^/]*/@', '', $folder_in_reference_directory);
     }
 
     /** @return void */
@@ -562,6 +639,8 @@ class IncompatibleXMLSignatureDetector extends IncompatibleSignatureDetectorBase
     {
         $this->expectFunctionLikeSignaturesMatch('strlen', ['int', 'string' => 'string']);
         $this->expectFunctionLikeSignaturesMatch('ob_clean', ['void']);
+        $this->expectFunctionLikeSignaturesMatch('disk_free_space', ['float', 'directory' => 'string']);
+        $this->expectFunctionLikeSignaturesMatch('EvWatcher::feed', ['void', 'revents' => 'int']);
         $this->expectFunctionLikeSignaturesMatch('intdiv', ['int', 'dividend' => 'int', 'divisor' => 'int']);
         $this->expectFunctionLikeSignaturesMatch('ArrayIterator::seek', ['void', 'position' => 'int']);
         $this->expectFunctionLikeSignaturesMatch('mb_chr', ['string', 'cp' => 'int', 'encoding=' => 'string']);
@@ -632,9 +711,12 @@ class IncompatibleXMLSignatureDetector extends IncompatibleSignatureDetectorBase
                 static::info("Failed to parse method name for '$class_name::$method_name_lc' in '$method_xml_path'\n");
                 continue;
             }
-            if (stripos($case_sensitive_method_name, '::') === false) {
+            if (strpos($case_sensitive_method_name, '::') === false) {
                 static::info("Unexpected format of method name '$case_sensitive_method_name', expected something like '$class_name::$method_name_lc'\n");
                 continue;
+            }
+            if ($class_name_lc) {
+                $case_sensitive_method_name = $class_name_lc . '::' . explode('::', $case_sensitive_method_name, 2)[1];
             }
             $result[$case_sensitive_method_name] = $xml;
         }
@@ -800,6 +882,7 @@ class IncompatibleXMLSignatureDetector extends IncompatibleSignatureDetectorBase
     {
         // TODO: Validate that Phan can parse these?
         $type = (string)$type;
+        $type = ltrim($type, '\\');
         if (strcasecmp($type, 'scalar') === 0) {
             return 'int|string|float|bool';
         }
@@ -855,6 +938,9 @@ class IncompatibleXMLSignatureDetector extends IncompatibleSignatureDetectorBase
             if (isset($entities[strtolower($entity_name)])) {
                 return "BEGINENTITY{$entity_name}ENDENTITY";
             }
+            if (preg_match('/^reference\./', $entity_name)) {
+                return "BEGINENTITY{$entity_name}ENDENTITY";
+            }
             // echo "Could not find entity $entity_name in $matches[0]\n";
             return $matches[0];
         }, $contents);
@@ -893,6 +979,7 @@ class IncompatibleXMLSignatureDetector extends IncompatibleSignatureDetectorBase
                     if ($signature_from_doc === null) {
                         continue;
                     }
+                    // echo "For $class_name found $method_name\n";
                     $method_name_map[$method_name] = $signature_from_doc;
                 }
             }
@@ -953,7 +1040,7 @@ class IncompatibleStubsSignatureDetector extends IncompatibleSignatureDetectorBa
     {
         $failures = 0;
         $failures += $this->expectFunctionLikeSignaturesMatch('strlen', ['int', 'string' => 'string']);
-        // $this->expectFunctionLikeSignaturesMatch('ob_clean', ['void']);
+        // $failures += $this->expectFunctionLikeSignaturesMatch('ob_clean', ['void']);
         $failures += $this->expectFunctionLikeSignaturesMatch('intdiv', ['int', 'numerator' => 'int', 'divisor' => 'int']);
         $failures += $this->expectFunctionLikeSignaturesMatch('ArrayIterator::seek', ['void', 'position' => 'int']);
         $failures += $this->expectFunctionLikeSignaturesMatch('Redis::hGet', ['string', 'key' => 'string', 'hashKey' => 'string']);
@@ -1055,7 +1142,7 @@ class IncompatibleStubsSignatureDetector extends IncompatibleSignatureDetectorBa
             return null;
         }
         $method = $code_base->getMethodByFQSEN($method_fqsen);
-        echo "Found $method_fqsen at " . $method->getFileRef()->getFile() . "\n";
+        // echo "Found $method_fqsen at " . $method->getFileRef()->getFile() . "\n";
 
         $method->ensureScopeInitialized($code_base);
         return $method->toFunctionSignatureArray();

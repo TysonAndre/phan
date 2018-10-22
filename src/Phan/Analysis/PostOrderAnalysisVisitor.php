@@ -1264,7 +1264,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             return;
         }
 
-        // If we have TypeMismatchReturn already, then also suppress the partial mismatch warnings as well.
+        // If we have TypeMismatchReturn already, then also suppress the partial mismatch warnings (e.g. PartialTypeMismatchReturn) as well.
         if ($this->context->hasSuppressIssue($code_base, Issue::TypeMismatchReturn)) {
             return;
         }
@@ -2223,6 +2223,35 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     public function visitProp(Node $node) : Context
     {
         return $this->analyzeProp($node, false);
+    }
+
+    /**
+     * Default visitor for node kinds that do not have
+     * an overriding method
+     *
+     * @param Node $node (@phan-unused-param)
+     * A node to parse
+     *
+     * @return Context
+     * A new or an unchanged context resulting from
+     * parsing the node
+     */
+    public function visitClone(Node $node) : Context
+    {
+        $type = UnionTypeVisitor::unionTypeFromNode(
+            $this->code_base,
+            $this->context,
+            $node->children['expr'],
+            true
+        );
+        if (!$type->isEmpty() && !$type->hasPossiblyObjectTypes()) {
+            $this->emitIssue(
+                Issue::TypeInvalidCloneNotObject,
+                $node->children['expr']->lineno ?? $node->lineno,
+                $type
+            );
+        }
+        return $this->context;
     }
 
     /**
