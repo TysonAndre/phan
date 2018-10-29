@@ -3,7 +3,6 @@ namespace Phan;
 
 use AssertionError;
 use InvalidArgumentException;
-use Phan\Config;
 use Phan\Language\Context;
 use Phan\Language\Element\TypedElement;
 use Phan\Language\Element\UnaddressableTypedElement;
@@ -272,6 +271,10 @@ class Issue
     const UnreferencedUseNormal         = 'PhanUnreferencedUseNormal';
     const UnreferencedUseFunction       = 'PhanUnreferencedUseFunction';
     const UnreferencedUseConstant       = 'PhanUnreferencedUseConstant';
+    const UseNormalNoEffect             = 'PhanUseNormalNoEffect';
+    const UseNormalNamespacedNoEffect   = 'PhanUseNormalNamespacedNoEffect';
+    const UseFunctionNoEffect           = 'PhanUseFunctionNoEffect';
+    const UseContantNoEffect           = 'PhanUseContantNoEffect';
 
     const UnusedVariable                        = 'PhanUnusedVariable';
     const UnusedPublicMethodParameter           = 'PhanUnusedPublicMethodParameter';
@@ -301,6 +304,12 @@ class Issue
     // Issue::CATEGORY_ACCESS
     const AccessPropertyPrivate     = 'PhanAccessPropertyPrivate';
     const AccessPropertyProtected   = 'PhanAccessPropertyProtected';
+
+    const AccessReadOnlyProperty       = 'PhanAccessReadOnlyProperty';
+    const AccessWriteOnlyProperty      = 'PhanAccessWriteOnlyProperty';
+    const AccessReadOnlyMagicProperty  = 'PhanAccessReadOnlyMagicProperty';
+    const AccessWriteOnlyMagicProperty = 'PhanAccessWriteOnlyMagicProperty';
+
     const AccessMethodPrivate       = 'PhanAccessMethodPrivate';
     const AccessMethodPrivateWithCallMagicMethod = 'PhanAccessMethodPrivateWithCallMagicMethod';
     const AccessMethodProtected     = 'PhanAccessMethodProtected';
@@ -2527,7 +2536,38 @@ class Issue
                 self::REMEDIATION_B,
                 6046
             ),
-
+            new Issue(
+                self::UseNormalNamespacedNoEffect,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_LOW,
+                'The use statement for class/namespace {CLASS} in a namespace has no effect',
+                self::REMEDIATION_A,
+                6047
+            ),
+            new Issue(
+                self::UseNormalNoEffect,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_NORMAL,
+                'The use statement for class/namespace {CLASS} in the global namespace has no effect',
+                self::REMEDIATION_A,
+                6048
+            ),
+            new Issue(
+                self::UseFunctionNoEffect,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_NORMAL,
+                'The use statement for function {FUNCTION} has no effect',
+                self::REMEDIATION_A,
+                6049
+            ),
+            new Issue(
+                self::UseContantNoEffect,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_NORMAL,
+                'The use statement for constant {CONST} has no effect',
+                self::REMEDIATION_A,
+                6050
+            ),
 
             // Issue::CATEGORY_REDEFINE
             new Issue(
@@ -2627,6 +2667,38 @@ class Issue
                 "Cannot access private property {PROPERTY} defined at {FILE}:{LINE}",
                 self::REMEDIATION_B,
                 1001
+            ),
+            new Issue(
+                self::AccessReadOnlyProperty,
+                self::CATEGORY_ACCESS,
+                self::SEVERITY_LOW,
+                "Cannot modify read-only property {PROPERTY} defined at {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                1028
+            ),
+            new Issue(
+                self::AccessWriteOnlyProperty,
+                self::CATEGORY_ACCESS,
+                self::SEVERITY_LOW,
+                "Cannot read write-only property {PROPERTY} defined at {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                1029
+            ),
+            new Issue(
+                self::AccessReadOnlyMagicProperty,
+                self::CATEGORY_ACCESS,
+                self::SEVERITY_NORMAL,
+                "Cannot modify read-only magic property {PROPERTY} defined at {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                1030
+            ),
+            new Issue(
+                self::AccessWriteOnlyMagicProperty,
+                self::CATEGORY_ACCESS,
+                self::SEVERITY_NORMAL,
+                "Cannot read write-only magic property {PROPERTY} defined at {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                1031
             ),
             new Issue(
                 self::AccessMethodProtected,

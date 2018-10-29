@@ -1762,6 +1762,16 @@ class UnionTypeVisitor extends AnalysisVisitor
                 $node
             ))->getProperty($is_static);
 
+            if ($property->isWriteOnly()) {
+                $this->emitIssue(
+                    $property->isFromPHPDoc() ? Issue::AccessWriteOnlyMagicProperty : Issue::AccessWriteOnlyProperty,
+                    $node->lineno ?? 0,
+                    $property->asPropertyFQSENString(),
+                    $property->getContext()->getFile(),
+                    $property->getContext()->getLineNumberStart()
+                );
+            }
+
             // Map template types to concrete types
             if ($property->getUnionType()->hasTemplateType()) {
                 // Get the type of the object calling the property
@@ -2433,7 +2443,7 @@ class UnionTypeVisitor extends AnalysisVisitor
             $this->code_base,
             $this->context,
             $node
-        );
+        )->withStaticResolvedInContext($this->context);
 
         // Iterate over each viable class type to see if any
         // have the constant we're looking for

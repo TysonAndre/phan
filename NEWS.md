@@ -1,6 +1,26 @@
 Phan NEWS
 
-?? ??? 2018, Phan 1.1.1 (dev)
+?? ??? 2018, Phan 1.1.2 (dev)
+-----------------------
+
+New features(Analysis):
++ Warn when attempting to read from a write-only real/magic property (or vice-versa) (#595)
+
+  New issue types: `PhanAccessReadOnlyProperty`, `PhanAccessReadOnlyMagicProperty`, `PhanAccessWriteOnlyProperty`, `PhanAccessWriteOnlyMagicProperty`
+
+  New annotations: `@phan-read-only` and `@phan-write-only` (on its own line) in the doc comment of a real property.
++ Warn about use statements that are redundant. (#2048)
+
+  New issue types: `PhanUseConstantNoEffect`, `PhanUseFunctionNoEffect`, `PhanUseNormalNamespacedNoEffect`, `PhanUseNormalNoEffect`
+
+  By default, this will only warn about use statements made from the global namespace, of elements also in the global namespace.
+  To also warn about redundant **namespaced** uses of classes/namespaces (e.g. `namespace Foo; use Foo\MyClass;`), enable `warn_about_redundant_use_namespaced_class`
+
+Bug fixes:
++ Properly type check `static::someMethodName()`.
+  Previously, Phan would fail to infer types for the results of those method calls.
+
+22 Oct 2018, Phan 1.1.1
 -----------------------
 
 New features(Analysis):
@@ -8,11 +28,13 @@ New features(Analysis):
 + Warn about missing references (`\n` or `$n`) in the replacement template string of `preg_replace()` (#2047)
 + Make `@suppress` on closures/functions/methods apply more consistently to issues emitted when analyzing the closure/function/method declaration. (#2071)
 + Make `@suppress` on warnings about unparseable doc comments work as expected (e.g. for `PhanInvalidCommentForDeclarationType on a class`) (#1429)
-+ Warn about missing/invalid files in `require`/`include`/`require_once`/`include_once` statements.
++ Support checking for missing/invalid files in `require`/`include`/`require_once`/`include_once` statements.
+
+  To enable these checks, set `enable_include_path_checks` to `true` in your Phan config.
 
   New issue types: `PhanRelativePathUsed`, `PhanTypeInvalidEval`, `PhanTypeInvalidRequire`, `PhanInvalidRequireFile`, `PhanMissingRequiredFile`
 
-  New config settings: `include_paths`, `warn_about_relative_include_statement`
+  New config settings: `enable_include_path_checks`, `include_paths`, `warn_about_relative_include_statement`
 + Warn when attempting to unset a property that was declared (i.e. not a dynamic or magic property) (#569)
   New issue type: `PhanTypeObjectUnsetDeclaredProperty`
 
@@ -29,6 +51,7 @@ New features(Analysis):
 Maintenance:
 + Minor performance improvements.
 + Increase the default value of `max_literal_string_type_length` from 50 to 200.
++ Include Phan version in Phan's error handler and exception handler output. (#1639)
 
 Bug fixes:
 + Don't crash when parsing an invalid cast expression. Only the fallback/polyfill parsers were affected.

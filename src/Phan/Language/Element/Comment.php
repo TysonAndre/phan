@@ -13,7 +13,6 @@ use Phan\Language\Element\Comment\NullComment;
 use Phan\Language\Element\Comment\Parameter as CommentParameter;
 use Phan\Language\Element\Comment\Property as CommentProperty;
 use Phan\Language\Element\Comment\ReturnComment;
-use Phan\Language\Element\Flags;
 use Phan\Language\Type;
 use Phan\Language\Type\TemplateType;
 use Phan\Language\UnionType;
@@ -73,6 +72,8 @@ class Comment
      * @var int - contains a subset of flags to set on elements
      * Flags::CLASS_FORBID_UNDECLARED_MAGIC_PROPERTIES
      * Flags::CLASS_FORBID_UNDECLARED_MAGIC_METHODS
+     * Flags::IS_READ_ONLY
+     * Flags::IS_WRITE_ONLY
      * Flags::IS_DEPRECATED
      */
     protected $comment_flags = 0;
@@ -243,8 +244,6 @@ class Comment
                 }
                 // Add it to the named map
                 // TODO: Detect duplicates, emit warning for duplicates.
-                // TODO(optional): Emit Issues when a property with only property-read is written to
-                // or vice versa.
                 $this->magic_property_map[$name] = $property;
             }
         }
@@ -405,6 +404,16 @@ class Comment
     public function isNSInternal() : bool
     {
         return ($this->comment_flags & Flags::IS_NS_INTERNAL) != 0;
+    }
+
+    /**
+     * @internal
+     */
+    const FLAGS_FOR_PROPERTY = Flags::IS_NS_INTERNAL | Flags::IS_DEPRECATED | Flags::IS_READ_ONLY | Flags::IS_WRITE_ONLY;
+
+    public function getPhanFlagsForProperty() : int
+    {
+        return $this->comment_flags & self::FLAGS_FOR_PROPERTY;
     }
 
     /**

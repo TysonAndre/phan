@@ -184,6 +184,11 @@ return [
     // to be tracked.
     'force_tracking_references' => false,
 
+    // Enable this to warn about harmless redundant use for classes and namespaces such as `use Foo\bar` in namespace Foo.
+    //
+    // Note: This does not affect warnings about redundant uses in the global namespace.
+    'warn_about_redundant_use_namespaced_class' => true,
+
     // If true, then run a quick version of checks that takes less time.
     // False by default.
     "quick_mode" => false,
@@ -460,6 +465,9 @@ return [
     // can't be removed for whatever reason.
     // (e.g. '@Test\.php$@', or '@vendor/.*/(tests|Tests)/@')
     'exclude_file_regex' => '@^vendor/.*/(tests?|Tests?)/@',
+
+    // Enable this to enable checks of require/include statements referring to valid paths.
+    'enable_include_path_checks' => true,
 
     // A list of include paths to check when checking if `require_once`, `include`, etc. are valid.
     //

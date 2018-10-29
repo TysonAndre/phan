@@ -248,6 +248,12 @@ NOTE: THIS IS EXPERIMENTAL, and the implementation may change.
 
 (Default: `false`)
 
+## enable_include_path_checks
+
+Enable this to enable checks of require/include statements referring to valid paths.
+
+(Default: `false`)
+
 ## enable_internal_return_type_plugins
 
 Set this to false to disable the plugins that Phan uses to infer more accurate return types of `array_map`, `array_filter`, and many other functions.
@@ -321,6 +327,8 @@ To refer to the directory of the file being analyzed, use `'.'`
 To refer to the project root directory, use \Phan\Config::getProjectRootDirectory()
 
 (E.g. `['.', \Phan\Config::getProjectRootDirectory() . '/src/folder-added-to-include_path']`)
+
+This is ignored if [`enable_include_path_checks`](#enable_include_path_checks) is not `true`.
 
 (Default: `["."]`)
 
@@ -475,8 +483,9 @@ Note: [`read_type_annotations`](#read_type_annotations) must also be enabled.
 If disabled, Phan will not read docblock type
 annotation comments for `@property`.
 
-`@property-read` and `@property-write` are treated exactly the
-same as `@property` for now.
+- When enabled, in addition to inferring existence of magic properties,
+  Phan will also warn when writing to `@property-read` and reading from `@property-read`.
+Phan will warn when writing to read-only properties and reading from write-only properties.
 
 Note: [`read_type_annotations`](#read_type_annotations) must also be enabled.
 
@@ -519,6 +528,8 @@ into `$a = value(); if ($a) { if ($a > 0) {...}}`
 
 Enable this to warn about the use of relative paths in `require_once`, `include`, etc.
 Relative paths are harder to reason about, and opcache may have issues with relative paths in edge cases.
+
+This is ignored if [`enable_include_path_checks`](#enable_include_path_checks) is not `true`.
 
 (Default: `false`)
 
@@ -693,6 +704,14 @@ Set to true in order to attempt to detect unused variables.
 [`dead_code_detection`](#dead_code_detection) will also enable unused variable detection.
 
 This has a few known false positives, e.g. for loops or branches.
+
+(Default: `false`)
+
+## warn_about_redundant_use_namespaced_class
+
+Enable this to warn about harmless redundant use for classes and namespaces such as `use Foo\bar` in namespace Foo.
+
+Note: This does not affect warnings about redundant uses in the global namespace.
 
 (Default: `false`)
 

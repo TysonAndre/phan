@@ -1,7 +1,5 @@
 <?php
 
-use Phan\Issue;
-
 /**
  * This configuration will be read and overlaid on top of the
  * default configuration. Command line arguments will be applied
@@ -60,6 +58,11 @@ return [
     // dead_code_detection will also enable unused variable detection.
     'unused_variable_detection' => true,
 
+    // Enable this to warn about harmless redundant use for classes and namespaces such as `use Foo\bar` in namespace Foo.
+    //
+    // Note: This does not affect warnings about redundant uses in the global namespace.
+    'warn_about_redundant_use_namespaced_class' => true,
+
     // If true, Phan will read `class_alias` calls in the global scope,
     // then (1) create aliases from the *parsed* files if no class definition was found,
     // and (2) emit issues in the global scope if the source or target class is invalid.
@@ -85,6 +88,9 @@ return [
 
     // Increase the string length tracked in this test so that Phan can check dynamic require_once paths.
     'max_literal_string_type_length' => 2000,
+
+    // Enable this to enable checks of require/include statements referring to valid paths.
+    'enable_include_path_checks' => true,
 
     // A list of include paths to check when checking if `require_once`, `include`, etc. are valid.
     //

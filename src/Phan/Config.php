@@ -146,16 +146,23 @@ class Config
         // files that can't be removed for whatever reason.
         'exclude_file_list' => [],
 
+        // Enable this to enable checks of require/include statements referring to valid paths.
+        'enable_include_path_checks' => false,
+
         // A list of [include paths](https://secure.php.net/manual/en/ini.core.php#ini.include-path) to check when checking if `require_once`, `include`, etc. are pointing to valid files.
         //
         // To refer to the directory of the file being analyzed, use `'.'`
         // To refer to the project root directory, use \Phan\Config::getProjectRootDirectory()
         //
         // (E.g. `['.', \Phan\Config::getProjectRootDirectory() . '/src/folder-added-to-include_path']`)
+        //
+        // This is ignored if `enable_include_path_checks` is not `true`.
         'include_paths' => ['.'],
 
         // Enable this to warn about the use of relative paths in `require_once`, `include`, etc.
         // Relative paths are harder to reason about, and opcache may have issues with relative paths in edge cases.
+        //
+        // This is ignored if `enable_include_path_checks` is not `true`.
         'warn_about_relative_include_statement' => false,
 
         // A directory list that defines files that will be excluded
@@ -396,6 +403,11 @@ class Config
         // into `$a = value(); if ($a) { if ($a > 0) {...}}`
         'simplify_ast' => true,
 
+        // Enable this to warn about harmless redundant use for classes and namespaces such as `use Foo\bar` in namespace Foo.
+        //
+        // Note: This does not affect warnings about redundant uses in the global namespace.
+        'warn_about_redundant_use_namespaced_class' => false,
+
         // If true, Phan will read `class_alias()` calls in the global scope, then
         //
         // 1. create aliases from the *parsed* files if no class definition was found, and
@@ -409,8 +421,9 @@ class Config
         // If disabled, Phan will not read docblock type
         // annotation comments for `@property`.
         //
-        // `@property-read` and `@property-write` are treated exactly the
-        // same as `@property` for now.
+        // - When enabled, in addition to inferring existence of magic properties,
+        //   Phan will also warn when writing to `@property-read` and reading from `@property-read`.
+        // Phan will warn when writing to read-only properties and reading from write-only properties.
         //
         // Note: `read_type_annotations` must also be enabled.
         'read_magic_property_annotations' => true,
