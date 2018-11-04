@@ -252,6 +252,30 @@ class TextDocument
     }
 
     /**
+     * Implements textDocument/references, to find all references to some element.
+     *
+     * @param TextDocumentIdentifier $textDocument @phan-unused-param
+     * @param Position $position @phan-unused-param
+     * @suppress PhanUnreferencedPublicMethod called by client via AdvancedJsonRpc
+     * @return ?Promise
+     */
+    public function references(TextDocumentIdentifier $textDocument, Position $position)
+    {
+        // If the client doesn't respect what the server was configured to support, ignore the request.
+        // (It would be slow)
+        if (!Config::getValue('language_server_enable_references')) {
+            return null;
+        }
+        try {
+            $uri = Utils::pathToUri(Utils::uriToPath($textDocument->uri));
+        } catch (InvalidArgumentException $e) {
+            Logger::logError(sprintf("Language server could not understand uri %s in %s: %s\n", $textDocument->uri, __METHOD__, $e->getMessage()));
+            return null;
+        }
+        return $this->server->awaitReferences($uri, $position);
+    }
+
+    /**
      * Implements textDocument/completion, to compute completion items at a given cursor position.
      *
      * TODO: Implement support for the cancel request LSP operation?
