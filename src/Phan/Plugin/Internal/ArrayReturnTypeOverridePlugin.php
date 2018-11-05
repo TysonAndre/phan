@@ -217,8 +217,9 @@ final class ArrayReturnTypeOverridePlugin extends PluginV2 implements
              * @param Node|int|string|float|null $argument
              */
             $get_argument_type = function ($argument, int $i) use ($code_base, $context, &$cache_outer) : UnionType {
-                if (isset($cache_outer[$i])) {
-                    return $cache_outer[$i];
+                $argument_type = $cache_outer[$i] ?? null;
+                if ($argument_type) {
+                    return $argument_type;
                 }
                 $argument_type = UnionTypeVisitor::unionTypeFromNode(
                     $code_base,
@@ -235,8 +236,9 @@ final class ArrayReturnTypeOverridePlugin extends PluginV2 implements
              * @param Node|int|string|float|null $argument
              */
             $get_argument_type_for_array_map = function ($argument, int $i) use ($get_argument_type, &$cache) : UnionType {
-                if (isset($cache[$i])) {
-                    return $cache[$i];
+                $argument_type = $cache[$i] ?? null;
+                if ($argument_type) {
+                    return $argument_type;
                 }
                 // Convert T[] to T
                 $argument_type = $get_argument_type($argument, $i)->genericArrayElementTypes();

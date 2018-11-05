@@ -77,8 +77,8 @@ if (!class_exists('ast\Node')) {
  * NOTE: EchoExpression can get converted to multiple `ast\Node`s (e.g. for `echo 'first', 'second';`, which is why this has so many partial mismatches.
  * The current version of tolerant-php-parser prevents EchoExpression (and UnsetIntrinsicExpression) from being anything other than a top-level statement.
  *
- * @phan-file-suppress PhanPartialTypeMismatchReturn
- * @phan-file-suppress PhanPartialTypeMismatchArgument
+ * @phan-file-suppress PhanPartialTypeMismatchReturn, PhanPossiblyNullTypeReturn
+ * @phan-file-suppress PhanPartialTypeMismatchArgument,
  * @phan-file-suppress PhanPartialTypeMismatchArgumentInternal
  */
 class TolerantASTConverter

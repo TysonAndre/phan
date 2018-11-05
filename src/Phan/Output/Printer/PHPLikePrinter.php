@@ -6,6 +6,10 @@ use Phan\IssueInstance;
 use Phan\Output\IssuePrinterInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
+/**
+ * This prints issues similarly to `php --syntax-check` to the configured OutputInterface.
+ * The output is intended for use by other programs (or processes)
+ */
 final class PHPLikePrinter implements IssuePrinterInterface
 {
     /** @var OutputInterface */

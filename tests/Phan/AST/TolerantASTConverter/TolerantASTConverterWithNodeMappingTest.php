@@ -50,6 +50,7 @@ final class TolerantASTConverterWithNodeMappingTest extends BaseTest
         $candidates = [];
         $this->findSelectedNodeInner($node, $candidates);
         $this->assertCount(1, $candidates, 'expected one node to be marked with isSelected');
+        // @phan-suppress-next-line PhanPossiblyNullTypeReturn
         return $candidates[0];
     }
 
