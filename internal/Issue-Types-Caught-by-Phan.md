@@ -522,7 +522,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/files/expected/0
 If a class, method, function, property or constant is marked in its comment as `@deprecated`, any references to them will emit a deprecated error.
 
 ```
-Call to deprecated function {FUNCTIONLIKE}() defined at {FILE}:{LINE}
+Call to deprecated function {FUNCTIONLIKE} defined at {FILE}:{LINE}
 ```
 
 This will be emitted for the following code.
@@ -536,7 +536,7 @@ f1();
 ## PhanDeprecatedFunctionInternal
 
 ```
-Call to deprecated function {FUNCTIONLIKE}()
+Call to deprecated function {FUNCTIONLIKE}
 ```
 
 ## PhanDeprecatedInterface
@@ -749,7 +749,7 @@ YMMV.
 ## PhanUnreferencedClosure
 
 ```
-Possibly zero references to closure {FUNCTION}
+Possibly zero references to {FUNCTION}
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/plugin_test/expected/017_unreferenced_closure.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.1.1/tests/plugin_test/src/017_unreferenced_closure.php#L10).
@@ -1275,7 +1275,7 @@ Declaration of {METHOD} should be compatible with internal {METHOD} (the method 
 ## PhanParamSpecial1
 
 ```
-Argument {INDEX} ({PARAMETER}) is {TYPE} but {FUNCTIONLIKE}() takes {TYPE} when argument {INDEX} is {TYPE}
+Argument {INDEX} ({PARAMETER}) is {TYPE} but {FUNCTIONLIKE} takes {TYPE} when argument {INDEX} is {TYPE}
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/files/expected/0511_implode.php.expected#L3) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.1.1/tests/files/src/0511_implode.php#L8).
@@ -1283,7 +1283,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/files/expected/0
 ## PhanParamSpecial2
 
 ```
-Argument {INDEX} ({PARAMETER}) is {TYPE} but {FUNCTIONLIKE}() takes {TYPE} when passed only one argument
+Argument {INDEX} ({PARAMETER}) is {TYPE} but {FUNCTIONLIKE} takes {TYPE} when passed only one argument
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/files/expected/0511_implode.php.expected#L2) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.1.1/tests/files/src/0511_implode.php#L4).
@@ -1317,7 +1317,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/files/expected/0
 This issue indicates that you're not passing in at least the number of required parameters to a function or method.
 
 ```
-Call with {COUNT} arg(s) to {FUNCTIONLIKE}() which requires {COUNT} arg(s) defined at {FILE}:{LINE}
+Call with {COUNT} arg(s) to {FUNCTIONLIKE} which requires {COUNT} arg(s) defined at {FILE}:{LINE}
 ```
 
 This will be emitted for the code
@@ -1330,7 +1330,7 @@ f6();
 ## PhanParamTooFewCallable
 
 ```
-Call with {COUNT} arg(s) to {FUNCTIONLIKE}() (as a provided callable) which requires {COUNT} arg(s) defined at {FILE}:{LINE}
+Call with {COUNT} arg(s) to {FUNCTIONLIKE} (as a provided callable) which requires {COUNT} arg(s) defined at {FILE}:{LINE}
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/misc/fallback_test/expected/033_closure_crash.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.1.1/tests/misc/fallback_test/src/033_closure_crash.php#L2).
@@ -1340,7 +1340,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/misc/fallback_te
 This issue indicates that you're not passing in at least the number of required parameters to an internal function or method.
 
 ```
-Call with {COUNT} arg(s) to {FUNCTIONLIKE}() which requires {COUNT} arg(s)
+Call with {COUNT} arg(s) to {FUNCTIONLIKE} which requires {COUNT} arg(s)
 ```
 
 This will be emitted for the code
@@ -1354,7 +1354,7 @@ strlen();
 This issue is emitted when you're passing more than the number of required and optional parameters than are defined for a method or function.
 
 ```
-Call with {COUNT} arg(s) to {FUNCTIONLIKE}() which only takes {COUNT} arg(s) defined at {FILE}:{LINE}
+Call with {COUNT} arg(s) to {FUNCTIONLIKE} which only takes {COUNT} arg(s) defined at {FILE}:{LINE}
 ```
 
 This will be emitted for the code
@@ -1367,7 +1367,7 @@ f7(1, 2);
 ## PhanParamTooManyCallable
 
 ```
-Call with {COUNT} arg(s) to {FUNCTIONLIKE}() (As a provided callable) which only takes {COUNT} arg(s) defined at {FILE}:{LINE}
+Call with {COUNT} arg(s) to {FUNCTIONLIKE} (As a provided callable) which only takes {COUNT} arg(s) defined at {FILE}:{LINE}
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/files/expected/0365_array_map_callable.php.expected#L8) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.1.1/tests/files/src/0365_array_map_callable.php#L53).
@@ -1377,7 +1377,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/files/expected/0
 This issue is emitted when you're passing more than the number of required and optional parameters than are defined for an internal method or function.
 
 ```
-Call with {COUNT} arg(s) to {FUNCTIONLIKE}() which only takes {COUNT} arg(s)
+Call with {COUNT} arg(s) to {FUNCTIONLIKE} which only takes {COUNT} arg(s)
 ```
 
 This will be emitted for the code
@@ -1386,10 +1386,24 @@ This will be emitted for the code
 strlen('str', 42);
 ```
 
+## PhanParamTooManyUnpack
+
+```
+Call with {COUNT} or more args to {FUNCTIONLIKE} which only takes {COUNT} arg(s) defined at {FILE}:{LINE} (argument unpacking was used)
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/files/expected/0562_unpack_too_many.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/files/src/0562_unpack_too_many.php#L7).
+
+## PhanParamTooManyUnpackInternal
+
+```
+Call with {COUNT} or more args to {FUNCTIONLIKE} which only takes {COUNT} arg(s) (argument unpacking was used)
+```
+
 ## PhanParamTypeMismatch
 
 ```
-Argument {INDEX} is {TYPE} but {FUNCTIONLIKE}() takes {TYPE}
+Argument {INDEX} is {TYPE} but {FUNCTIONLIKE} takes {TYPE}
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/files/expected/0364_extended_array_analyze.php.expected#L33) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.1.1/tests/files/src/0364_extended_array_analyze.php#L41).
@@ -1563,7 +1577,7 @@ This issue (and similar issues) may be emitted when `strict_param_checking` is t
 (when some types of the argument's union type match, but not others.)
 
 ```
-Argument {INDEX} ({VARIABLE}) is {TYPE} but {FUNCTIONLIKE}() takes {TYPE} ({TYPE} is incompatible) defined at {FILE}:{LINE}
+Argument {INDEX} ({VARIABLE}) is {TYPE} but {FUNCTIONLIKE} takes {TYPE} ({TYPE} is incompatible) defined at {FILE}:{LINE}
 ```
 
 ## PhanPartialTypeMismatchArgumentInternal
@@ -1571,7 +1585,7 @@ Argument {INDEX} ({VARIABLE}) is {TYPE} but {FUNCTIONLIKE}() takes {TYPE} ({TYPE
 This issue may be emitted when `strict_param_checking` is true, when analyzing an internal function.
 
 ```
-Argument {INDEX} ({VARIABLE}) is {TYPE} but {FUNCTIONLIKE}() takes {TYPE} ({TYPE} is incompatible)
+Argument {INDEX} ({VARIABLE}) is {TYPE} but {FUNCTIONLIKE} takes {TYPE} ({TYPE} is incompatible)
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/plugin_test/expected/025_strict_param_checks.php.expected#L3) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.1.1/tests/plugin_test/src/025_strict_param_checks.php#L8).
@@ -1592,7 +1606,7 @@ This issue (and similar issues) may be emitted when `strict_return_checking` is 
 (when some types of the return statement's union type match, but not others.)
 
 ```
-Returning type {TYPE} but {FUNCTIONLIKE}() is declared to return {TYPE} ({TYPE} is incompatible)
+Returning type {TYPE} but {FUNCTIONLIKE} is declared to return {TYPE} ({TYPE} is incompatible)
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/plugin_test/expected/026_strict_return_checks.php.expected#L2) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.1.1/tests/plugin_test/src/026_strict_return_checks.php#L23).
@@ -1602,7 +1616,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/plugin_test/expe
 This issue may be emitted when `strict_param_checking` is true
 
 ```
-Argument {INDEX} ({VARIABLE}) is {TYPE} but {FUNCTIONLIKE}() takes {TYPE} ({TYPE} is incompatible) defined at {FILE}:{LINE}
+Argument {INDEX} ({VARIABLE}) is {TYPE} but {FUNCTIONLIKE} takes {TYPE} ({TYPE} is incompatible) defined at {FILE}:{LINE}
 ```
 
 ## PhanPossiblyFalseTypeArgumentInternal
@@ -1610,7 +1624,7 @@ Argument {INDEX} ({VARIABLE}) is {TYPE} but {FUNCTIONLIKE}() takes {TYPE} ({TYPE
 This issue may be emitted when `strict_param_checking` is true
 
 ```
-Argument {INDEX} ({VARIABLE}) is {TYPE} but {FUNCTIONLIKE}() takes {TYPE} ({TYPE} is incompatible)
+Argument {INDEX} ({VARIABLE}) is {TYPE} but {FUNCTIONLIKE} takes {TYPE} ({TYPE} is incompatible)
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/plugin_test/expected/025_strict_param_checks.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.1.1/tests/plugin_test/src/025_strict_param_checks.php#L4).
@@ -1628,7 +1642,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/plugin_test/expe
 This issue may be emitted when `strict_return_checking` is true
 
 ```
-Returning type {TYPE} but {FUNCTIONLIKE}() is declared to return {TYPE} ({TYPE} is incompatible)
+Returning type {TYPE} but {FUNCTIONLIKE} is declared to return {TYPE} ({TYPE} is incompatible)
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/plugin_test/expected/026_strict_return_checks.php.expected#L3) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.1.1/tests/plugin_test/src/026_strict_return_checks.php#L31).
@@ -1638,7 +1652,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/plugin_test/expe
 This issue may be emitted when `strict_param_checking` is true
 
 ```
-Argument {INDEX} ({VARIABLE}) is {TYPE} but {FUNCTIONLIKE}() takes {TYPE} ({TYPE} is incompatible) defined at {FILE}:{LINE}
+Argument {INDEX} ({VARIABLE}) is {TYPE} but {FUNCTIONLIKE} takes {TYPE} ({TYPE} is incompatible) defined at {FILE}:{LINE}
 ```
 
 ## PhanPossiblyNullTypeArgumentInternal
@@ -1646,7 +1660,7 @@ Argument {INDEX} ({VARIABLE}) is {TYPE} but {FUNCTIONLIKE}() takes {TYPE} ({TYPE
 This issue may be emitted when `strict_param_checking` is true
 
 ```
-Argument {INDEX} ({VARIABLE}) is {TYPE} but {FUNCTIONLIKE}() takes {TYPE} ({TYPE} is incompatible)
+Argument {INDEX} ({VARIABLE}) is {TYPE} but {FUNCTIONLIKE} takes {TYPE} ({TYPE} is incompatible)
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/plugin_test/expected/025_strict_param_checks.php.expected#L2) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.1.1/tests/plugin_test/src/025_strict_param_checks.php#L6).
@@ -1664,7 +1678,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/plugin_test/expe
 This issue may be emitted when `strict_return_checking` is true
 
 ```
-Returning type {TYPE} but {FUNCTIONLIKE}() is declared to return {TYPE} ({TYPE} is incompatible)
+Returning type {TYPE} but {FUNCTIONLIKE} is declared to return {TYPE} ({TYPE} is incompatible)
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/plugin_test/expected/026_strict_return_checks.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.1.1/tests/plugin_test/src/026_strict_return_checks.php#L16).
@@ -1684,8 +1698,10 @@ e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/files/expected/0
 ## PhanTypeArrayOperator
 
 ```
-Invalid array operator between types {TYPE} and {TYPE}
+Invalid array operand provided to operator '{OPERATOR}' between types {TYPE} and {TYPE}
 ```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/files/expected/0561_bitwise_operands.php.expected#L2) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/files/src/0561_bitwise_operands.php#L4).
 
 ## PhanTypeArraySuspicious
 
@@ -1822,6 +1838,14 @@ This issue will be emitted for the following code
 ```php
 interface E {} (new E);
 ```
+
+## PhanTypeInvalidBitwiseBinaryOperator
+
+```
+Invalid non-int/non-string operand provided to operator '{OPERATOR}' between types {TYPE} and {TYPE}
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/files/expected/0561_bitwise_operands.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/files/src/0561_bitwise_operands.php#L3).
 
 ## PhanTypeInvalidCallableArrayKey
 
@@ -2005,6 +2029,22 @@ e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/files/expected/0
 
 e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/files/expected/0454_throws.php.expected#L5) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.1.1/tests/files/src/0454_throws.php#L30).
 
+## PhanTypeInvalidTraitParam
+
+```
+{FUNCTIONLIKE} is declared to have a parameter ${PARAMETER} with a real type of trait {TYPE} (expected a class or interface or built-in type)
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/files/expected/0560_trait_in_param_return.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/files/src/0560_trait_in_param_return.php#L8).
+
+## PhanTypeInvalidTraitReturn
+
+```
+Expected a class or interface (or built-in type) to be the real return type of {FUNCTIONLIKE} but got trait {TRAIT}
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/files/expected/0560_trait_in_param_return.php.expected#L3) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/files/src/0560_trait_in_param_return.php#L8).
+
 ## PhanTypeInvalidUnaryOperandBitwiseNot
 
 ```
@@ -2045,7 +2085,7 @@ class A { public function __set() { return true; } }
 ## PhanTypeMismatchArgument
 
 ```
-Argument {INDEX} ({VARIABLE}) is {TYPE} but {FUNCTIONLIKE}() takes {TYPE} defined at {FILE}:{LINE}
+Argument {INDEX} ({VARIABLE}) is {TYPE} but {FUNCTIONLIKE} takes {TYPE} defined at {FILE}:{LINE}
 ```
 
 This will be emitted for the code
@@ -2058,7 +2098,7 @@ f8('string');
 ## PhanTypeMismatchArgumentInternal
 
 ```
-Argument {INDEX} ({VARIABLE}) is {TYPE} but {FUNCTIONLIKE}() takes {TYPE}
+Argument {INDEX} ({VARIABLE}) is {TYPE} but {FUNCTIONLIKE} takes {TYPE}
 ```
 
 This will be emitted for the code
@@ -2074,6 +2114,14 @@ Attempting an array destructing assignment with a key of type {TYPE} but the onl
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/files/expected/0402_array_destructuring.php.expected#L2) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.1.1/tests/files/src/0402_array_destructuring.php#L4).
+
+## PhanTypeMismatchBitwiseBinaryOperands
+
+```
+Unexpected mix of int and string operands provided to operator '{OPERATOR}' between types {TYPE} and {TYPE} (expected one type but not both)
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/files/expected/0561_bitwise_operands.php.expected#L8) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/files/src/0561_bitwise_operands.php#L11).
 
 ## PhanTypeMismatchDeclaredParam
 
@@ -2164,7 +2212,7 @@ foreach (null as $i) {}
 ## PhanTypeMismatchGeneratorYieldKey
 
 ```
-Yield statement has a key with type {TYPE} but {FUNCTIONLIKE}() is declared to yield keys of type {TYPE} in {TYPE}
+Yield statement has a key with type {TYPE} but {FUNCTIONLIKE} is declared to yield keys of type {TYPE} in {TYPE}
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/files/expected/0475_analyze_yield_from.php.expected#L2) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.1.1/tests/files/src/0475_analyze_yield_from.php#L24).
@@ -2172,7 +2220,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/files/expected/0
 ## PhanTypeMismatchGeneratorYieldValue
 
 ```
-Yield statement has a value with type {TYPE} but {FUNCTIONLIKE}() is declared to yield values of type {TYPE} in {TYPE}
+Yield statement has a value with type {TYPE} but {FUNCTIONLIKE} is declared to yield values of type {TYPE} in {TYPE}
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/files/expected/0475_analyze_yield_from.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.1.1/tests/files/src/0475_analyze_yield_from.php#L23).
@@ -2192,7 +2240,7 @@ function f(int $p = false) {}
 ## PhanTypeMismatchReturn
 
 ```
-Returning type {TYPE} but {FUNCTIONLIKE}() is declared to return {TYPE}
+Returning type {TYPE} but {FUNCTIONLIKE} is declared to return {TYPE}
 ```
 
 This issue is emitted from the following code
@@ -2250,7 +2298,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/files/expected/0
 ## PhanTypeNonVarPassByRef
 
 ```
-Only variables can be passed by reference at argument {INDEX} of {FUNCTIONLIKE}()
+Only variables can be passed by reference at argument {INDEX} of {FUNCTIONLIKE}
 ```
 
 This issue is emitted from the following code
@@ -2700,7 +2748,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/files/expected/0
 If you have a parameter on a function or method of a type that is not defined, you'll see this issue.
 
 ```
-Parameter of undeclared type {TYPE}
+Parameter ${PARAMETER} has undeclared type {TYPE}
 ```
 
 This issue will be emitted from the following code
@@ -2964,7 +3012,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/files/expected/0
 ## PhanThrowTypeAbsent
 
 ```
-{METHOD}() can throw {TYPE} here, but has no '@throws' declarations for that class
+{FUNCTIONLIKE} can throw {TYPE} here, but has no '@throws' declarations for that class
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/plugin_test/expected/040_if_assign.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.1.1/tests/plugin_test/src/040_if_assign.php#L4).
@@ -2972,7 +3020,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/plugin_test/expe
 ## PhanThrowTypeAbsentForCall
 
 ```
-{METHOD}() can throw {TYPE} because it calls {FUNCTIONLIKE}(), but has no '@throws' declarations for that class
+{FUNCTIONLIKE} can throw {TYPE} because it calls {FUNCTIONLIKE}, but has no '@throws' declarations for that class
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/plugin_test/expected/043_throws.php.expected#L2) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.1.1/tests/plugin_test/src/043_throws.php#L22).
@@ -2980,13 +3028,13 @@ e.g. [this issue](https://github.com/phan/phan/tree/1.1.1/tests/plugin_test/expe
 ## PhanThrowTypeMismatch
 
 ```
-{METHOD}() throws {TYPE}, but it only has declarations of '@throws {TYPE}'
+{FUNCTIONLIKE} throws {TYPE}, but it only has declarations of '@throws {TYPE}'
 ```
 
 ## PhanThrowTypeMismatchForCall
 
 ```
-{METHOD}() throws {TYPE} because it calls {FUNCTIONLIKE}(), but it only has declarations of '@throws {TYPE}'
+{FUNCTIONLIKE} throws {TYPE} because it calls {FUNCTIONLIKE}, but it only has declarations of '@throws {TYPE}'
 ```
 
 ## PhanUnextractableAnnotation

@@ -12,7 +12,7 @@ use Phan\Language\UnionType;
  * This is converted to a real class when necessary.
  * @see $this->withStaticResolvedInContext()
  */
-final class StaticType extends Type
+final class StaticType extends StaticOrSelfType
 {
     /** Not an override */
     const NAME = 'static';

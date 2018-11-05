@@ -38,6 +38,13 @@ interface FunctionInterface extends AddressableElementInterface
     public function getRepresentationForIssue() : string;
 
     /**
+     * @return string
+     * The name of this structural element (without namespace/class),
+     * or a string for FunctionLikeDeclarationType (or a closure) which lacks a real FQSEN
+     */
+    public function getNameForIssue() : string;
+
+    /**
      * Sets the scope within this function-like element's body,
      * for tracking variables within the function-like.
      * @return void
@@ -382,4 +389,6 @@ interface FunctionInterface extends AddressableElementInterface
      * Converts Generator|array<int,stdClass> to Generator<int,stdClass>, etc.
      */
     public function getReturnTypeAsGeneratorTemplateType() : Type;
+
+    public function getUnionTypeWithUnmodifiedStatic() : UnionType;
 }

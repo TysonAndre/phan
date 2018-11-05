@@ -3,6 +3,11 @@ Phan NEWS
 ?? ??? 2018, Phan 1.1.2 (dev)
 -----------------------
 
+New features(CLI)
++ Make `phan --progress-bar` fit within narrower console widths. (#2096)
+  (Make the old width into the new **maximum** width)
+  Additionally, use a gradient of shades for the progress bar.
+
 New features(Analysis):
 + Warn when attempting to read from a write-only real/magic property (or vice-versa) (#595)
 
@@ -15,10 +20,31 @@ New features(Analysis):
 
   By default, this will only warn about use statements made from the global namespace, of elements also in the global namespace.
   To also warn about redundant **namespaced** uses of classes/namespaces (e.g. `namespace Foo; use Foo\MyClass;`), enable `warn_about_redundant_use_namespaced_class`
++ Warn when using a trait as a real param/return type of a method-like (#2007)
+  New issue types: `PhanTypeInvalidTraitParam`, `PhanTypeInvalidTraitReturn`
++ Improve the polyfill/fallback parser's heredoc and nowdoc lexing (#1537)
++ Properly warn about an undefined variable being passed to `array_shift` (it expects an array but undefined is converted to null) (related to fix for #2100)
++ Stop adding generic int/string to the type of a class property when the doc comment mentions only literal int/string values (#2102)
+  (e.g. `@var 1|2`)
++ Improve line number of warning about extra comma in arrays (i.e. empty array elements). (#2066)
++ Properly parse [flexible heredoc/nowdoc syntaxes](https://wiki.php.net/rfc/flexible_heredoc_nowdoc_syntaxes) that were added in PHP 7.3 (#1537)
++ Warn about more invalid operands of the binary operators `^`,`/`,`&` (#1825)
+  Also, fix cases where `PhanTypeArrayOperator` would not be emitted.
+  New issue types: `PhanTypeInvalidBitwiseBinaryOperator`, `PhanTypeMismatchBitwiseBinaryOperands`
++ Indicate when warnings about too many arguments are caused only by argument unpacking. (#1324)
+  New issue types: `PhanParamTooManyUnpack`, `PhanParamTooManyUnpackInternal`
++ Properly warn about undefined namespaced constants/functions from within a namespace (#2112)
+  Phan was failing to warn in some cases.
+
+Maintenance:
++ Make issue messages more consistent in their syntax used to describe closures/functions (#1695)
++ Consistently refer to instance properties as `Class->propname` and static properties as `Class::$staticpropname` in issue messages.
 
 Bug fixes:
 + Properly type check `static::someMethodName()`.
   Previously, Phan would fail to infer types for the results of those method calls.
++ Improve handling of `array_shift`. Don't warn when it's used on a global or superglobal (#2100)
++ Infer that `self` and `static` in a trait refer to the methods of that trait. (#2006)
 
 22 Oct 2018, Phan 1.1.1
 -----------------------
@@ -45,7 +71,7 @@ New features(Analysis):
   1. Has no declared properties (`TypeNoPropertiesForeach`)
   2. Has properties and none are accessible. (`TypeNoAccessiblePropertiesForeach`)
   3. Has properties and some are accessible. (`TypeSuspiciousNonTraversableForeach`)
-+ Add `@phan-template` and `@phan-inherits` as aliases for `@template` and `@inherits`
++ Add `@phan-template` and `@phan-inherits` as aliases for `@template` and `@inherits` (#2063)
 + Warn about passing non-objects to `clone()` (`PhanTypeInvalidCloneNotObject`) (#1798)
 
 Maintenance:

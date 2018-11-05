@@ -918,7 +918,6 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             $is_trait = $clazz->isTrait();
         }
 
-
         // Get the method/function/closure we're in
         $method = $context->getFunctionLikeInScope($code_base);
 
@@ -930,7 +929,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
 
         // Figure out what we intend to return
         // (For traits, lower the false positive rate by comparing against the real return type instead of the phpdoc type (#800))
-        $method_return_type = $is_trait ? $method->getRealReturnType() : $method->getUnionType();
+        $method_return_type = $is_trait ? $method->getRealReturnType()->withAddedClassForResolvedSelf($method->getContext()) : $method->getUnionType();
 
         // This leaves functions which aren't syntactically generators.
 
@@ -964,7 +963,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                         Issue::TypeMismatchReturn,
                         $lineno,
                         (string)$expression_type,
-                        $method->getName(),
+                        $method->getNameForIssue(),
                         (string)$method_return_type
                     );
                 } elseif (Config::get_strict_return_checking() && $expression_type->typeCount() > 1) {
@@ -1018,7 +1017,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                     Issue::TypeMismatchReturn,
                     $lineno,
                     (string)$expression_type,
-                    $method->getName(),
+                    $method->getNameForIssue(),
                     (string)$expected_return_type
                 );
             } elseif (Config::get_strict_return_checking() && $expression_type->typeCount() > 1) {
@@ -1076,7 +1075,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 Issue::TypeMismatchGeneratorYieldValue,
                 $node->lineno,
                 (string)$yield_value_type,
-                $method->getName(),
+                $method->getNameForIssue(),
                 (string)$expected_value_type,
                 '\Generator<' . implode(',', $template_type_list) . '>'
             );
@@ -1096,7 +1095,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                     Issue::TypeMismatchGeneratorYieldKey,
                     $node->lineno,
                     (string)$yield_key_type,
-                    $method->getName(),
+                    $method->getNameForIssue(),
                     (string)$expected_key_type,
                     '\Generator<' . implode(',', $template_type_list) . '>'
                 );
@@ -1176,7 +1175,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 Issue::TypeMismatchGeneratorYieldValue,
                 $node->lineno,
                 (string)$yield_value_type,
-                $method->getName(),
+                $method->getNameForIssue(),
                 (string)$expected_value_type,
                 '\Generator<' . implode(',', $template_type_list) . '>'
             );
@@ -1191,7 +1190,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                     Issue::TypeMismatchGeneratorYieldKey,
                     $node->lineno,
                     (string)$yield_key_type,
-                    $method->getName(),
+                    $method->getNameForIssue(),
                     (string)$expected_key_type,
                     '\Generator<' . implode(',', $template_type_list) . '>'
                 );
@@ -1272,7 +1271,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             self::getStrictIssueType($mismatch_type_set),
             $lineno,
             (string)$expression_type,
-            $method->getName(),
+            $method->getNameForIssue(),
             (string)$method_return_type,
             $mismatch_expanded_types
         );
@@ -2546,7 +2545,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                             $code_base,
                             $context,
                             $argument
-                        ))->getOrCreateVariable();
+                        ))->getOrCreateVariableForReferenceParameter($parameter);
                     } catch (NodeException $_) {
                         // E.g. `function_accepting_reference(${$varName})` - Phan can't analyze outer type of ${$varName}
                         continue;
@@ -2662,7 +2661,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                     $code_base,
                     $context,
                     $argument
-                ))->getOrCreateVariable();
+                ))->getOrCreateVariableForReferenceParameter($parameter);
             } catch (NodeException $_) {
                 // E.g. `function_accepting_reference(${$varName})` - Phan can't analyze outer type of ${$varName}
                 return;
@@ -2895,6 +2894,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
 
         $original_method_scope = $method->getInternalScope();
         $method->setInternalScope(clone($original_method_scope));
+        $method_context = $method->getContext();
 
         try {
             // Even though we don't modify the parameter list, we still need to know the types
@@ -2972,7 +2972,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             // Now that we know something about the parameters used
             // to call the method, we can reanalyze the method with
             // the types of the parameter
-            $method->analyzeWithNewParams($method->getContext(), $this->code_base, $parameter_list);
+            $method->analyzeWithNewParams($method_context, $this->code_base, $parameter_list);
         } finally {
             $method->setInternalScope($original_method_scope);
         }
@@ -3061,7 +3061,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                     $this->code_base,
                     $this->context,
                     $argument
-                ))->getOrCreateVariable();
+                ))->getOrCreateVariableForReferenceParameter($parameter);
             } catch (NodeException $_) {
                 // Could not figure out the node name
                 return;

@@ -20,6 +20,7 @@ use Phan\Language\Element\Func;
 use Phan\Language\Element\FunctionInterface;
 use Phan\Language\Element\GlobalConstant;
 use Phan\Language\Element\Method;
+use Phan\Language\Element\Parameter;
 use Phan\Language\Element\Property;
 use Phan\Language\Element\TraitAdaptations;
 use Phan\Language\Element\TraitAliasSource;
@@ -965,6 +966,7 @@ class ContextNode
                 return $code_base->getFunctionByFQSEN($function_fqsen);
             }
         } elseif (($node->flags & ast\flags\NAME_RELATIVE) !== 0) {
+            // For relative functions (e.g. namespace\foo())
             $function_fqsen = FullyQualifiedFunctionName::make($namespace, $function_name);
             if (!$code_base->hasFunctionWithFQSEN($function_fqsen)) {
                 $this->throwUndeclaredFunctionIssueException($function_fqsen);
@@ -993,7 +995,7 @@ class ContextNode
                 if ($code_base->hasFunctionWithFQSEN($function_fqsen)) {
                     return $code_base->getFunctionByFQSEN($function_fqsen);
                 }
-                if ($namespace === '') {
+                if ($namespace === '' || \strpos($function_name, '\\') !== false) {
                     throw new IssueException(
                         Issue::fromType(Issue::UndeclaredFunction)(
                             $context->getFile(),
@@ -1006,9 +1008,9 @@ class ContextNode
                 // in the global namespace
             }
             $function_fqsen =
-                FullyQualifiedFunctionName::fromStringInContext(
-                    $function_name,
-                    $context
+                FullyQualifiedFunctionName::make(
+                    '',
+                    $function_name
                 );
         }
 
@@ -1050,6 +1052,16 @@ class ContextNode
 
         // Check to see if the variable exists in this scope
         if (!$this->context->getScope()->hasVariableWithName($variable_name)) {
+            if (Variable::isHardcodedVariableInScopeWithName($variable_name, $this->context->isInGlobalScope())) {
+                // We return a clone of the global or superglobal variable
+                // that can't be used to influence the type of that superglobal in other files.
+                return new Variable(
+                    $this->context,
+                    $variable_name,
+                    Variable::getUnionTypeOfHardcodedGlobalVariableWithName($variable_name),
+                    0
+                );
+            }
             throw new IssueException(
                 Issue::fromType(Issue::UndeclaredVariable)(
                     $this->context->getFile(),
@@ -1096,6 +1108,16 @@ class ContextNode
             // Check to see if the variable exists in this scope
             $scope = $this->context->getScope();
             if (!$scope->hasVariableWithName($variable_name)) {
+                if (Variable::isHardcodedVariableInScopeWithName($variable_name, $this->context->isInGlobalScope())) {
+                    // We return a clone of the global or superglobal variable
+                    // that can't be used to influence the type of that superglobal in other files.
+                    return new Variable(
+                        $this->context,
+                        $variable_name,
+                        Variable::getUnionTypeOfHardcodedGlobalVariableWithName($variable_name),
+                        0
+                    );
+                }
                 throw new IssueException(
                     Issue::fromType(Issue::UndeclaredVariable)(
                         $this->context->getFile(),
@@ -1119,6 +1141,10 @@ class ContextNode
      *
      * @throws NodeException
      * An exception is thrown if we can't understand the node
+     *
+     * @unused
+     * @suppress PhanUnreferencedPublicMethod
+     * @see $this->getOrCreateVariableForReferenceParameter() - That is probably what you want instead.
      */
     public function getOrCreateVariable() : Variable
     {
@@ -1140,6 +1166,54 @@ class ContextNode
             $this->code_base,
             false
         );
+
+        $this->context->addScopeVariable($variable);
+
+        return $variable;
+    }
+
+    /**
+     * @return Variable
+     * A variable in scope or a new variable
+     *
+     * @throws NodeException
+     * An exception is thrown if we can't understand the node
+     *
+     * TODO: Fix #1334 by passing in an extra nullable $real_parameter
+     */
+    public function getOrCreateVariableForReferenceParameter(Parameter $parameter) : Variable
+    {
+        try {
+            return $this->getVariable();
+        } catch (IssueException $_) {
+            // Swallow it
+        }
+
+        $node = $this->node;
+        if (!($node instanceof Node)) {
+            throw new AssertionError('$this->node must be a node');
+        }
+
+        // Create a new variable
+        $variable = Variable::fromNodeInContext(
+            $node,
+            $this->context,
+            $this->code_base,
+            false
+        );
+        static $null_type = null;
+        if ($null_type === null) {
+            $null_type = NullType::instance(false)->asUnionType();
+        }
+        if ($parameter->getReferenceType() === Parameter::REFERENCE_READ_WRITE) {
+            // If this is a variable that is both read and written,
+            // then set the previously undefined variable type to null instead so we can type check it
+            // (e.g. arguments to array_shift())
+            // (TODO: read/writeable is currently only possible to annotate for internal functions in FunctionSignatureMap.php),
+
+            // TODO: How should this handle variadic references?
+            $variable->setUnionType($null_type);
+        }
 
         $this->context->addScopeVariable($variable);
 
@@ -1271,7 +1345,7 @@ class ContextNode
                         $this->context->getFile(),
                         $node->lineno ?? 0,
                         [
-                            (string)$property->getFQSEN(),
+                            $property->getRepresentationForIssue(),
                             $property->getFileRef()->getFile(),
                             $property->getFileRef()->getLineNumberStart(),
                         ]
@@ -1290,7 +1364,7 @@ class ContextNode
                         $this->context->getFile(),
                         $node->lineno ?? 0,
                         [
-                            (string)$property->getFQSEN(),
+                            $property->getRepresentationForIssue(),
                             $property->getElementNamespace(),
                             $property->getFileRef()->getFile(),
                             $property->getFileRef()->getLineNumberStart(),
@@ -1521,46 +1595,44 @@ class ContextNode
         }
 
         $context = $this->context;
+        $flags = $node->children['name']->flags;
+        if (($flags & ast\flags\NAME_RELATIVE) !== 0) {
+            $fqsen = FullyQualifiedGlobalConstantName::make($context->getNamespace(), $constant_name);
+        } elseif (($flags & ast\flags\NAME_NOT_FQ) !== 0) {
+            if ($context->hasNamespaceMapFor(\ast\flags\USE_CONST, $constant_name)) {
+                // If we already have `use const CONST_NAME;`
+                $fqsen = $context->getNamespaceMapFor(\ast\flags\USE_CONST, $constant_name);
+                if (!($fqsen instanceof FullyQualifiedGlobalConstantName)) {
+                    throw new AssertionError("expected to fetch a fully qualified const name for this namespace use");
+                }
 
-        if ($context->hasNamespaceMapFor(\ast\flags\USE_CONST, $constant_name)) {
-            // If we already have `use const CONST_NAME;`
-            $fqsen = $context->getNamespaceMapFor(\ast\flags\USE_CONST, $constant_name);
-            if (!($fqsen instanceof FullyQualifiedGlobalConstantName)) {
-                throw new AssertionError("expected to fetch a fully qualified const name for this namespace use");
-            }
-
-            // make sure the method we're calling actually exists
-            if (!$code_base->hasGlobalConstantWithFQSEN($fqsen)) {
                 // the fqsen from 'use myns\const_name;' was the only possible fqsen for that const.
-                throw new IssueException(
-                    Issue::fromType(Issue::UndeclaredConstant)(
-                        $context->getFile(),
-                        $node->lineno ?? 0,
-                        [ $fqsen ]
-                    )
-                );
-            }
-        } else {
-            $fqsen = FullyQualifiedGlobalConstantName::fromStringInContext(
-                $constant_name,
-                $context
-            );
-
-            if (!$code_base->hasGlobalConstantWithFQSEN($fqsen)) {
-                $fqsen = FullyQualifiedGlobalConstantName::fromFullyQualifiedString(
+            } else {
+                $fqsen = FullyQualifiedGlobalConstantName::make(
+                    $context->getNamespace(),
                     $constant_name
                 );
 
                 if (!$code_base->hasGlobalConstantWithFQSEN($fqsen)) {
-                    throw new IssueException(
-                        Issue::fromType(Issue::UndeclaredConstant)(
-                            $context->getFile(),
-                            $node->lineno ?? 0,
-                            [ $fqsen ]
-                        )
+                    if (\strpos($constant_name, '\\') !== false) {
+                        $this->throwUndeclaredGlobalConstantIssueException($fqsen);
+                    }
+                    $fqsen = FullyQualifiedGlobalConstantName::fromFullyQualifiedString(
+                        $constant_name
                     );
                 }
             }
+        } else {
+            // This is a fully qualified constant
+            $fqsen = FullyQualifiedGlobalConstantName::fromFullyQualifiedString(
+                $constant_name
+            );
+        }
+        // This is either a fully qualified constant,
+        // or a relative constant for which nothing was found in the namespace
+
+        if (!$code_base->hasGlobalConstantWithFQSEN($fqsen)) {
+            $this->throwUndeclaredGlobalConstantIssueException($fqsen);
         }
 
         $constant = $code_base->getGlobalConstantByFQSEN($fqsen);
@@ -1571,6 +1643,7 @@ class ContextNode
                 $context
             )
         ) {
+            // TODO: Refactor and also check namespaced constants
             throw new IssueException(
                 Issue::fromType(Issue::AccessConstantInternal)(
                     $context->getFile(),
@@ -1587,6 +1660,20 @@ class ContextNode
         }
 
         return $constant;
+    }
+
+    /**
+     * @throws IssueException
+     */
+    private function throwUndeclaredGlobalConstantIssueException(FullyQualifiedGlobalConstantName $fqsen)
+    {
+        throw new IssueException(
+            Issue::fromType(Issue::UndeclaredConstant)(
+                $this->context->getFile(),
+                $this->node->lineno ?? 0,
+                [ $fqsen ]
+            )
+        );
     }
 
     /**
@@ -1960,12 +2047,7 @@ class ContextNode
         $elements = [];
         foreach ($node->children as $child_node) {
             if (!($child_node instanceof Node)) {
-                // NOTE: This won't be consistently emitted
-                $this->emitIssue(
-                    Issue::SyntaxError,
-                    $node->lineno,
-                    "Cannot use empty array elements in arrays"
-                );
+                self::warnAboutEmptyArrayElements($this->code_base, $this->context, $node);
                 continue;
             }
             $key_node = ($flags & self::RESOLVE_ARRAY_KEYS) != 0 ? $child_node->children['key'] : null;
@@ -1995,6 +2077,35 @@ class ContextNode
         return $elements;
     }
 
+    /**
+     * @param Node $node a node of kind AST_ARRAY
+     * @suppress PhanUndeclaredProperty this adds a dynamic property
+     * @return void
+     */
+    public static function warnAboutEmptyArrayElements(CodeBase $code_base, Context $context, Node $node)
+    {
+        if (isset($node->didWarnAboutEmptyArrayElements)) {
+            return;
+        }
+        $node->didWarnAboutEmptyArrayElements = true;
+
+        $lineno = $node->lineno;
+        foreach ($node->children as $child_node) {
+            if (!$child_node) {
+                // Emit the line number of the nearest Node before this empty element
+                Issue::maybeEmit(
+                    $code_base,
+                    $context,
+                    Issue::SyntaxError,
+                    $lineno,
+                    "Cannot use empty array elements in arrays"
+                );
+                continue;
+            }
+            // Update the line number of the nearest Node
+            $lineno = $child_node->lineno;
+        }
+    }
     /**
      * This converts an AST node in context to the value it represents.
      * This is useful for plugins, etc, and will gradually improve.
