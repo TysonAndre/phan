@@ -10,6 +10,7 @@ use Phan\Output\Filter\ChainedIssueFilter;
 use Phan\Output\Filter\FileIssueFilter;
 use Phan\Output\Filter\MinimumSeverityFilter;
 use Phan\Output\PrinterFactory;
+use Phan\Plugin\Internal\MethodSearcherPlugin;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Output\StreamOutput;
@@ -28,7 +29,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    const PHAN_VERSION = '1.1.2-dev';
+    const PHAN_VERSION = '1.1.3-dev';
 
     /**
      * List of short flags passed to getopt
@@ -55,6 +56,7 @@ class CLI
         'dump-ast',
         'dump-parsed-file-list',
         'dump-signatures-file:',
+        'find-signature:',
         'exclude-directory-list:',
         'exclude-file:',
         'extended-help',
@@ -98,6 +100,7 @@ class CLI
         'quick',
         'require-config-exists',
         'signature-compatibility',
+        'strict-method-checking',
         'strict-param-checking',
         'strict-property-checking',
         'strict-return-checking',
@@ -320,6 +323,23 @@ class CLI
                 case 'dump-signatures-file':
                     Config::setValue('dump_signatures_file', $value);
                     break;
+                case 'find-signature':
+                    try {
+                        if (!is_string($value)) {
+                            throw new InvalidArgumentException("Expected a string, got " . json_encode($value));
+                        }
+                        // @phan-suppress-next-line PhanAccessMethodInternal
+                        MethodSearcherPlugin::setSearchString($value);
+                    } catch (InvalidArgumentException $e) {
+                        fwrite(STDERR, "Invalid argument '$value' to --find-signature. Error: " . $e->getMessage() . "\n");
+                        exit(EXIT_FAILURE);
+                    }
+
+                    Config::setValue('plugins', array_merge(
+                        Config::getValue('plugins'),
+                        [__DIR__ . '/Plugin/Internal/MethodSearcherPluginLoader.php']
+                    ));
+                    break;
                 case 'o':
                 case 'output':
                     $this->output = new StreamOutput(fopen($value, 'w'));
@@ -390,6 +410,9 @@ class CLI
                 case 'use-fallback-parser':
                     Config::setValue('use_fallback_parser', true);
                     break;
+                case 'strict-method-checking':
+                    Config::setValue('strict_method_checking', true);
+                    break;
                 case 'strict-param-checking':
                     Config::setValue('strict_param_checking', true);
                     break;
@@ -400,6 +423,7 @@ class CLI
                     Config::setValue('strict_return_checking', true);
                     break;
                 case 'strict-type-checking':
+                    Config::setValue('strict_method_checking', true);
                     Config::setValue('strict_param_checking', true);
                     Config::setValue('strict_property_checking', true);
                     Config::setValue('strict_return_checking', true);
@@ -787,6 +811,9 @@ Usage: {$argv[0]} [options] [files...]
   Add a plugin to run. This flag can be repeated.
   (Either pass the name of the plugin or a relative/absolute path to the plugin)
 
+ --strict-method-checking
+  Enables the config option `strict_method_checking`.
+
  --strict-param-checking
   Enables the config option `strict_param_checking`.
 
@@ -798,7 +825,7 @@ Usage: {$argv[0]} [options] [files...]
 
  --strict-type-checking
   Equivalent to
-  `--strict-param-checking --strict-property-checking --strict-return-checking`.
+  `--strict-method-checking --strict-param-checking --strict-property-checking --strict-return-checking`.
 
  --use-fallback-parser
   If a file to be analyzed is syntactically invalid
@@ -858,6 +885,10 @@ Extended help:
  --dump-signatures-file <filename>
   Emit JSON serialized signatures to the given file.
   This uses a method signature format similar to FunctionSignatureMap.php.
+
+ --find-signature 'paramUnionType1->paramUnionType2->returnUnionType'
+  Find a signature in the analyzed codebase that is similar to the argument.
+  See tool/phoogle for examples.
 
  --memory-limit <memory_limit>
   Sets the memory limit for analysis (per process).
@@ -1180,10 +1211,10 @@ EOB;
         // The left-most characters are "Light shade"
         $progress_bar = str_repeat("\u{2588}", $current);
         $delta = $current_float - $current;
-        if ($delta > 1.0/3) {
+        if ($delta > 1.0 / 3) {
             // The between character is "Full block" or "Medium shade" or "solid shade".
             // The remaining characters on the right are "Full block" (darkest)
-            $first = $delta > 2.0/3 ? "\u{2593}" : "\u{2592}";
+            $first = $delta > 2.0 / 3 ? "\u{2593}" : "\u{2592}";
             $progress_bar .= $first . str_repeat("\u{2591}", $rest - 1);
         } else {
             $progress_bar .= str_repeat("\u{2591}", $rest);

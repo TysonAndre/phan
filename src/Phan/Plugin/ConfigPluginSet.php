@@ -46,6 +46,7 @@ use Phan\PluginV2\AnalyzeFunctionCallCapability;
 use Phan\PluginV2\AnalyzeFunctionCapability;
 use Phan\PluginV2\AnalyzeMethodCapability;
 use Phan\PluginV2\AnalyzePropertyCapability;
+use Phan\PluginV2\BeforeAnalyzeCapability;
 use Phan\PluginV2\BeforeAnalyzeFileCapability;
 use Phan\PluginV2\FinalizeProcessCapability;
 use Phan\PluginV2\PluginAwarePostAnalysisVisitor;
@@ -77,6 +78,7 @@ final class ConfigPluginSet extends PluginV2 implements
     AnalyzeFunctionCallCapability,
     AnalyzeMethodCapability,
     AnalyzePropertyCapability,
+    BeforeAnalyzeCapability,
     BeforeAnalyzeFileCapability,
     FinalizeProcessCapability,
     ReturnTypeOverrideCapability,
@@ -102,6 +104,11 @@ final class ConfigPluginSet extends PluginV2 implements
      * @var array<int,BeforeAnalyzeFileCapability> - plugins to analyze files before Phan's analysis of that file is completed.
      */
     private $before_analyze_file_plugin_set;
+
+    /**
+     * @var array<int,BeforeAnalyzeCapability> - plugins to analyze the project before Phan starts the analyze phase.
+     */
+    private $before_analyze_plugin_set;
 
     /**
      * @var array<int,AfterAnalyzeFileCapability> - plugins to analyze files after Phan's analysis of that file is completed.
@@ -290,6 +297,19 @@ final class ConfigPluginSet extends PluginV2 implements
                 $file_contents,
                 $node
             );
+        }
+    }
+
+    /**
+     * @param CodeBase $code_base
+     * The code base in which the project exists
+     *
+     * @override
+     */
+    public function beforeAnalyze(CodeBase $code_base)
+    {
+        foreach ($this->before_analyze_plugin_set as $plugin) {
+            $plugin->beforeAnalyze($code_base);
         }
     }
 
@@ -666,6 +686,9 @@ final class ConfigPluginSet extends PluginV2 implements
     {
         $old_plugin_for_kind = $this->post_analyze_node_plugin_set[$kind] ?? null;
         if ($old_plugin_for_kind) {
+            /**
+             * @suppress PhanInfiniteRecursion the old plugin is referring to a different closure
+             */
             $this->post_analyze_node_plugin_set[$kind] = static function (CodeBase $code_base, Context $context, Node $node, array $parent_node_list = []) use ($old_plugin_for_kind, $new_plugin) {
                 $old_plugin_for_kind($code_base, $context, $node, $parent_node_list);
                 $new_plugin($code_base, $context, $node, $parent_node_list);
@@ -771,6 +794,7 @@ final class ConfigPluginSet extends PluginV2 implements
 
         $this->pre_analyze_node_plugin_set      = self::filterPreAnalysisPlugins($plugin_set);
         $this->post_analyze_node_plugin_set     = self::filterPostAnalysisPlugins($plugin_set);
+        $this->before_analyze_plugin_set        = self::filterByClass($plugin_set, BeforeAnalyzeCapability::class);
         $this->before_analyze_file_plugin_set   = self::filterByClass($plugin_set, BeforeAnalyzeFileCapability::class);
         $this->after_analyze_file_plugin_set    = self::filterByClass($plugin_set, AfterAnalyzeFileCapability::class);
         $this->analyze_method_plugin_set        = self::filterByClass($plugin_set, AnalyzeMethodCapability::class);

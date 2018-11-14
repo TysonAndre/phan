@@ -73,6 +73,7 @@ class Issue
 
     // Issue::CATEGORY_TYPE
     const NonClassMethodCall        = 'PhanNonClassMethodCall';
+    const PossiblyNonClassMethodCall = 'PhanPossiblyNonClassMethodCall';
     const TypeArrayOperator         = 'PhanTypeArrayOperator';
     const TypeInvalidBitwiseBinaryOperator = 'PhanTypeInvalidBitwiseBinaryOperator';
     const TypeMismatchBitwiseBinaryOperands = 'PhanTypeMismatchBitwiseBinaryOperands';
@@ -146,6 +147,8 @@ class Issue
     const TypeSuspiciousEcho        = 'PhanTypeSuspiciousEcho';
     const TypeSuspiciousStringExpression = 'PhanTypeSuspiciousStringExpression';
     const TypeVoidAssignment        = 'PhanTypeVoidAssignment';
+    const TypePossiblyInvalidCallable = 'PhanTypePossiblyInvalidCallable';
+    const TypeInvalidCallable = 'PhanTypeInvalidCallable';
     const TypeInvalidCallableArraySize = 'PhanTypeInvalidCallableArraySize';
     const TypeInvalidCallableArrayKey = 'PhanTypeInvalidCallableArrayKey';
     const TypeInvalidCallableObjectOfMethod = 'PhanTypeInvalidCallableObjectOfMethod';
@@ -167,6 +170,7 @@ class Issue
     const RelativePathUsed                = 'PhanRelativePathUsed';
     const TypeInvalidTraitReturn          = 'PhanTypeInvalidTraitReturn';
     const TypeInvalidTraitParam           = 'PhanTypeInvalidTraitParam';
+    const InfiniteRecursion               = 'PhanInfiniteRecursion';
 
     // Issue::CATEGORY_ANALYSIS
     const Unanalyzable              = 'PhanUnanalyzable';
@@ -993,7 +997,7 @@ class Issue
                 self::InvalidConstantFQSEN,
                 self::CATEGORY_ANALYSIS,
                 self::SEVERITY_LOW,
-                "{CONST} is an invalid FQSEN for a constant",
+                "'{CONST}' is an invalid FQSEN for a constant",
                 self::REMEDIATION_B,
                 2002
             ),
@@ -1743,6 +1747,38 @@ class Issue
                 "Unexpected mix of int and string operands provided to operator '{OPERATOR}' between types {TYPE} and {TYPE} (expected one type but not both)",
                 self::REMEDIATION_B,
                 10092
+            ),
+            new Issue(
+                self::InfiniteRecursion,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "{FUNCTIONLIKE} is calling itself in a way that may cause infinite recursion.",
+                self::REMEDIATION_B,
+                10093
+            ),
+            new Issue(
+                self::PossiblyNonClassMethodCall,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Call to method {METHOD} on type {TYPE} that could be a non-object",
+                self::REMEDIATION_B,
+                10094
+            ),
+            new Issue(
+                self::TypeInvalidCallable,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                'Saw type {TYPE} which cannot be a callable',
+                self::REMEDIATION_B,
+                10095
+            ),
+            new Issue(
+                self::TypePossiblyInvalidCallable,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                'Saw type {TYPE} which is possibly not a callable',
+                self::REMEDIATION_B,
+                10096
             ),
             // Issue::CATEGORY_VARIABLE
             new Issue(

@@ -36,7 +36,7 @@ class Config
      * New features increment minor versions, and bug fixes increment patch versions.
      * @suppress PhanUnreferencedPublicClassConstant
      */
-    const PHAN_PLUGIN_VERSION = '2.6.0';
+    const PHAN_PLUGIN_VERSION = '2.7.0';
 
     /**
      * @var string|null
@@ -59,6 +59,9 @@ class Config
 
     /** @var bool replicates configuration with the same name */
     private static $array_casts_as_null = false;
+
+    /** @var bool replicates configuration with the same name */
+    private static $strict_method_checking = false;
 
     /** @var bool replicates configuration with the same name */
     private static $strict_param_checking = false;
@@ -291,6 +294,13 @@ class Config
         // type can be cast to null. Setting this to true
         // will cut down on false positives.
         'null_casts_as_any_type' => false,
+
+        // If enabled, Phan will warn if **any** type in a method's object expression
+        // is definitely not an object,
+        // or if **any** type in an invoked expression is not a callable.
+        // Setting this to true will introduce numerous false positives
+        // (and reveal some bugs).
+        'strict_method_checking' => false,
 
         // If enabled, Phan will warn if **any** type in the argument's type
         // cannot be cast to a type in the parameter's expected type.
@@ -867,6 +877,8 @@ class Config
         // This setting can be overridden if users wish to store strings that are even longer than 50 bytes.
         'max_literal_string_type_length' => 200,
 
+        'dump_matching_functions' => false,
+
         // A list of plugin files to execute.
         //
         // Plugins which are bundled with Phan can be added here by providing their name (e.g. `'AlwaysReturnPlugin'`)
@@ -953,6 +965,11 @@ class Config
         return self::$null_casts_as_any_type;
     }
 
+    public static function get_strict_method_checking() : bool
+    {
+        return self::$strict_method_checking;
+    }
+
     public static function get_strict_param_checking() : bool
     {
         return self::$strict_param_checking;
@@ -1036,6 +1053,9 @@ class Config
                 break;
             case 'array_casts_as_null':
                 self::$array_casts_as_null = $value;
+                break;
+            case 'strict_method_checking':
+                self::$strict_method_checking = $value;
                 break;
             case 'strict_param_checking':
                 self::$strict_param_checking = $value;
