@@ -1,8 +1,14 @@
 <?php declare(strict_types=1);
 namespace Phan\Analysis;
 
+use ast;
 use ast\Node;
-use Closure;
+use InvalidArgumentException;
+use Phan\Analysis\ConditionVisitor\BinaryCondition;
+use Phan\Analysis\ConditionVisitor\ComparisonCondition;
+use Phan\Analysis\ConditionVisitor\IdenticalCondition;
+use Phan\Analysis\ConditionVisitor\NotEqualsCondition;
+use Phan\Analysis\ConditionVisitor\NotIdenticalCondition;
 use Phan\AST\UnionTypeVisitor;
 use Phan\BlockAnalysisVisitor;
 use Phan\CodeBase;
@@ -12,16 +18,24 @@ use Phan\Issue;
 use Phan\IssueFixSuggester;
 use Phan\Language\Context;
 use Phan\Language\Element\Variable;
+use Phan\Language\FQSEN\FullyQualifiedClassName;
+use Phan\Language\Type;
 use Phan\Language\Type\IntType;
 use Phan\Language\Type\NullType;
 use Phan\Language\Type\StringType;
 use Phan\Language\UnionType;
+use Phan\Library\StringUtil;
+
+use function is_string;
 
 /**
  * This implements common functionality to update variables based on checks within a conditional (of an if/elseif/else/while/for/assert(), etc.)
  *
+ * Classes implementing this must also implement ConditionVisitorInterface
+ *
  * @see ConditionVisitor
  * @see NegatedConditionVisitor
+ * @see ConditionVisitorInterface
  *
  * @phan-file-suppress PhanPartialTypeMismatchArgumentInternal
  */
@@ -211,36 +225,102 @@ trait ConditionVisitorUtil
      * @param Node $var_node
      * @param Node|int|float|string $expr
      * @return Context - Constant after inferring type from an expression such as `if ($x === 'literal')`
+     * @suppress PhanUnreferencedPublicMethod referenced in ConditionVisitorInterface
      */
-    protected final function updateVariableToBeIdentical(
+    public final function updateVariableToBeIdentical(
         Node $var_node,
         $expr,
-        Context $context
+        Context $context = null
     ) : Context {
+        $context = $context ?? $this->context;
         $var_name = $var_node->children['name'] ?? null;
         // Don't analyze variables such as $$a
         if (\is_string($var_name) && $var_name) {
             try {
                 $expr_type = UnionTypeVisitor::unionTypeFromLiteralOrConstant($this->code_base, $context, $expr);
-                if ($expr_type) {
-                    // Get the variable we're operating on
-                    $variable = $this->getVariableFromScope($var_node, $context);
-                    if (\is_null($variable)) {
-                        return $context;
-                    }
-
-                    // Make a copy of the variable
-                    $variable = clone($variable);
-
-                    $variable->setUnionType($expr_type);
-
-                    // Overwrite the variable with its new type in this
-                    // scope without overwriting other scopes
-                    $context = $context->withScopeVariable(
-                        $variable
-                    );
+                if (!$expr_type) {
                     return $context;
                 }
+                // Get the variable we're operating on
+                $variable = $this->getVariableFromScope($var_node, $context);
+                if (\is_null($variable)) {
+                    return $context;
+                }
+
+                // Make a copy of the variable
+                $variable = clone($variable);
+
+                $variable->setUnionType($expr_type);
+
+                // Overwrite the variable with its new type in this
+                // scope without overwriting other scopes
+                $context = $context->withScopeVariable(
+                    $variable
+                );
+                return $context;
+            } catch (\Exception $_) {
+                // Swallow it (E.g. IssueException for undefined variable)
+            }
+        }
+        return $context;
+    }
+
+    /**
+     * @param Node $var_node
+     * @param Node|int|float|string $expr
+     * @param int $flags (e.g. \ast\flags\BINARY_IS_SMALLER)
+     * @return Context - Constant after inferring type from an expression such as `if ($x === 'literal')`
+     * @suppress PhanUnreferencedPublicMethod referenced in ConditionVisitorInterface
+     */
+    public final function updateVariableToBeCompared(
+        Node $var_node,
+        $expr,
+        int $flags
+    ) : Context {
+        $context = $this->context;
+        $var_name = $var_node->children['name'] ?? null;
+        // Don't analyze variables such as $$a
+        if (\is_string($var_name) && $var_name) {
+            try {
+                $expr_type = UnionTypeVisitor::unionTypeFromLiteralOrConstant($this->code_base, $context, $expr);
+                if (!$expr_type) {
+                    return $context;
+                }
+                $expr_value = $expr_type->asSingleScalarValueOrNull();
+                if ($expr_value === null) {
+                    if (!$expr_type->isType(NullType::instance(false))) {
+                        return $context;
+                    }
+                }
+                // Get the variable we're operating on
+                $variable = $this->getVariableFromScope($var_node, $context);
+                if (\is_null($variable)) {
+                    return $context;
+                }
+
+                // Make a copy of the variable
+                $variable = clone($variable);
+
+                // TODO: Filter out nullable types
+                $union_type = $variable->getUnionType()->makeFromFilter(function (Type $type) use ($expr_value, $flags) : bool {
+                    // @phan-suppress-next-line PhanAccessMethodInternal
+                    return $type->canSatisfyComparison($expr_value, $flags);
+                });
+                if ($union_type->containsNullable()) {
+                    // @phan-suppress-next-line PhanAccessMethodInternal
+                    if (!Type::performComparison(null, $expr_value, $flags)) {
+                        // E.g. $x > 0 will remove the type null.
+                        $union_type = $union_type->nonNullableClone();
+                    }
+                }
+                $variable->setUnionType($union_type);
+
+                // Overwrite the variable with its new type in this
+                // scope without overwriting other scopes
+                $context = $context->withScopeVariable(
+                    $variable
+                );
+                return $context;
             } catch (\Exception $_) {
                 // Swallow it (E.g. IssueException for undefined variable)
             }
@@ -252,18 +332,20 @@ trait ConditionVisitorUtil
      * @param Node $var_node
      * @param Node|int|float|string $expr
      * @return Context - Constant after inferring type from an expression such as `if ($x !== 'literal')`
+     * @suppress PhanUnreferencedPublicMethod referenced in ConditionVisitorInterface
      */
-    protected final function updateVariableToBeNotIdentical(
+    public final function updateVariableToBeNotIdentical(
         Node $var_node,
         $expr,
-        Context $context
+        Context $context = null
     ) : Context {
+        $context = $context ?? $this->context;
         $var_name = $var_node->children['name'] ?? null;
         if (\is_string($var_name)) {
             try {
-                if ($expr instanceof Node && $expr->kind === \ast\AST_CONST) {
+                if ($expr instanceof Node && $expr->kind === ast\AST_CONST) {
                     $expr_name_node = $expr->children['name'];
-                    if ($expr_name_node->kind === \ast\AST_NAME) {
+                    if ($expr_name_node->kind === ast\AST_NAME) {
                         // Currently, only add this inference when we're absolutely sure this is a check rejecting null/false/true
                         $expr_name = $expr_name_node->children['name'];
                         switch (\strtolower($expr_name)) {
@@ -287,20 +369,23 @@ trait ConditionVisitorUtil
      * @param Node $var_node
      * @param Node|int|float|string $expr
      * @return Context - Constant after inferring type from an expression such as `if ($x !== 'literal')`
+     * @suppress PhanUnreferencedPublicMethod referenced in ConditionVisitorInterface
      */
-    protected final function updateVariableToBeNotEqual(
+    public final function updateVariableToBeNotEqual(
         Node $var_node,
         $expr,
-        Context $context
+        Context $context = null
     ) : Context {
+        $context = $context ?? $this->context;
+
         $var_name = $var_node->children['name'] ?? null;
         // http://php.net/manual/en/types.comparisons.php#types.comparisions-loose
         if (\is_string($var_name)) {
             try {
                 if ($expr instanceof Node) {
-                    if ($expr->kind === \ast\AST_CONST) {
+                    if ($expr->kind === ast\AST_CONST) {
                         $expr_name_node = $expr->children['name'];
-                        if ($expr_name_node->kind === \ast\AST_NAME) {
+                        if ($expr_name_node->kind === ast\AST_NAME) {
                             // Currently, only add this inference when we're absolutely sure this is a check rejecting null/false/true
                             $expr_name = $expr_name_node->children['name'];
                             switch (\strtolower($expr_name)) {
@@ -341,14 +426,7 @@ trait ConditionVisitorUtil
         return $this->analyzeBinaryConditionPattern(
             $left,
             $right,
-            /**
-             * @param Node $var
-             * @param Node|int|string|float $expr
-             * @return Context
-             */
-            function ($var, $expr) {
-                return $this->updateVariableToBeIdentical($var, $expr, $this->context);
-            }
+            new IdenticalCondition()
         );
     }
 
@@ -362,66 +440,147 @@ trait ConditionVisitorUtil
         return $this->analyzeBinaryConditionPattern(
             $left,
             $right,
-            /**
-             * @param Node $var
-             * @param Node|int|string|float $expr
-             * @return Context
-             */
-            function ($var, $expr) {
-                return $this->updateVariableToBeNotIdentical($var, $expr, $this->context);
-            }
+            new NotIdenticalCondition()
         );
     }
 
     /**
      * @param Node|int|float|string $left
      * @param Node|int|float|string $right
-     * @param Closure(Node,Node|int|float|string):Context $analyzer
+     * @param BinaryCondition $condition
      */
-    private function analyzeBinaryConditionPattern($left, $right, Closure $analyzer) : Context
+    private function analyzeBinaryConditionPattern($left, $right, BinaryCondition $condition) : Context
     {
         if ($left instanceof Node) {
-            $kind = $left->kind;
-            if ($kind === \ast\AST_VAR) {
-                return $analyzer($left, $right);
-            }
-            $tmp = $left;
-            while (\in_array($kind, [\ast\AST_ASSIGN, \ast\AST_ASSIGN_OP, \ast\AST_ASSIGN_REF], true)) {
-                if (!$tmp instanceof Node) {
-                    break;
-                }
-                $var = $tmp->children['var'] ?? null;
-                if (!$var instanceof Node) {
-                    break;
-                }
-                $kind = $var->kind;
-                if ($kind === \ast\AST_VAR) {
-                    $this->context = (new BlockAnalysisVisitor($this->code_base, $this->context))->__invoke($tmp);
-                    return $analyzer($var, $right);
-                }
-                $tmp = $var;
+            $result = $this->analyzeBinaryConditionSide($left, $right, $condition);
+            if ($result !== null) {
+                return $result;
             }
         }
         if ($right instanceof Node) {
-            $kind = $right->kind;
-            if ($kind === \ast\AST_VAR) {
-                return $analyzer($right, $left);
-            }
-            $tmp = $right;
-            while (\in_array($kind, [\ast\AST_ASSIGN, \ast\AST_ASSIGN_OP, \ast\AST_ASSIGN_REF], true)) {
-                if (!$tmp instanceof Node) {
-                    break;
-                }
-                $var = $right->children['var'];
-                $kind = $var->kind;
-                if ($kind === \ast\AST_VAR) {
-                    $this->context = (new BlockAnalysisVisitor($this->code_base, $this->context))->__invoke($tmp);
-                    return $analyzer($var, $left);
-                }
-                $tmp = $var;
+            $result = $this->analyzeBinaryConditionSide($right, $left, $condition);
+            if ($result !== null) {
+                return $result;
             }
         }
         return $this->context;
+    }
+
+    /**
+     * @param Node $var_node
+     * @param Node|int|string|float $expr_node
+     * @param BinaryCondition $condition
+     * @return ?Context
+     * @suppress PhanPartialTypeMismatchArgument
+     */
+    private function analyzeBinaryConditionSide(Node $var_node, $expr_node, BinaryCondition $condition)
+    {
+        '@phan-var ConditionVisitorUtil|ConditionVisitorInterface $this';
+        $kind = $var_node->kind;
+        if ($kind === ast\AST_VAR) {
+            return $condition->analyzeVar($this, $var_node, $expr_node);
+        }
+        if ($kind === ast\AST_CALL) {
+            $name = $var_node->children['expr']->children['name'] ?? null;
+            if (\is_string($name)) {
+                $name = \strtolower($name);
+                if ($name === 'get_class') {
+                    return $condition->analyzeClassCheck($this, $var_node->children['args']->children[0] ?? null, $expr_node);
+                }
+            }
+        }
+        $tmp = $var_node;
+        while (\in_array($kind, [ast\AST_ASSIGN, ast\AST_ASSIGN_OP, ast\AST_ASSIGN_REF], true)) {
+            if (!$tmp instanceof Node) {
+                break;
+            }
+            $var = $tmp->children['var'] ?? null;
+            if (!$var instanceof Node) {
+                break;
+            }
+            $kind = $var->kind;
+            if ($kind === ast\AST_VAR) {
+                $this->context = (new BlockAnalysisVisitor($this->code_base, $this->context))->__invoke($tmp);
+                return $condition->analyzeVar($this, $var, $expr_node);
+            }
+            $tmp = $var;
+        }
+        return null;
+    }
+
+    /**
+     * Returns a context where the variable for $object_node has the class found in $expr_node
+     *
+     * @param Node|string|int|float $object_node
+     * @param Node|string|int|float $expr_node
+     * @return ?Context
+     * @suppress PhanUnreferencedPublicMethod referenced in ConditionVisitorInterface
+     */
+    public function analyzeClassAssertion($object_node, $expr_node)
+    {
+        if (!($object_node instanceof Node)) {
+            return null;
+        }
+        if ($expr_node instanceof Node) {
+            $expr_value = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $expr_node)->asSingleScalarValueOrNull();
+        } else {
+            $expr_value = $expr_node;
+        }
+        if (!is_string($expr_value)) {
+            $expr_type = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $expr_node);
+            if (!$expr_type->canCastToUnionType(UnionType::fromFullyQualifiedString('string|false'))) {
+                Issue::maybeEmit(
+                    $this->code_base,
+                    $this->context,
+                    Issue::TypeComparisonToInvalidClassType,
+                    $this->context->getLineNumberStart(),
+                    $expr_type,
+                    'false|string'
+                );
+            }
+            // TODO: Could warn about invalid assertions
+            return null;
+        }
+        $fqsen_string = '\\' . $expr_value;
+        try {
+            $fqsen = FullyQualifiedClassName::fromFullyQualifiedUserProvidedString($fqsen_string);
+        } catch (InvalidArgumentException $_) {
+            Issue::maybeEmit(
+                $this->code_base,
+                $this->context,
+                Issue::TypeComparisonToInvalidClass,
+                $this->context->getLineNumberStart(),
+                StringUtil::encodeValue($expr_value)
+            );
+
+            return null;
+        }
+        $expr_type = $fqsen->asType()->asUnionType();
+
+        $var_name = $object_node->children['name'] ?? null;
+        // Don't analyze variables such as $$a
+        if (!(\is_string($var_name) && $var_name)) {
+            return null;
+        }
+        try {
+            // Get the variable we're operating on
+            $variable = $this->getVariableFromScope($object_node, $this->context);
+            if (\is_null($variable)) {
+                return null;
+            }
+            // Make a copy of the variable
+            $variable = clone($variable);
+
+            $variable->setUnionType($expr_type);
+
+            // Overwrite the variable with its new type in this
+            // scope without overwriting other scopes
+            return $this->context->withScopeVariable(
+                $variable
+            );
+        } catch (\Exception $_) {
+            // Swallow it (E.g. IssueException for undefined variable)
+        }
     }
 
     /**
@@ -434,16 +593,24 @@ trait ConditionVisitorUtil
         return $this->analyzeBinaryConditionPattern(
             $left,
             $right,
-            /**
-             * @param Node $var
-             * @param Node|int|string|float $expr
-             * @return Context
-             */
-            function ($var, $expr) {
-                return $this->updateVariableToBeNotEqual($var, $expr, $this->context);
-            }
+            new NotEqualsCondition()
         );
     }
+
+    /**
+     * @param Node|int|float|string $left
+     * @param Node|int|float|string $right
+     * @return Context - Constant after inferring type from an expression such as `if ($x > 0)`
+     */
+    protected function analyzeAndUpdateToBeCompared($left, $right, int $flags) : Context
+    {
+        return $this->analyzeBinaryConditionPattern(
+            $left,
+            $right,
+            new ComparisonCondition($flags)
+        );
+    }
+
 
     /**
      * @return ?Variable - Returns null if the variable is undeclared and ignore_undeclared_variables_in_global_scope applies.
@@ -453,9 +620,9 @@ trait ConditionVisitorUtil
      *
      * TODO: support assertions on superglobals, within the current file scope?
      */
-    protected final function getVariableFromScope(Node $var_node, Context $context)
+    public final function getVariableFromScope(Node $var_node, Context $context)
     {
-        if ($var_node->kind !== \ast\AST_VAR) {
+        if ($var_node->kind !== ast\AST_VAR) {
             return null;
         }
         $var_name_node = $var_node->children['name'] ?? null;
@@ -513,7 +680,7 @@ trait ConditionVisitorUtil
     {
         if (\count($args) >= 1) {
             $arg = $args[0];
-            return ($arg instanceof Node) && ($arg->kind === \ast\AST_VAR);
+            return ($arg instanceof Node) && ($arg->kind === ast\AST_VAR);
         }
         return false;
     }
@@ -533,5 +700,10 @@ trait ConditionVisitorUtil
             return null;
         }
         return $raw_function_name;
+    }
+
+    public function getContext() : Context
+    {
+        return $this->context;
     }
 }

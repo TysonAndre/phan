@@ -90,7 +90,8 @@ class PregRegexCheckerPlugin extends PluginV2 implements AnalyzeFunctionCallCapa
                 $value = $type->getValue();
                 $result[$value] = $value;
             } elseif ($type instanceof IterableType) {
-                foreach ($type->iterableValueUnionType($code_base)->getTypeSet() as $element_type) {
+                $iterable_type = $type->iterableValueUnionType($code_base);
+                foreach ($iterable_type ? $iterable_type->getTypeSet() : [] as $element_type) {
                     if ($element_type instanceof LiteralStringType) {
                         $value = $element_type->getValue();
                         $result[$value] = $value;
@@ -199,6 +200,7 @@ class PregRegexCheckerPlugin extends PluginV2 implements AnalyzeFunctionCallCapa
         };
 
         /**
+         * @param array<int,Node|int|string|float> $args
          * @return void
          */
         $preg_pattern_or_array_callback = function (
@@ -216,6 +218,10 @@ class PregRegexCheckerPlugin extends PluginV2 implements AnalyzeFunctionCallCapa
             }
         };
 
+        /**
+         * @param array<int,Node|int|string|float> $args
+         * @return void
+         */
         $preg_pattern_and_replacement_callback = function (
             CodeBase $code_base,
             Context $context,

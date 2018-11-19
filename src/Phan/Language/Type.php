@@ -2,6 +2,7 @@
 namespace Phan\Language;
 
 use AssertionError;
+use ast\flags;
 use Error;
 use InvalidArgumentException;
 use Phan\AST\UnionTypeVisitor;
@@ -47,7 +48,6 @@ use Phan\Library\None;
 use Phan\Library\Option;
 use Phan\Library\Some;
 use Phan\Library\Tuple5;
-
 use function count;
 use function strtolower;
 
@@ -366,7 +366,8 @@ class Type
 
         // If this looks like a generic type string, explicitly
         // make it as such
-        if (($pos = \strrpos($type_name, '[]')) > 0) {
+        $pos = \strrpos($type_name, '[]');
+        if ($pos > 0) {
             return GenericArrayType::fromElementType(Type::make(
                 $namespace,
                 \substr($type_name, 0, $pos),
@@ -530,9 +531,9 @@ class Type
             'PHP_OS_FAMILY'         => $string,
             'PHP_SAPI'              => $string,
             'PHP_EOL'               => $string,
-            'PHP_INT_MAX'           => $int,
-            'PHP_INT_MIN'           => $int,  // since 7.0.0
-            'PHP_INT_SIZE'          => $int,  // since 7.0.0
+            'PHP_INT_MAX'           => Type::fromObject(\PHP_INT_MAX),
+            'PHP_INT_MIN'           => Type::fromObject(\PHP_INT_MIN),  // since 7.0.0
+            'PHP_INT_SIZE'          => Type::fromObject(\PHP_INT_SIZE),  // since 7.0.0
             //'PHP_FLOAT_DIG'         => $int,  // since 7.2.0
             //'PHP_FLOAT_EPSILON'     => $float,  // since 7.2.0
             //'PHP_FLOAT_MIN'         => $int, // since 7.2.0
@@ -601,11 +602,11 @@ class Type
 
     /**
      * @param mixed $object
-     * @return Type
+     * @return NativeType
      * Get a type for the given object
      * @throws AssertionError if the type was unexpected
      */
-    public static function fromObject($object) : Type
+    public static function fromObject($object) : NativeType
     {
         switch (\gettype($object)) {
             case 'integer':
@@ -2390,6 +2391,7 @@ class Type
      * 2: The template parameters, if any
      * 3: Whether or not the type is nullable
      * 4: The shape components, if any. Null unless this is an array shape type string such as 'array{field:int}'
+     * @suppress PhanPossiblyFalseTypeArgument
      */
     private static function typeStringComponentsInner(
         string $type_string
@@ -2484,6 +2486,7 @@ class Type
         $colon_index = \strpos($type_string, ':', $i);
 
         if ($colon_index !== false) {
+            // @phan-suppress-next-line PhanPossiblyFalseTypeArgumentInternal
             $return_type_string = \ltrim(\substr($type_string, $colon_index + 1));
         } else {
             $return_type_string = 'void';
@@ -2653,5 +2656,39 @@ class Type
         // Any non-final class could be extended with a callable type.
         // TODO: Check if final
         return false;
+    }
+
+    /**
+     * Check if this type can satisfy a comparison (<, <=, >, >=)
+     * @param int|string|float|bool|null $scalar
+     * @param int $flags (e.g. \ast\flags\BINARY_IS_SMALLER)
+     * @internal
+     * @suppress PhanUnusedPublicMethodParameter
+     */
+    public function canSatisfyComparison($scalar, int $flags) : bool
+    {
+        return true;
+    }
+
+    /**
+     * Perform the binary operation corresponding to $flags on $a OP $b
+     * @param array|int|string|float|bool|null $a
+     * @param int|string|float|bool|null $b
+     * @param int $flags
+     * @internal
+     */
+    public static function performComparison($a, $b, int $flags) : bool
+    {
+        switch ($flags) {
+            case flags\BINARY_IS_GREATER:
+                return $a > $b;
+            case flags\BINARY_IS_GREATER_OR_EQUAL:
+                return $a >= $b;
+            case flags\BINARY_IS_SMALLER:
+                return $a < $b;
+            case flags\BINARY_IS_SMALLER_OR_EQUAL:
+                return $a <= $b;
+        }
+        throw new AssertionError("Impossible flag $flags");
     }
 }

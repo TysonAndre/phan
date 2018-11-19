@@ -69,6 +69,9 @@ namespace Phan\Language\Internal;
  * 4. PHPStorm stubs (For anything missing from the above sources)
  *    See internal/internalsignatures.php
  * @phan-file-suppress PhanPluginMixedKeyNoKey (read by Phan when analyzing this file)
+ *
+ * Note: Some of Phan's inferences about return types are written as plugins for functions/methods where the return type depends on the parameter types.
+ * E.g. src/Phan/Plugin/Internal/DependentReturnTypeOverridePlugin.php is one plugin
  */
 return [
 '_' => ['string', 'message'=>'string'],
@@ -2825,7 +2828,7 @@ return [
 'exp' => ['float', 'number'=>'float'],
 'expect_expectl' => ['int', 'expect'=>'resource', 'cases'=>'array', 'match='=>'array'],
 'expect_popen' => ['resource', 'command'=>'string'],
-'explode' => ['array<int,string>|false', 'separator'=>'string', 'str'=>'string', 'limit='=>'int'],
+'explode' => ['array<int,string>', 'separator'=>'string', 'str'=>'string', 'limit='=>'int'],
 'expm1' => ['float', 'number'=>'float'],
 'extension_loaded' => ['bool', 'extension_name'=>'string'],
 'extract' => ['int', '&rw_var_array'=>'array', 'extract_type='=>'int', 'prefix='=>'string'],
@@ -8946,7 +8949,7 @@ return [
 'parse_ini_file' => ['array|false', 'filename'=>'string', 'process_sections='=>'bool', 'scanner_mode='=>'int'],
 'parse_ini_string' => ['array|false', 'ini_string'=>'string', 'process_sections='=>'bool', 'scanner_mode='=>'int'],
 'parse_str' => ['void', 'encoded_string'=>'string', '&w_result='=>'array'],
-'parse_url' => ['array{scheme?:string,host?:string,port?:int,user?:string,pass?:string,path?:string,query?:string,fragment?:string}|string|int|null', 'url'=>'string', 'url_component='=>'int'],
+'parse_url' => ['array{scheme?:string,host?:string,port?:int,user?:string,pass?:string,path?:string,query?:string,fragment?:string}|string|int|false|null', 'url'=>'string', 'url_component='=>'int'],
 'ParseError::__clone' => ['void'],
 'ParseError::__construct' => ['void', 'message='=>'string', 'code='=>'int', 'previous='=>'?Throwable|?ParseError'],
 'ParseError::__toString' => ['string'],
@@ -12452,8 +12455,8 @@ return [
 'SplHeap::rewind' => ['void'],
 'SplHeap::top' => ['mixed'],
 'SplHeap::valid' => ['bool'],
-'split' => ['array', 'pattern'=>'string', 'string'=>'string', 'limit='=>'int'],
-'spliti' => ['array', 'pattern'=>'string', 'string'=>'string', 'limit='=>'int'],
+'split' => ['array<int,string>', 'pattern'=>'string', 'string'=>'string', 'limit='=>'int'],
+'spliti' => ['array<int,string>', 'pattern'=>'string', 'string'=>'string', 'limit='=>'int'],
 'SplMaxHeap::__construct' => ['void'],
 'SplMaxHeap::compare' => ['int', 'a'=>'mixed', 'b'=>'mixed'],
 'SplMinHeap::compare' => ['int', 'a'=>'mixed', 'b'=>'mixed'],
@@ -12934,7 +12937,7 @@ return [
 'str_replace' => ['string|array', 'search'=>'string|array', 'replace'=>'string|array', 'subject'=>'string|array', '&w_replace_count='=>'int'],
 'str_rot13' => ['string', 'str'=>'string'],
 'str_shuffle' => ['string', 'str'=>'string'],
-'str_split' => ['array<int,string>|false', 'str'=>'string', 'split_length='=>'int'],
+'str_split' => ['array<int,string>', 'str'=>'string', 'split_length='=>'int'],
 'str_word_count' => ['array|int', 'string'=>'string', 'format='=>'int', 'charlist='=>'string'],
 'strcasecmp' => ['int', 'str1'=>'string', 'str2'=>'string'],
 'strchr' => ['string|false', 'haystack'=>'string', 'needle'=>'string', 'before_needle='=>'bool'],
@@ -14410,7 +14413,7 @@ return [
 'VarnishLog::getTagName' => ['string', 'index'=>'int'],
 'VarnishStat::__construct' => ['void', 'args='=>'array'],
 'VarnishStat::getSnapshot' => ['array'],
-'version_compare' => ['int|?bool', 'ver1'=>'string', 'ver2'=>'string', 'oper='=>'string'],
+'version_compare' => ['int|bool', 'ver1'=>'string', 'ver2'=>'string', 'oper='=>'string'],
 'vfprintf' => ['int', 'stream'=>'resource', 'format'=>'string', 'args'=>'array'],
 'virtual' => ['bool', 'uri'=>'string'],
 'vpopmail_add_alias_domain' => ['bool', 'domain'=>'string', 'aliasdomain'=>'string'],

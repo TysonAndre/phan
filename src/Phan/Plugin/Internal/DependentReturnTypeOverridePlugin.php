@@ -75,6 +75,25 @@ final class DependentReturnTypeOverridePlugin extends PluginV2 implements
                 }
             };
         };
+        /**
+         * @phan-return Closure(CodeBase,Context,Func,array):UnionType
+         */
+        $make_arg_existence_dependent_type_method = static function (int $arg_pos, string $type_if_exists_string, string $type_if_missing_string) : Closure {
+            $type_if_exists = UnionType::fromFullyQualifiedString($type_if_exists_string);
+            $type_if_missing = UnionType::fromFullyQualifiedString($type_if_missing_string);
+            return static function (
+                CodeBase $unused_code_base,
+                Context $unused_context,
+                Func $unused_function,
+                array $args
+            ) use (
+                $arg_pos,
+                $type_if_exists,
+                $type_if_missing
+) : UnionType {
+                return isset($args[$arg_pos]) ? $type_if_exists : $type_if_missing;
+            };
+        };
 
         $json_decode_array_types = UnionType::fromFullyQualifiedString('array|string|float|int|bool|null');
         $json_decode_object_types = UnionType::fromFullyQualifiedString('\stdClass|array<int,mixed>|string|float|int|bool|null');
@@ -151,16 +170,32 @@ final class DependentReturnTypeOverridePlugin extends PluginV2 implements
             }
             return $has_array ? $str_array_type : $str_replace_types;
         };
+        $string_or_false = UnionType::fromFullyQualifiedString('string|false');
         $getenv_handler = static function (
             CodeBase $unused_code_base,
             Context $unused_context,
             Func $unused_function,
             array $args
-        ) : UnionType {
+        ) use ($string_or_false) : UnionType {
             if (\count($args) === 0 && Config::get_closest_target_php_version_id() >= 70100) {
                 return UnionType::fromFullyQualifiedString('array<string,string>');
             }
-            return UnionType::fromFullyQualifiedString('string|false');
+            return $string_or_false;
+        };
+        $substr_handler = static function (
+            CodeBase $unused_code_base,
+            Context $unused_context,
+            Func $unused_function,
+            array $args
+        ) use (
+            $string_or_false,
+            $string_union_type
+) : UnionType {
+            if (\count($args) >= 2 && \is_int($args[1]) && $args[1] <= 0) {
+                // Cut down on false positive warnings about substr($str, 0, $len) possibly being false
+                return $string_union_type;
+            }
+            return $string_or_false;
         };
 
         return [
@@ -175,6 +210,10 @@ final class DependentReturnTypeOverridePlugin extends PluginV2 implements
             'preg_replace_callback_array' => $third_argument_string_or_array_handler,
             // misc
             'getenv'                      => $getenv_handler,
+            'version_compare'             => $make_arg_existence_dependent_type_method(2, 'bool', 'int'),
+            'pathinfo'                    => $make_arg_existence_dependent_type_method(1, 'string', 'array{dirname:string,basename:string,extension?:string,filename:string}'),
+            'parse_url'                   => $make_arg_existence_dependent_type_method(1, 'string|int|null|false', 'array{scheme?:string,host?:string,port?:int,user?:string,pass?:string,path?:string,query?:string,fragment?:string}|false'),
+            'substr'                      => $substr_handler,
         ];
     }
 

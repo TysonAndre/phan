@@ -53,6 +53,7 @@ use Phan\Language\Type\TemplateType;
 use Phan\Language\Type\VoidType;
 use Phan\Language\UnionType;
 use Phan\Language\UnionTypeBuilder;
+use Phan\Library\StringUtil;
 use TypeError;
 use function is_scalar;
 use function is_string;
@@ -1407,7 +1408,7 @@ class UnionTypeVisitor extends AnalysisVisitor
             $this->emitIssue(
                 Issue::TypeInvalidDimOffset,
                 $dim_node->lineno ?? $node->lineno ?? 0,
-                json_encode($dim_value),
+                StringUtil::jsonEncode($dim_value),
                 (string)$union_type
             );
             return null;
@@ -1786,6 +1787,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                 $this->context,
                 $node
             ))->getProperty($is_static);
+            $union_type = $property->getUnionType()->withStaticResolvedInContext($property->getContext());
 
             if ($property->isWriteOnly()) {
                 $this->emitIssue(
@@ -1798,7 +1800,7 @@ class UnionTypeVisitor extends AnalysisVisitor
             }
 
             // Map template types to concrete types
-            if ($property->getUnionType()->hasTemplateType()) {
+            if ($union_type->hasTemplateType()) {
                 // Get the type of the object calling the property
                 $expression_type = UnionTypeVisitor::unionTypeFromNode(
                     $this->code_base,
@@ -1806,14 +1808,14 @@ class UnionTypeVisitor extends AnalysisVisitor
                     $node->children['expr']
                 );
 
-                $union_type = $property->getUnionType()->withTemplateParameterTypeMap(
+                $union_type = $union_type->withTemplateParameterTypeMap(
                     $expression_type->getTemplateParameterTypeMap($this->code_base)
                 );
 
                 return $union_type;
             }
 
-            return $property->getUnionType();
+            return $union_type;
         } catch (IssueException $exception) {
             Issue::maybeEmitInstance(
                 $this->code_base,
@@ -2485,7 +2487,7 @@ class UnionTypeVisitor extends AnalysisVisitor
     /**
      * @param CodeBase $code_base
      * @param Context $context
-     * @param string|Node $node the node to fetch CallableType instances for.
+     * @param int|string|float|Node $node the node to fetch CallableType instances for.
      * @param bool $log_error whether or not to log errors while searching @phan-unused-param
      * @return array<int,FunctionInterface>
      * TODO: use log_error

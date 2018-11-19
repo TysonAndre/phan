@@ -171,6 +171,8 @@ class Issue
     const TypeInvalidTraitReturn          = 'PhanTypeInvalidTraitReturn';
     const TypeInvalidTraitParam           = 'PhanTypeInvalidTraitParam';
     const InfiniteRecursion               = 'PhanInfiniteRecursion';
+    const TypeComparisonToInvalidClass    = 'PhanTypeComparisonToInvalidClass';
+    const TypeComparisonToInvalidClassType = 'PhanTypeComparisonToInvalidClassType';
 
     // Issue::CATEGORY_ANALYSIS
     const Unanalyzable              = 'PhanUnanalyzable';
@@ -182,6 +184,7 @@ class Issue
 
     // Issue::CATEGORY_STATIC
     const StaticCallToNonStatic     = 'PhanStaticCallToNonStatic';
+    const StaticPropIsStaticType    = 'PhanStaticPropIsStaticType';
 
     // Issue::CATEGORY_CONTEXT
     const ContextNotObject          = 'PhanContextNotObject';
@@ -1780,6 +1783,22 @@ class Issue
                 self::REMEDIATION_B,
                 10096
             ),
+            new Issue(
+                self::TypeComparisonToInvalidClass,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                'Saw code asserting that an expression has a class, but that class is an invalid/impossible FQSEN {STRING_LITERAL}',
+                self::REMEDIATION_B,
+                10097
+            ),
+            new Issue(
+                self::TypeComparisonToInvalidClassType,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                'Saw code asserting that an expression has a class, but saw an invalid/impossible union type {TYPE} (expected {TYPE})',
+                self::REMEDIATION_B,
+                10098
+            ),
             // Issue::CATEGORY_VARIABLE
             new Issue(
                 self::VariableUseClause,
@@ -1798,6 +1817,14 @@ class Issue
                 "Static call to non-static method {METHOD} defined at {FILE}:{LINE}",
                 self::REMEDIATION_B,
                 9000
+            ),
+            new Issue(
+                self::StaticPropIsStaticType,
+                self::CATEGORY_STATIC,
+                self::SEVERITY_LOW,
+                "Static property {PROPERTY} is declared to have type {TYPE}, but the only instance is shared among all subclasses (Did you mean {TYPE})",
+                self::REMEDIATION_A,
+                9001
             ),
 
             // Issue::CATEGORY_CONTEXT

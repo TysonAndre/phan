@@ -2,7 +2,9 @@
 namespace Phan;
 
 use AssertionError;
+use ast;
 use ast\Node;
+use Closure;
 use Phan\Analysis\BlockExitStatusChecker;
 use Phan\Analysis\ConditionVisitor;
 use Phan\Analysis\ContextMergeVisitor;
@@ -791,23 +793,55 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         // TODO: Improve inferences in switch statements?
         // TODO: Behave differently if switch lists don't cover every case (e.g. if there is no default)
         $has_default = false;
+        list($switch_variable_node, $switch_variable_condition) = $this->createSwitchConditionAnalyzer(
+            end($this->parent_node_list)->children['cond']
+        );
+        $previous_child_context = null;
         foreach ($node->children as $i => $child_node) {
+            $cond_node = $child_node->children['cond'];
             // Step into each child node and get an
             // updated context for the node
             $child_context = $context->withScope(new BranchScope($scope));
             $child_context->withLineNumberStart($child_node->lineno);
+            if ($cond_node !== null) {
+                if ($switch_variable_condition) {
+                    // Add the variable type from the above case statements, if it was possible for it to fall through
+                    // TODO: Also support switch(get_class($variable))
+                    $visitor = new ConditionVisitor($this->code_base, $child_context);
+                    $child_context = $switch_variable_condition($child_context, $cond_node);
+                    if ($previous_child_context !== null) {
+                        $variable = $visitor->getVariableFromScope($switch_variable_node, $child_context);
+                        if ($variable) {
+                            $old_variable = $visitor->getVariableFromScope($switch_variable_node, $previous_child_context);
+
+                            if ($old_variable) {
+                                $variable->setUnionType($variable->getUnionType()->withUnionType($old_variable->getUnionType()));
+                            }
+                        }
+                    }
+                }
+            }
+
             $child_context = $this->analyzeAndGetUpdatedContext($child_context, $node, $child_node);
 
-            if ($child_node->children['cond'] === null) {
+            if ($cond_node === null) {
                 $has_default = true;
             }
             // We can improve analysis of `case` blocks by using
             // a BlockExitStatusChecker to avoid propagating invalid inferences.
             $stmts_node = $child_node->children['stmts'];
-            if (!BlockExitStatusChecker::willUnconditionallyThrowOrReturn($stmts_node)) {
-                // Skip over empty case statements (incomplete heuristic), TODO: test
+            $block_exit_status = (new BlockExitStatusChecker())->__invoke($stmts_node);
+            // equivalent to !willUnconditionallyThrowOrReturn()
+            $previous_child_context = null;
+            if (($block_exit_status & ~BlockExitStatusChecker::STATUS_THROW_OR_RETURN_BITMASK)) {
+                // Skip over case statements that only ever throw or return
                 if (count($stmts_node->children ?? []) !== 0 || $i === count($node->children) - 1) {
+                    // and skip over empty statement lists, unless they're the last in a long line of empty statement lists
                     $child_context_list[] = $child_context;
+                }
+
+                if ($block_exit_status & BlockExitStatusChecker::STATUS_PROCEED) {
+                    $previous_child_context = $child_context;
                 }
             }
         }
@@ -830,6 +864,67 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         }
 
         return $this->postOrderAnalyze($context, $node);
+    }
+
+    /**
+     * @param Node|int|string|float $switch_case_node
+     * @return array{0:?Node,1:?Closure}
+     */
+    private function createSwitchConditionAnalyzer($switch_case_node) : array
+    {
+        if (!$switch_case_node instanceof Node) {
+            return [null, null];
+        }
+        $switch_kind = ($switch_case_node->kind ?? null);
+        try {
+            if ($switch_kind === ast\AST_VAR) {
+                $switch_variable = (new ConditionVisitor($this->code_base, $this->context))->getVariableFromScope($switch_case_node, $this->context);
+                if (!$switch_variable) {
+                    return [null, null];
+                }
+                return [
+                    $switch_case_node,
+                    /**
+                     * @param Node|string|int|float $cond_node
+                     */
+                    function (Context $child_context, $cond_node) use ($switch_case_node) : Context {
+                        $visitor = new ConditionVisitor($this->code_base, $child_context);
+                        return $visitor->updateVariableToBeIdentical($switch_case_node, $cond_node, $child_context);
+                    },
+                ];
+            } elseif ($switch_kind === ast\AST_CALL) {
+                $name = $switch_case_node->children['expr']->children['name'] ?? null;
+                if (\is_string($name)) {
+                    $name = \strtolower($name);
+                    if ($name === 'get_class') {
+                        $switch_variable_node = $switch_case_node->children['args']->children[0] ?? null;
+                        if (($switch_variable_node->kind ?? null) !== ast\AST_VAR) {
+                            return [null, null];
+                        }
+                        $switch_variable = (new ConditionVisitor($this->code_base, $this->context))->getVariableFromScope($switch_variable_node, $this->context);
+                        if (!$switch_variable) {
+                            return [null, null];
+                        }
+                        return [
+                            $switch_variable_node,
+                            /**
+                             * @param Node|string|int|float $cond_node
+                             */
+                            function (Context $child_context, $cond_node) use ($switch_variable_node) : Context {
+                                $visitor = new ConditionVisitor($this->code_base, $child_context);
+                                return $visitor->analyzeClassAssertion(
+                                    $switch_variable_node,
+                                    $cond_node
+                                ) ?? $child_context;
+                            },
+                        ];
+                    }
+                }
+            }
+        } catch (IssueException $_) {
+            // do nothing, we warn elsewhere
+        }
+        return [null, null];
     }
 
     /**
@@ -1105,9 +1200,9 @@ class BlockAnalysisVisitor extends AnalysisVisitor
     public function visitBinaryOp(Node $node) : Context
     {
         $flags = $node->flags;
-        if ($flags === \ast\flags\BINARY_BOOL_AND) {
+        if ($flags === ast\flags\BINARY_BOOL_AND) {
             return $this->analyzeBinaryBoolAnd($node);
-        } elseif ($flags === \ast\flags\BINARY_BOOL_OR) {
+        } elseif ($flags === ast\flags\BINARY_BOOL_OR) {
             return $this->analyzeBinaryBoolOr($node);
         }
         return $this->visit($node);
