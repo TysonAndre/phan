@@ -58,7 +58,6 @@ use function strtolower;
  *
  * Types are immutable.
  *
- * @phan-file-suppress PhanPartialTypeMismatchArgument
  * @phan-file-suppress PhanPartialTypeMismatchArgumentInternal
  * phpcs:disable Generic.NamingConventions.UpperCaseConstantName
  */
@@ -117,7 +116,7 @@ class Type
         '('
         . '(?:\??\((?-1)(?:\|(?-1))*\)|'  // Recursion: "?(T)" or "(T)" with brackets. Also allow parsing (a|b) within brackets.
         . '(?:'
-          . '\??(?:\\\\?Closure|callable)(\([^()]*\))'
+          . '\??(?:\\\\?Closure|callable)(\((?:[^()]|(?-1))*\))'  // `Closure(...)` can have matching pairs of () inside `...`, recursively
           . '(?:\s*:\s*'  // optional return type, can be ":T" or ":(T1|T2)" or ": ?(T1|T2)"
             . '(?:'
               . self::simple_noncapturing_type_regex . '|'  // Forbid ambiguity in `Closure():int[]` by disallowing complex return types without '()'. Always parse that as `(Closure():int)[]`.
@@ -126,7 +125,7 @@ class Type
           . ')?'
         . ')|'
         . self::noncapturing_literal_regex . '|'
-        . '(' . self::simple_type_regex . ')'  // ?T or T. TODO: Get rid of pattern for '?'?
+        . '(' . self::simple_type_regex . ')'  // ?T or T.
         . '(?:'
           . '<'
             . '('
@@ -159,7 +158,7 @@ class Type
           . '(?:'
             . '\??\((?-1)(?:\|(?-1))*\)|'  // Recursion: "?(T)" or "(T)" with brackets. Also allow parsing (a|b) within brackets.
             . '(?:'
-              . '\??(?:\\\\?Closure|callable)(\([^()]*\))'
+              . '\??(?:\\\\?Closure|callable)(\((?:[^()]|(?-1))*\))'  // `Closure(...)` can have matching pairs of () inside `...`, recursively
               . '(?:\s*:\s*'  // optional return type, can be ":T" or ":(T1|T2)"
                 . '(?:'
                   . self::simple_noncapturing_type_regex . '|'  // Forbid ambiguity in `Closure():int[]` by disallowing complex return types without '()'. Always parse that as `(Closure():int)[]`.
@@ -482,7 +481,7 @@ class Type
             $type->getNamespace(),
             $type->getName(),
             $template_parameter_type_list,
-            $type->getIsNullable(),
+            $type->is_nullable,
             Type::FROM_TYPE
         );
     }
@@ -622,8 +621,6 @@ class Type
             case 'object':
                 return ObjectType::instance(false);
             case 'boolean':
-                // TODO: Does this have many side effects?
-                // Probably not, 'false' is an AST_CONST Node.
                 return $object ? TrueType::instance(false) : FalseType::instance(false);
             case 'array':
                 return ArrayType::instance(false);
@@ -707,8 +704,7 @@ class Type
             case 'true':
                 return TrueType::instance($is_nullable);
             case 'void':
-                // TODO: This can't be nullable, right?
-                return VoidType::instance($is_nullable);
+                return VoidType::instance(false);
             case 'iterable':
                 return IterableType::instance($is_nullable);
             case 'static':
@@ -718,6 +714,7 @@ class Type
         }
 
         if (\substr($type_name, 0, 1) === '?') {
+            // @phan-suppress-next-line PhanPossiblyFalseTypeArgument
             return self::fromInternalTypeName(\substr($type_name, 1), true, $source);
         }
         throw new AssertionError("No internal type with name $type_name");
@@ -777,6 +774,7 @@ class Type
      *
      * @throws EmptyFQSENException if the type name was the empty string
      * @throws InvalidArgumentException if namespace is missing from something that should have a namespace
+     * @suppress PhanPossiblyFalseTypeArgument, PhanPossiblyFalseTypeArgumentInternal
      */
     protected static function fromFullyQualifiedStringInner(
         string $fully_qualified_string
@@ -878,6 +876,7 @@ class Type
             $escaped_literal = \substr($escaped_literal, 1);
         }
         if ($escaped_literal[0] === "'") {
+            // @phan-suppress-next-line PhanPossiblyFalseTypeArgument
             return LiteralStringType::fromEscapedString($escaped_literal, $is_nullable);
         }
         $value = filter_var($escaped_literal, FILTER_VALIDATE_INT);
@@ -903,6 +902,7 @@ class Type
      * @param array<int,string> $shape_components
      * @param bool $is_nullable
      * @throws AssertionError if creating a closure/callable from the arguments failed
+     * @suppress PhanPossiblyFalseTypeArgument, PhanPossiblyFalseTypeArgumentInternal
      */
     private static function fromFullyQualifiedFunctionLike(
         bool $is_closure_type,
@@ -945,6 +945,7 @@ class Type
             $types = $template_parameter_type_list[$template_count - 1]->getTypeSet();
             if (count($types) === 1) {
                 return GenericArrayType::fromElementType(
+                    // @phan-suppress-next-line PhanPossiblyFalseTypeArgument
                     \reset($types),
                     $is_nullable,
                     $key_type
@@ -997,6 +998,8 @@ class Type
      *
      * @return Type
      * Parse a type from the given string
+     *
+     * @suppress PhanPossiblyFalseTypeArgument, PhanPossiblyFalseTypeArgumentInternal
      */
     public static function fromStringInContext(
         string $string,
@@ -1126,8 +1129,7 @@ class Type
                 GenericArrayType::KEY_MIXED
             );
         }
-        // TODO: Will \MyClass[] accidentally check the namespace map for use OtherNS\MyClass?
-        if ($context->hasNamespaceMapFor(
+        if (\substr($non_generic_partially_qualified_array_type_name, 0, 1) !== '\\' && $context->hasNamespaceMapFor(
             \ast\flags\USE_NORMAL,
             $non_generic_partially_qualified_array_type_name
         )) {
@@ -1306,6 +1308,7 @@ class Type
      * @param int $source
      * @param bool $is_nullable
      * @throws AssertionError if the components were somehow invalid
+     * @suppress PhanPossiblyFalseTypeArgument
      */
     private static function fromFunctionLikeInContext(
         bool $is_closure_type,
@@ -1367,7 +1370,6 @@ class Type
      */
     private static function closureParamComponentStringsToParams(array $param_components, Context $context, int $source) : array
     {
-        // TODO: Allow () within param types...
         $result = [];
         foreach ($param_components as $param_string) {
             if ($param_string === '') {
@@ -1907,7 +1909,7 @@ class Type
      * @return bool
      * True if this type has any template parameter types
      * @suppress PhanUnreferencedPublicMethod potentially used in the future
-     *           TODO: Would need to override this in ArrayShapeType, GenericArrayType?
+     *           TODO: Would need to override this in ArrayShapeType, GenericArrayType
      */
     public function hasTemplateParameterTypes() : bool
     {
@@ -2100,7 +2102,7 @@ class Type
             return true;
         }
 
-        if ($this->getIsNullable()) {
+        if ($this->is_nullable) {
             // A nullable type cannot cast to a non-nullable type (Except when null_casts_as_any_type is true)
             if (Config::get_null_casts_as_any_type()) {
                 return true;
@@ -2120,7 +2122,7 @@ class Type
 
         // Get a non-null version of the type we're comparing
         // against.
-        if ($type->getIsNullable()) {
+        if ($type->is_nullable) {
             $type = $type->withIsNullable(false);
 
             // Check one more time to see if the types are equal
@@ -2318,7 +2320,7 @@ class Type
                 $string .= $this->templateParameterTypeListAsString();
             }
 
-            if ($this->getIsNullable()) {
+            if ($this->is_nullable) {
                 $string = '?' . $string;
             }
 
@@ -2445,10 +2447,11 @@ class Type
 
         // Determine if the type name is fully qualified
         // (as specified by a leading backslash).
+        // @phan-suppress-next-line PhanPossiblyFalseTypeArgumentInternal
         $is_fully_qualified = (0 === \strpos($type_string, '\\'));
 
-        $fq_class_name_elements =
-            \array_filter(\explode('\\', $type_string));
+        // @phan-suppress-next-line PhanPossiblyFalseTypeArgumentInternal
+        $fq_class_name_elements = \array_filter(\explode('\\', $type_string));
 
         $class_name =
             (string)\array_pop($fq_class_name_elements);
@@ -2478,6 +2481,7 @@ class Type
      */
     private static function closureTypeStringComponents(string $type_string, string $inner) : Tuple5
     {
+        // @phan-suppress-next-line PhanPossiblyFalseTypeArgumentInternal
         $parts = self::closureParams(\trim(\substr($inner, 1, -1)));
         // TODO: parse params, same as @method
 
@@ -2513,7 +2517,7 @@ class Type
         }
         // TODO: Would need to use a different approach if templates were ever supported
         //       e.g. The magic method parsing doesn't support commas?
-        return \array_map('trim', \explode(',', $arg_list));
+        return \array_map('trim', self::extractNameList($arg_list));
     }
 
     /**
@@ -2549,8 +2553,8 @@ class Type
         $delta = 0;
         foreach (\explode(',', $list_string) as $result) {
             $result = \trim($result);
-            $open_bracket_count = \substr_count($result, '<') + \substr_count($result, '{');
-            $close_bracket_count = \substr_count($result, '>') + \substr_count($result, '}');
+            $open_bracket_count = \substr_count($result, '<') + \substr_count($result, '{') + \substr_count($result, '(');
+            $close_bracket_count = \substr_count($result, '>') + \substr_count($result, '}') + \substr_count($result, ')');
             if (count($prev_parts) > 0) {
                 $prev_parts[] = $result;
                 $delta += $open_bracket_count - $close_bracket_count;
@@ -2690,5 +2694,18 @@ class Type
                 return $a <= $b;
         }
         throw new AssertionError("Impossible flag $flags");
+    }
+
+    /**
+     * Returns the type after an expression such as `++$x`
+     */
+    public function getTypeAfterIncOrDec() : UnionType
+    {
+        if ($this->is_nullable) {
+            // ++null is 1
+            return UnionType::of([$this->withIsNullable(false), IntType::instance(false)]);
+        }
+        // ++$obj; doesn't change the object.
+        return $this->asUnionType();
     }
 }

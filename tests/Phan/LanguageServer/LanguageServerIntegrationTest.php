@@ -21,7 +21,7 @@ use stdClass;
  * Note: This test file is not enabled in CI because they may hang indefinitely.
  * (integration test timeouts weren't implemented or tested yet).
  *
- * @phan-file-suppress PhanThrowTypeAbsent, PhanThrowTypeAbsentForCall it's a test
+ * @phan-file-suppress PhanThrowTypeAbsent it's a test
  * @phan-file-suppress PhanPluginDescriptionlessCommentOnPublicMethod
  */
 final class LanguageServerIntegrationTest extends BaseTest
@@ -92,7 +92,7 @@ final class LanguageServerIntegrationTest extends BaseTest
     public function testInitialize(bool $pcntlEnabled)
     {
         // TODO: Move this into an OOP abstraction, add time limits, etc.
-        list ($proc, $proc_in, $proc_out) = $this->createPhanDaemon($pcntlEnabled);
+        list($proc, $proc_in, $proc_out) = $this->createPhanDaemon($pcntlEnabled);
         try {
             $this->writeInitializeRequestAndAwaitResponse($proc_in, $proc_out);
             $this->writeInitializedNotification($proc_in);

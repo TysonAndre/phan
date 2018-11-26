@@ -32,7 +32,6 @@ use Phan\Tests\BaseTest;
 
 /**
  * Unit tests of Type
- * @phan-file-suppress PhanPluginDescriptionlessCommentOnPublicMethod
  */
 final class TypeTest extends BaseTest
 {
@@ -134,7 +133,7 @@ final class TypeTest extends BaseTest
         $this->assertSameType($expected_generic_array_type, $generic_array_type);
         $this->assertSame('int[][]', (string)$expected_generic_array_type);
         $this->assertSameType($expected_generic_array_type, self::makePHPDocType('(int)[][]'));
-        // TODO: Parse (int[])[]?
+        $this->assertSameType($expected_generic_array_type, self::makePHPDocType('((int)[])[]'));
     }
 
     public function testTemplateTypes()

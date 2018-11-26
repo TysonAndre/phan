@@ -63,7 +63,7 @@ final class NullType extends ScalarType
         }
 
         // Null can cast to a nullable type.
-        if ($type->getIsNullable()) {
+        if ($type->is_nullable) {
             return true;
         }
 
@@ -150,5 +150,13 @@ final class NullType extends ScalarType
     public function canSatisfyComparison($scalar, int $flags) : bool
     {
         return self::performComparison(null, $scalar, $flags);
+    }
+
+    /**
+     * Returns the type after an expression such as `++$x`
+     */
+    public function getTypeAfterIncOrDec() : UnionType
+    {
+        return IntType::instance(false)->asUnionType();
     }
 }

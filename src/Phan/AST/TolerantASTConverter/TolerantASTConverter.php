@@ -1788,6 +1788,7 @@ class TolerantASTConverter
 
     /**
      * @param PhpParser\Node|PhpParser\Token $parser_node
+     * @suppress UnusedSuppression, TypeMismatchProperty
      */
     protected static function astStub($parser_node) : ast\Node
     {
@@ -1798,7 +1799,6 @@ class TolerantASTConverter
         }
 
         $node = new ast\Node();
-        // @phan-suppress-next-line PhanTypeMismatchProperty, UnusedPluginSuppression - Deliberately setting $node->kind to a string instead of an integer.
         $node->kind = "TODO:" . get_class($parser_node);
         $node->flags = 0;
         $node->lineno = self::getStartLine($parser_node);
@@ -2419,6 +2419,9 @@ class TolerantASTConverter
         $ast_visibility = 0;
         foreach ($visibility as $token) {
             switch ($token->kind) {
+                case TokenKind::VarKeyword:
+                    $ast_visibility |= flags\MODIFIER_PUBLIC;
+                    break;
                 case TokenKind::PublicKeyword:
                     $ast_visibility |= flags\MODIFIER_PUBLIC;
                     break;
@@ -2456,7 +2459,7 @@ class TolerantASTConverter
             if ($prop instanceof Token) {
                 continue;
             }
-            // @phan-suppress-next-line PhanTypeMismatchArgument, PhanPartialTypeMismatchArgument casting to a more specific node
+            // @phan-suppress-next-line PhanTypeMismatchArgument casting to a more specific node
             $prop_elems[] = static::phpParserPropelemToAstPropelem($prop, $i === 0 ? $doc_comment : null);
         }
         $flags = static::phpParserVisibilityToAstVisibility($n->modifiers, false);
@@ -2472,7 +2475,7 @@ class TolerantASTConverter
             if ($const_elem instanceof Token) {
                 continue;
             }
-            // @phan-suppress-next-line PhanTypeMismatchArgument, PhanPartialTypeMismatchArgument casting to a more specific node
+            // @phan-suppress-next-line PhanTypeMismatchArgument casting to a more specific node
             $const_elems[] = static::phpParserConstelemToAstConstelem($const_elem, $i === 0 ? $doc_comment : null);
         }
         $flags = static::phpParserVisibilityToAstVisibility($n->modifiers);
@@ -2912,9 +2915,7 @@ class TolerantASTConverter
         if (\is_string($s)) {
             $s = substr($s, 0, -1);
             // On Windows, the "\r" must also be removed from the last line of the heredoc
-            // @phan-suppress-next-line PhanPossiblyFalseTypeArgumentInternal
             if (substr($s, -1) === "\r") {
-                // @phan-suppress-next-line PhanPossiblyFalseTypeArgumentInternal
                 $s = substr($s, 0, -1);
             }
             $inner_node_parts[$i] = $s;

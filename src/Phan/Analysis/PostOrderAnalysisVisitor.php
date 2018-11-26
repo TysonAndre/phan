@@ -421,7 +421,6 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             true
         );
 
-        // @phan-suppress-next-line PhanAccessMethodInternal
         if (!$type->hasPrintableScalar()) {
             if ($type->isType(ArrayType::instance(false))
                 || $type->isType(ArrayType::instance(true))
@@ -594,7 +593,6 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * @return Context
      * A new or an unchanged context resulting from
      * parsing the node
-     * @suppress PhanAccessMethodInternal
      */
     public function visitPrint(Node $node) : Context
     {
@@ -773,6 +771,76 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                     self::NAME_FOR_UNARY_OP[$node->flags] ?? ''
                 );
             }
+        }
+        return $this->context;
+    }
+
+    /**
+     * @override
+     */
+    public function visitPreInc(Node $node) : Context
+    {
+        return $this->analyzeIncOrDec($node);
+    }
+
+    /**
+     * @override
+     */
+    public function visitPostInc(Node $node) : Context
+    {
+        return $this->analyzeIncOrDec($node);
+    }
+
+    /**
+     * @override
+     */
+    public function visitPreDec(Node $node) : Context
+    {
+        return $this->analyzeIncOrDec($node);
+    }
+
+    /**
+     * @override
+     */
+    public function visitPostDec(Node $node) : Context
+    {
+        return $this->analyzeIncOrDec($node);
+    }
+
+    const NAME_FOR_INC_OR_DEC_KIND = [
+        ast\AST_PRE_INC => '++(expr)',
+        ast\AST_PRE_DEC => '--(expr)',
+        ast\AST_POST_INC => '(expr)++',
+        ast\AST_POST_DEC => '(expr)--',
+    ];
+
+    private function analyzeIncOrDec(Node $node) : Context
+    {
+        $var = $node->children['var'];
+        $old_type = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $var)->withFlattenedArrayShapeOrLiteralTypeInstances();
+        if (!$old_type->canCastToUnionType(UnionType::fromFullyQualifiedString('int|string|float'))) {
+            $this->emitIssue(
+                Issue::TypeInvalidUnaryOperandIncOrDec,
+                $node->lineno,
+                self::NAME_FOR_INC_OR_DEC_KIND[$node->kind],
+                $old_type
+            );
+        }
+        // The left can be a non-Node for an invalid AST
+        $kind = $var->kind ?? null;
+        if ($kind === \ast\AST_VAR) {
+            $new_type = $old_type->getTypeAfterIncOrDec();
+            if ($old_type === $new_type) {
+                return $this->context;
+            }
+            try {
+                $variable = (new ContextNode($this->code_base, $this->context, $node->children['var']))->getVariableStrict();
+            } catch (IssueException $_) {
+                return $this->context;
+            } catch (NodeException $_) {
+                return $this->context;
+            }
+            $variable->setUnionType($new_type);
         }
         return $this->context;
     }
@@ -1503,7 +1571,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
 
             foreach ($function_list_generator as $function) {
                 // Check the call for parameter and argument types
-                $this->analyzeCallToMethod(
+                $this->analyzeCallToFunctionLike(
                     $function,
                     $node
                 );
@@ -1584,7 +1652,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 $node
             );
 
-            $this->analyzeCallToMethod(
+            $this->analyzeCallToFunctionLike(
                 $method,
                 $node
             );
@@ -1793,7 +1861,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             );
 
             // Make sure the parameters look good
-            $this->analyzeCallToMethod(
+            $this->analyzeCallToFunctionLike(
                 $method,
                 $node
             );
@@ -2148,7 +2216,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         );
 
         // Check the call for parameter and argument types
-        $this->analyzeCallToMethod(
+        $this->analyzeCallToFunctionLike(
             $method,
             $node
         );
@@ -2559,7 +2627,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      *
      * @return void
      */
-    private function analyzeCallToMethod(
+    private function analyzeCallToFunctionLike(
         FunctionInterface $method,
         Node $node
     ) {
@@ -2584,48 +2652,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             // If pass-by-reference, make sure the variable exists
             // or create it if it doesn't.
             if ($parameter->isPassByReference()) {
-                if ($argument->kind == ast\AST_VAR) {
-                    try {
-                        // We don't do anything with the new variable; just create it
-                        // if it doesn't exist
-                        (new ContextNode(
-                            $code_base,
-                            $context,
-                            $argument
-                        ))->getOrCreateVariableForReferenceParameter($parameter);
-                    } catch (NodeException $_) {
-                        // E.g. `function_accepting_reference(${$varName})` - Phan can't analyze outer type of ${$varName}
-                        continue;
-                    }
-                } elseif ($argument->kind == ast\AST_STATIC_PROP
-                    || $argument->kind == ast\AST_PROP
-                ) {
-                    $property_name = $argument->children['prop'];
-
-                    if (\is_string($property_name)) {
-                        // We don't do anything with it; just create it
-                        // if it doesn't exist
-                        try {
-                            (new ContextNode(
-                                $code_base,
-                                $context,
-                                $argument
-                            ))->getOrCreateProperty($argument->children['prop'], $argument->kind == ast\AST_STATIC_PROP);
-                        } catch (IssueException $exception) {
-                            Issue::maybeEmitInstance(
-                                $code_base,
-                                $context,
-                                $exception->getIssueInstance()
-                            );
-                        } catch (Exception $exception) {
-                            // If we can't figure out what kind of a call
-                            // this is, don't worry about it
-                        }
-                    } else {
-                        // This is stuff like `Class->$foo`. I'm ignoring
-                        // it.
-                    }
-                }
+                $this->createPassByReferenceArgumentInCall($argument, $parameter);
             }
         }
 
@@ -2696,6 +2723,52 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             $node->children['args'],
             $method
         );
+    }
+
+    private function createPassByReferenceArgumentInCall(Node $argument, Parameter $parameter)
+    {
+        if ($argument->kind == ast\AST_VAR) {
+            // We don't do anything with the new variable; just create it
+            // if it doesn't exist
+            try {
+                (new ContextNode(
+                    $this->code_base,
+                    $this->context,
+                    $argument
+                ))->getOrCreateVariableForReferenceParameter($parameter);
+            } catch (NodeException $_) {
+                return;
+            }
+        } elseif ($argument->kind == ast\AST_STATIC_PROP
+            || $argument->kind == ast\AST_PROP
+        ) {
+            $property_name = $argument->children['prop'];
+
+            if (\is_string($property_name)) {
+                // We don't do anything with it; just create it
+                // if it doesn't exist
+                try {
+                    $property = (new ContextNode(
+                        $this->code_base,
+                        $this->context,
+                        $argument
+                    ))->getOrCreateProperty($argument->children['prop'], $argument->kind == ast\AST_STATIC_PROP);
+                    $property->setHasWriteReference();
+                } catch (IssueException $exception) {
+                    Issue::maybeEmitInstance(
+                        $this->code_base,
+                        $this->context,
+                        $exception->getIssueInstance()
+                    );
+                } catch (Exception $_) {
+                    // If we can't figure out what kind of a call
+                    // this is, don't worry about it
+                }
+            } else {
+                // This is stuff like `Class->$foo`. I'm ignoring
+                // it.
+            }
+        }
     }
 
     /**
@@ -2914,7 +2987,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                     $method,
                     $parameter_clone,
                     null,  // TODO: Can array_map/array_filter accept closures with references? Consider warning?
-                    $argument_types[$i],
+                    $argument_types,
                     $parameter_list,
                     $i
                 );
@@ -3019,7 +3092,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                     $method,
                     $parameter_clone,
                     $argument,
-                    $argument_types[$i],
+                    $argument_types,
                     $parameter_list,
                     $i
                 );
@@ -3086,8 +3159,8 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * The argument whose type we'd like to replace the
      * parameter type with.
      *
-     * @param UnionType $argument_type
-     * The type of $argument
+     * @param array<int,UnionType> $argument_types
+     * The type of arguments
      *
      * @param array<int,Parameter> &$parameter_list
      * The parameter list - types are modified by reference
@@ -3102,10 +3175,16 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         FunctionInterface $method,
         Parameter $parameter,
         $argument,
-        UnionType $argument_type,
+        array $argument_types,
         array &$parameter_list,
         int $parameter_offset
     ) {
+        $argument_type = $argument_types[$parameter_offset];
+        if ($parameter->isVariadic()) {
+            for ($i = $parameter_offset + 1; $i < \count($argument_types); $i++) {
+                $argument_type = $argument_type->withUnionType($argument_types[$i]);
+            }
+        }
         // Then set the new type on that parameter based
         // on the argument's type. We'll use this to
         // retest the method with the passed in types

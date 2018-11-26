@@ -106,7 +106,6 @@ final class UnionTypeTest extends BaseTest
         Phan::setIssueCollector(new BufferingCollector());
         $this->assertUnionTypeStringEqual('rand(0,20)', 'int');
         $this->assertUnionTypeStringEqual('rand(0,20) + 1', 'int');
-        // TODO: Perform arithmetic if in bounds
         $this->assertUnionTypeStringEqual('42 + 2', '44');
         $this->assertUnionTypeStringEqual('46 - 2', '44');
         $this->assertUnionTypeStringEqual('PHP_INT_MAX', (string)PHP_INT_MAX);
@@ -299,7 +298,6 @@ final class UnionTypeTest extends BaseTest
      * A string representation of the union type begotten from
      * the first statement in the statement list in the given
      * code.
-     * @suppress PhanPartialTypeMismatchArgument
      */
     private function typeStringFromCode(string $code) : string
     {
@@ -434,7 +432,7 @@ final class UnionTypeTest extends BaseTest
 
     public function testAlternateArrayTypesNullable()
     {
-        // array keys are integers, values are strings
+        // array keys are nullable integers, values are strings
         $union_type = self::makePHPDocUnionType('array<string,?int>');
         $this->assertSame(1, $union_type->typeCount());
         $types = $union_type->getTypeSet();
@@ -447,12 +445,10 @@ final class UnionTypeTest extends BaseTest
 
     public function testNestedArrayTypes()
     {
-        // array keys are integers, values are strings
         $union_type = self::makePHPDocUnionType('array<int|string>');
         $this->assertSame('int[]|string[]', (string)$union_type);
         $this->assertSame(2, $union_type->typeCount());
 
-        // array keys are integers, values are strings
         $union_type = self::makePHPDocUnionType('(int|string)[]');
         $this->assertSame('int[]|string[]', (string)$union_type);
         $this->assertSame(2, $union_type->typeCount());
@@ -520,15 +516,41 @@ final class UnionTypeTest extends BaseTest
 
     public function testComplexUnionType()
     {
-        // array keys are integers, values are strings
         $union_type = self::makePHPDocUnionType('(int|string)|Closure():(int|stdClass)');
         $this->assertSame('Closure():(\stdClass|int)|int|string', (string)$union_type);
         $this->assertSame(3, $union_type->typeCount());
     }
 
+    public function testClosureInsideArrayShape()
+    {
+        $union_type = self::makePHPDocUnionType('array{key:Closure(int,string|int):void}');
+        $this->assertSame('array{key:Closure(int,int|string):void}', (string)$union_type);
+        $this->assertSame(1, $union_type->typeCount());
+    }
+
+    public function testClosureInsideGenericArray()
+    {
+        $union_type = self::makePHPDocUnionType('array<int,Closure(int,string|int):void>');
+        $this->assertSame('array<int,Closure(int,int|string):void>', (string)$union_type);
+        $this->assertSame(1, $union_type->typeCount());
+    }
+
+    public function testArrayShapeInsideClosure()
+    {
+        $union_type = self::makePHPDocUnionType('Closure(array{key:int,other:string|int}):void');
+        $this->assertSame('Closure(array{key:int,other:int|string}):void', (string)$union_type);
+        $this->assertSame(1, $union_type->typeCount());
+    }
+
+    public function testClosureInsideClosure()
+    {
+        $union_type = self::makePHPDocUnionType('Closure(int|bool,Closure(int,string|false):bool):void');
+        $this->assertSame('Closure(bool|int,Closure(int,false|string):bool):void', (string)$union_type);
+        $this->assertSame(1, $union_type->typeCount());
+    }
+
     public function testNullableBasicArrayType()
     {
-        // array keys are integers, values are strings
         $union_type = self::makePHPDocUnionType('?(int|string)[]');
         $this->assertSame('?int[]|?string[]', (string)$union_type);
         $this->assertSame(2, $union_type->typeCount());
@@ -539,7 +561,6 @@ final class UnionTypeTest extends BaseTest
 
     public function testNullableArrayType()
     {
-        // array keys are integers, values are strings
         $union_type = self::makePHPDocUnionType('?string[]');
         $this->assertSame(1, $union_type->typeCount());
         $types = $union_type->getTypeSet();
@@ -551,7 +572,6 @@ final class UnionTypeTest extends BaseTest
 
     public function testNullableBracketedArrayType()
     {
-        // array keys are integers, values are strings
         $union_type = self::makePHPDocUnionType('(?string)[]');
         $this->assertSame(1, $union_type->typeCount());
         $types = $union_type->getTypeSet();
@@ -563,7 +583,6 @@ final class UnionTypeTest extends BaseTest
 
     public function testNullableBracketedArrayType2()
     {
-        // array keys are integers, values are strings
         $union_type = self::makePHPDocUnionType('(?string)[]|(int)[]');
         $this->assertSame(2, $union_type->typeCount());
         $types = $union_type->getTypeSet();
@@ -578,7 +597,6 @@ final class UnionTypeTest extends BaseTest
 
     public function testNullableBracketedArrayType3()
     {
-        // array keys are integers, values are strings
         $union_type = self::makePHPDocUnionType('?(string[])|?(int[])');
         $this->assertSame(2, $union_type->typeCount());
         $types = $union_type->getTypeSet();
@@ -593,7 +611,6 @@ final class UnionTypeTest extends BaseTest
 
     public function testNullableArrayOfNullables()
     {
-        // array keys are integers, values are strings
         $union_type = self::makePHPDocUnionType('?(?string)[]');
         $this->assertSame(1, $union_type->typeCount());
         $types = $union_type->getTypeSet();
@@ -605,7 +622,6 @@ final class UnionTypeTest extends BaseTest
 
     public function testNullableExtraBracket()
     {
-        // array keys are integers, values are strings
         $union_type = self::makePHPDocUnionType('?(string[])');
         $this->assertSame(1, $union_type->typeCount());
         $types = $union_type->getTypeSet();
@@ -617,7 +633,6 @@ final class UnionTypeTest extends BaseTest
 
     public function testUnionInArrayShape()
     {
-        // array keys are integers, values are strings
         $union_type = self::makePHPDocUnionType('array{key:int|string[]}');
         $this->assertSame(1, $union_type->typeCount());
         $types = $union_type->getTypeSet();
@@ -632,9 +647,25 @@ final class UnionTypeTest extends BaseTest
         $this->assertFalse($field_union_type->getIsPossiblyUndefined());
     }
 
+    public function testFlattenEmptyArrayShape()
+    {
+        $union_type = self::makePHPDocUnionType('array{}|array<int,\stdClass>');
+
+        $this->assertSame('array<int,\stdClass>|array{}', (string)$union_type);
+        $this->assertSame('array<int,\stdClass>', (string)$union_type->withFlattenedArrayShapeOrLiteralTypeInstances());
+        $this->assertSame('array<int,\stdClass>', (string)$union_type->withFlattenedArrayShapeTypeInstances());
+
+        $empty_union_type = self::makePHPDocUnionType('array{}');
+        $this->assertSame('array', (string)$empty_union_type->withFlattenedArrayShapeOrLiteralTypeInstances());
+        $this->assertSame('array', (string)$empty_union_type->withFlattenedArrayShapeTypeInstances());
+
+        $empty_union_type_and_literals = self::makePHPDocUnionType("array{}|2|'str'");
+        $this->assertSame('array|int|string', (string)$empty_union_type_and_literals->withFlattenedArrayShapeOrLiteralTypeInstances());
+        $this->assertSame("'str'|2|array", (string)$empty_union_type_and_literals->withFlattenedArrayShapeTypeInstances());
+    }
+
     public function testOptionalInArrayShape()
     {
-        // array keys are integers, values are strings
         $union_type = self::makePHPDocUnionType('array{key:int|string=}');
         $this->assertSame(1, $union_type->typeCount());
         $types = $union_type->getTypeSet();

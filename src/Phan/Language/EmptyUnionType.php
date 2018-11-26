@@ -768,7 +768,6 @@ final class EmptyUnionType extends UnionType
      * A UnionType with known numeric types kept, other types filtered out.
      *
      * @see nonGenericArrayTypes
-     * @suppress PhanUnreferencedPublicMethod
      */
     public function numericTypes() : UnionType
     {
@@ -1160,5 +1159,10 @@ final class EmptyUnionType extends UnionType
     public function hasPossiblyCallableType() : bool
     {
         return true;
+    }
+
+    public function getTypeAfterIncOrDec() : UnionType
+    {
+        return $this;
     }
 }
