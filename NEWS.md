@@ -1,7 +1,20 @@
 Phan NEWS
 
-?? ??? 2018, Phan 1.1.4 (dev)
+?? Dec 2018, Phan 1.1.6 (dev)
 -----------------------
+
+29 Nov 2018, Phan 1.1.5
+-----------------------
+
+Language Server:
++ Fix a crash in the Language Server when pcntl is not installed or enabled (e.g. on Windows) (#2186)
+
+27 Nov 2018, Phan 1.1.4
+-----------------------
+
+New features(Analysis):
++ Preserve original descendent object types after type assertions, when original object types are all subtypes
+  (e.g. infer `SubClass` for `$x = rand(0,1) ? new SubClass() : false; if ($x instanceof BaseClass) { ... }`)
 
 Maintenance:
 + Emit `UnusedPluginSuppression` on `@phan-suppress-next-line` and `@phan-file-suppress`

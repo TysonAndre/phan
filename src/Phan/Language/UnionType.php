@@ -2273,14 +2273,13 @@ class UnionType implements Serializable
             $null_type = NullType::instance(false);
         }
 
-        // If array is in there, then it can be any type
-        if (\in_array($array_type_nonnull, $type_set, true)) {
+        if (\in_array($array_type_nullable, $type_set, true)) {
+            // TODO: More consistency in what causes this check to infer null
             $builder->addType($mixed_type);
             $builder->addType($null_type);
-        } elseif (\in_array($mixed_type, $type_set, true)
-            || \in_array($array_type_nullable, $type_set, true)
-        ) {
-            // Same for mixed
+        } elseif (\in_array($array_type_nonnull, $type_set, true) ||
+            // If array is in there, then it can be any type
+            \in_array($mixed_type, $type_set, true)) {
             $builder->addType($mixed_type);
         }
 
@@ -3120,10 +3119,8 @@ class UnionType implements Serializable
         // @phan-suppress-next-line PhanPossiblyFalseTypeArgumentInternal
         switch (\get_class($type)) {
             case LiteralIntType::class:
-                '@phan-var LiteralIntType $type';  // TODO: support switches
                 return $type->getIsNullable() ? null : $type->getValue();
             case LiteralStringType::class:
-                '@phan-var LiteralStringType $type';  // TODO: support switches
                 return $type->getIsNullable() ? null : $type->getValue();
             case FalseType::class:
                 return false;
@@ -3133,6 +3130,88 @@ class UnionType implements Serializable
             default:
                 return null;
         }
+    }
+
+    /**
+     * @return array<int,string>
+     * Returns a list of known strings for LiteralStringType instances in this union type.
+     * E.g. for `?'foo'|?'bar'|?false|?T`, returns `['foo', 'bar']`
+     * @suppress PhanUnreferencedPublicMethod provided for plugins
+     */
+    public function asStringScalarValues() : array
+    {
+        $result = [];
+        foreach ($this->type_set as $type) {
+            if ($type instanceof LiteralStringType) {
+                $result[] = $type->getValue();
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * @return array<int,int>
+     * Returns a list of known strings for LiteralStringType instances in this union type.
+     * E.g. for `?11|?2|?false|?T`, returns `[11, 2]`
+     * @suppress PhanUnreferencedPublicMethod provided for plugins
+     */
+    public function asIntScalarValues() : array
+    {
+        $result = [];
+        foreach ($this->type_set as $type) {
+            if ($type instanceof LiteralIntType) {
+                $result[] = $type->getValue();
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * @return array<int,?int|?bool|?string>
+     * Returns a list of known scalars that this union type could be.
+     * E.g. for `?11|?2|?false|?'str'|?T`, returns `[11, 2, false, 'str', null]`
+     * @suppress PhanUnreferencedPublicMethod provided for plugins
+     */
+    public function asScalarValues() : array
+    {
+        $result = [];
+        $has_null = false;
+        $has_false = false;
+        $has_true = false;
+        foreach ($this->type_set as $type) {
+            if ($type->getIsNullable()) {
+                $has_null = true;
+            }
+            switch (\get_class($type)) {
+                case LiteralIntType::class:
+                case LiteralStringType::class:
+                    $result[] = $type->getValue();
+                    break;
+                case FalseType::class:
+                    $has_false = true;
+                    break;
+                case TrueType::class:
+                    $has_true = true;
+                    break;
+                case BoolType::class:
+                    $has_true = true;
+                    $has_false = true;
+                    break;
+                case NullType::class:
+                    $has_null = true;
+                    break;
+            }
+        }
+        if ($has_null) {
+            $result[] = null;
+        }
+        if ($has_false) {
+            $result[] = false;
+        }
+        if ($has_true) {
+            $result[] = true;
+        }
+        return $result;
     }
 
     /**
