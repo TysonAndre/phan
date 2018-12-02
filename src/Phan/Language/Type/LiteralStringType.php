@@ -57,6 +57,9 @@ final class LiteralStringType extends StringType implements LiteralTypeInterface
         return $cache[$value] ?? ($cache[$value] = new self($value, false));
     }
 
+    /**
+     * Returns the literal string this type represents (whether or not this is the nullable type)
+     */
     public function getValue() : string
     {
         return $this->value;
@@ -137,20 +140,23 @@ final class LiteralStringType extends StringType implements LiteralTypeInterface
         return self::instanceForValue($escaped_string, $is_nullable);
     }
 
-    /** @var StringType */
-    private static $non_nullable_int_type;
-    /** @var StringType */
-    private static $nullable_int_type;
+    /** @var StringType the non-nullable string type instance. */
+    private static $non_nullable_string_type;
+    /** @var StringType the nullable string type instance. */
+    private static $nullable_string_type;
 
+    /**
+     * Called at the bottom of the file to ensure static properties are set for quick access.
+     */
     public static function init()
     {
-        self::$non_nullable_int_type = StringType::instance(false);
-        self::$nullable_int_type = StringType::instance(true);
+        self::$non_nullable_string_type = StringType::instance(false);
+        self::$nullable_string_type = StringType::instance(true);
     }
 
     public function asNonLiteralType() : Type
     {
-        return $this->is_nullable ? self::$nullable_int_type : self::$non_nullable_int_type;
+        return $this->is_nullable ? self::$nullable_string_type : self::$non_nullable_string_type;
     }
 
     /**
@@ -159,7 +165,7 @@ final class LiteralStringType extends StringType implements LiteralTypeInterface
      */
     public function withFlattenedArrayShapeOrLiteralTypeInstances() : array
     {
-        return [$this->is_nullable ? self::$nullable_int_type : self::$non_nullable_int_type];
+        return [$this->is_nullable ? self::$nullable_string_type : self::$non_nullable_string_type];
     }
 
     public function hasArrayShapeOrLiteralTypeInstances() : bool

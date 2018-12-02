@@ -121,13 +121,16 @@ abstract class Scope
 
     /**
      * @return bool
-     * True if we're in a class-like scope
+     * True if we're in a class-like's scope
      */
     public function isInClassScope() : bool
     {
         return ($this->flags & self::IN_CLASS_LIKE_SCOPE) !== 0;
     }
 
+    /**
+     * True if we're in a class-like's scope and that class-like is a trait.
+     */
     public function isInTraitScope() : bool
     {
         return ($this->flags & self::IN_TRAIT_SCOPE) !== 0;
@@ -287,7 +290,7 @@ abstract class Scope
     /**
      * Add $variable to the current scope.
      *
-     * @see $this->withVariable() for creating a clone of a scope with $variable instead
+     * @see self::withVariable() for creating a clone of a scope with $variable instead
      * @return void
      */
     public function addVariable(Variable $variable)

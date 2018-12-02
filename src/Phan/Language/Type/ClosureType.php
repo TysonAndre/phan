@@ -36,6 +36,9 @@ final class ClosureType extends Type
         return $instance;
     }
 
+    /**
+     * Create an instance of Closure for the FQSEN of the passed in function/closure/method $func with FQSEN $fqsen
+     */
     public static function instanceWithClosureFQSEN(FQSEN $fqsen, FunctionInterface $func = null) : ClosureType
     {
         static $original_instance = null;
@@ -60,6 +63,10 @@ final class ClosureType extends Type
         // same as new static($this->namespace, $this->name, $this->template_parameter_type_list, $this->is_nullable);
     }
 
+    /**
+     * Is this a closure which points to a known FQSEN
+     * (in internal or parsed function-likes, classes, methods, closures, etc.
+     */
     public function hasKnownFQSEN() : bool
     {
         return $this->fqsen !== null;
@@ -140,9 +147,12 @@ final class ClosureType extends Type
     {
         $func = $this->func;
         if ($func) {
-            return $func->asFunctionLikeDeclarationType()->__toString();
+            $result = $func->asFunctionLikeDeclarationType()->__toString();
+        } else {
+            $result = '\Closure';
         }
-        return '\Closure';
+
+        return $this->is_nullable ? "?$result" : $result;
     }
 
     /**

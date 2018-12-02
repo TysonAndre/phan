@@ -5,7 +5,7 @@ use Closure;
 
 /**
  * Implements Resource Acquisition Is Initialization.
- * An defined but unused variable in a function/method scope can be used to create this,
+ * A defined but unused variable in a function/method scope can be used to create this,
  * and the passed in finalizer closure will be called when that function/method returns.
  *
  * Note: This assumes that the garbage collector eagerly calls __destruct.
@@ -15,7 +15,7 @@ use Closure;
  */
 class RAII
 {
-    /** @var null|Closure():void */
+    /** @var null|Closure():void this is called exactly once, either during __destruct (when the variable goes out of scope) or manually */
     private $finalizer;
 
     /**

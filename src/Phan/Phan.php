@@ -18,12 +18,12 @@ use Phan\Output\IssuePrinterInterface;
 use Phan\Plugin\ConfigPluginSet;
 
 /**
- * This executes the the parse, method/function, then the analysis phases.
+ * This executes the parse, method/function, then the analysis phases.
  *
  * This is the entry point of Phan's implementation.
  * Implementations such as `./phan` or the code climate integration call into this.
  *
- * @see self::analyzeFileList
+ * @see self::analyzeFileList()
  */
 class Phan implements IgnoredFilesFilterInterface
 {
@@ -257,7 +257,7 @@ class Phan implements IgnoredFilesFilterInterface
     }
 
     /**
-     * Finish analyzing any files that need to be analyzed
+     * Finish analyzing any files that need to be analyzed.
      * (for full analysis, or a limited number of files for daemon mode, etc.)
      *
      * @param CodeBase $code_base
@@ -585,7 +585,7 @@ class Phan implements IgnoredFilesFilterInterface
     }
 
     /**
-     * Set the printer to use to emit issues to.
+     * Set the printer to use for emitting issues.
      * @return void
      */
     public static function setPrinter(

@@ -29,10 +29,11 @@ use Phan\Library\StringUtil;
 use ReflectionMethod;
 
 /**
- * TODO: Make $x != null remove FalseType and NullType from $x
- * TODO: if (a || b || c || d) might get really slow, due to creating both ConditionVisitor and NegatedConditionVisitor
+ * A visitor that takes a Context and a Node for a condition and returns a Context that has been updated with that condition.
  *
  * @phan-file-suppress PhanUnusedClosureParameter
+ * TODO: Make $x != null remove FalseType and NullType from $x
+ * TODO: if (a || b || c || d) might get really slow, due to creating both ConditionVisitor and NegatedConditionVisitor
  */
 class ConditionVisitor extends KindVisitorImplementation implements ConditionVisitorInterface
 {
@@ -257,7 +258,7 @@ class ConditionVisitor extends KindVisitorImplementation implements ConditionVis
         $context = $this->context;
         $left_false_context = (new NegatedConditionVisitor($code_base, $context))->__invoke($left);
         $left_true_context = (new ConditionVisitor($code_base, $context))->__invoke($left);
-        // We analyze the right hand side of `cond($x) || cond2($x)` as if `cond($x)` was false.
+        // We analyze the right-hand side of `cond($x) || cond2($x)` as if `cond($x)` was false.
         $right_true_context = (new ConditionVisitor($code_base, $left_false_context))->__invoke($right);
         // When the ConditionVisitor is true, at least one of the left or right contexts must be true.
         return (new ContextMergeVisitor($context, [$left_true_context, $right_true_context]))->combineChildContextList();

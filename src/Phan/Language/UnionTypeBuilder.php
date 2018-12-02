@@ -6,13 +6,13 @@ namespace Phan\Language;
  * Utilities to build a union type.
  * Mostly used internally when the number of types in the resulting union type may be large.
  *
- * @see UnionType->withType()
- * @see UnionType->withoutType()
+ * @see UnionType::withType()
+ * @see UnionType::withoutType()
  * @phan-file-suppress PhanPluginDescriptionlessCommentOnPublicMethod
  */
 final class UnionTypeBuilder
 {
-    /** @var array<int,Type> */
+    /** @var array<int,Type> the list of unique types in this builder instance. */
     private $type_set;
 
     /** @param array<int,Type> $type_set (must be unique) */
@@ -62,6 +62,9 @@ final class UnionTypeBuilder
         }
     }
 
+    /**
+     * Checks if this currently contains an empty list of types
+     */
     public function isEmpty() : bool
     {
         return \count($this->type_set) === 0;
@@ -75,6 +78,9 @@ final class UnionTypeBuilder
         return $this->type_set;
     }
 
+    /**
+     * Build and return the UnionType for the unique type set that this was building.
+     */
     public function getUnionType() : UnionType
     {
         return UnionType::of($this->type_set);

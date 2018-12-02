@@ -12,7 +12,7 @@ use Phan\Language\UnionType;
 use Phan\Plugin\ConfigPluginSet;
 
 /**
- * An issue emitted during the course of analysis
+ * An issue emitted during analysis.
  * @phan-file-suppress PhanPluginDescriptionlessCommentOnPublicMethod
  * @SuppressWarnings(PHPMD.ConstantNamingConventions) these constant names are deliberately used to match the values
  */
@@ -588,7 +588,7 @@ class Issue
     {
         static $error_map;
 
-        if (!empty($error_map)) {
+        if (\is_array($error_map)) {
             return $error_map;
         }
 
@@ -1628,7 +1628,7 @@ class Issue
                 self::TypeSuspiciousStringExpression,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                "Suspicious type {TYPE} of a variable or expression encapsulated within a string. (Expected this to be able to cast to a string)",
+                "Suspicious type {TYPE} of a variable or expression used to build a string. (Expected type to be able to cast to a string)",
                 self::REMEDIATION_B,
                 10066
             ),
@@ -3552,7 +3552,7 @@ class Issue
     {
         $error_map = self::issueMap();
 
-        if (empty($error_map[$type])) {
+        if (!isset($error_map[$type])) {
             throw new InvalidArgumentException("Undefined error type $type");
         }
 

@@ -602,7 +602,7 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
             while (!feof($read_stream)) {
                 $buffer = fread($read_stream, 1024);
                 if ($buffer === false) {
-                    Logger::logError("fread from language client failed: " . $buffer);
+                    Logger::logError("fread from language client failed");
                     break;
                 }
                 if (strlen($buffer) > 0) {
@@ -713,7 +713,7 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
      * @param array<string,string> $uris_to_analyze
      * @param array{issues:array[],definitions?:?Location|?(Location[]),completions?:?(CompletionItem[]),hover_response?:Hover} $response_data
      * @return void
-     * @see Request->respondWithIssues() for where $response_data is serialized
+     * @see Request::respondWithIssues() for where $response_data is serialized
      */
     private function handleJSONResponseFromWorker(array $uris_to_analyze, array $response_data)
     {

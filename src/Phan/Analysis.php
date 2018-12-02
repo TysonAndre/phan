@@ -66,7 +66,7 @@ class Analysis
         $original_file_path = $file_path;
         $code_base->setCurrentParsedFile($file_path);
         if ($is_php_internal_stub) {
-            /** @see \Phan\Language\FileRef->isPHPInternal() */
+            /** @see \Phan\Language\FileRef::isPHPInternal() */
             $file_path = 'internal';
         }
         $context = (new Context())->withFile($file_path);
@@ -117,7 +117,7 @@ class Analysis
             return $context;
         }
 
-        if (empty($node)) {
+        if (!$node) {
             // php-ast would return an empty node for 0 byte files in older releases.
             Issue::maybeEmit(
                 $code_base,
@@ -510,7 +510,7 @@ class Analysis
         }
 
         // Ensure we have some content
-        if (empty($node)) {
+        if (!$node) {
             Issue::maybeEmit(
                 $code_base,
                 $context,

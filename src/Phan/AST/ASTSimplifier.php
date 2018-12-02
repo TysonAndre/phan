@@ -249,7 +249,7 @@ class ASTSimplifier
                     self::replaceLastNodeWithNodeList($nodes, ...$this->applyAssignInRightSideOfBinaryOpReduction($node));
                     continue;
                 }
-                // TODO: If the left hand side is a constant or class constant or literal, that's safe to rearrange as well
+                // TODO: If the left-hand side is a constant or class constant or literal, that's safe to rearrange as well
                 // (But `foo($y = something()) && $x = $y` is not safe to rearrange)
             }
             if (count($node->children) === 1) {
@@ -804,6 +804,11 @@ class ASTSimplifier
         return $new_node;
     }
 
+    /**
+     * Returns a Node that represents $node after all of the AST simplification steps.
+     *
+     * $node is not modified. This will reuse descendant nodes that didn't change.
+     */
     public static function applyStatic(Node $node) : Node
     {
         $rewriter = new self();

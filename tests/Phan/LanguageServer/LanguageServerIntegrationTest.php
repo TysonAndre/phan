@@ -30,11 +30,20 @@ final class LanguageServerIntegrationTest extends BaseTest
     // There are separate config settings to make the language server emit debug messages.
     const DEBUG_ENABLED = false;
 
+    /**
+     * Returns the path of the folder used for these integration tests
+     */
     public static function getLSPFolder() : string
     {
         return dirname(dirname(__DIR__)) . '/misc/lsp';
     }
 
+    /**
+     * Returns the path of the file being analyzed.
+     * This has elements that the language server will return Positions of in some of the tests.
+     *
+     * The contents of this file will be "edited" (without changing the file on disk) by the mocked client.
+     */
     public static function getLSPPath() : string
     {
         return self::getLSPFolder() . '/src/example.php';
@@ -50,7 +59,7 @@ final class LanguageServerIntegrationTest extends BaseTest
     /**
      * @return array{0:resource,1:resource,2:resource} [$proc, $proc_in, $proc_out]
      */
-    private function createPhanDaemon(bool $pcntlEnabled)
+    private function createPhanLanguageServer(bool $pcntlEnabled, bool $prefer_stdio = true)
     {
         if (getenv('PHAN_RUN_INTEGRATION_TEST') != '1') {
             $this->markTestSkipped('skipping integration tests - set PHAN_RUN_INTEGRATION_TEST=1 to allow');
@@ -62,22 +71,73 @@ final class LanguageServerIntegrationTest extends BaseTest
         if ($pcntlEnabled && !function_exists('pcntl_fork')) {
             $this->markTestSkipped('requires pcntl extension');
         }
+        $is_windows = DIRECTORY_SEPARATOR === "\\";
+        if ($is_windows) {
+            // Work around 'The filename, directory name, or volume label syntax is incorrect.', include the path to the PHP binary used to run this test.
+            // Might not work with file names including spaces?
+            // @see InvokePHPNativeSyntaxCheckPlugin
+
+            $escaped_command = PHP_BINARY . " " . escapeshellarg(__DIR__ . '/../../../src/phan.php');
+            // XXX create an OOP language client abstraction for this test, with shutdown() methods
+            $use_stdio = false;
+        } else {
+            $escaped_command = escapeshellarg(__DIR__ . '/../../../phan');
+            // Most of the tests for unix/linux will use stdio - A tiny number will use TCP
+            // to properly test that TCP is working.
+            $use_stdio = $prefer_stdio;
+        }
+        if ($use_stdio) {
+            $options = '--language-server-on-stdin';
+        } else {
+            $address = '127.0.0.1:14846';
+            $options = '--language-server-tcp-connect ' . $address;
+
+            $tcpServer = stream_socket_server('tcp://' . $address, $errno, $errstr);
+            if ($tcpServer === false) {
+                $this->fail("Could not listen on $address. Error $errno\n$errstr");
+            }
+        }
         $command = sprintf(
-            '%s -d %s --quick --use-fallback-parser --language-server-on-stdin --language-server-enable-hover --language-server-enable-completion --language-server-enable-go-to-definition %s',
-            escapeshellarg(__DIR__ . '/../../../phan'),
+            '%s -d %s --quick --use-fallback-parser %s --language-server-enable-hover --language-server-enable-completion --language-server-enable-go-to-definition %s',
+            $escaped_command,
             escapeshellarg(self::getLSPFolder()),
+            $options,
             ($pcntlEnabled ? '' : '--language-server-force-missing-pcntl')
         );
-        $proc = proc_open(
-            $command,
-            [
-                0 => ['pipe', 'r'],
-                1 => ['pipe', 'w'],
-                2 => STDERR,  // Pass stderr from this process directly to output stderr so it doesn't get buffered up or ignored
-            ],
-            $pipes
-        );
-        list($proc_in, $proc_out) = $pipes;
+        if ($use_stdio) {
+            $proc = proc_open(
+                $command,
+                [
+                    0 => ['pipe', 'r'],
+                    1 => ['pipe', 'w'],
+                    2 => STDERR,  // Pass stderr from this process directly to output stderr so it doesn't get buffered up or ignored
+                ],
+                $pipes
+            );
+            list($proc_in, $proc_out) = $pipes;
+        } else {
+            $proc = proc_open(
+                $command,
+                [
+                    1 => STDERR,
+                    2 => STDERR,  // Pass stderr from this process directly to output stderr so it doesn't get buffered up or ignored
+                ],
+                $pipes
+            );
+            if (!$proc) {
+                throw new \RuntimeException("Failed to create a proc");
+            }
+            '@phan-var-force resource $tcpServer';
+            $socket = stream_socket_accept($tcpServer, 5);
+            if (!$socket) {
+                proc_close($proc);
+                throw new \RuntimeException("Failed to receive a connection from language server in 5 seconds");
+            }
+            // Don't set this to async - the rest of this test assumes synchronous streams.
+            // stream_set_blocking($socket, false);
+            $proc_in = $socket;
+            $proc_out = $socket;
+        }
         $this->debugLog("Created a process\n");
         return [
             $proc,
@@ -86,24 +146,56 @@ final class LanguageServerIntegrationTest extends BaseTest
         ];
     }
 
+    public function initializeProvider() : array {
+        $results = [
+            [false, true],
+            [true, true],
+        ];
+        if (DIRECTORY_SEPARATOR !== "\\") {
+            $results[] = [true, false];
+        }
+
+        return $results;
+    }
+
     /**
-     * @dataProvider pcntlEnabledProvider
+     * @dataProvider initializeProvider
      */
-    public function testInitialize(bool $pcntlEnabled)
+    public function testInitialize(bool $pcntlEnabled, bool $prefer_stdio)
     {
         // TODO: Move this into an OOP abstraction, add time limits, etc.
-        list($proc, $proc_in, $proc_out) = $this->createPhanDaemon($pcntlEnabled);
+        list($proc, $proc_in, $proc_out) = $this->createPhanLanguageServer($pcntlEnabled, $prefer_stdio);
         try {
             $this->writeInitializeRequestAndAwaitResponse($proc_in, $proc_out);
             $this->writeInitializedNotification($proc_in);
             $this->writeShutdownRequestAndAwaitResponse($proc_in, $proc_out);
             $this->writeExitNotification($proc_in);
         } finally {
-            fclose($proc_in);
+            $this->performCleanLanguageServerShutdown($proc, $proc_in, $proc_out);
+        }
+    }
+
+    /**
+     * @param resource $proc result of proc_open
+     * @param resource $proc_in input stream
+     * @param resource $proc_out output stream
+     */
+    private function performCleanLanguageServerShutdown($proc, $proc_in, $proc_out) {
+        try {
             // TODO: Make these pipes async if they aren't already
-            $unread_contents = fread($proc_out, 10000);
-            $this->assertSame('', $unread_contents);
-            fclose($proc_out);
+            if ($proc_in === $proc_out) {
+                // This is synchronous TCP
+                $unread_contents = fread($proc_out, 10000);
+                $this->assertSame('', $unread_contents);
+                fclose($proc_in);
+            } else {
+                // this is stdio
+                fclose($proc_in);
+                $unread_contents = fread($proc_out, 10000);
+                $this->assertSame('', $unread_contents);
+                fclose($proc_out);
+            }
+        } finally {
             proc_close($proc);
         }
     }
@@ -114,7 +206,7 @@ final class LanguageServerIntegrationTest extends BaseTest
     public function testGenerateDiagnostics(bool $pcntlEnabled)
     {
         // TODO: Move this into an OOP abstraction, add time limits, etc.
-        list($proc, $proc_in, $proc_out) = $this->createPhanDaemon($pcntlEnabled);
+        list($proc, $proc_in, $proc_out) = $this->createPhanLanguageServer($pcntlEnabled);
         try {
             $this->writeInitializeRequestAndAwaitResponse($proc_in, $proc_out);
             $this->writeInitializedNotification($proc_in);
@@ -147,19 +239,14 @@ EOT;
             $this->writeShutdownRequestAndAwaitResponse($proc_in, $proc_out);
             $this->writeExitNotification($proc_in);
         } finally {
-            fclose($proc_in);
-            // TODO: Make these pipes async if they aren't already
-            $unread_contents = fread($proc_out, 10000);
-            $this->assertSame('', $unread_contents);
-            fclose($proc_out);
-            proc_close($proc);
+            $this->performCleanLanguageServerShutdown($proc, $proc_in, $proc_out);
         }
     }
 
     public function testDefinitionInSameFile()
     {
         // TODO: Move this into an OOP abstraction, add time limits, etc.
-        list($proc, $proc_in, $proc_out) = $this->createPhanDaemon(true);
+        list($proc, $proc_in, $proc_out) = $this->createPhanLanguageServer(true);
         try {
             $this->writeInitializeRequestAndAwaitResponse($proc_in, $proc_out);
             $this->writeInitializedNotification($proc_in);
@@ -194,15 +281,13 @@ EOT;
             $this->writeShutdownRequestAndAwaitResponse($proc_in, $proc_out);
             $this->writeExitNotification($proc_in);
         } finally {
-            fclose($proc_in);
-            // TODO: Make these pipes async if they aren't already
-            $unread_contents = fread($proc_out, 10000);
-            $this->assertSame('', $unread_contents);
-            fclose($proc_out);
-            proc_close($proc);
+            $this->performCleanLanguageServerShutdown($proc, $proc_in, $proc_out);
         }
     }
 
+    /**
+     * Tests the completion provider for the given $position with pcntl enabled or disabled
+     */
     public function runTestCompletionWithPcntlSetting(
         Position $position,
         array $expected_completions,
@@ -210,7 +295,7 @@ EOT;
         bool $pcntl_enabled
     ) {
         $this->messageId = 0;
-        list($proc, $proc_in, $proc_out) = $this->createPhanDaemon($pcntl_enabled);
+        list($proc, $proc_in, $proc_out) = $this->createPhanLanguageServer($pcntl_enabled);
         try {
             $this->writeInitializeRequestAndAwaitResponse($proc_in, $proc_out);
             $this->writeInitializedNotification($proc_in);
@@ -236,12 +321,7 @@ EOT;
             $this->writeShutdownRequestAndAwaitResponse($proc_in, $proc_out);
             $this->writeExitNotification($proc_in);
         } finally {
-            fclose($proc_in);
-            // TODO: Make these pipes async if they aren't already
-            $unread_contents = fread($proc_out, 10000);
-            $this->assertSame('', $unread_contents);
-            fclose($proc_out);
-            proc_close($proc);
+            $this->performCleanLanguageServerShutdown($proc, $proc_in, $proc_out);
         }
     }
 
@@ -835,7 +915,7 @@ EOT
 
         $this->messageId = 0;
         // TODO: Move this into an OOP abstraction, add time limits, etc.
-        list($proc, $proc_in, $proc_out) = $this->createPhanDaemon($pcntl_enabled);
+        list($proc, $proc_in, $proc_out) = $this->createPhanLanguageServer($pcntl_enabled);
         try {
             $this->writeInitializeRequestAndAwaitResponse($proc_in, $proc_out);
             $this->writeInitializedNotification($proc_in);
@@ -892,13 +972,7 @@ EOT
             fwrite(STDERR, "Unexpected exception in " . __METHOD__ . ": " . $e->getMessage());
             throw $e;
         } finally {
-            // TODO: Reusable abstraction of opening and closing the language server
-            fclose($proc_in);
-            // TODO: Make these pipes async if they aren't already
-            $unread_contents = fread($proc_out, 10000);
-            $this->assertSame('', $unread_contents);
-            fclose($proc_out);
-            proc_close($proc);
+            $this->performCleanLanguageServerShutdown($proc, $proc_in, $proc_out);
         }
     }
 
@@ -918,7 +992,7 @@ EOT
 
         $this->messageId = 0;
         // TODO: Move this into an OOP abstraction, add time limits, etc.
-        list($proc, $proc_in, $proc_out) = $this->createPhanDaemon($pcntl_enabled);
+        list($proc, $proc_in, $proc_out) = $this->createPhanLanguageServer($pcntl_enabled);
         try {
             $this->writeInitializeRequestAndAwaitResponse($proc_in, $proc_out);
             $this->writeInitializedNotification($proc_in);
@@ -956,7 +1030,13 @@ EOT
 
             $cur_line = explode("\n", $new_file_contents)[$position->line] ?? '';
 
-            $message = "Unexpected type definition for {$position->line}:{$position->character} (0-based) on line " . json_encode($cur_line) . ' at "' . substr($cur_line, $position->character, 10) . '"';
+            $message = sprintf(
+                "Unexpected type definition for %d:%d (0-based) on line %s at \"%s\"",
+                $position->line,
+                $position->character,
+                (string)json_encode($cur_line),
+                (string)substr($cur_line, $position->character, 10)
+            );
             $this->assertEquals($expected_definition_response, $definition_response, $message);  // slightly better diff view than assertSame
             $this->assertSame($expected_definition_response, $definition_response, $message);
 
@@ -975,12 +1055,7 @@ EOT
             fwrite(STDERR, "Unexpected exception in " . __METHOD__ . ": " . $e->getMessage());
             throw $e;
         } finally {
-            fclose($proc_in);
-            // TODO: Make these pipes async if they aren't already
-            $unread_contents = fread($proc_out, 10000);
-            $this->assertSame('', $unread_contents);
-            fclose($proc_out);
-            proc_close($proc);
+            $this->performCleanLanguageServerShutdown($proc, $proc_in, $proc_out);
         }
     }
 
@@ -999,7 +1074,7 @@ EOT
 
         $this->messageId = 0;
         // TODO: Move this into an OOP abstraction, add time limits, etc.
-        list($proc, $proc_in, $proc_out) = $this->createPhanDaemon($pcntl_enabled);
+        list($proc, $proc_in, $proc_out) = $this->createPhanLanguageServer($pcntl_enabled);
         try {
             $this->writeInitializeRequestAndAwaitResponse($proc_in, $proc_out);
             $this->writeInitializedNotification($proc_in);
@@ -1034,7 +1109,13 @@ EOT
 
             $cur_line = explode("\n", $new_file_contents)[$position->line] ?? '';
 
-            $message = "Unexpected hover response for {$position->line}:{$position->character} (0-based) on line " . json_encode($cur_line) . ' at "' . substr($cur_line, $position->character, 10) . '"';
+            $message = sprintf(
+                "Unexpected hover response for %d:%d (0-based) on line %s at \"%s\"",
+                $position->line,
+                $position->character,
+                (string)json_encode($cur_line),
+                (string)substr($cur_line, $position->character, 10)
+            );
             $this->assertEquals($expected_hover_response, $hover_response, $message);  // slightly better diff view than assertSame
             $this->assertSame($expected_hover_response, $hover_response, $message);
 
@@ -1053,12 +1134,7 @@ EOT
             fwrite(STDERR, "Unexpected exception in " . __METHOD__ . ": " . $e->getMessage());
             throw $e;
         } finally {
-            fclose($proc_in);
-            // TODO: Make these pipes async if they aren't already
-            $unread_contents = fread($proc_out, 10000);
-            $this->assertSame('', $unread_contents);
-            fclose($proc_out);
-            proc_close($proc);
+            $this->performCleanLanguageServerShutdown($proc, $proc_in, $proc_out);
         }
     }
 

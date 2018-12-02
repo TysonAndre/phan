@@ -52,8 +52,8 @@ class AssignmentVisitor extends AnalysisVisitor
 
     /**
      * @var int
-     * Depth of array parameters in this assignment, e.g. this is 1 for
-     * for `$foo[3] = 42`, 0 for `$x = 2;`, etc.
+     * Depth of array parameters in this assignment, e.g. this is
+     * 1 for `$foo[3] = 42`, 0 for `$x = 2;`, etc.
      * We need to know this in order to decide
      * if we're replacing the union type
      * or if we're adding a type to the union type.
@@ -62,7 +62,7 @@ class AssignmentVisitor extends AnalysisVisitor
 
     /**
      * @var ?UnionType
-     * Non-null if this this assignment is to an array parameter such as
+     * Non-null if this assignment is to an array parameter such as
      * in `$foo[3] = 42` (type would be int). We need to know this in order to decide
      * to type check the assignment (e.g. array keys are int|string, string offsets are int)
      * type to the union type.
@@ -136,7 +136,7 @@ class AssignmentVisitor extends AnalysisVisitor
 
     /**
      * The following is an example of how this would happen.
-     * (TODO: Check if the right hand side is an object with offsetSet() or a reference?
+     * (TODO: Check if the right-hand side is an object with offsetSet() or a reference?
      *
      * ```php
      * class C {
@@ -161,7 +161,7 @@ class AssignmentVisitor extends AnalysisVisitor
 
     /**
      * The following is an example of how this would happen.
-     * TODO: Check that the left hand side is a reference or defines offsetSet()?
+     * TODO: Check that the left-hand side is a reference or defines offsetSet()?
      *
      * ```php
      * function &f() {
@@ -233,7 +233,7 @@ class AssignmentVisitor extends AnalysisVisitor
     /**
      * Analyzes code such as list($a) = [1, 2, 3];
      * @return void
-     * @see $this->visitArray
+     * @see self::visitArray()
      */
     private function analyzeShapedArrayAssignment(Node $node)
     {
@@ -389,7 +389,7 @@ class AssignmentVisitor extends AnalysisVisitor
     /**
      * Analyzes code such as list($a) = function_returning_array();
      * @return void
-     * @see $this->visitArray
+     * @see self::visitArray()
      */
     private function analyzeGenericArrayAssignment(Node $node)
     {
@@ -734,7 +734,7 @@ class AssignmentVisitor extends AnalysisVisitor
             } catch (\Exception $_) {
                 // swallow it
             }
-        } elseif (!empty($class_list)) {
+        } elseif (\count($class_list) > 0) {
             $first_class = $class_list[0];
             $this->emitIssueWithSuggestion(
                 Issue::UndeclaredProperty,
@@ -995,7 +995,7 @@ class AssignmentVisitor extends AnalysisVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      *
-     * @see $this->visitProp
+     * @see self::visitProp()
      */
     public function visitStaticProp(Node $node) : Context
     {
@@ -1049,7 +1049,7 @@ class AssignmentVisitor extends AnalysisVisitor
             return $this->analyzePropAssignment($clazz, $property, $node);
         }
 
-        if (!empty($class_list)) {
+        if (\count($class_list) > 0) {
             $this->emitIssue(
                 Issue::UndeclaredStaticProperty,
                 $node->lineno ?? 0,

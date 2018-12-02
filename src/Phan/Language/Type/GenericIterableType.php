@@ -16,12 +16,12 @@ final class GenericIterableType extends IterableType
     const NAME = 'iterable';
 
     /**
-     * @var UnionType
+     * @var UnionType the union type of the keys of this iterable.
      */
     private $key_union_type;
 
     /**
-     * @var UnionType
+     * @var UnionType the union type of the elements of this iterable.
      */
     private $element_union_type;
 
@@ -33,13 +33,17 @@ final class GenericIterableType extends IterableType
     }
 
     /**
-     * @return ?UnionType returns the iterable key's union type, if this is a subtype of iterable. null otherwise.
+     * @return UnionType returns the iterable key's union type, because this is a subtype of iterable.
+     * Other classes in the `Type` type hierarchy may return null.
      */
     public function getKeyUnionType() : UnionType
     {
         return $this->key_union_type;
     }
 
+    /**
+     * @return UnionType returns the union type of possible element types.
+     */
     public function getElementUnionType() : UnionType
     {
         return $this->element_union_type;
@@ -49,7 +53,7 @@ final class GenericIterableType extends IterableType
      * @return UnionType returns the iterable key's union type
      * @phan-override
      *
-     * @see $this->getKeyUnionType()
+     * @see self::getKeyUnionType()
      */
     public function iterableKeyUnionType(CodeBase $unused_code_base)
     {
@@ -60,13 +64,17 @@ final class GenericIterableType extends IterableType
      * @return UnionType returns the iterable value's union type
      * @phan-override
      *
-     * @see $this->getElementUnionType()
+     * @see self::getElementUnionType()
      */
     public function iterableValueUnionType(CodeBase $unused_code_base)
     {
         return $this->element_union_type;
     }
 
+    /**
+     * Returns a nullable/non-nullable GenericIterableType
+     * representing `iterable<$key_union_type, $element_union_type>`
+     */
     public static function fromKeyAndValueTypes(UnionType $key_union_type, UnionType $element_union_type, bool $is_nullable) : GenericIterableType
     {
         static $cache = [];

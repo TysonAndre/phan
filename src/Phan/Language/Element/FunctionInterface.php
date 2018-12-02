@@ -73,7 +73,7 @@ interface FunctionInterface extends AddressableElementInterface
     /**
      * @return int
      * The number of optional real parameters on this function/method.
-     * May differ from getNumberOfOptionalParameters()
+     * This may differ from getNumberOfOptionalParameters()
      * for internal modules lacking proper reflection info,
      * or if the installed module version's API changed from what Phan's stubs used,
      * or if a function/method uses variadics/func_get_arg*()
@@ -102,7 +102,7 @@ interface FunctionInterface extends AddressableElementInterface
     /**
      * @return int
      * The number of required real parameters on this function/method.
-     * May differ for internal modules lacking proper reflection info,
+     * This may differ for internal modules lacking proper reflection info,
      * or if the installed module version's API changed from what Phan's stubs used.
      */
     public function getNumberOfRequiredRealParameters() : int;
@@ -241,6 +241,11 @@ interface FunctionInterface extends AddressableElementInterface
      */
     public function analyzeWithNewParams(Context $context, CodeBase $code_base, array $parameter_list) : Context;
 
+    /**
+     * @return string the namespace in which this function interface was declared.
+     *
+     * Used for checking (at)internal annotations, etc.
+     */
     public function getElementNamespace() : string;
 
     /**
@@ -348,6 +353,9 @@ interface FunctionInterface extends AddressableElementInterface
      */
     public function setComment(Comment $comment);
 
+    /**
+     * @return UnionType of 0 or more types from (at)throws annotations on this function-like
+     */
     public function getThrowsUnionType() : UnionType;
 
     /**
@@ -390,5 +398,8 @@ interface FunctionInterface extends AddressableElementInterface
      */
     public function getReturnTypeAsGeneratorTemplateType() : Type;
 
+    /**
+     * Returns this function's union type without resolving `static` in the function declaration's context.
+     */
     public function getUnionTypeWithUnmodifiedStatic() : UnionType;
 }

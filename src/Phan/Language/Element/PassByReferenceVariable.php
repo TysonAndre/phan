@@ -6,9 +6,9 @@ use Phan\Language\FileRef;
 use Phan\Language\UnionType;
 
 /**
- * This class wraps a parameter and a element and proxies
+ * This class wraps a parameter and an element and proxies
  * calls to the element but keeps the name of the parameter
- * allowing us to pass a element into a method as a
+ * allowing us to pass an element into a method as a
  * pass-by-reference parameter so that its value can be
  * updated when re-analyzing the method.
  */
@@ -91,6 +91,10 @@ class PassByReferenceVariable extends Variable
         $this->element->setPhanFlags($phan_flags);
     }
 
+    /**
+     * Returns the context in which the element this is a reference to
+     * was declared.
+     */
     public function getContext() : Context
     {
         return $this->element->getContext();
@@ -101,6 +105,10 @@ class PassByReferenceVariable extends Variable
         return $this->element->getFileRef();
     }
 
+    /**
+     * Is the variable/property this is referring to part of a PHP module?
+     * (only possible for properties)
+     */
     public function isPHPInternal() : bool
     {
         return $this->element->isPHPInternal();

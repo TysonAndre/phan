@@ -42,6 +42,10 @@ final class LiteralIntType extends IntType implements LiteralTypeInterface
         return $cache[$value] ?? ($cache[$value] = new self($value, false));
     }
 
+    /**
+     * Returns the literal int that this type represents
+     * (whether or not this type is nullable)
+     */
     public function getValue() : int
     {
         return $this->value;
@@ -55,11 +59,14 @@ final class LiteralIntType extends IntType implements LiteralTypeInterface
         return (string)$this->value;
     }
 
-    /** @var IntType */
+    /** @var IntType the non-nullable int type instance. */
     private static $non_nullable_int_type;
-    /** @var IntType */
+    /** @var IntType the nullable int type instance. */
     private static $nullable_int_type;
 
+    /**
+     * Called at the bottom of the file to ensure static properties are set for quick access.
+     */
     public static function init()
     {
         self::$non_nullable_int_type = IntType::instance(false);

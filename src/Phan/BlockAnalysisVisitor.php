@@ -41,7 +41,7 @@ use function rtrim;
  * - Uses `\Phan\Analysis\PostOrderAnalysisVisitor` for post-order analysis of a node (E.g. analyzing a statement with the updated Context and emitting issues)
  * - If there is more than one possible child context, merges state from them (variable types)
  *
- * @see $this->visit
+ * @see self::visit()
  *
  * @phan-file-suppress PhanPartialTypeMismatchArgument
  */
@@ -306,7 +306,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor
 
     /**
      * @return void
-     * @see ConditionVarUtil::getVariableFromScope
+     * @see ConditionVarUtil::getVariableFromScope()
      */
     private function createVarForInlineComment(CodeBase $code_base, Context $context, string $var_name, UnionType $type, bool $create_variable)
     {
@@ -436,7 +436,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor
      * 1. propagate the context and scope from the parent,
      * 2. Update the scope with the initializer of the loop,
      * 3. Update the scope with the side effects (e.g. assignments) of the condition of the loop
-     * 4. Update the scope with the child statements both inside and outside the the loop (ignoring branches which will continue/break),
+     * 4. Update the scope with the child statements both inside and outside the loop (ignoring branches which will continue/break),
      * 5. Update the scope with the statement evaluated after the loop
      *
      * Then, Phan returns the context with the modified scope.
@@ -551,7 +551,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor
      *
      * 1. propagate the context and scope from the parent,
      * 2. Update the scope with the side effects (e.g. assignments) of the condition of the loop
-     * 3. Update the scope with the child statements both inside and outside the the loop (ignoring branches which will continue/break),
+     * 3. Update the scope with the child statements both inside and outside the loop (ignoring branches which will continue/break),
      *
      * Then, Phan returns the context with the modified scope.
      *
@@ -1232,9 +1232,9 @@ class BlockAnalysisVisitor extends AnalysisVisitor
 
         // With (left) && (right)
         // 1. Update context with any side effects of left
-        // 2. Create a context to analyze the right hand side with any inferences possible from left (e.g. ($x instanceof MyClass) && $x->foo()
-        // 3. Analyze the right hand side
-        // 4. Merge the possibly evaluated $right_context for the right hand side into the original context. (The left_node is guaranteed to have been evaluated, so it becomes $context)
+        // 2. Create a context to analyze the right-hand side with any inferences possible from left (e.g. ($x instanceof MyClass) && $x->foo()
+        // 3. Analyze the right-hand side
+        // 4. Merge the possibly evaluated $right_context for the right-hand side into the original context. (The left_node is guaranteed to have been evaluated, so it becomes $context)
 
         // TODO: Warn about non-node, they're guaranteed to be always false or true
         if ($left_node instanceof Node) {
@@ -1291,9 +1291,9 @@ class BlockAnalysisVisitor extends AnalysisVisitor
 
         // With (left) || (right)
         // 1. Update context with any side effects of left
-        // 2. Create a context to analyze the right hand side with any inferences possible from left (e.g. (!($x instanceof MyClass)) || $x->foo()
-        // 3. Analyze the right hand side
-        // 4. Merge the possibly evaluated $right_context for the right hand side into the original context. (The left_node is guaranteed to have been evaluated, so it becomes $context)
+        // 2. Create a context to analyze the right-hand side with any inferences possible from left (e.g. (!($x instanceof MyClass)) || $x->foo()
+        // 3. Analyze the right-hand side
+        // 4. Merge the possibly evaluated $right_context for the right-hand side into the original context. (The left_node is guaranteed to have been evaluated, so it becomes $context)
 
         // TODO: Warn about non-node, they're guaranteed to be always false or true
         if ($left_node instanceof Node) {
@@ -1417,7 +1417,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor
      * @return Context
      * The updated context after visiting the node
      *
-     * @see $this->visitClosedContext()
+     * @see self::visitClosedContext()
      */
     public function visitClass(Node $node) : Context
     {
@@ -1431,7 +1431,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor
      * @return Context
      * The updated context after visiting the node
      *
-     * @see $this->visitClosedContext()
+     * @see self::visitClosedContext()
      */
     public function visitMethod(Node $node) : Context
     {
@@ -1445,7 +1445,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor
      * @return Context
      * The updated context after visiting the node
      *
-     * @see $this->visitClosedContext()
+     * @see self::visitClosedContext()
      */
     public function visitFuncDecl(Node $node) : Context
     {
@@ -1459,7 +1459,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor
      * @return Context
      * The updated context after visiting the node
      *
-     * @see $this->visitClosedContext()
+     * @see self::visitClosedContext()
      */
     public function visitClosure(Node $node) : Context
     {
@@ -1579,7 +1579,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor
     /**
      * @param Node $node
      * An AST node we'd like to analyze the statements for
-     * @see $this->visit() - This is similar to visit() except that the check if $is_static requires parent_node,
+     * @see self::visit() - This is similar to visit() except that the check if $is_static requires parent_node,
      * so PreOrderAnalysisVisitor can't be used to modify the Context.
      *
      * @return Context

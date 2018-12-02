@@ -42,8 +42,10 @@ trait FunctionTrait
      */
     protected $is_inner_scope_initialized  = false;
 
+    /** @return int flags from \Phan\Language\Element\Flags */
     abstract public function getPhanFlags() : int;
 
+    /** @return bool true if all of the bits in $bits is true in $this->getPhanFlags() */
     abstract public function getPhanFlagsHasState(int $bits) : bool;
 
     /**
@@ -64,7 +66,7 @@ trait FunctionTrait
      * The fully-qualified structural element name of this
      * structural element
      */
-    public abstract function getFQSEN();
+    abstract public function getFQSEN();
 
     /**
      * @return string
@@ -205,7 +207,7 @@ trait FunctionTrait
     /**
      * @return int
      * The number of optional real parameters on this function/method.
-     * May differ from getNumberOfOptionalParameters()
+     * This may differ from getNumberOfOptionalParameters()
      * for internal modules lacking proper reflection info,
      * or if the installed module version's API changed from what Phan's stubs used,
      * or if a function/method uses variadics/func_get_arg*()
@@ -263,7 +265,7 @@ trait FunctionTrait
     /**
      * @return int
      * The number of required real parameters on this function/method.
-     * May differ for internal modules lacking proper reflection info,
+     * This may differ for internal modules lacking proper reflection info,
      * or if the installed module version's API changed from what Phan's stubs used.
      */
     public function getNumberOfRequiredRealParameters() : int
@@ -787,7 +789,7 @@ trait FunctionTrait
     }
 
     /**
-     * @param array<string,UnionType> $parameter_map maps a subset of param names to the unmodified phpdoc parameter types. May differ from real parameter types
+     * @param array<string,UnionType> $parameter_map maps a subset of param names to the unmodified phpdoc parameter types. This may differ from real parameter types.
      * @return void
      * @suppress PhanUnreferencedPublicMethod Phan knows FunctionInterface's method is referenced, but can't associate that yet.
      */
@@ -902,17 +904,22 @@ trait FunctionTrait
         return $this->analyze($context, $code_base);
     }
 
-    public abstract function analyze(Context $context, CodeBase $code_base) : Context;
+    /**
+     * Analyze this with original parameter types or types from arguments.
+     */
+    abstract public function analyze(Context $context, CodeBase $code_base) : Context;
 
-    public abstract function getRecursionDepth() : int;
+    /** @return int the current depth of recursive non-quick analysis. */
+    abstract public function getRecursionDepth() : int;
 
-    /** @return Node|null */
-    public abstract function getNode();
+    /** @return Node|null the node of this function-like's declaration, if any exist and were kept for recursive non-quick analysis. */
+    abstract public function getNode();
 
-    /** @return Context */
-    public abstract function getContext() : Context;
+    /** @return Context location and scope where this was declared. */
+    abstract public function getContext() : Context;
 
-    public abstract function getFileRef() : FileRef;
+    /** @return FileRef location where this was declared. */
+    abstract public function getFileRef() : FileRef;
 
     /**
      * Returns true if the return type depends on the argument, and a plugin makes Phan aware of that.
@@ -1027,12 +1034,13 @@ trait FunctionTrait
     }
 
     /** @return void */
-    public abstract function memoizeFlushAll();
+    abstract public function memoizeFlushAll();
 
-    public abstract function getUnionType() : UnionType;
+    /** @return UnionType union type this function-like's declared return type (from PHPDoc, signatures, etc.)  */
+    abstract public function getUnionType() : UnionType;
 
     /** @return void */
-    public abstract function setUnionType(UnionType $type);
+    abstract public function setUnionType(UnionType $type);
 
     /**
      * Creates a callback that can restore this element to the state it had before parsing.
@@ -1088,7 +1096,10 @@ trait FunctionTrait
         return $this->as_closure_declaration_type ?? ($this->as_closure_declaration_type = $this->createFunctionLikeDeclarationType());
     }
 
-    public abstract function returnsRef() : bool;
+    /**
+     * Does this function-like return a reference?
+     */
+    abstract public function returnsRef() : bool;
 
     private function createFunctionLikeDeclarationType() : FunctionLikeDeclarationType
     {

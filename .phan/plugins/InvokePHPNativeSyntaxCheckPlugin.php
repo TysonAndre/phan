@@ -35,7 +35,7 @@ class InvokePHPNativeSyntaxCheckPlugin extends PluginV2 implements
     /**
      * @var array<int,InvokeExecutionPromise>
      * A list of invoked processes that this plugin created.
-     * This plugin creates a processes(up to a maximum number can run at a time)
+     * This plugin creates 0 or more processes(up to a maximum number can run at a time)
      * and then waits for the execution of those processes to finish.
      */
     private $processes = [];
@@ -202,9 +202,7 @@ class InvokeExecutionPromise
 
             // Possibly https://bugs.php.net/bug.php?id=51800
             // NOTE: Work around this by writing from the original file. This may not work as expected in LSP mode
-            if (DIRECTORY_SEPARATOR === "\\") {
-                $abs_path = str_replace("/", "\\", $abs_path);
-            }
+            $abs_path = str_replace("/", "\\", $abs_path);
 
             $cmd .= ' < ' . escapeshellarg($abs_path);
 
@@ -285,6 +283,9 @@ class InvokeExecutionPromise
         }
     }
 
+    /**
+     * @return bool false if an error was encountered when trying to read more output from the syntax check process.
+     */
     public function read() : bool
     {
         if ($this->done) {
@@ -348,11 +349,17 @@ class InvokeExecutionPromise
         return $this->error;
     }
 
+    /**
+     * Returns the context containing the name of the file being syntax checked
+     */
     public function getContext() : Context
     {
         return $this->context;
     }
 
+    /**
+     * @return string the path to the PHP interpreter binary. (e.g. `/usr/bin/php`)
+     */
     public function getBinary() : string
     {
         return $this->binary;

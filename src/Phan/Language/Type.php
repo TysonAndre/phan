@@ -187,7 +187,7 @@ class Type
        . ')';
 
     /**
-     * @var array<string,bool> - For checking if a string is an internal type. This is used for case insensitive lookup.
+     * @var array<string,bool> - For checking if a string is an internal type. This is used for case-insensitive lookup.
      */
     const _internal_type_set = [
         'array'     => true,
@@ -316,13 +316,13 @@ class Type
     public function __wakeup()
     {
         debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
-        throw new Error("Cannot unserialize Type");
+        throw new Error("Cannot unserialize Type '$this'");
     }
 
     /** @throws Error this should not be called accidentally */
     public function __clone()
     {
-        throw new Error("Cannot clone Type");
+        throw new Error("Cannot clone Type '$this'");
     }
 
     /**
@@ -743,6 +743,9 @@ class Type
         return self::make($namespace, $type_name, [], $is_nullable, Type::FROM_NODE);
     }
 
+    /**
+     * Creates a type for the ReflectionType of a parameter, return value, etc.
+     */
     public static function fromReflectionType(
         \ReflectionType $reflection_type
     ) : Type {
@@ -1449,56 +1452,97 @@ class Type
         return $this->namespace;
     }
 
+    /**
+     * Is this nullable?
+     *
+     * E.g. returns true for `?array`, `null`, etc.
+     */
     public function getIsNullable() : bool
     {
         return $this->is_nullable;
     }
 
+    /**
+     * Returns true if this has some possibly falsey values
+     */
     public function getIsPossiblyFalsey() : bool
     {
         return $this->is_nullable;
     }
 
+    /**
+     * Returns true if this is guaranteed to be falsey
+     */
     public function getIsAlwaysFalsey() : bool
     {
-        return false;  // overridden in FalseType and NullType
+        return false;  // overridden in FalseType and NullType, as well as literal scalar types
     }
 
+    /**
+     * Returns true if this is possibly truthy.
+     */
     public function getIsPossiblyTruthy() : bool
     {
         return true;  // overridden in various types. This base class (Type) is implicitly the type of an object, which is always truthy.
     }
 
+    /**
+     * Returns true if this is guaranteed to be truthy.
+     *
+     * Overridden in various types.
+     *
+     * This base class (Type) is type of an object with a known FQSEN,
+     * which is always truthy.
+     */
     public function getIsAlwaysTruthy() : bool
     {
-        return true;  // overridden in various types. This base class (Type) is implicitly the type of an object, which is always truthy.
+        return true;
     }
 
+    /**
+     * Returns true for types such as `mixed`, `bool`, `false`
+     */
     public function getIsPossiblyFalse() : bool
     {
         return false;
     }
 
+    /**
+     * Returns true for non-nullable `FalseType`
+     */
     public function getIsAlwaysFalse() : bool
     {
         return false;  // overridden in FalseType
     }
 
+    /**
+     * Returns true if this could include the type `true`
+     * (e.g. for `mixed`, `bool`, etc.)
+     */
     public function getIsPossiblyTrue() : bool
     {
         return false;
     }
 
+    /**
+     * Returns true for non-nullable `TrueType`
+     */
     public function getIsAlwaysTrue() : bool
     {
-        return false;  // overridden in TrueType
+        return false;
     }
 
+    /**
+     * Returns true for FalseType, TrueType, and BoolType
+     */
     public function getIsInBoolFamily() : bool
     {
-        return false;  // overridden in FalseType, TrueType, BoolType
+        return false;
     }
 
+    /**
+     * Returns true if this type may satisfy `is_numeric()`
+     */
     public function getIsPossiblyNumeric() : bool
     {
         return false;
@@ -1527,27 +1571,49 @@ class Type
         );
     }
 
+    /**
+     * Returns this type with any falsey types (e.g. false, null, 0, '') removed.
+     *
+     * Overridden by BoolType, etc.
+     * @see self::getIsAlwaysFalsey()
+     */
     public function asNonFalseyType() : Type
     {
         // Overridden by BoolType subclass to return TrueType
         return $this->withIsNullable(false);
     }
 
+    /**
+     * Returns this type with any truthy types removed.
+     *
+     * Overridden by BoolType, etc.
+     * @see self::getIsAlwaysTruthy()
+     */
     public function asNonTruthyType() : Type
     {
         // Overridden by ScalarType, BoolType, etc.
         return NullType::instance(false);
     }
 
+    /**
+     * Returns this type with the type `false` removed.
+     *
+     * Overridden by BoolType, etc.
+     * @see self::getIsAlwaysFalse()
+     */
     public function asNonFalseType() : Type
     {
-        // Overridden by BoolType, etc.
         return $this;
     }
 
+    /**
+     * Returns this type with the type `true` removed.
+     *
+     * Overridden by BoolType, etc.
+     * @see self::getIsAlwaysTrue()
+     */
     public function asNonTrueType() : Type
     {
-        // Overridden by BoolType, etc.
         return $this;
     }
 
@@ -1573,7 +1639,7 @@ class Type
             $type_name = self::canonicalNameFromName($type_name);  // Have to convert boolean[] to bool
         }
         if (!\array_key_exists($type_name, self::_internal_type_set)) {
-            return $original_type_name === '$this';  // This is the only case sensitive check.
+            return $original_type_name === '$this';  // This is the only case-sensitive check.
         }
         // All values of $type_name exist as a valid phpdoc type, but some don't exist as real types.
         if ($source === Type::FROM_NODE && \array_key_exists($type_name, self::_soft_internal_type_set)) {
@@ -1605,6 +1671,10 @@ class Type
         return false;
     }
 
+    /**
+     * Returns true if this has any instance of `static` or `self`.
+     * This is overridden in subclasses such as `SelfType`.
+     */
     public function hasStaticOrSelfTypesRecursive(CodeBase $code_base) : bool
     {
         $union_type = $this->iterableValueUnionType($code_base);
@@ -1630,7 +1700,7 @@ class Type
     public static function isSelfTypeString(
         string $type_string
     ) : bool {
-        // Note: While 'self' and 'parent' are case insensitive, '$this' is case sensitive
+        // Note: While 'self' and 'parent' are case-insensitive, '$this' is case-sensitive
         // Not sure if that should extend to phpdoc.
         return \preg_match('/^\\\\?([sS][eE][lL][fF]|[pP][aA][rR][eE][nN][tT]|\$this)$/', $type_string) > 0;
     }
@@ -1646,7 +1716,7 @@ class Type
     public static function isStaticTypeString(
         string $type_string
     ) : bool {
-        // Note: While 'self' and 'parent' are case insensitive, '$this' is case sensitive
+        // Note: While 'self' and 'parent' are case-insensitive, '$this' is case-sensitive
         // Not sure if that should extend to phpdoc.
         return \preg_match('/^\\\\?([sS][tT][aA][tT][iI][cC]|\\$this)$/', $type_string) > 0;
     }
@@ -1750,7 +1820,7 @@ class Type
     }
 
     /**
-     * @return bool - Returns true if this is \ArrayAccess (nullable or not)
+     * @return bool - Returns true if this is `\ArrayAccess` (nullable or not)
      */
     public function isArrayAccess() : bool
     {
@@ -1758,6 +1828,10 @@ class Type
             && $this->getNamespace() === '\\');
     }
 
+    /**
+     * Is this an array or ArrayAccess, or a subtype of those?
+     * E.g. returns true for `\ArrayObject`, `array<int,string>`, etc.
+     */
     public function isArrayOrArrayAccessSubType(CodeBase $code_base) : bool
     {
         return $this->asExpandedTypes($code_base)->hasArrayAccess();
@@ -2241,10 +2315,10 @@ class Type
      * True if each type within this union type can cast
      * to the given union type.
      *
-     * @see StaticType->isExclusivelyNarrowedFormOrEquivalentTo for how it resolves static.
+     * @see StaticType::isExclusivelyNarrowedFormOrEquivalentTo() for how it resolves static.
      * TODO: Refactor.
      *
-     * @see UnionType->isExclusivelyNarrowedFormOrEquivalentTo for a check on union types as a whole.
+     * @see UnionType::isExclusivelyNarrowedFormOrEquivalentTo() for a check on union types as a whole.
      */
     public function isExclusivelyNarrowedFormOrEquivalentTo(
         UnionType $union_type,
@@ -2261,6 +2335,9 @@ class Type
         // Check to see if the other union type contains this
         if ($union_type->hasType($this)) {
             return true;
+        }
+        if ($this->getIsNullable() && !$union_type->containsNullable()) {
+            return false;
         }
         $this_resolved = $this->withStaticResolvedInContext($context);
         // TODO: Allow casting MyClass<TemplateType> to MyClass (Without the template?
@@ -2373,7 +2450,7 @@ class Type
      * 3: Whether or not the type is nullable
      * 4: The shape components, if any. Null unless this is an array shape type string such as 'array{field:int}'
      *
-     * NOTE: callers must check for the generic array symbol in the type name or for type names beginning with 'array{' (case insensitive)
+     * NOTE: callers must check for the generic array symbol in the type name or for type names beginning with 'array{' (case-insensitive)
      *
      * NOTE: callers must not mutate the result.
      */
@@ -2592,11 +2669,20 @@ class Type
         return $this->is_nullable ? self::_bit_nullable : 0;
     }
 
+    /**
+     * Returns true if this contains any array shape type instances
+     * or literal type instances that could be normalized to
+     * regular generic array types or scalar types.
+     */
     public function hasArrayShapeOrLiteralTypeInstances() : bool
     {
         return false;
     }
 
+    /**
+     * Returns true if this contains any array shape type instances
+     * that could be normalized to regular generic array types.
+     */
     public function hasArrayShapeTypeInstances() : bool
     {
         return false;
@@ -2635,6 +2721,10 @@ class Type
         return $this;
     }
 
+    /**
+     * Returns true if this is a potentially valid operand for a numeric operator.
+     * Callers should also check if this is nullable.
+     */
     public function isValidNumericOperand() : bool
     {
         return false;

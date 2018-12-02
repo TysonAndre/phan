@@ -128,7 +128,7 @@ class UnionType implements Serializable
         }
     }
 
-    /** @var EmptyUnionType */
+    /** @var EmptyUnionType an empty union type - Cached here for quick access. */
     private static $empty_instance;
 
     /**
@@ -326,7 +326,7 @@ class UnionType implements Serializable
     /**
      * @param string[] $parts (already trimmed)
      * @return string[]
-     * @see Type::extractTemplateParameterTypeNameList (Similar method)
+     * @see Type::extractTemplateParameterTypeNameList() (Similar method)
      */
     private static function mergeTypeParts(array $parts) : array
     {
@@ -913,6 +913,9 @@ class UnionType implements Serializable
         return false;
     }
 
+    /**
+     * @return UnionType without the subclasses/sub-types of $object_type
+     */
     public function withoutSubclassesOf(CodeBase $code_base, Type $object_type) : UnionType
     {
         $is_nullable = $this->containsNullable();
@@ -954,6 +957,10 @@ class UnionType implements Serializable
         return $this->containsNullable();
     }
 
+    /**
+     * @return UnionType a clone of this that does not include null,
+     *                   and has the non-null equivalents of any nullable types in this UnionType
+     */
     public function nonNullableClone() : UnionType
     {
         $builder = new UnionTypeBuilder();
@@ -973,6 +980,10 @@ class UnionType implements Serializable
         return $did_change ? $builder->getUnionType() : $this;
     }
 
+    /**
+     * @return UnionType a clone of this that has the nullable equivalents of any types in this UnionType
+     * (e.g. returns '?T|?false' for 'T|false')
+     */
     public function nullableClone() : UnionType
     {
         $builder = new UnionTypeBuilder();
@@ -991,6 +1002,8 @@ class UnionType implements Serializable
     /**
      * Analogous to Type->withIsNullable()
      * @suppress PhanUnreferencedPublicMethod
+     * @see self::nullableClone()
+     * @see self::nonNullableClone()
      */
     public function withIsNullable(bool $is_nullable) : UnionType
     {
@@ -1012,6 +1025,9 @@ class UnionType implements Serializable
         return false;
     }
 
+    /**
+     * @return UnionType a clone of this with any falsey types (null, false, falsey int/string literals, etc.) removed.
+     */
     public function nonFalseyClone() : UnionType
     {
         $builder = new UnionTypeBuilder();
@@ -1135,6 +1151,9 @@ class UnionType implements Serializable
         return true;
     }
 
+    /**
+     * @return bool if this contains at least one literal int/string type (e.g. `'myString'|false`)
+     */
     public function hasLiterals() : bool
     {
         foreach ($this->type_set as $type) {
@@ -1145,6 +1164,10 @@ class UnionType implements Serializable
         return false;
     }
 
+    /**
+     * @return UnionType result of converting literal int/string types to the non-literal equivalents
+     * (e.g. converts `'myString'|false` to `string|false`)
+     */
     public function asNonLiteralType() : UnionType
     {
         if (!$this->hasLiterals()) {
@@ -1157,6 +1180,10 @@ class UnionType implements Serializable
         return $result;
     }
 
+    /**
+     * @return UnionType result of removing truthy types from this value
+     * (e.g. converts `0|1|bool|\stdClass` to `0|false`)
+     */
     public function nonTruthyClone() : UnionType
     {
         $builder = new UnionTypeBuilder();
@@ -1204,6 +1231,10 @@ class UnionType implements Serializable
         return false;
     }
 
+    /**
+     * @return UnionType result of removing false from this value
+     * (e.g. converts `0|1|bool|\stdClass` to `0|1|true|\stdClass`)
+     */
     public function nonFalseClone() : UnionType
     {
         $builder = new UnionTypeBuilder();
@@ -1225,6 +1256,10 @@ class UnionType implements Serializable
         return $did_change ? $builder->getUnionType() : $this;
     }
 
+    /**
+     * @return UnionType result of removing true from this value
+     * (e.g. converts `0|1|bool|\stdClass` to `0|1|false|\stdClass`)
+     */
     public function nonTrueClone() : UnionType
     {
         $builder = new UnionTypeBuilder();
@@ -2062,7 +2097,7 @@ class UnionType implements Serializable
      * @return bool
      * A UnionType with known callable types kept, other types filtered out.
      *
-     * @see $this->callableTypes()
+     * @see self::callableTypes()
      *
      * @suppress PhanUnreferencedPublicMethod
      */
@@ -2092,6 +2127,10 @@ class UnionType implements Serializable
         });
     }
 
+    /**
+     * @return bool is each of the types in this type bool, false, or true?
+     * This also returns false if any type is nullable.
+     */
     public function isExclusivelyBoolTypes() : bool
     {
         if ($this->isEmpty()) {
@@ -2759,6 +2798,10 @@ class UnionType implements Serializable
         return \implode(',', $ids);
     }
 
+    /**
+     * Returns true if at least one of the types in this type set is a generic array shape
+     * E.g. returns true for `array{}|false`, but not for `iterable<int,array{}>|false`
+     */
     public function hasTopLevelArrayShapeTypeInstances() : bool
     {
         foreach ($this->type_set as $type) {
@@ -2769,6 +2812,10 @@ class UnionType implements Serializable
         return false;
     }
 
+    /**
+     * Returns true if at least one of the types in this type set is not a generic array shape
+     * E.g. returns true for `array{}|false`, and false for `array{}`
+     */
     public function hasTopLevelNonArrayShapeTypeInstances() : bool
     {
         foreach ($this->type_set as $type) {
@@ -2780,6 +2827,8 @@ class UnionType implements Serializable
     }
 
     /**
+     * Returns true if at least one of the types in this type set contains an array shape.
+     * TODO: Implement for all types that can contain other types.
      * @suppress PhanUnreferencedPublicMethod
      */
     public function hasArrayShapeTypeInstances() : bool
@@ -2792,6 +2841,13 @@ class UnionType implements Serializable
         return false;
     }
 
+    /**
+     * Returns true if at least one of the types in this type set contains an array shape or a literal type.
+     * TODO: Implement for all types that can contain other types.
+     *
+     * e.g. returns true for `array<string,2>`, `2`, `array{key:int}`, etc.
+     * @suppress PhanUnreferencedPublicMethod
+     */
     public function hasArrayShapeOrLiteralTypeInstances() : bool
     {
         foreach ($this->type_set as $type) {
@@ -2802,6 +2858,9 @@ class UnionType implements Serializable
         return false;
     }
 
+    /**
+     * @return bool true if at least one of the types in this type set is `mixed` or `?mixed`
+     */
     public function hasMixedType() : bool
     {
         foreach ($this->type_set as $type) {
@@ -2887,9 +2946,14 @@ class UnionType implements Serializable
         return $result->getUnionType();
     }
 
+    /**
+     * Used to check if any type in this param type should be replaced
+     * by more specific types of arguments, in non-quick mode
+     */
     public function shouldBeReplacedBySpecificTypes() : bool
     {
         if ($this->isEmpty()) {
+            // We don't know anything about this type, this should be replaced by more specific argument types.
             return true;
         }
         return $this->hasTypeMatchingCallback(function (Type $type) : bool {
@@ -2898,6 +2962,8 @@ class UnionType implements Serializable
     }
 
     /**
+     * Removes $field_key from the fields of top-level array shapes of this union type.
+     *
      * @param int|string|float|bool $field_key
      */
     public function withoutArrayShapeField($field_key) : UnionType
@@ -2915,6 +2981,9 @@ class UnionType implements Serializable
     }
 
     /**
+     * Mark this union type as being possibly undefined.
+     * This is used for union types of variables and for values of array shapes.
+     *
      * Base implementation. Overridden by AnnotatedUnionType.
      */
     public function withIsPossiblyUndefined(bool $is_possibly_undefined) : UnionType
@@ -2938,7 +3007,12 @@ class UnionType implements Serializable
         return false;
     }
 
-    // Assumes this was already expanded
+    /**
+     * Returns true if at least one of the types in this union type is a class-like defining the method __toString()
+     *
+     * Callers should convert union types to the expanded union types first.
+     * TODO: is that necessary?
+     */
     public function hasClassWithToStringMethod(CodeBase $code_base, Context $context) : bool
     {
         try {
@@ -2953,6 +3027,11 @@ class UnionType implements Serializable
         return false;
     }
 
+    /**
+     * Gets the type of this converted to a generator.
+     * E.g. converts the type of an iterable/array/Generator `$x`
+     * to the type of a generator with the implementation `yield from $x`
+     */
     public function asGeneratorTemplateType() : Type
     {
         $fallback_values = UnionType::empty();
@@ -3011,6 +3090,9 @@ class UnionType implements Serializable
         }
     }
 
+    /**
+     * @return UnionType the union type of applying the minus operator to an expression with this union type
+     */
     public function applyUnaryMinusOperator() : UnionType
     {
         // TODO: Extend to LiteralFloatType
@@ -3025,6 +3107,9 @@ class UnionType implements Serializable
         }, true);
     }
 
+    /**
+     * @return UnionType the union type of applying the unary bitwise not operator on an expression with this union type
+     */
     public function applyUnaryBitwiseNotOperator() : UnionType
     {
         if ($this->isEmpty()) {
@@ -3052,21 +3137,23 @@ class UnionType implements Serializable
         return $type_set;
     }
 
+    /**
+     * @return UnionType the union type of applying the unary plus operator on an expression with this union type
+     */
     public function applyUnaryPlusOperator() : UnionType
     {
         /** @param int|float $value */
         return $this->applyNumericOperation(function ($value) : ScalarType {
-            $result = -$value;
+            $result = +$value;
             if (\is_int($result)) {
                 return LiteralIntType::instanceForValue($result, false);
             }
-            // -INT_MIN is a float.
             return FloatType::instance(false);
         }, true);
     }
 
     /**
-     * @param Closure(int): ScalarType $operation
+     * @param Closure(int|float): ScalarType $operation
      */
     private function applyNumericOperation(Closure $operation, bool $can_be_float) : UnionType
     {
@@ -3079,6 +3166,18 @@ class UnionType implements Serializable
                     $type_set = $type_set->withType(LiteralIntType::instanceForValue(0, false));
                 }
             } else {
+                if ($type instanceof LiteralStringType) {
+                    if (\is_numeric($type->getValue())) {
+                        $type_set = $type_set->withType($operation(+$type->getValue()));
+                        if ($type->getIsNullable()) {
+                            $type_set = $type_set->withType(LiteralIntType::instanceForValue(0, false));
+                        }
+                        continue;
+                    } else {
+                        // TODO: Could warn about non-numeric operand instead
+                        return $type_set->withType(LiteralIntType::instanceForValue(0, false));
+                    }
+                }
                 if ($added_fallbacks) {
                     continue;
                 }
@@ -3244,6 +3343,9 @@ class UnionType implements Serializable
         return false;
     }
 
+    /**
+     * Returns true if at least one type in this union type definitely can't be cast to `callable`
+     */
     public function containsDefiniteNonCallableType() : bool
     {
         foreach ($this->type_set as $type) {
@@ -3254,6 +3356,9 @@ class UnionType implements Serializable
         return false;
     }
 
+    /**
+     * Returns true if either (1) this is the empty type, or (2) at least one type in this union type can't be ruled out as being callable.
+     */
     public function hasPossiblyCallableType() : bool
     {
         foreach ($this->type_set as $type) {
@@ -3264,6 +3369,9 @@ class UnionType implements Serializable
         return \count($this->type_set) === 0;
     }
 
+    /**
+     * Returns the union type resulting from applying the `++`/`--` operator to an expression with union type.
+     */
     public function getTypeAfterIncOrDec() : UnionType
     {
         $result = UnionType::empty();

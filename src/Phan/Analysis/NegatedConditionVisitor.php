@@ -27,11 +27,11 @@ use Phan\Language\UnionType;
 use Phan\Language\UnionTypeBuilder;
 
 /**
- * TODO: Make $x > 0, $x < 0, $x >= 50, etc.  remove FalseType and NullType from $x
- * TODO: if (a || b || c || d) might get really slow, due to creating both ConditionVisitor and NegatedConditionVisitor
+ * A visitor that takes a Context and a Node for a condition and returns a Context that has been updated with the negation of that condition.
  */
 class NegatedConditionVisitor extends KindVisitorImplementation implements ConditionVisitorInterface
 {
+    // TODO: if (a || b || c || d) might get really slow, due to creating both ConditionVisitor and NegatedConditionVisitor
     use ConditionVisitorUtil;
 
     /**
@@ -183,7 +183,7 @@ class NegatedConditionVisitor extends KindVisitorImplementation implements Condi
         $context = $this->context;
         $left_false_context = (new NegatedConditionVisitor($code_base, $context))($left);
         $left_true_context = (new ConditionVisitor($code_base, $context))($left);
-        // We analyze the right hand side of `cond($x) && cond2($x)` as if `cond($x)` was true.
+        // We analyze the right-hand side of `cond($x) && cond2($x)` as if `cond($x)` was true.
         $right_false_context = (new NegatedConditionVisitor($code_base, $left_true_context))($right);
         // When the NegatedConditionVisitor is false, at least one of the left or right contexts must be false.
         // (NegatedConditionVisitor returns a context for when the input Node's value was falsey)
@@ -385,7 +385,7 @@ class NegatedConditionVisitor extends KindVisitorImplementation implements Condi
             }
             $right_hand_type = $right_hand_union_type->getTypeSet()[0];
 
-            // TODO: Assert that instanceof right hand type is valid in NegatedConditionVisitor as well
+            // TODO: Assert that instanceof right-hand type is valid in NegatedConditionVisitor as well
 
             // Make a copy of the variable
             $variable = clone($variable);
@@ -768,12 +768,6 @@ class NegatedConditionVisitor extends KindVisitorImplementation implements Condi
                         $var_node->flags ?? 0
                     )));
                 }
-                $context->setScope($context->getScope()->withVariable(new Variable(
-                    $context->withLineNumberStart($var_node->lineno ?? 0),
-                    $var_name,
-                    UnionType::empty(),
-                    $var_node->flags ?? 0
-                )));
                 return $this->removeFalseyFromVariable($var_node, $context, true);
             }
         } else {

@@ -18,6 +18,9 @@ class WikiIssueTypeUpdater
      */
     private static $verbose = false;
 
+    /** @var array<string,array>|null an example for a subset of the issue types */
+    private static $examples;
+
     private static function printUsageAndExit(int $exit_code = 1)
     {
         global $argv;
@@ -123,7 +126,7 @@ EOT;
     }
 
     /**
-     * Start documenting a brand new category of issues where the first issue in that category is $issue
+     * Start documenting a brand-new category of issues where the first issue in that category is $issue
      * @param WikiWriter $writer
      * @param Issue $issue
      * @param array<string,string> $old_text_for_section
@@ -227,14 +230,14 @@ e.g. [this issue]($expected_url#L$expected_file_lineno) is emitted when analyzin
 EOT;
     }
 
-    /** @var array|null */
-    private static $examples;
-
     private static function findExamples() : array
     {
         return self::$examples ?? self::$examples = self::calculateExamples();
     }
 
+    /**
+     * @return array<string,array>
+     */
     private static function calculateExamples() : array
     {
         // @phan-suppress-next-line PhanPossiblyFalseTypeArgumentInternal
@@ -296,6 +299,10 @@ class UnitTestRecord
         $this->expected_contents = self::getContents($expected_filename);
     }
 
+    /**
+     * @return array<int,array{0:string,1:string,2:string}> the issues parsed from this file.
+     * Contains the file name, issue type, and issue description.
+     */
     public function getIssues() : array
     {
         $issues = [];
