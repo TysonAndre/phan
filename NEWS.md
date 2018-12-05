@@ -6,6 +6,7 @@ Phan NEWS
 New features(Analysis):
 + Add suggestions to `PhanUndeclaredFunction` for functions in other namespaces
   and similarly named functions in the same namespace.
++ Add issue types `PhanInvalidFQSENInCallable` and `PhanInvalidFQSENInClasslike`
 
 Maintenance:
 + Increase the default of the config setting `suggestion_check_limit` from 50 to 1000.
@@ -17,10 +18,14 @@ Plugins:
 
 Bug fixes:
 + Infer more accurate types after asserting `!empty($x)`
++ Fix a crash seen when analyzing anonymous class with 0 args
+  when checking if PhanInfiniteRecursion should be emitted (#2206)
 + Fix a bug causing Phan to fail to warn about nullable phpdoc types
   replacing non-nullable param/return types in the real signature.
 + Infer the correct type for the result of the unary `+` operator.
   Improve inferences when `+`/`-` operators are used on string literals.
++ Fix name inferred for global constants `define()`d within a namespace (#2207).
+  This now properly treats the constant name as being fully qualified.
 
 29 Nov 2018, Phan 1.1.5
 -----------------------
