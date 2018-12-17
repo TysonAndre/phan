@@ -2,6 +2,7 @@
 namespace Phan\Language\Element;
 
 use Closure;
+use LogicException;
 use Phan\Analysis\AbstractMethodAnalyzer;
 use Phan\Analysis\ClassInheritanceAnalyzer;
 use Phan\Analysis\CompositionAnalyzer;
@@ -16,7 +17,6 @@ use Phan\Issue;
 use Phan\IssueFixSuggester;
 use Phan\Language\Context;
 use Phan\Language\Element\Comment\Property as CommentProperty;
-use Phan\Language\FQSEN;
 use Phan\Language\FQSEN\FullyQualifiedClassConstantName;
 use Phan\Language\FQSEN\FullyQualifiedClassName;
 use Phan\Language\FQSEN\FullyQualifiedMethodName;
@@ -33,6 +33,8 @@ use Phan\Library\Option;
 use Phan\Library\Some;
 use Phan\Memoize;
 use Phan\Plugin\ConfigPluginSet;
+use ReflectionClass;
+use RuntimeException;
 
 /**
  * Clazz represents the information Phan knows about a class, trait, or interface,
@@ -145,7 +147,7 @@ class Clazz extends AddressableElement
      * A reference to the entire code base in which this
      * context exists
      *
-     * @param \ReflectionClass $class
+     * @param ReflectionClass $class
      * A reflection class representing a builtin class.
      *
      * @return Clazz
@@ -154,7 +156,7 @@ class Clazz extends AddressableElement
      */
     public static function fromReflectionClass(
         CodeBase $code_base,
-        \ReflectionClass $class
+        ReflectionClass $class
     ) : Clazz {
         // Build a set of flags based on the constitution
         // of the built-in class
@@ -173,6 +175,7 @@ class Clazz extends AddressableElement
         $context = new Context();
 
         $class_name = $class->getName();
+        // @phan-suppress-next-line PhanThrowTypeAbsentForCall should be valid if extension is valid
         $class_fqsen = FullyQualifiedClassName::fromFullyQualifiedString($class_name);
 
         // Build a base class element
@@ -187,10 +190,10 @@ class Clazz extends AddressableElement
         // If this class has a parent class, add it to the
         // class info
         if (($parent_class = $class->getParentClass())) {
-            $parent_class_fqsen =
-                FullyQualifiedClassName::fromFullyQualifiedString(
-                    '\\' . $parent_class->getName()
-                );
+            // @phan-suppress-next-line PhanThrowTypeAbsentForCall should be valid if extension is valid
+            $parent_class_fqsen = FullyQualifiedClassName::fromFullyQualifiedString(
+                '\\' . $parent_class->getName()
+            );
 
             $parent_type = $parent_class_fqsen->asType();
 
@@ -271,6 +274,7 @@ class Clazz extends AddressableElement
 
         foreach ($class->getInterfaceNames() as $name) {
             $clazz->addInterfaceClassFQSEN(
+                // @phan-suppress-next-line PhanThrowTypeAbsentForCall should be valid if extension is valid
                 FullyQualifiedClassName::fromFullyQualifiedString(
                     '\\' . $name
                 )
@@ -281,6 +285,7 @@ class Clazz extends AddressableElement
             // TODO: optionally, support getTraitAliases()? This is low importance for internal PHP modules,
             // it would be uncommon to see traits in internal PHP modules.
             $clazz->addTraitFQSEN(
+                // @phan-suppress-next-line PhanThrowTypeAbsentForCall should be valid if extension is valid
                 FullyQualifiedClassName::fromFullyQualifiedString(
                     '\\' . $name
                 )
@@ -438,7 +443,7 @@ class Clazz extends AddressableElement
      * @return FullyQualifiedClassName
      * The parent class of this class if one exists
      *
-     * @throws \Exception
+     * @throws LogicException
      * An exception is thrown if this class has no parent
      */
     public function getParentClassFQSEN() : FullyQualifiedClassName
@@ -446,7 +451,7 @@ class Clazz extends AddressableElement
         $parent_type_option = $this->getParentTypeOption();
 
         if (!$parent_type_option->isDefined()) {
-            throw new \Exception("Class $this has no parent");
+            throw new LogicException("Class $this has no parent");
         }
 
         return FullyQualifiedClassName::fromType($parent_type_option->get());
@@ -456,7 +461,7 @@ class Clazz extends AddressableElement
      * @return Clazz
      * The parent class of this class if defined
      *
-     * @throws \Exception
+     * @throws LogicException|RuntimeException
      * An exception is thrown if this class has no parent
      */
     public function getParentClass(CodeBase $code_base) : Clazz
@@ -464,14 +469,14 @@ class Clazz extends AddressableElement
         $parent_type_option = $this->getParentTypeOption();
 
         if (!$parent_type_option->isDefined()) {
-            throw new \Exception("Class $this has no parent");
+            throw new LogicException("Class $this has no parent");
         }
 
         $parent_fqsen = FullyQualifiedClassName::fromType($parent_type_option->get());
 
         // invoking hasClassWithFQSEN also has the side effect of lazily loading the parent class definition.
         if (!$code_base->hasClassWithFQSEN($parent_fqsen)) {
-            throw new \Exception("Failed to load parent Class $parent_fqsen of Class $this");
+            throw new RuntimeException("Failed to load parent Class $parent_fqsen of Class $this");
         }
 
         return $code_base->getClassByFQSEN(
@@ -483,7 +488,7 @@ class Clazz extends AddressableElement
      * @return Clazz
      * The parent class of this class if defined
      *
-     * @throws \Exception
+     * @throws LogicException|RuntimeException
      * An exception is thrown if this class has no parent
      */
     private function getParentClassWithoutHydrating(CodeBase $code_base) : Clazz
@@ -491,14 +496,14 @@ class Clazz extends AddressableElement
         $parent_type_option = $this->getParentTypeOption();
 
         if (!$parent_type_option->isDefined()) {
-            throw new \Exception("Class $this has no parent");
+            throw new LogicException("Class $this has no parent");
         }
 
         $parent_fqsen = FullyQualifiedClassName::fromType($parent_type_option->get());
 
         // invoking hasClassWithFQSEN also has the side effect of lazily loading the parent class definition.
         if (!$code_base->hasClassWithFQSEN($parent_fqsen)) {
-            throw new \Exception("Failed to load parent Class $parent_fqsen of Class $this");
+            throw new RuntimeException("Failed to load parent Class $parent_fqsen of Class $this");
         }
 
         return $code_base->getClassByFQSENWithoutHydrating(
@@ -609,18 +614,16 @@ class Clazz extends AddressableElement
      * Add the given FQSEN to the list of implemented
      * interfaces for this class.
      *
-     * @param FQSEN $fqsen
+     * @param FullyQualifiedClassName $fqsen
      * @return void
      */
-    public function addInterfaceClassFQSEN(FQSEN $fqsen)
+    public function addInterfaceClassFQSEN(FullyQualifiedClassName $fqsen)
     {
         $this->interface_fqsen_list[] = $fqsen;
 
         // Add the interface to the union type of this
         // class
-        $this->addAdditionalType(
-            Type::fromFullyQualifiedString($fqsen->__toString())
-        );
+        $this->addAdditionalType($fqsen->asType());
     }
 
     /**
@@ -1652,14 +1655,12 @@ class Clazz extends AddressableElement
     /**
      * @return void
      */
-    public function addTraitFQSEN(FQSEN $fqsen)
+    public function addTraitFQSEN(FullyQualifiedClassName $fqsen)
     {
         $this->trait_fqsen_list[] = $fqsen;
 
         // Add the trait to the union type of this class
-        $this->addAdditionalType(
-            Type::fromFullyQualifiedString($fqsen->__toString())
-        );
+        $this->addAdditionalType($fqsen->asType());
     }
 
     /**

@@ -26,10 +26,13 @@ use Phan\Issue;
  * '-d' flag.
  */
 return [
-    // Supported values: '7.0', '7.1', '7.2', '7.3', null.
-    // If this is set to null,
+    // Supported values: `'5.6'`, `'7.0'`, `'7.1'`, `'7.2'`, `'7.3'`, `null`.
+    // If this is set to `null`,
     // then Phan assumes the PHP version which is closest to the minor version
-    // of the php executable used to execute phan.
+    // of the php executable used to execute Phan.
+    //
+    // Note that the **only** effect of choosing `'5.6'` is to infer that functions removed in php 7.0 exist.
+    // (See `backward_compatibility_checks` for additional options)
     "target_php_version" => null,
 
     // Default: true. If this is set to true,
@@ -116,10 +119,9 @@ return [
     // slow.
     'check_docblock_signature_return_type_match' => true,
 
-    // If true, check to make sure the return type declared
-    // in the doc-block (if any) matches the return type
-    // declared in the method signature. This process is
-    // slow.
+    // If true, check to make sure the param types declared
+    // in the doc-block (if any) matches the param types
+    // declared in the method signature.
     'check_docblock_signature_param_type_match' => true,
 
     // (*Requires check_docblock_signature_param_type_match to be true*)
@@ -229,17 +231,23 @@ return [
     // If enabled (and warn_about_undocumented_throw_statements is enabled),
     // warn about function/closure/method calls that have (at)throws
     // without the invoking method documenting that exception.
-    // TODO: Enable for self-analysis
-    'warn_about_undocumented_exceptions_thrown_by_invoked_functions' => false,
+    'warn_about_undocumented_exceptions_thrown_by_invoked_functions' => true,
 
     // If this is a list, Phan will not warn about lack of documentation of (at)throws
     // for any of the listed classes or their subclasses.
     // This setting only matters when warn_about_undocumented_throw_statements is true.
     // The default is the empty array (Warn about every kind of Throwable)
     'exception_classes_with_optional_throws_phpdoc' => [
+        'LogicException',
         'RuntimeException',
+        'InvalidArgumentException',
         'AssertionError',
         'TypeError',
+        'Phan\Exception\IssueException',  // TODO: Make Phan aware that some arguments suppress certain issues
+        'Phan\AST\TolerantASTConverter\InvalidNodeException',  // This is used internally in TolerantASTConverter
+
+        // TODO: Undo the suppressions for the below categories of issues:
+        'Phan\Exception\CodeBaseException',
     ],
 
     // Increase this to properly analyze require_once statements

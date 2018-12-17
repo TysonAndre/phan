@@ -49,6 +49,7 @@ class Issue
     const UndeclaredClassStaticProperty = 'PhanUndeclaredClassStaticProperty';
     const UndeclaredClosureScope    = 'PhanUndeclaredClosureScope';
     const UndeclaredConstant        = 'PhanUndeclaredConstant';
+    const UndeclaredMagicConstant   = 'PhanUndeclaredMagicConstant';
     const UndeclaredExtendedClass   = 'PhanUndeclaredExtendedClass';
     const UndeclaredFunction        = 'PhanUndeclaredFunction';
     const UndeclaredInterface       = 'PhanUndeclaredInterface';
@@ -157,7 +158,6 @@ class Issue
     const TypeInvalidCallableObjectOfMethod = 'PhanTypeInvalidCallableObjectOfMethod';
     const TypeExpectedObject        = 'PhanTypeExpectedObject';
     const TypeExpectedObjectOrClassName = 'PhanTypeExpectedObjectOrClassName';
-    const TypeExpectedObjectOrClassNameInvalidName = 'PhanTypeExpectedObjectOrClassNameInvalidName';
     const TypeExpectedObjectPropAccess = 'PhanTypeExpectedObjectPropAccess';
     const TypeExpectedObjectPropAccessButGotNull = 'PhanTypeExpectedObjectPropAccessButGotNull';
     const TypeExpectedObjectStaticPropAccess = 'PhanTypeExpectedObjectStaticPropAccess';
@@ -201,6 +201,7 @@ class Issue
     const DeprecatedFunction        = 'PhanDeprecatedFunction';
     const DeprecatedFunctionInternal = 'PhanDeprecatedFunctionInternal';
     const DeprecatedProperty        = 'PhanDeprecatedProperty';
+    const DeprecatedCaseInsensitiveDefine = 'PhanDeprecatedCaseInsensitiveDefine';
 
     // Issue::CATEGORY_PARAMETER
     const ParamReqAfterOpt          = 'PhanParamReqAfterOpt';
@@ -997,6 +998,14 @@ class Issue
                 self::REMEDIATION_B,
                 11043
             ),
+            new Issue(
+                self::UndeclaredMagicConstant,
+                self::CATEGORY_UNDEFINED,
+                self::SEVERITY_LOW,
+                "Reference to magic constant {CONST} that is undeclared in the current scope",
+                self::REMEDIATION_B,
+                11044
+            ),
 
             // Issue::CATEGORY_ANALYSIS
             new Issue(
@@ -1452,7 +1461,7 @@ class Issue
             new Issue(
                 self::TypeMismatchDimEmpty,
                 self::CATEGORY_TYPE,
-                self::SEVERITY_NORMAL,
+                self::SEVERITY_CRITICAL,
                 'Assigning to an empty array index of a value of type {TYPE}, but expected the index to exist and be of type {TYPE}',
                 self::REMEDIATION_B,
                 10031
@@ -1512,14 +1521,6 @@ class Issue
                 'Expected an object instance or the name of a class but saw expression with type {TYPE}',
                 self::REMEDIATION_B,
                 10037
-            ),
-            new Issue(
-                self::TypeExpectedObjectOrClassNameInvalidName,
-                self::CATEGORY_TYPE,
-                self::SEVERITY_NORMAL,
-                'Expected an object instance or the name of a class but saw an invalid class name \'{STRING_LITERAL}\'',
-                self::REMEDIATION_B,
-                10074
             ),
             new Issue(
                 self::TypeExpectedObjectPropAccess,
@@ -1928,6 +1929,14 @@ class Issue
                 "Using a deprecated trait {TRAIT} defined at {FILE}:{LINE}",
                 self::REMEDIATION_B,
                 5004
+            ),
+            new Issue(
+                self::DeprecatedCaseInsensitiveDefine,
+                self::CATEGORY_DEPRECATED,
+                self::SEVERITY_NORMAL,
+                "Creating case-insensitive constants with define() has been deprecated in PHP 7.3",
+                self::REMEDIATION_B,
+                5006
             ),
 
             // Issue::CATEGORY_PARAMETER
@@ -3410,6 +3419,18 @@ class Issue
         return $error_map;
     }
 
+    private static function getNextTypeId(array $error_list, int $invalid_type_id) : int
+    {
+        for ($id = $invalid_type_id + 1; true; $id++) {
+            foreach ($error_list as $error) {
+                if ($error->getTypeId() === $id) {
+                    continue 2;
+                }
+            }
+            return $id;
+        }
+    }
+
     /**
      * @param array<int,Issue> $error_list
      * @return void
@@ -3430,7 +3451,8 @@ class Issue
 
             $error_type_id = $error->getTypeId();
             if (\array_key_exists($error_type_id, $unique_type_id_set)) {
-                throw new AssertionError("Multiple issues exist with pylint error id $error_type_id");
+                throw new AssertionError("Multiple issues exist with pylint error id $error_type_id - The next available id is " .
+                    self::getNextTypeId($error_list, $error_type_id));
             }
             $unique_type_id_set[$error_type_id] = $error;
             $category = $error->getCategory();

@@ -360,6 +360,82 @@ final class GenericArrayType extends ArrayType implements GenericArrayInterface
         });
     }
 
+    /**
+     * @param CodeBase $code_base
+     * The code base to use in order to find super classes, etc.
+     *
+     * @param $recursion_depth
+     * This thing has a tendency to run-away on me. This tracks
+     * how bad I messed up by seeing how far the expanded types
+     * go
+     *
+     * @return UnionType
+     * Expands class types to all inherited classes returning
+     * a superset of this type.
+     * @override
+     */
+    public function asExpandedTypesPreservingTemplate(
+        CodeBase $code_base,
+        int $recursion_depth = 0
+    ) : UnionType {
+        // We're going to assume that if the type hierarchy
+        // is taller than some value we probably messed up
+        // and should bail out.
+        if ($recursion_depth >= 20) {
+            throw new RecursionDepthException("Recursion has gotten out of hand");
+        }
+
+        return $this->memoize(__METHOD__, function () use ($code_base, $recursion_depth) : UnionType {
+            $union_type = $this->asUnionType();
+
+            $class_fqsen = FullyQualifiedClassName::fromType($this->genericArrayElementType());
+
+
+            if (!$code_base->hasClassWithFQSEN($class_fqsen)) {
+                return $union_type;
+            }
+
+            $clazz = $code_base->getClassByFQSEN($class_fqsen);
+
+            $class_union_type = $clazz->getUnionType();
+            $additional_union_type = $clazz->getAdditionalTypes();
+            if ($additional_union_type !== null) {
+                $class_union_type = $class_union_type->withUnionType($additional_union_type);
+            }
+
+            $union_type = $union_type->withUnionType(
+                $class_union_type->asGenericArrayTypes($this->key_type)
+            );
+
+            // Recurse up the tree to include all types
+            $recursive_union_type_builder = new UnionTypeBuilder();
+            $representation = $this->__toString();
+            try {
+                foreach ($union_type->getTypeSet() as $clazz_type) {
+                    if ($clazz_type->__toString() !== $representation) {
+                        $recursive_union_type_builder->addUnionType(
+                            $clazz_type->asExpandedTypesPreservingTemplate(
+                                $code_base,
+                                $recursion_depth + 1
+                            )
+                        );
+                    } else {
+                        $recursive_union_type_builder->addType($clazz_type);
+                    }
+                }
+            } catch (RecursionDepthException $_) {
+                return ArrayType::instance($this->is_nullable)->asUnionType();
+            }
+
+            // Add in aliases
+            // (If enable_class_alias_support is false, this will do nothing)
+            if (Config::getValue('enable_class_alias_support')) {
+                self::addClassAliases($code_base, $recursive_union_type_builder, $class_fqsen);
+            }
+            return $recursive_union_type_builder->getUnionType();
+        });
+    }
+
     // (If enable_class_alias_support is false, this will not be called)
     private function addClassAliases(
         CodeBase $code_base,
@@ -557,5 +633,45 @@ final class GenericArrayType extends ArrayType implements GenericArrayInterface
     public function isDefiniteNonCallableType() : bool
     {
         return $this->key_type === self::KEY_STRING;
+    }
+
+    /**
+     * Returns true for `T` and `T[]` and `\MyClass<T>`, but not `\MyClass<\OtherClass>` or `false`
+     */
+    public function hasTemplateTypeRecursive() : bool
+    {
+        return $this->genericArrayElementUnionType()->hasTemplateTypeRecursive();
+    }
+
+    /**
+     * @param array<string,UnionType> $template_parameter_type_map
+     * A map from template type identifiers to concrete types
+     *
+     * @return UnionType
+     * This UnionType with any template types contained herein
+     * mapped to concrete types defined in the given map.
+     *
+     * Overridden in subclasses
+     *
+     * @see self::withConvertTypesToTemplateTypes() for the opposite
+     */
+    public function withTemplateParameterTypeMap(
+        array $template_parameter_type_map
+    ) : UnionType {
+        $element_type = $this->genericArrayElementUnionType();
+        $new_element_type = $element_type->withTemplateParameterTypeMap($template_parameter_type_map);
+        if ($element_type === $new_element_type) {
+            return $this->asUnionType();
+        }
+        // TODO: Override in array shape subclass
+        return $new_element_type->asGenericArrayTypes($this->getKeyType());
+    }
+
+    /**
+     * Precondition: Callers should check isObjectWithKnownFQSEN
+     */
+    public function hasSameNamespaceAndName(Type $type) : bool
+    {
+        return $this->name === $type->name && $this->namespace === $type->namespace;
     }
 }

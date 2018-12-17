@@ -509,6 +509,14 @@ This category of issue comes up when you're accessing deprecated elements (as ma
 
 **Note!** Only classes, traits, interfaces, methods, functions, properties, and traits may be marked as deprecated. You can't deprecate a variable or any other expression.
 
+## PhanDeprecatedCaseInsensitiveDefine
+
+```
+Creating case-insensitive constants with define() has been deprecated in PHP 7.3
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/1.1.6/tests/files/expected/0589_case_insensitive_define.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.1.6/tests/files/src/0589_case_insensitive_define.php#L2).
+
 ## PhanDeprecatedClass
 
 ```
@@ -1826,14 +1834,6 @@ Expected an object instance or the name of a class but saw expression with type 
 
 e.g. [this issue](https://github.com/phan/phan/tree/1.1.2/tests/files/expected/0521_misuse_closure_type.php.expected#L2) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.1.2/tests/files/src/0521_misuse_closure_type.php#L11).
 
-## PhanTypeExpectedObjectOrClassNameInvalidName
-
-```
-Expected an object instance or the name of a class but saw an invalid class name '{STRING_LITERAL}'
-```
-
-e.g. [this issue](https://github.com/phan/phan/tree/1.1.2/tests/files/expected/0504_prop_assignment_fetch.php.expected#L7) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.1.2/tests/files/src/0504_prop_assignment_fetch.php#L19).
-
 ## PhanTypeExpectedObjectPropAccess
 
 ```
@@ -2502,13 +2502,15 @@ This would be emitted if you have a file with the contents
 Possible call to a function '{FUNCTIONLIKE}' with an invalid FQSEN.
 ```
 
+e.g. [this issue](https://github.com/phan/phan/tree/1.1.6/tests/misc/fallback_test/expected/063_invalid_fqsen.php.expected#L14) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.1.6/tests/misc/fallback_test/src/063_invalid_fqsen.php#L15).
+
 ## PhanInvalidFQSENInClasslike
 
 ```
 Possible use of a classlike '{CLASSLIKE}' with an invalid FQSEN.
 ```
 
-e.g. [this issue](https://github.com/phan/phan/tree/master/tests/misc/fallback_test/expected/063_invalid_fqsen.php.expected#L6) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/misc/fallback_test/src/063_invalid_fqsen.php#L7).
+e.g. [this issue](https://github.com/phan/phan/tree/1.1.6/tests/misc/fallback_test/expected/063_invalid_fqsen.php.expected#L6) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/1.1.6/tests/misc/fallback_test/src/063_invalid_fqsen.php#L7).
 
 ## PhanInvalidRequireFile
 
@@ -2749,6 +2751,14 @@ The following code will express this issue.
 ```php
 class C17 implements UndeclaredInterface {}
 ```
+
+## PhanUndeclaredMagicConstant
+
+```
+Reference to magic constant {CONST} that is undeclared in the current scope
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/files/expected/0594_magic_constant.php.expected#L2) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/files/src/0594_magic_constant.php#L2).
 
 ## PhanUndeclaredMethod
 

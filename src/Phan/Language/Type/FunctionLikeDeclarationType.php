@@ -192,6 +192,16 @@ abstract class FunctionLikeDeclarationType extends Type implements FunctionInter
     }
 
     /**
+     * @override (Don't include \Closure in the expanded types. It interferes with type casting checking)
+     */
+    public function asExpandedTypesPreservingTemplate(
+        CodeBase $unused_code_base,
+        int $unused_recursion_depth = 0
+    ) : UnionType {
+        return $this->asUnionType();
+    }
+
+    /**
      * @param bool $is_nullable
      * Set to true if the type should be nullable, else pass
      * false
@@ -369,6 +379,7 @@ abstract class FunctionLikeDeclarationType extends Type implements FunctionInter
     public function getFQSEN()
     {
         $hash = \substr(\md5($this->__toString()), 0, 12);
+        // @phan-suppress-next-line PhanThrowTypeAbsentForCall this is valid
         return FullyQualifiedFunctionName::fromFullyQualifiedString('\\closure_phpdoc' . $hash);
     }
 
@@ -704,6 +715,7 @@ abstract class FunctionLikeDeclarationType extends Type implements FunctionInter
     public function getReturnTypeAsGeneratorTemplateType() : Type
     {
         // Probably unused
+        // @phan-suppress-next-line PhanThrowTypeAbsentForCall
         return Type::fromFullyQualifiedString('\Generator');
     }
 

@@ -6,6 +6,7 @@ use AssertionError;
 use ast;
 use ast\flags;
 use Error;
+use Exception;
 use InvalidArgumentException;
 use Microsoft\PhpParser;
 use Microsoft\PhpParser\Diagnostic;
@@ -16,7 +17,6 @@ use Microsoft\PhpParser\Parser;
 use Microsoft\PhpParser\Token;
 use Microsoft\PhpParser\TokenKind;
 use RuntimeException;
-
 use function substr;
 
 // If php-ast isn't loaded already, then load this file to generate equivalent
@@ -227,7 +227,10 @@ class TolerantASTConverter
         self::$file_contents = $file_contents;
     }
 
-    /** @param null|bool|int|string|PhpParser\Node|Token|(PhpParser\Node|Token)[] $n */
+    /**
+     * @param null|bool|int|string|PhpParser\Node|Token|(PhpParser\Node|Token)[] $n
+     * @throws Exception if node is invalid
+     */
     protected static function debugDumpNodeOrToken($n) : string
     {
         if (\is_scalar($n)) {
@@ -251,7 +254,8 @@ class TolerantASTConverter
      * @param ?int $lineno
      * @param bool $return_null_on_empty (return null if non-array (E.g. semicolon is seen))
      * @return ?ast\Node
-     * @throws RuntimeException if the statement list is invalid
+     * Throws RuntimeException|Exception if the statement list is invalid
+     * @suppress PhanThrowTypeAbsentForCall|PhanThrowTypeMismatchForCall
      */
     private static function phpParserStmtlistToAstNode($parser_nodes, $lineno, bool $return_null_on_empty = false)
     {
@@ -361,12 +365,14 @@ class TolerantASTConverter
              */
             $fallback_closure = function ($n, int $unused_start_line) {
                 if (!($n instanceof PhpParser\Node) && !($n instanceof Token)) {
+                    // @phan-suppress-next-line PhanThrowTypeMismatchForCall debugDumpNodeOrToken can throw
                     throw new \InvalidArgumentException("Invalid type for node: " . (\is_object($n) ? \get_class($n) : \gettype($n)) . ": " . static::debugDumpNodeOrToken($n));
                 }
                 return static::astStub($n);
             };
         }
         $callback = $callback_map[\get_class($n)] ?? $fallback_closure;
+        // @phan-suppress-next-line PhanThrowTypeMismatch, PhanThrowTypeAbsentForCall
         return $callback($n, self::getStartLine($n));
     }
 
@@ -400,7 +406,7 @@ class TolerantASTConverter
             /**
              * @param PhpParser\Node|Token $n
              * @return ast\Node - Not a real node, but a node indicating the TODO
-             * @throws InvalidArgumentException for invalid node classes
+             * @throws InvalidArgumentException|Exception for invalid node classes
              * @throws Error if the environment variable AST_THROW_INVALID is set to debug.
              */
             $fallback_closure = function ($n, int $unused_start_line) {
@@ -412,6 +418,7 @@ class TolerantASTConverter
             };
         }
         $callback = $callback_map[\get_class($n)] ?? $fallback_closure;
+        // @phan-suppress-next-line PhanThrowTypeAbsent
         $result = $callback($n, self::$file_position_map->getStartLine($n));
         if (($result instanceof ast\Node) && $result->kind === ast\AST_NAME) {
             return new ast\Node(ast\AST_CONST, 0, ['name' => $result], $result->lineno);
@@ -765,6 +772,7 @@ class TolerantASTConverter
                 }
             },
             'Microsoft\PhpParser\Node\Expression\ScriptInclusionExpression' => function (PhpParser\Node\Expression\ScriptInclusionExpression $n, int $start_line) : ast\Node {
+                // @phan-suppress-next-line PhanThrowTypeAbsentForCall should not happen
                 $flags = static::phpParserIncludeTokenToAstIncludeFlags($n->requireOrIncludeKeyword);
                 return new ast\Node(
                     ast\AST_INCLUDE_OR_EVAL,
@@ -992,6 +1000,7 @@ class TolerantASTConverter
             },
             /**
              * @return ast\Node|string
+             * @throws Exception if the tokens of the string literal are invalid, etc.
              */
             'Microsoft\PhpParser\Node\StringLiteral' => function (PhpParser\Node\StringLiteral $n, int $start_line) {
                 $children = $n->children;
@@ -2384,6 +2393,7 @@ class TolerantASTConverter
                 'default' => null,
             ];
         } else {
+            // @phan-suppress-next-line PhanThrowTypeMismatchForCall debugDumpNodeOrToken can throw
             throw new \InvalidArgumentException("Unexpected class for property element: Expected Variable or AssignmentExpression, got: " . static::debugDumpNodeOrToken($n));
         }
 
@@ -2715,6 +2725,9 @@ class TolerantASTConverter
         return StringUtil::parse($str);
     }
 
+    /**
+     * @throws Exception if node is invalid
+     */
     private static function parseQuotedString(PhpParser\Node\StringLiteral $n) : string
     {
         $start = $n->getStart();

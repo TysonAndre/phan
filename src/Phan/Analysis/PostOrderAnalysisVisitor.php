@@ -17,7 +17,6 @@ use Phan\Exception\EmptyFQSENException;
 use Phan\Exception\FQSENException;
 use Phan\Exception\IssueException;
 use Phan\Exception\NodeException;
-use Phan\Exception\UnanalyzableException;
 use Phan\Issue;
 use Phan\IssueFixSuggester;
 use Phan\Language\Context;
@@ -1287,8 +1286,10 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     private function checkCanCastToReturnType(CodeBase $code_base, UnionType $expression_type, UnionType $method_return_type) : bool
     {
         if ($method_return_type->hasTemplateParameterTypes()) {
-            // TODO: Better casting logic for template types (E.g. should be able to cast None to Option<MyClass>, but not Some<int> to Option<MyClass>
-            return $expression_type->canCastToExpandedUnionType($method_return_type, $code_base);
+            // Perform a check that does a better job understanding rules of templates.
+            // (E.g. should be able to cast None to Option<MyClass>, but not Some<int> to Option<MyClass>
+            return $expression_type->asExpandedTypesPreservingTemplate($code_base)->canCastToUnionTypeHandlingTemplates($method_return_type, $code_base) ||
+                $expression_type->canCastToUnionTypeHandlingTemplates($method_return_type->asExpandedTypesPreservingTemplate($code_base), $code_base);
         }
         // We allow base classes to cast to subclasses, and subclasses to cast to base classes,
         // but don't allow subclasses to cast to subclasses on a separate branch of the inheritance tree
@@ -1931,7 +1932,16 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         // TODO: Only allow calls to __construct from other constructors?
         $found_ancestor_constructor = false;
         if ($this->context->isInMethodScope()) {
-            $possible_ancestor_type = $class_context_node->getClassUnionType();
+            try {
+                $possible_ancestor_type = $class_context_node->getClassUnionType();
+            } catch (FQSENException $e) {
+                $this->emitIssue(
+                    $e instanceof EmptyFQSENException ? Issue::EmptyFQSENInCallable : Issue::InvalidFQSENInCallable,
+                    $node->lineno,
+                    $e->getFQSEN()
+                );
+                return;
+            }
             // If we can determine the ancestor type, and it's an parent/ancestor class, allow the call without warning.
             // (other code should check visibility and existence and args of __construct)
 
@@ -3072,9 +3082,6 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             // Fixes https://github.com/phan/phan/issues/583
             $argument_types = [];
             foreach ($argument_list_node->children as $i => $argument) {
-                if (!$argument) {
-                    continue;
-                }
                 // Determine the type of the argument at position $i
                 $argument_types[$i] = UnionTypeVisitor::unionTypeFromNode(
                     $this->code_base,
@@ -3280,8 +3287,10 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 ))->getProperty(
                     true
                 );
-            } catch (UnanalyzableException $_) {
-                // Ignore it. There's nothing we can do. (E.g. the class name for the static property fetch couldn't be determined.
+            } catch (IssueException $_) {
+                // Hopefully caught elsewhere
+            } catch (NodeException $_) {
+                // Hopefully caught elsewhere
             }
         }
 

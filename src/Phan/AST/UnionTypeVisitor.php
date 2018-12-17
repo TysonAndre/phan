@@ -366,6 +366,17 @@ class UnionTypeVisitor extends AnalysisVisitor
         return LiteralStringType::instanceForValue($value, false)->asUnionType();
     }
 
+    const MAGIC_CONST_NAME_MAP = [
+        ast\flags\MAGIC_LINE => 'MAGIC_LINE',
+        ast\flags\MAGIC_FILE => 'MAGIC_FILE',
+        ast\flags\MAGIC_DIR => 'MAGIC_DIR',
+        ast\flags\MAGIC_NAMESPACE => 'MAGIC_NAMESPACE',
+        ast\flags\MAGIC_FUNCTION => 'MAGIC_FUNCTION',
+        ast\flags\MAGIC_METHOD => 'MAGIC_METHOD',
+        ast\flags\MAGIC_CLASS => 'MAGIC_CLASS',
+        ast\flags\MAGIC_TRAIT => 'MAGIC_TRAIT',
+    ];
+
     /**
      * Visit a node with kind `\ast\AST_MAGIC_CONST`
      *
@@ -379,25 +390,27 @@ class UnionTypeVisitor extends AnalysisVisitor
      */
     public function visitMagicConst(Node $node) : UnionType
     {
-        switch ($node->flags) {
+        $flags = $node->flags;
+        switch ($flags) {
             case ast\flags\MAGIC_CLASS:
                 if ($this->context->isInClassScope()) {
-                    return self::literalStringUnionType($this->context->getClassFQSEN()->__toString());
+                    // Works in classes, traits, and interfaces
+                    return self::literalStringUnionType(\ltrim($this->context->getClassFQSEN()->__toString(), '\\'));
                 }
-                return StringType::instance(false)->asUnionType();
+                break;
             case ast\flags\MAGIC_FUNCTION:
                 if ($this->context->isInFunctionLikeScope()) {
                     $fqsen = $this->context->getFunctionLikeFQSEN();
                     return self::literalStringUnionType($fqsen->isClosure() ? '{closure}' : $fqsen->getName());
                 }
-                // TODO: Warn?
-                return StringType::instance(false)->asUnionType();
+                break;
             case ast\flags\MAGIC_METHOD:
-                // TODO: Is this right?
-                if ($this->context->isInMethodScope()) {
-                    return self::literalStringUnionType(\ltrim($this->context->getFunctionLikeFQSEN()->__toString(), '\\'));
+                if ($this->context->isInFunctionLikeScope()) {
+                    // Emits method or function FQSEN.
+                    $fqsen = $this->context->getFunctionLikeFQSEN();
+                    return self::literalStringUnionType($fqsen->isClosure() ? '{closure}' : \ltrim($fqsen->__toString(), '\\'));
                 }
-                return StringType::instance(false)->asUnionType();
+                break;
             case ast\flags\MAGIC_DIR:
                 return self::literalStringUnionType(\dirname(Config::projectPath($this->context->getFile())));
             case ast\flags\MAGIC_FILE:
@@ -408,13 +421,26 @@ class UnionTypeVisitor extends AnalysisVisitor
                 return self::literalStringUnionType(\ltrim($this->context->getNamespace(), '\\'));
             case ast\flags\MAGIC_TRAIT:
                 // TODO: Could check if in trait, low importance.
-                if ($this->context->isInClassScope()) {
-                    return self::literalStringUnionType((string)$this->context->getClassFQSEN());
+                if (!$this->context->isInClassScope()) {
+                    break;
                 }
+                $fqsen = $this->context->getClassFQSEN();
+                if ($this->code_base->hasClassWithFQSEN($fqsen)) {
+                    if (!$this->code_base->getClassByFQSEN($fqsen)->isTrait()) {
+                        break;
+                    }
+                }
+                return self::literalStringUnionType((string)\ltrim($this->context->getClassFQSEN()->__toString(), '\\'));
+            default:
                 return StringType::instance(false)->asUnionType();
         }
-        // This is for things like __METHOD__
-        return StringType::instance(false)->asUnionType();
+        $this->emitIssue(
+            Issue::UndeclaredMagicConstant,
+            $node->lineno,
+            self::MAGIC_CONST_NAME_MAP[$flags]
+        );
+
+        return self::literalStringUnionType('');
     }
 
     /**
@@ -463,18 +489,15 @@ class UnionTypeVisitor extends AnalysisVisitor
                 Issue::fromType(Issue::ContextNotObject)(
                     $context->getFile(),
                     $context->getLineNumberStart(),
-                    [
-                        'parent'
-                    ]
+                    ['parent']
                 )
             );
         }
         $class = $context->getClassInScope($code_base);
 
-        if ($class->hasParentType()) {
-            return Type::fromFullyQualifiedString(
-                (string)$class->getParentClassFQSEN()
-            );
+        $parent_type_option = $class->getParentTypeOption();
+        if ($parent_type_option->isDefined()) {
+            return $parent_type_option->get();
         }
 
         // Using `parent` in a class or interface without a parent is always invalid.
@@ -506,28 +529,29 @@ class UnionTypeVisitor extends AnalysisVisitor
     public function visitName(Node $node) : UnionType
     {
         $name = $node->children['name'];
-        if ($node->flags & \ast\flags\NAME_NOT_FQ) {
-            if (strcasecmp('parent', $name) === 0) {
-                $parent_type = self::findParentType($this->context, $this->code_base);
-                return $parent_type ? $parent_type->asUnionType() : UnionType::empty();
+        try {
+            if ($node->flags & \ast\flags\NAME_NOT_FQ) {
+                if (strcasecmp('parent', $name) === 0) {
+                    $parent_type = self::findParentType($this->context, $this->code_base);
+                    return $parent_type ? $parent_type->asUnionType() : UnionType::empty();
+                }
+
+                return Type::fromStringInContext(
+                    $name,
+                    $this->context,
+                    Type::FROM_NODE
+                )->asUnionType();
             }
 
-            return Type::fromStringInContext(
-                $name,
-                $this->context,
-                Type::FROM_NODE
-            )->asUnionType();
-        }
+            if ($node->flags & \ast\flags\NAME_RELATIVE) {  // $x = new namespace\Foo();
+                $name = \rtrim($this->context->getNamespace(), '\\') . '\\' . $name;
+                return Type::fromFullyQualifiedString(
+                    $name
+                )->asUnionType();
+            }
+            // Sometimes 0 for a fully qualified name?
 
-        if ($node->flags & \ast\flags\NAME_RELATIVE) {  // $x = new namespace\Foo();
-            $fully_qualified_name = $this->context->getNamespace() . '\\' . $name;
-            return Type::fromFullyQualifiedString(
-                $fully_qualified_name
-            )->asUnionType();
-        }
-        // Sometimes 0 for a fully qualified name?
-
-        try {
+            // @phan-suppress-next-line PhanThrowTypeAbsentForCall hopefully impossible
             return Type::fromFullyQualifiedString(
                 '\\' . $name
             )->asUnionType();
@@ -1883,6 +1907,8 @@ class UnionTypeVisitor extends AnalysisVisitor
      * @return UnionType
      * The set of types that are possibly produced by the
      * given node
+     *
+     * @throws FQSENException if the fqsen for the called function is empty/invalid
      */
     public function visitCall(Node $node) : UnionType
     {
@@ -1978,6 +2004,12 @@ class UnionTypeVisitor extends AnalysisVisitor
                         $this->code_base,
                         $method_name
                     );
+                    if ($method->hasTemplateType()) {
+                        $method = $method->resolveTemplateType(
+                            $this->code_base,
+                            UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $class_node)
+                        );
+                    }
 
                     if ($method->hasDependentReturnType()) {
                         $union_type = $method->getDependentReturnType($this->code_base, $this->context, $node->children['args']->children);
@@ -2187,14 +2219,15 @@ class UnionTypeVisitor extends AnalysisVisitor
                     $node
                 ))->getUnqualifiedNameForAnonymousClass();
 
-            // Turn that into a fully qualified name
+            // Turn that into a fully qualified name, and that into a union type
+            // @phan-suppress-next-line PhanThrowTypeAbsentForCall
             $fqsen = FullyQualifiedClassName::fromStringInContext(
                 $anonymous_class_name,
                 $this->context
             );
 
             // Turn that into a union type
-            return Type::fromFullyQualifiedString($fqsen->__toString())->asUnionType();
+            return $fqsen->asUnionType();
         }
 
         // Things of the form `new $className()`, `new $obj()`, `new (foo())()`, etc.
@@ -2209,6 +2242,7 @@ class UnionTypeVisitor extends AnalysisVisitor
         // class node and get its type
         $is_static_type_string = Type::isStaticTypeString($class_name);
         if (!($is_static_type_string || Type::isSelfTypeString($class_name))) {
+            // @phan-suppress-next-line PhanThrowTypeAbsentForCall
             return self::unionTypeFromClassNode(
                 $this->code_base,
                 $this->context,
@@ -2216,7 +2250,7 @@ class UnionTypeVisitor extends AnalysisVisitor
             );
         }
 
-        // This is a self-referential node
+        // This node references `self` or `static`
         if (!$this->context->isInClassScope()) {
             $this->emitIssue(
                 Issue::ContextNotObject,
@@ -2233,7 +2267,8 @@ class UnionTypeVisitor extends AnalysisVisitor
                 $this->code_base
             );
 
-            if (!$class->hasParentType()) {
+            $parent_type_option = $class->getParentTypeOption();
+            if (!$parent_type_option->isDefined()) {
                 $this->emitIssue(
                     Issue::ParentlessClass,
                     $node->lineno ?? 0,
@@ -2243,15 +2278,10 @@ class UnionTypeVisitor extends AnalysisVisitor
                 return UnionType::empty();
             }
 
-            return Type::fromFullyQualifiedString(
-                $class->getParentClassFQSEN()->__toString()
-            )->asUnionType();
+            return $parent_type_option->get()->asUnionType();
         }
 
-        // TODO: UnionType::fromFullyQualifiedString()
-        $result = Type::fromFullyQualifiedString(
-            $this->context->getClassFQSEN()->__toString()
-        )->asUnionType();
+        $result = $this->context->getClassFQSEN()->asUnionType();
 
         if ($is_static_type_string) {
             $result = $result->withType(StaticType::instance(false));
@@ -2278,8 +2308,16 @@ class UnionTypeVisitor extends AnalysisVisitor
                     $is_valid = false;
                     continue;
                 }
-                // TODO: warn about invalid types and unparsable types
-                $fqsen = FullyQualifiedClassName::fromFullyQualifiedString($value);
+                try {
+                    $fqsen = FullyQualifiedClassName::fromFullyQualifiedString($value);
+                } catch (FQSENException $e) {
+                    $this->emitIssue(
+                        $e instanceof EmptyFQSENException ? Issue::EmptyFQSENInClasslike : Issue::InvalidFQSENInClasslike,
+                        $node->lineno ?? 0,
+                        $value
+                    );
+                    continue;
+                }
                 if (!$this->code_base->hasClassWithFQSEN($fqsen)) {
                     $is_valid = false;
                     continue;
@@ -2663,6 +2701,7 @@ class UnionTypeVisitor extends AnalysisVisitor
     /**
      * @param string $class_name (may also be 'self', 'parent', or 'static')
      * @return ?FullyQualifiedClassName
+     * @throws FQSENException
      */
     private function lookupClassOfCallableByName(string $class_name)
     {
@@ -2759,32 +2798,40 @@ class UnionTypeVisitor extends AnalysisVisitor
                 return [];
             }
         }
-        if (is_string($class_or_expr)) {
-            if (\in_array(\strtolower($class_or_expr), ['static', 'self', 'parent'], true)) {
-                // Allow 'static' but not '\static'
-                if (!$context->isInClassScope()) {
-                    $this->emitNonObjectContextInCallableIssue($class_or_expr, $method_name);
-                    return [];
+        try {
+            if (is_string($class_or_expr)) {
+                if (\in_array(\strtolower($class_or_expr), ['static', 'self', 'parent'], true)) {
+                    // Allow 'static' but not '\static'
+                    if (!$context->isInClassScope()) {
+                        $this->emitNonObjectContextInCallableIssue($class_or_expr, $method_name);
+                        return [];
+                    }
+                    $class_fqsen = $context->getClassFQSEN();
+                } else {
+                    $class_fqsen = $this->lookupClassOfCallableByName($class_or_expr);
+                    if (!$class_fqsen) {
+                        return [];
+                    }
                 }
-                $class_fqsen = $context->getClassFQSEN();
             } else {
-                $class_fqsen = $this->lookupClassOfCallableByName($class_or_expr);
+                $class_fqsen = (new ContextNode($code_base, $context, $class_or_expr))->resolveClassNameInContext();
                 if (!$class_fqsen) {
-                    return [];
+                    return $this->methodFQSENListFromObjectAndMethodName($class_or_expr, $method_name);
+                }
+                if (\in_array(\strtolower($class_fqsen->getName()), ['static', 'self', 'parent'], true)) {
+                    if (!$context->isInClassScope()) {
+                        $this->emitNonObjectContextInCallableIssue((string)$class_fqsen, $method_name);
+                        return [];
+                    }
+                    $class_fqsen = $context->getClassFQSEN();
                 }
             }
-        } else {
-            $class_fqsen = (new ContextNode($code_base, $context, $class_or_expr))->resolveClassNameInContext();
-            if (!$class_fqsen) {
-                return $this->methodFQSENListFromObjectAndMethodName($class_or_expr, $method_name);
-            }
-            if (\in_array(\strtolower($class_fqsen->getName()), ['static', 'self', 'parent'], true)) {
-                if (!$context->isInClassScope()) {
-                    $this->emitNonObjectContextInCallableIssue((string)$class_fqsen, $method_name);
-                    return [];
-                }
-                $class_fqsen = $context->getClassFQSEN();
-            }
+        } catch (FQSENException $e) {
+            $this->emitIssue(
+                $e instanceof EmptyFQSENException ? Issue::EmptyFQSENInClasslike : Issue::InvalidFQSENInClasslike,
+                $context->getLineNumberStart(),
+                $e->getFQSEN()
+            );
         }
         if (!$code_base->hasClassWithFQSEN($class_fqsen)) {
             $this->emitIssue(
@@ -2824,7 +2871,16 @@ class UnionTypeVisitor extends AnalysisVisitor
     private function functionFQSENListFromFunctionName(string $function_name) : array
     {
         // TODO: Catch invalid code such as call_user_func('\\\\x\\\\y')
-        $function_fqsen = FullyQualifiedFunctionName::make('', \ltrim($function_name, '\\'));
+        try {
+            $function_fqsen = FullyQualifiedFunctionName::fromFullyQualifiedString($function_name);
+        } catch (FQSENException $e) {
+            $this->emitIssue(
+                $e instanceof EmptyFQSENException ? Issue::EmptyFQSENInCallable : Issue::InvalidFQSENInCallable,
+                $this->context->getLineNumberStart(),
+                $function_name
+            );
+            return [];
+        }
         if (!$this->code_base->hasFunctionWithFQSEN($function_fqsen)) {
             $this->emitIssue(
                 Issue::UndeclaredFunctionInCallable,

@@ -73,7 +73,7 @@ use function strtolower;
 class CodeBase
 {
     /**
-     * @var Map
+     * @var Map<FullyQualifiedClassName,Clazz>
      * A map from FQSEN to an internal or user defined class
      *
      * TODO: Improve Phan's self-analysis, allow the shorthand array access set syntax to be used without making bad inferences
@@ -82,56 +82,56 @@ class CodeBase
     private $fqsen_class_map;
 
     /**
-     * @var Map
+     * @var Map<FullyQualifiedClassName,Clazz>
      * A map from FQSEN to a user defined class
      */
     private $fqsen_class_map_user_defined;
 
     /**
-     * @var Map
+     * @var Map<FullyQualifiedClassName,Clazz>
      * A map from FQSEN to an internal class
      */
     private $fqsen_class_map_internal;
 
     /**
-     * @var Map
+     * @var Map<FullyQualifiedClassName,ReflectionClass>
      * A map from FQSEN to a ReflectionClass
      */
     private $fqsen_class_map_reflection;
 
     /**
-     * @var Map
+     * @var Map<FullyQualifiedClassName,ClassAliasRecord>
      * A map from FQSEN to set of ClassAliasRecord objects
      */
     private $fqsen_alias_map;
 
     /**
-     * @var Map
+     * @var Map<FullyQualifiedGlobalConstantName,GlobalConstant>
      * A map from FQSEN to a global constant
      */
     private $fqsen_global_constant_map;
 
     /**
-     * @var Map
+     * @var Map<FullyQualifiedFunctionName,Func>
      * A map from FQSEN to function
      */
     private $fqsen_func_map;
 
     /**
-     * @var Set
+     * @var Set<FullyQualifiedFunctionName>
      * A set of internal function FQSENs to lazily initialize.
      * Entries are removed as new entries get added to fqsen_func_map.
      */
     private $internal_function_fqsen_set;
 
     /**
-     * @var Set
+     * @var Set<Method>
      * The set of all methods
      */
     private $method_set;
 
     /**
-     * @var Map
+     * @var Map<FullyQualifiedClassName,ClassMap>
      * A map from FullyQualifiedClassName to a ClassMap,
      * an object that holds properties, methods and class
      * constants.
@@ -139,7 +139,7 @@ class CodeBase
     private $class_fqsen_class_map_map;
 
     /**
-     * @var array<string,Set>
+     * @var array<string,Set<Method>>
      * A map from a string method name to a Set of
      * Methods
      */
@@ -379,7 +379,8 @@ class CodeBase
         }
     }
 
-    private function handleGlobalConstantException(string $const_name, Exception $e) {
+    private function handleGlobalConstantException(string $const_name, Exception $e)
+    {
         // Workaround for windows bug in #1011
         if (\strncmp($const_name, "\0__COMPILER_HALT_OFFSET__\0", 26) === 0) {
             return;
@@ -458,6 +459,7 @@ class CodeBase
     /**
      * @param string[] $internal_function_name_list
      * @return void
+     * @suppress PhanThrowTypeAbsentForCall
      */
     private function addInternalFunctionsByNames(array $internal_function_name_list)
     {
@@ -704,8 +706,13 @@ class CodeBase
     public function addReflectionClass(ReflectionClass $class)
     {
         // Map the FQSEN to the class
-        $class_fqsen = FullyQualifiedClassName::fromFullyQualifiedString($class->getName());
-        $this->fqsen_class_map_reflection->offsetSet($class_fqsen, $class);
+        try {
+            $class_fqsen = FullyQualifiedClassName::fromFullyQualifiedString($class->getName());
+            $this->fqsen_class_map_reflection->offsetSet($class_fqsen, $class);
+        } catch (FQSENException $_) {
+            // Fixes uncaught Phan\Exception\InvalidFQSENException for #2222
+            // Just give up on analyzing uses of the class "OCI-Lob" and anything similar - It's invalid because of the hyphen.
+        }
     }
 
     /**
@@ -917,7 +924,7 @@ class CodeBase
 
 
     /**
-     * @return Map
+     * @return Map<FullyQualifiedClassName,Clazz>
      * A map from FQSENs to classes which are internal.
      */
     public function getUserDefinedClassMap() : Map
@@ -926,7 +933,7 @@ class CodeBase
     }
 
     /**
-     * @return Map
+     * @return Map<FullyQualifiedClassName,Clazz>
      * A list of all classes which are internal.
      */
     public function getInternalClassMap() : Map
@@ -1008,7 +1015,7 @@ class CodeBase
     }
 
     /**
-     * @return Method[]
+     * @return array<string,Method>
      * The set of methods associated with the given class
      */
     public function getMethodMapByFullyQualifiedClassName(
@@ -1020,7 +1027,7 @@ class CodeBase
     }
 
     /**
-     * @return Set
+     * @return Set<Method>
      * A set of all known methods with the given name
      */
     public function getMethodSetByName(string $name) : Set
@@ -1036,7 +1043,7 @@ class CodeBase
     }
 
     /**
-     * @return Set
+     * @return Set<Func|Method>
      * The set of all methods and functions
      *
      * This is slow and should be used only for debugging.
@@ -1051,7 +1058,7 @@ class CodeBase
     }
 
     /**
-     * @return Set
+     * @return Set<Method>
      * The set of all methods that Phan is tracking.
      */
     public function getMethodSet() : Set
@@ -1150,7 +1157,7 @@ class CodeBase
     }
 
     /**
-     * @return Map
+     * @return Map<FullyQualifiedFunctionName,Func>
      */
     public function getFunctionMap() : Map
     {
@@ -1253,7 +1260,7 @@ class CodeBase
     }
 
     /**
-     * @return Map
+     * @return Map<FullyQualifiedGlobalConstantName,GlobalConstant>
      */
     public function getGlobalConstantMap() : Map
     {
@@ -1348,7 +1355,7 @@ class CodeBase
     }
 
     /**
-     * @return Map
+     * @return Map<FullyQualifiedClassName,ClassMap>
      */
     public function getClassMapMap() : Map
     {
@@ -1817,6 +1824,7 @@ class CodeBase
 
         usort($namespaces_for_class, 'strcmp');
 
+        /** @suppress PhanThrowTypeAbsentForCall */
         return array_map(function (string $namespace_name) use ($class_name) : FullyQualifiedClassName {
             return FullyQualifiedClassName::make($namespace_name, $class_name);
         }, $namespaces_for_class);
@@ -1843,6 +1851,7 @@ class CodeBase
 
         usort($namespaces_for_function, 'strcmp');
 
+        /** @suppress PhanThrowTypeAbsentForCall */
         return array_map(function (string $namespace_name) use ($function_name) : FullyQualifiedFunctionName {
             return FullyQualifiedFunctionName::make($namespace_name, $function_name);
         }, $namespaces_for_function);
@@ -1891,7 +1900,7 @@ class CodeBase
     }
 
     /**
-     * @return array<int,FullyQualifiedFunctionName|string> 0 or more namespaced function names found in this code base
+     * @return array<int,FullyQualifiedFunctionName> 0 or more namespaced function names found in this code base
      */
     public function suggestSimilarGlobalFunctionForNamespaceAndName(
         string $namespace,
@@ -1923,9 +1932,9 @@ class CodeBase
         usort($suggested_function_names, 'strcmp');
 
         /**
-         * @return FullyQualifiedFunctionName
+         * @suppress PhanThrowTypeAbsentForCall
          */
-        return array_map(function (string $function_name_lower) use ($namespace, $function_names_in_namespace) {
+        return array_map(function (string $function_name_lower) use ($namespace, $function_names_in_namespace) : FullyQualifiedFunctionName {
             $function_name = $function_names_in_namespace[$function_name_lower];
             return FullyQualifiedFunctionName::make($namespace, $function_name);
         }, $suggested_function_names);
@@ -1978,6 +1987,7 @@ class CodeBase
 
         /**
          * @return string|FullyQualifiedClassName
+         * @suppress PhanThrowTypeAbsentForCall
          */
         return array_map(function (string $class_name_lower) use ($namespace, $class_names_in_namespace) {
             if (!\array_key_exists($class_name_lower, $class_names_in_namespace)) {
