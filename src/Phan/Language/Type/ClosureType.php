@@ -1,4 +1,5 @@
 <?php declare(strict_types=1);
+
 namespace Phan\Language\Type;
 
 use AssertionError;
@@ -78,6 +79,17 @@ final class ClosureType extends Type
     public function asFQSEN() : FQSEN
     {
         return $this->fqsen ?? parent::asFQSEN();
+    }
+
+    /**
+     * Gets the function-like this type was created from.
+     *
+     * TODO: Uses of this may keep outdated data in language server mode.
+     * @return ?FunctionInterface
+     */
+    public function getFunctionLikeOrNull()
+    {
+        return $this->func;
     }
 
     /**

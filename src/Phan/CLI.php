@@ -1,4 +1,5 @@
 <?php declare(strict_types=1);
+
 namespace Phan;
 
 use AssertionError;
@@ -30,7 +31,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    const PHAN_VERSION = '1.1.9-dev';
+    const PHAN_VERSION = '1.1.10-dev';
 
     /**
      * List of short flags passed to getopt
@@ -723,7 +724,7 @@ EOT;
             echo "$msg\n";
         }
 
-        $initHelp = self::INIT_HELP;
+        $init_help = self::INIT_HELP;
         echo <<<EOB
 Usage: {$argv[0]} [options] [files...]
  -f, --file-list <filename>
@@ -779,7 +780,7 @@ Usage: {$argv[0]} [options] [files...]
  -o, --output <filename>
   Output filename
 
-$initHelp
+$init_help
  --color
   Add colors to the outputted issues. Tested in Unix.
   This is recommended for only the default --output-mode ('text')

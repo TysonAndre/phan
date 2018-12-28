@@ -1,4 +1,5 @@
 <?php declare(strict_types=1);
+
 namespace Phan\Analysis;
 
 use AssertionError;
@@ -2093,16 +2094,6 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                     $node->lineno ?? 0,
                     (string)$method->getFQSEN(),
                     (string)$return_type
-                );
-            }
-
-            if ($method->isStatic()
-                && $method->getUnionType()->hasTemplateType()
-            ) {
-                $this->emitIssue(
-                    Issue::TemplateTypeStaticMethod,
-                    $node->lineno ?? 0,
-                    (string)$method->getFQSEN()
                 );
             }
         }

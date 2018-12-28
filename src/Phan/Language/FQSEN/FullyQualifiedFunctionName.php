@@ -1,4 +1,5 @@
 <?php declare(strict_types=1);
+
 namespace Phan\Language\FQSEN;
 
 use ast\Node;
@@ -35,7 +36,7 @@ class FullyQualifiedFunctionName extends FullyQualifiedGlobalStructuralElement i
 
     /**
      * @param string $fqsen_string
-     * An FQSEN string like '\Namespace\Class'
+     * An FQSEN string like '\Namespace\myfunction'
      *
      * @param Context $context
      * The context in which the FQSEN string was found

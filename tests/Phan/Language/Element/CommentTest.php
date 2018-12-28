@@ -1,4 +1,5 @@
-<?php declare(strict_types = 1);
+<?php declare(strict_types=1);
+
 namespace Phan\Tests\Language\Element;
 
 use Phan\CodeBase;
@@ -323,5 +324,12 @@ EOT;
         $expected_type = Type::fromFullyQualifiedString('MyNS\MyClass');
         $this->assertEquals($expected_type, $scope_type);
         $this->assertSame($expected_type, $scope_type);
+    }
+
+    public function testParseReturnCommentCallableString()
+    {
+        // @phan-suppress-next-line PhanAccessClassConstantInternal
+        preg_match(\Phan\Language\Element\Comment\Builder::RETURN_COMMENT_REGEX, '/** @return callable-string description */', $matches);
+        $this->assertSame('@return callable-string', $matches[0]);
     }
 }

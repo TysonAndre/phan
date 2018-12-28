@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+
 namespace Phan\Language\Element;
 
 use AssertionError;
@@ -48,6 +49,12 @@ class Comment
         self::ON_VAR,
         self::ON_PROPERTY,
         self::ON_CONST,
+    ];
+
+    const HAS_TEMPLATE_ANNOTATION = [
+        self::ON_CLASS,
+        self::ON_FUNCTION,
+        self::ON_METHOD,
     ];
 
     const NAME_FOR_TYPE = [
@@ -495,8 +502,6 @@ class Comment
 
     /**
      * @return array<string,CommentParameter> (maps the names of parameters to their values. Does not include parameters which didn't provide names)
-     *
-     * @suppress PhanUnreferencedPublicMethod
      */
     public function getParameterMap() : array
     {

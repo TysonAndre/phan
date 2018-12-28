@@ -1,4 +1,5 @@
 <?php declare(strict_types=1);
+
 namespace Phan\Library;
 
 use Exception;
@@ -26,8 +27,10 @@ class None extends Option
     }
 
     /**
-     * @param mixed $else
-     * @return mixed
+     * @template E
+     * @param E $else
+     * @return E
+     * @suppress PhanParamSignatureMismatch
      */
     public function getOrElse($else)
     {

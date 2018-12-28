@@ -1,4 +1,5 @@
 <?php declare(strict_types=1);
+
 namespace Phan\Library;
 
 use Closure;
@@ -10,6 +11,7 @@ use SplObjectStorage;
  *
  * @template K
  * @template V
+ * @suppress PhanTemplateTypeNotDeclaredInFunctionParams
  */
 class Map extends SplObjectStorage
 {
@@ -37,15 +39,17 @@ class Map extends SplObjectStorage
     }
 
     /**
-     * @param Closure(object):object $key_closure
+     * @template KNew
+     * @template VNew
+     * @param Closure(object):KNew $key_closure
      * A closure that maps each key of this map
      * to a new key
      *
-     * @param Closure(object):object $value_closure
+     * @param Closure(object):VNew $value_closure
      * A closure that maps each value of this map
      * to a new value.
      *
-     * @return Map<object,object>
+     * @return Map<KNew,VNew>
      * A new map containing the mapped keys and
      * values
      */
@@ -68,8 +72,9 @@ class Map extends SplObjectStorage
     {
         $clone =
             /**
-             * @param object $element
-             * @return object
+             * @template T
+             * @param T $element
+             * @return T
              */
             function ($element) {
                 return clone($element);

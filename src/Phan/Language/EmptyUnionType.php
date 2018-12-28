@@ -1,4 +1,5 @@
 <?php declare(strict_types=1);
+
 namespace Phan\Language;
 
 use Closure;
@@ -10,6 +11,7 @@ use Phan\Language\Element\Clazz;
 use Phan\Language\FQSEN\FullyQualifiedClassName;
 use Phan\Language\Type\ArrayType;
 use Phan\Language\Type\IntType;
+use Phan\Language\Type\TemplateType;
 
 /**
  * NOTE: there may also be instances of UnionType that are empty, due to the constructor being public
@@ -969,6 +971,11 @@ final class EmptyUnionType extends UnionType
         return false;
     }
 
+    public function getTypesWithFQSEN(Type $other) : UnionType
+    {
+        return $this;
+    }
+
     /**
      * As per the Serializable interface
      *
@@ -1183,6 +1190,11 @@ final class EmptyUnionType extends UnionType
         return null;
     }
 
+    public function asSingleScalarValueOrNullOrSelf()
+    {
+        return $this;
+    }
+
     public function asStringScalarValues() : array
     {
         return [];
@@ -1226,5 +1238,10 @@ final class EmptyUnionType extends UnionType
     public function withConvertTypesToTemplateTypes(array $template_fix_map) : UnionType
     {
         return $this;
+    }
+
+    public function getTemplateTypeExtractorClosure(CodeBase $code_base, TemplateType $template_type)
+    {
+        return null;
     }
 }

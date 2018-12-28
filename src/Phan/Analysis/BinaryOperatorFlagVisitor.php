@@ -1,4 +1,5 @@
 <?php declare(strict_types=1);
+
 namespace Phan\Analysis;
 
 use AssertionError;
@@ -412,8 +413,8 @@ final class BinaryOperatorFlagVisitor extends FlagVisitorImplementation
             $this->context,
             $left_node,
             $this->should_catch_issue_exception
-        )->asSingleScalarValueOrNull() : $left_node;
-        if ($left_value === null) {
+        )->asSingleScalarValueOrNullOrSelf() : $left_node;
+        if (\is_object($left_value)) {
             return StringType::instance(false)->asUnionType();
         }
         $right_node = $node->children['right'];
@@ -422,8 +423,8 @@ final class BinaryOperatorFlagVisitor extends FlagVisitorImplementation
             $this->context,
             $right_node,
             $this->should_catch_issue_exception
-        )->asSingleScalarValueOrNull() : $right_node;
-        if ($right_value === null) {
+        )->asSingleScalarValueOrNullOrSelf() : $right_node;
+        if (\is_object($right_value)) {
             return StringType::instance(false)->asUnionType();
         }
         return LiteralStringType::instanceForValue($left_value . $right_value, false)->asUnionType();

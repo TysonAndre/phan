@@ -1,4 +1,5 @@
 <?php declare(strict_types=1);
+
 namespace Phan;
 
 use ast;
@@ -9,7 +10,6 @@ use ParseError;
 use Phan\Analysis\DuplicateFunctionAnalyzer;
 use Phan\Analysis\ParameterTypesAnalyzer;
 use Phan\Analysis\ReferenceCountsAnalyzer;
-use Phan\Analysis\ReturnTypesAnalyzer;
 use Phan\Analysis\ThrowsTypesAnalyzer;
 use Phan\AST\ASTSimplifier;
 use Phan\AST\Parser;
@@ -22,6 +22,7 @@ use Phan\Language\Context;
 use Phan\Language\Element\Func;
 use Phan\Language\Element\FunctionInterface;
 use Phan\Language\Element\Method;
+use Phan\Language\FQSEN\FullyQualifiedClassName;
 use Phan\Language\FQSEN\FullyQualifiedFunctionName;
 use Phan\Language\FQSEN\FullyQualifiedMethodName;
 use Phan\Library\FileCache;
@@ -268,7 +269,7 @@ class Analysis
             // Phan always has to call this, to add default values to types of parameters.
             $function_or_method->ensureScopeInitialized($code_base);
 
-            // If there is an array limiting the set of files, skip this file if it's not in the list,
+            // If there is an array limiting the set of files, skip this file if it's not in the list.
             if (\is_array($file_filter) && !isset($file_filter[$function_or_method->getContext()->getFile()])) {
                 return;
             }
@@ -285,10 +286,9 @@ class Analysis
                 $function_or_method
             );
 
-            ReturnTypesAnalyzer::analyzeReturnTypes(
-                $code_base,
-                $function_or_method
-            );
+            // Infer more accurate return types
+            // For daemon mode/the language server, we also call this whenever we use the return type of a function/method.
+            $function_or_method->analyzeReturnTypes($code_base);
 
             ThrowsTypesAnalyzer::analyzeThrowsTypes(
                 $code_base,
@@ -387,9 +387,15 @@ class Analysis
             try {
                 if (stripos($fqsen_string, '::') !== false) {
                     // This is an override of a method.
-                    $fqsen = FullyQualifiedMethodName::fromFullyQualifiedString($fqsen_string);
-                    if ($code_base->hasMethodWithFQSEN($fqsen)) {
-                        $method = $code_base->getMethodByFQSEN($fqsen);
+                    list($class, $method_name) = explode('::', $fqsen_string, 2);
+                    $class_fqsen = FullyQualifiedClassName::fromFullyQualifiedString($class);
+                    if (!$code_base->hasClassWithFQSEN($class_fqsen)) {
+                        continue;
+                    }
+                    $class = $code_base->getClassByFQSEN($class_fqsen);
+                    // Note: This is used because it will create methods such as __construct if they do not exist.
+                    if ($class->hasMethodWithName($code_base, $method_name, false)) {
+                        $method = $class->getMethodByName($code_base, $method_name);
                         $method->setFunctionCallAnalyzer($closure);
                     }
                 } else {

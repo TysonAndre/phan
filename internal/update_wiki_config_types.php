@@ -1,6 +1,7 @@
 #!/usr/bin/env php
 <?php
 declare(strict_types=1);
+
 // @phan-file-suppress PhanNativePHPSyntaxCheckPlugin, UnusedPluginFileSuppression caused by inline HTML before declare
 
 require_once dirname(__DIR__) . '/vendor/autoload.php';
@@ -162,7 +163,7 @@ class ConfigEntry
     }
 
     /**
-     * Returns markdown the description for this issue type
+     * Returns a markdown description for this issue type
      */
     public function getMarkdown() : string
     {

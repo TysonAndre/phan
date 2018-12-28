@@ -1,4 +1,5 @@
 <?php declare(strict_types=1);
+
 namespace Phan\Language\Type;
 
 use Phan\CodeBase;
@@ -134,6 +135,8 @@ abstract class NativeType extends Type
                 IterableType::NAME => in_array(IterableType::NAME, $permitted_cast_type_names, true),
                 BoolType::NAME     => in_array(BoolType::NAME, $permitted_cast_type_names, true),
                 CallableType::NAME => in_array(CallableType::NAME, $permitted_cast_type_names, true),
+                ClassStringType::NAME => in_array(ClassStringType::NAME, $permitted_cast_type_names, true),
+                CallableStringType::NAME => in_array(CallableStringType::NAME, $permitted_cast_type_names, true),
                 FalseType::NAME    => in_array(FalseType::NAME, $permitted_cast_type_names, true),
                 FloatType::NAME    => in_array(FloatType::NAME, $permitted_cast_type_names, true),
                 IntType::NAME      => in_array(IntType::NAME, $permitted_cast_type_names, true),
@@ -156,6 +159,8 @@ abstract class NativeType extends Type
             ArrayType::NAME    => $generate_row(ArrayType::NAME, IterableType::NAME, CallableType::NAME),
             BoolType::NAME     => $generate_row(BoolType::NAME, FalseType::NAME, TrueType::NAME, ScalarRawType::NAME),
             CallableType::NAME => $generate_row(CallableType::NAME),
+            CallableStringType::NAME => $generate_row(CallableStringType::NAME, CallableType::NAME, StringType::NAME),
+            ClassStringType::NAME => $generate_row(ClassStringType::NAME, CallableType::NAME, StringType::NAME),
             FalseType::NAME    => $generate_row(FalseType::NAME, BoolType::NAME, ScalarRawType::NAME),
             FloatType::NAME    => $generate_row(FloatType::NAME, ScalarRawType::NAME),
             IntType::NAME      => $generate_row(IntType::NAME, FloatType::NAME, ScalarRawType::NAME),
@@ -164,7 +169,7 @@ abstract class NativeType extends Type
             NullType::NAME     => $generate_row(NullType::NAME),
             ObjectType::NAME   => $generate_row(ObjectType::NAME),
             ResourceType::NAME => $generate_row(ResourceType::NAME),
-            StringType::NAME   => $generate_row(StringType::NAME, CallableType::NAME, ScalarRawType::NAME),
+            StringType::NAME   => $generate_row(StringType::NAME, CallableType::NAME, ScalarRawType::NAME, CallableStringType::NAME, ClassStringType::NAME),
             TrueType::NAME     => $generate_row(TrueType::NAME, BoolType::NAME, ScalarRawType::NAME),
             VoidType::NAME     => $generate_row(VoidType::NAME),
         ];
@@ -283,6 +288,11 @@ abstract class NativeType extends Type
     public function hasTemplateTypeRecursive() : bool
     {
         return false;
+    }
+
+    public function getTemplateTypeExtractorClosure(CodeBase $unused_code_base, TemplateType $unused_template_type)
+    {
+        return null;
     }
 }
 \class_exists(ArrayType::class);

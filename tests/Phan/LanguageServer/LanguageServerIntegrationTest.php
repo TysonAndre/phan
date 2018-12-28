@@ -1,4 +1,5 @@
-<?php declare(strict_types = 1);
+<?php declare(strict_types=1);
+
 namespace Phan\Tests\LanguageServer;
 
 use InvalidArgumentException;
@@ -806,7 +807,7 @@ EOT
 public static function myMethod() : \MyOtherClass
 ```
 
-@return MyOtherClass details
+`@return MyOtherClass` details
 EOT
             ],
             [
@@ -842,7 +843,7 @@ EOT
 public $counter
 ```
 
-@var int this tracks a count
+`@var int` this tracks a count
 EOT
             ],
             [
@@ -853,7 +854,7 @@ EOT
 const HTTP_500 = 500
 ```
 
-@var int value of an HTTP response code
+`@var int` value of an HTTP response code
 EOT
                 ,
                 null,

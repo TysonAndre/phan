@@ -1,4 +1,5 @@
 <?php declare(strict_types=1);
+
 namespace Phan\Language\Element;
 
 // Note: This file uses both class Phan\Language\Element\Flags and namespace ast\flags
@@ -766,8 +767,7 @@ class Method extends ClassElement implements FunctionInterface
 
     /**
      * Does this method have template types anywhere in its parameters or return type?
-     *
-     * TODO: Make the check recursive
+     * (This check is recursive)
      */
     public function hasTemplateType() : bool
     {

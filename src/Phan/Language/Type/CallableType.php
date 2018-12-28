@@ -1,4 +1,5 @@
 <?php declare(strict_types=1);
+
 namespace Phan\Language\Type;
 
 use Phan\Language\Type;
@@ -8,7 +9,7 @@ use Phan\Language\Type;
  *
  * @see CallableDeclarationType for Phan's representation of `callable(MyClass):MyOtherClass`
  */
-final class CallableType extends NativeType
+final class CallableType extends NativeType implements CallableInterface
 {
     /** @phan-override */
     const NAME = 'callable';

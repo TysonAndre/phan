@@ -1,4 +1,5 @@
 <?php declare(strict_types=1);
+
 namespace Phan\AST;
 
 use AssertionError;
@@ -657,13 +658,17 @@ class UnionTypeVisitor extends AnalysisVisitor
     /**
      * Returns the union type from a type in a parameter/return signature of a function-like.
      * This preserves `self` and `static`
-     * @param ?Node $node
+     * @param Node $node
      */
     public function fromTypeInSignature($node) : UnionType
     {
         $is_nullable = $node->kind === ast\AST_NULLABLE_TYPE;
         if ($is_nullable) {
             $node = $node->children['type'];
+            if (!$node instanceof Node) {
+                // Work around bug (in polyfill parser?)
+                return UnionType::empty();
+            }
         }
         $kind = $node->kind;
         if ($kind === ast\AST_TYPE) {
@@ -1068,7 +1073,7 @@ class UnionTypeVisitor extends AnalysisVisitor
     public function visitCast(Node $node) : UnionType
     {
         // TODO: Check if the cast is allowed based on the right side type
-        UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $node->children['expr']);
+        $expr_type = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $node->children['expr']);
         switch ($node->flags) {
             case \ast\flags\TYPE_NULL:
                 return NullType::instance(false)->asUnionType();
@@ -1083,6 +1088,9 @@ class UnionTypeVisitor extends AnalysisVisitor
             case \ast\flags\TYPE_ARRAY:
                 return ArrayType::instance(false)->asUnionType();
             case \ast\flags\TYPE_OBJECT:
+                if ($expr_type->isExclusivelyArray()) {
+                    return UnionType::fromFullyQualifiedString('\stdClass');
+                }
                 return ObjectType::instance(false)->asUnionType();
             default:
                 throw new NodeException(
@@ -1149,11 +1157,6 @@ class UnionTypeVisitor extends AnalysisVisitor
             // arguments to the generic types and return a special
             // kind of type.
 
-            // Get the constructor so that we can figure out what
-            // template types we're going to be mapping
-            $constructor_method =
-                $class->getMethodByName($this->code_base, '__construct');
-
             // Map each argument to its type
             /** @param Node|string|int|float $arg_node */
             $arg_type_list = \array_map(function ($arg_node) : UnionType {
@@ -1164,12 +1167,14 @@ class UnionTypeVisitor extends AnalysisVisitor
                 );
             }, $node->children['args']->children);
 
-            // Map each template type o the argument's concrete type
+            // Get closures to extract template types based on the types of the constructor
+            // so that we can figure out what template types we're going to be mapping
+            $template_type_resolvers = $class->getGenericConstructorBuilder($this->code_base);
+
+            // And use those closures to infer the (possibly transformed) types
             $template_type_list = [];
-            foreach ($constructor_method->getParameterList() as $i => $unused_parameter) {
-                if (isset($arg_type_list[$i])) {
-                    $template_type_list[] = $arg_type_list[$i];
-                }
+            foreach ($template_type_resolvers as $template_type_resolver) {
+                $template_type_list[] = $template_type_resolver($arg_type_list);
             }
 
             // Create a new type that assigns concrete
@@ -1675,8 +1680,8 @@ class UnionTypeVisitor extends AnalysisVisitor
                 $this->code_base,
                 $this->context,
                 $part
-            )->asSingleScalarValueOrNull() : $part;
-            if ($part_string === null) {
+            )->asSingleScalarValueOrNullOrSelf() : $part;
+            if (\is_object($part_string)) {
                 return StringType::instance(false)->asUnionType();
             }
             $result .= $part_string;
@@ -1827,7 +1832,7 @@ class UnionTypeVisitor extends AnalysisVisitor
             }
 
             // Map template types to concrete types
-            if ($union_type->hasTemplateType()) {
+            if ($union_type->hasTemplateTypeRecursive()) {
                 // Get the type of the object calling the property
                 $expression_type = UnionTypeVisitor::unionTypeFromNode(
                     $this->code_base,
@@ -1921,6 +1926,8 @@ class UnionTypeVisitor extends AnalysisVisitor
 
         $possible_types = UnionType::empty();
         foreach ($function_list_generator as $function) {
+            $function->analyzeReturnTypes($this->code_base);  // For daemon/server mode, call this to consistently ensure accurate return types.
+
             if ($function->hasDependentReturnType()) {
                 $function_types = $function->getDependentReturnType($this->code_base, $this->context, $node->children['args']->children);
             } else {
@@ -2004,6 +2011,8 @@ class UnionTypeVisitor extends AnalysisVisitor
                         $this->code_base,
                         $method_name
                     );
+                    $method->analyzeReturnTypes($this->code_base);  // For daemon/server mode, call this to consistently ensure accurate return types.
+
                     if ($method->hasTemplateType()) {
                         $method = $method->resolveTemplateType(
                             $this->code_base,
@@ -2018,8 +2027,9 @@ class UnionTypeVisitor extends AnalysisVisitor
                     }
 
                     // Map template types to concrete types
-                    if ($union_type->hasTemplateType()) {
-                        // Get the type of the object calling the property
+                    // TODO: When the template types are part of the method doc comment, don't look it up in the class union type
+                    if (isset($node->children['expr']) && $union_type->hasTemplateTypeRecursive()) {
+                        // Get the type of the object calling the method
                         $expression_type = UnionTypeVisitor::unionTypeFromNode(
                             $this->code_base,
                             $this->context,
@@ -2604,6 +2614,53 @@ class UnionTypeVisitor extends AnalysisVisitor
             }
         }
         return $functions;
+    }
+
+    /**
+     * Fetch known classes for a place where a class name was provided as a string or string expression.
+     * Warn if this is an invalid class name.
+     * @param \ast\Node|string|int|float $node
+     */
+    public static function classListFromClassNameNode(CodeBase $code_base, Context $context, $node) : array
+    {
+        $results = [];
+        $strings = UnionTypeVisitor::unionTypeFromNode($code_base, $context, $node)->asStringScalarValues();
+        foreach ($strings as $string) {
+            try {
+                $fqsen = FullyQualifiedClassName::fromFullyQualifiedString($string);
+            } catch (FQSENException $e) {
+                Issue::maybeEmit(
+                    $code_base,
+                    $context,
+                    $e instanceof EmptyFQSENException ? Issue::EmptyFQSENInClasslike : Issue::InvalidFQSENInClasslike,
+                    $context->getLineNumberStart(),
+                    $e->getFQSEN()
+                );
+                continue;
+            } catch (\InvalidArgumentException $_) {
+                Issue::maybeEmit(
+                    $code_base,
+                    $context,
+                    Issue::InvalidFQSENInClasslike,
+                    $context->getLineNumberStart(),
+                    '(unknown)'
+                );
+                continue;
+            }
+            if (!$code_base->hasClassWithFQSEN($fqsen)) {
+                // TODO: Different issue type?
+                Issue::maybeEmit(
+                    $code_base,
+                    $context,
+                    Issue::UndeclaredClassReference,
+                    $context->getLineNumberStart(),
+                    (string)$fqsen
+                );
+                continue;
+            }
+            $results[] = $code_base->getClassByFQSEN($fqsen);
+        }
+        return $results;
     }
 
     /**

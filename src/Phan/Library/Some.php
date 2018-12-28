@@ -1,4 +1,5 @@
 <?php declare(strict_types=1);
+
 namespace Phan\Library;
 
 /**
@@ -46,7 +47,7 @@ class Some extends Option
      */
     public function getOrElse($else)
     {
-        return $this->get();
+        return $this->_;
     }
 
     /**

@@ -1,8 +1,10 @@
 <?php declare(strict_types=1);
+
 namespace Phan\Language;
 
 use AssertionError;
 use ast\flags;
+use Closure;
 use Error;
 use InvalidArgumentException;
 use Phan\AST\UnionTypeVisitor;
@@ -20,7 +22,9 @@ use Phan\Language\Type\ArrayShapeType;
 use Phan\Language\Type\ArrayType;
 use Phan\Language\Type\BoolType;
 use Phan\Language\Type\CallableDeclarationType;
+use Phan\Language\Type\CallableStringType;
 use Phan\Language\Type\CallableType;
+use Phan\Language\Type\ClassStringType;
 use Phan\Language\Type\ClosureDeclarationParameter;
 use Phan\Language\Type\ClosureDeclarationType;
 use Phan\Language\Type\ClosureType;
@@ -74,17 +78,17 @@ class Type
      * A legal type identifier (e.g. 'int' or 'DateTime')
      */
     const simple_type_regex =
-        '(\??)\\\\?[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*(?:\\\\[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)*';
+        '(\??)(?:callable-string|class-string|\\\\?[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*(?:\\\\[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)*)';
 
     const simple_noncapturing_type_regex =
-        '\\\\?[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*(?:\\\\[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)*';
+        '\\\\?(?:callable-string|class-string|[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*(?:\\\\[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)*)';
 
     /**
      * @var string
      * A legal type identifier (e.g. 'int' or 'DateTime')
      */
     const simple_type_regex_or_this =
-        '(\??)([a-zA-Z_\x7f-\xff\\\][a-zA-Z0-9_\x7f-\xff\\\]*|\$this)';
+        '(\??)(callable-string|class-string|[a-zA-Z_\x7f-\xff\\\][a-zA-Z0-9_\x7f-\xff\\\]*|\$this)';
 
     const shape_key_regex =
         '[-._a-zA-Z0-9\x7f-\xff]+\??';
@@ -197,6 +201,8 @@ class Type
         'array'     => true,
         'bool'      => true,
         'callable'  => true,
+        'callable-string' => true,
+        'class-string' => true,
         'false'     => true,
         'float'     => true,
         'int'       => true,
@@ -416,21 +422,43 @@ class Type
 
         $value = self::$canonical_object_map[$key] ?? null;
         if (!$value) {
-            if ($namespace === '\\' && $type_name === 'Closure') {
-                $value = new ClosureType(
-                    $namespace,
-                    $type_name,
-                    $template_parameter_type_list,
-                    $is_nullable
-                );
-            } elseif ($namespace === '\\' && $type_name === 'callable') {
-                $value = new CallableType(
-                    $namespace,
-                    $type_name,
-                    $template_parameter_type_list,
-                    $is_nullable
-                );
-            } else {
+            if ($namespace === '\\') {
+                switch ($type_name) {
+                    case 'Closure':
+                        $value = new ClosureType(
+                            $namespace,
+                            $type_name,
+                            $template_parameter_type_list,
+                            $is_nullable
+                        );
+                        break;
+                    case 'callable':
+                        $value = new CallableType(
+                            $namespace,
+                            $type_name,
+                            $template_parameter_type_list,
+                            $is_nullable
+                        );
+                        break;
+                    case 'callable-string':
+                        $value = new CallableStringType(
+                            $namespace,
+                            $type_name,
+                            $template_parameter_type_list,
+                            $is_nullable
+                        );
+                        break;
+                    case 'class-string':
+                        $value = new ClassStringType(
+                            $namespace,
+                            $type_name,
+                            $template_parameter_type_list,
+                            $is_nullable
+                        );
+                        break;
+                }
+            }
+            if (!$value) {
                 $value = new static(
                     $namespace,
                     $type_name,
@@ -685,6 +713,10 @@ class Type
                 return BoolType::instance($is_nullable);
             case 'callable':
                 return CallableType::instance($is_nullable);
+            case 'callable-string':
+                return CallableStringType::instance($is_nullable);
+            case 'class-string':
+                return ClassStringType::instance($is_nullable);
             case 'closure':
                 return ClosureType::instance($is_nullable);
             case 'false':
@@ -995,6 +1027,26 @@ class Type
     }
 
     /**
+     * @param array<int,UnionType> $template_parameter_type_list
+     * @param bool $is_nullable
+     */
+    private static function parseClassStringTypeFromTemplateParameterList(
+        array $template_parameter_type_list,
+        bool $is_nullable
+    ) : Type {
+        $template_count = count($template_parameter_type_list);
+        if ($template_count === 1) {
+            return new ClassStringType(
+                '',
+                'class-string',
+                $template_parameter_type_list,
+                $is_nullable
+            );
+        }
+        return ClassStringType::instance($is_nullable);
+    }
+
+    /**
      * @param string $string
      * A string representing a type
      *
@@ -1195,11 +1247,13 @@ class Type
 
         if (self::isInternalTypeString($type_name, $source)) {
             if (count($template_parameter_type_list) > 0) {
-                if (strtolower($type_name) === 'array') {
-                    return self::parseGenericArrayTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable);
-                }
-                if (strtolower($type_name) === 'iterable') {
-                    return self::parseGenericIterableTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable);
+                switch (\strtolower($type_name)) {
+                    case 'array':
+                        return self::parseGenericArrayTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable);
+                    case 'iterable':
+                        return self::parseGenericIterableTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable);
+                    case 'class-string':
+                        return self::parseClassStringTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable);
                 }
                 // TODO: Warn about unrecognized types.
             }
@@ -1583,9 +1637,9 @@ class Type
             return $this;
         }
         return static::make(
-            $this->getNamespace(),
-            $this->getName(),
-            $this->getTemplateParameterTypeList(),
+            $this->namespace,
+            $this->name,
+            $this->template_parameter_type_list,
             $is_nullable,
             Type::FROM_TYPE
         );
@@ -3043,7 +3097,24 @@ class Type
      */
     public function withConvertTypesToTemplateTypes(array $template_fix_map) : Type
     {
-        return $template_fix_map[$this->__toString()] ?? $this;
+        $result = $template_fix_map[$this->__toString()] ?? null;
+        if ($result) {
+            return $result;
+        }
+        $template_parameter_type_list = $this->template_parameter_type_list;
+        foreach ($template_parameter_type_list as $i => $type) {
+            $template_parameter_type_list[$i] = $type->withConvertTypesToTemplateTypes($template_fix_map);
+        }
+        if ($template_parameter_type_list === $this->template_parameter_type_list) {
+            return $this;
+        }
+        return static::make(
+            $this->namespace,
+            $this->name,
+            $template_parameter_type_list,
+            $this->is_nullable,
+            Type::FROM_TYPE
+        );
     }
 
     /**
@@ -3106,5 +3177,44 @@ class Type
     public function hasSameNamespaceAndName(Type $type) : bool
     {
         return $this->name === $type->name && $this->namespace === $type->namespace;
+    }
+
+    /**
+     * @param CodeBase $code_base may be used for resolving inheritance
+     * @param TemplateType $template_type the template type that this union type is being searched for
+     *
+     * @return ?Closure(UnionType):UnionType a closure to determine the union type(s) that are in the same position(s) as the template type.
+     * This is overridden in subclasses.
+     */
+    public function getTemplateTypeExtractorClosure(CodeBase $code_base, TemplateType $template_type)
+    {
+        if (!$this->template_parameter_type_list) {
+            return null;
+        }
+        if (!$this->isObjectWithKnownFQSEN()) {
+            return null;
+        }
+        $closure = null;
+        foreach ($this->template_parameter_type_list as $i => $actual_template_union_type) {
+            $inner_extracter_closure = $actual_template_union_type->getTemplateTypeExtractorClosure($code_base, $template_type);
+            if (!$inner_extracter_closure) {
+                continue;
+            }
+            $closure = TemplateType::combineParameterClosures(
+                $closure,
+                function (UnionType $type) use ($inner_extracter_closure, $i) : UnionType {
+                    $result = UnionType::empty();
+                    foreach ($type->getTypeSet() as $inner_type) {
+                        $replacement_type = $inner_type->template_parameter_type_list[$i] ?? null;
+                        if ($replacement_type) {
+                            $result = $result->withUnionType($inner_extracter_closure($replacement_type));
+                        }
+                    }
+                    return $result;
+                }
+            );
+        }
+
+        return $closure;
     }
 }

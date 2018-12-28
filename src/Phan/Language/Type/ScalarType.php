@@ -1,4 +1,5 @@
 <?php declare(strict_types=1);
+
 namespace Phan\Language\Type;
 
 use Phan\CodeBase;
@@ -157,3 +158,4 @@ abstract class ScalarType extends NativeType
     }
 }
 \class_exists(IntType::class);
+\class_exists(StringType::class);

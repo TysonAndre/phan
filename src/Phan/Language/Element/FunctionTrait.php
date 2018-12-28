@@ -1,15 +1,20 @@
 <?php declare(strict_types=1);
+
 namespace Phan\Language\Element;
 
 use AssertionError;
 use ast\Node;
 use Closure;
+use Phan\Analysis\ParameterTypesAnalyzer;
+use Phan\AST\UnionTypeVisitor;
 use Phan\CodeBase;
 use Phan\Config;
 use Phan\Issue;
+use Phan\IssueFixSuggester;
 use Phan\Language\Context;
 use Phan\Language\FileRef;
 use Phan\Language\FQSEN;
+use Phan\Language\FQSEN\FullyQualifiedClassName;
 use Phan\Language\Type;
 use Phan\Language\Type\ArrayType;
 use Phan\Language\Type\BoolType;
@@ -20,7 +25,10 @@ use Phan\Language\Type\FunctionLikeDeclarationType;
 use Phan\Language\Type\GenericArrayType;
 use Phan\Language\Type\MixedType;
 use Phan\Language\Type\NullType;
+use Phan\Language\Type\StaticOrSelfType;
+use Phan\Language\Type\TemplateType;
 use Phan\Language\Type\TrueType;
+use Phan\Language\Type\VoidType;
 use Phan\Language\UnionType;
 
 /**
@@ -185,12 +193,12 @@ trait FunctionTrait
     private $real_return_type;
 
     /**
-     * @var \Closure|null (CodeBase, Context, Func|Method $func, Node[]|string[]|int[] $arg_list) => UnionType
+     * @var Closure|null (CodeBase, Context, Func|Method $func, Node[]|string[]|int[] $arg_list) => UnionType
      */
     private $return_type_callback = null;
 
     /**
-     * @var \Closure|null (CodeBase, Context, Func|Method $func, Node[]|string[]|int[] $arg_list) => void
+     * @var Closure|null (CodeBase, Context, Func|Method $func, Node[]|string[]|int[] $arg_list) => void
      */
     private $function_call_analyzer_callback = null;
 
@@ -948,7 +956,7 @@ trait FunctionTrait
     /**
      * @return void
      */
-    public function setDependentReturnTypeClosure(\Closure $closure)
+    public function setDependentReturnTypeClosure(Closure $closure)
     {
         $this->return_type_callback = $closure;
     }
@@ -982,7 +990,7 @@ trait FunctionTrait
      * If callers need to invoke multiple closures, they should pass in a closure to invoke multiple closures.
      * @return void
      */
-    public function setFunctionCallAnalyzer(\Closure $closure)
+    public function setFunctionCallAnalyzer(Closure $closure)
     {
         $this->function_call_analyzer_callback = $closure;
     }
@@ -1160,5 +1168,275 @@ trait FunctionTrait
     public function getReturnTypeAsGeneratorTemplateType() : Type
     {
         return $this->as_generator_template_type ?? ($this->as_generator_template_type = $this->getUnionType()->asGeneratorTemplateType());
+    }
+
+    /**
+     * @var bool have the return types (both real and PHPDoc) of this method been analyzed and combined yet?
+     */
+    protected $did_analyze_return_types = false;
+
+    /**
+     * Check this method's return types (phpdoc and real) to make sure they're valid,
+     * and infer a return type from the combination of the signature and phpdoc return types.
+     *
+     * @return void
+     */
+    public function analyzeReturnTypes(CodeBase $code_base)
+    {
+        if ($this->did_analyze_return_types) {
+            return;
+        }
+        $this->did_analyze_return_types = true;
+        $this->analyzeReturnTypesInner($code_base);
+    }
+
+    /**
+     * Is this internal?
+     */
+    abstract public function isPHPInternal() : bool;
+
+    /**
+     * Returns this function's union type without resolving `static` in the function declaration's context.
+     */
+    abstract public function getUnionTypeWithUnmodifiedStatic() : UnionType;
+
+    private function analyzeReturnTypesInner(CodeBase $code_base)
+    {
+        if ($this->isPHPInternal()) {
+            // nothing to do, no known Node
+            return;
+        }
+        $return_type = $this->getUnionTypeWithUnmodifiedStatic();
+        $real_return_type = $this->getRealReturnType();
+        $phpdoc_return_type = $this->getPHPDocReturnType();
+        $context = $this->getContext();
+        // TODO: use method->getPHPDocUnionType() to check compatibility, like analyzeParameterTypesDocblockSignaturesMatch
+
+        // Look at each parameter to make sure their types
+        // are valid
+
+        // Look at each type in the function's return union type
+        foreach ($return_type->withFlattenedArrayShapeOrLiteralTypeInstances()->getTypeSet() as $outer_type) {
+            $type = $outer_type;
+            // TODO: Expand this to ArrayShapeType, add unit test of `@return array{key:MissingClazz}`
+            while ($type instanceof GenericArrayType) {
+                $type = $type->genericArrayElementType();
+            }
+
+            // If its a native type or a reference to
+            // self, its OK
+            if ($type->isNativeType() || ($this instanceof Method && $type instanceof StaticOrSelfType)) {
+                continue;
+            }
+
+            if ($type instanceof TemplateType) {
+                if ($this instanceof Method) {
+                    if ($this->isStatic() && !$this->declaresTemplateTypeInComment($type)) {
+                        Issue::maybeEmit(
+                            $code_base,
+                            $context,
+                            Issue::TemplateTypeStaticMethod,
+                            $this->getFileRef()->getLineNumberStart(),
+                            (string)$this->getFQSEN()
+                        );
+                    }
+                }
+                continue;
+            }
+            // Make sure the class exists
+            $type_fqsen = FullyQualifiedClassName::fromType($type);
+            if (!$code_base->hasClassWithFQSEN($type_fqsen)) {
+                Issue::maybeEmitWithParameters(
+                    $code_base,
+                    $this->getContext(),
+                    Issue::UndeclaredTypeReturnType,
+                    $this->getFileRef()->getLineNumberStart(),
+                    [$this->getNameForIssue(), (string)$outer_type],
+                    IssueFixSuggester::suggestSimilarClass($code_base, $this->getContext(), $type_fqsen, null, 'Did you mean', IssueFixSuggester::CLASS_SUGGEST_CLASSES_AND_TYPES_AND_VOID)
+                );
+            }
+        }
+        if (Config::getValue('check_docblock_signature_return_type_match') && !$real_return_type->isEmpty() && ($phpdoc_return_type instanceof UnionType) && !$phpdoc_return_type->isEmpty()) {
+            $resolved_real_return_type = $real_return_type->withStaticResolvedInContext($context);
+            foreach ($phpdoc_return_type->getTypeSet() as $phpdoc_type) {
+                $is_exclusively_narrowed = $phpdoc_type->isExclusivelyNarrowedFormOrEquivalentTo(
+                    $resolved_real_return_type,
+                    $context,
+                    $code_base
+                );
+                // Make sure that the commented type is a narrowed
+                // or equivalent form of the syntax-level declared
+                // return type.
+                if (!$is_exclusively_narrowed) {
+                    Issue::maybeEmit(
+                        $code_base,
+                        $context,
+                        Issue::TypeMismatchDeclaredReturn,
+                        // @phan-suppress-next-line PhanAccessMethodInternal, PhanPartialTypeMismatchArgument TODO: Support inferring this is FunctionInterface
+                        ParameterTypesAnalyzer::guessCommentReturnLineNumber($this) ?? $context->getLineNumberStart(),
+                        $this->getName(),
+                        $phpdoc_type->__toString(),
+                        $real_return_type->__toString()
+                    );
+                }
+                if ($is_exclusively_narrowed && Config::getValue('prefer_narrowed_phpdoc_return_type')) {
+                    $normalized_phpdoc_return_type = ParameterTypesAnalyzer::normalizeNarrowedParamType($phpdoc_return_type, $real_return_type);
+                    if ($normalized_phpdoc_return_type) {
+                        // TODO: How does this currently work when there are multiple types in the union type that are compatible?
+                        $this->setUnionType($normalized_phpdoc_return_type);
+                    } else {
+                        // This check isn't urgent to fix, and is specific to nullable casting rules,
+                        // so use a different issue type.
+                        Issue::maybeEmit(
+                            $code_base,
+                            $context,
+                            Issue::TypeMismatchDeclaredReturnNullable,
+                            // @phan-suppress-next-line PhanAccessMethodInternal, PhanPartialTypeMismatchArgument TODO: Support inferring this is FunctionInterface
+                            ParameterTypesAnalyzer::guessCommentReturnLineNumber($this) ?? $context->getLineNumberStart(),
+                            $this->getName(),
+                            $phpdoc_type->__toString(),
+                            $real_return_type->__toString()
+                        );
+                    }
+                }
+            }
+        }
+        if ($return_type->isEmpty() && !$this->getHasReturn()) {
+            if ($this instanceof Func || ($this instanceof Method && ($this->isPrivate() || $this->isFinal() || $this->getIsMagicAndVoid() || $this->getClass($code_base)->isFinal()))) {
+                $this->setUnionType(VoidType::instance(false)->asUnionType());
+            }
+        }
+        foreach ($real_return_type->getTypeSet() as $type) {
+            if (!$type->isObjectWithKnownFQSEN()) {
+                continue;
+            }
+            $type_fqsen = FullyQualifiedClassName::fromType($type);
+            if (!$code_base->hasClassWithFQSEN($type_fqsen)) {
+                // We should have already warned
+                continue;
+            }
+            $class = $code_base->getClassByFQSEN($type_fqsen);
+            if ($class->isTrait()) {
+                Issue::maybeEmit(
+                    $code_base,
+                    $context,
+                    Issue::TypeInvalidTraitReturn,
+                    $this->getFileRef()->getLineNumberStart(),
+                    $this->getNameForIssue(),
+                    $type_fqsen->__toString()
+                );
+            }
+        }
+        $comment = $this->comment;
+        if ($comment) {
+            $template_type_list = $comment->getTemplateTypeList();
+            if ($template_type_list) {
+                $this->addClosureForDependentTemplateType($code_base, $context, $template_type_list);
+            }
+        }
+    }
+
+    /**
+     * Does this function/method declare an (at)template type for this type?
+     */
+    public function declaresTemplateTypeInComment(TemplateType $template_type) : bool
+    {
+        $comment = $this->comment;
+        if ($comment) {
+            // Template types are identical if they have the same name. See TemplateType::instanceForId.
+            return \in_array($template_type, $comment->getTemplateTypeList(), true);
+        }
+        return false;
+    }
+
+    /**
+     * @param TemplateType[] $template_type_list
+     */
+    private function addClosureForDependentTemplateType(CodeBase $code_base, Context $context, array $template_type_list)
+    {
+        if ($this->hasDependentReturnType()) {
+            // We already added this or this conflicts with a plugin.
+            return;
+        }
+        if (!$template_type_list) {
+            // Shouldn't happen
+            return;
+        }
+        $return_type = $this->getUnionType();
+        $parameter_extracter_map = [];
+        foreach ($template_type_list as $template_type) {
+            $template_type_map = [$template_type->getName() => MixedType::instance(false)->asUnionType()];
+            $return_type_with_template = $return_type->withTemplateParameterTypeMap($template_type_map);
+            if ($return_type_with_template->isEqualTo($return_type)) {
+                Issue::maybeEmit(
+                    $code_base,
+                    $context,
+                    Issue::TemplateTypeNotUsedInFunctionReturn,
+                    $context->getLineNumberStart(),
+                    $template_type,
+                    $this->getNameForIssue()
+                );
+                return;
+            }
+            $parameter_extracter = $this->getTemplateTypeExtractorClosure($code_base, $template_type);
+            if (!$parameter_extracter) {
+                Issue::maybeEmit(
+                    $code_base,
+                    $context,
+                    Issue::TemplateTypeNotDeclaredInFunctionParams,
+                    $context->getLineNumberStart(),
+                    $template_type,
+                    $this->getNameForIssue()
+                );
+                return;
+            }
+            $parameter_extracter_map[$template_type->getName()] = $parameter_extracter;
+        }
+        // Resolve the template types based on the parameters passed to the function
+        $analyzer = function (CodeBase $code_base, Context $context, FunctionInterface $function, array $args) use ($parameter_extracter_map) : UnionType {
+            $args_types = array_map(
+                /**
+                 * @param mixed $node
+                 */
+                function ($node) use ($code_base, $context) : UnionType {
+                    return UnionTypeVisitor::unionTypeFromNode($code_base, $context, $node);
+                },
+                $args
+            );
+            $template_type_map = [];
+            foreach ($parameter_extracter_map as $name => $closure) {
+                // TODO: Do a better job of
+                $template_type_map[$name] = $closure ? $closure($args_types) : UnionType::empty();
+            }
+            return $function->getUnionType()->withTemplateParameterTypeMap($template_type_map);
+        };
+        $this->setDependentReturnTypeClosure($analyzer);
+    }
+
+    /**
+     * @param TemplateType $template_type the template type that this function is looking for references to in parameters
+     *
+     * @return ?Closure(array<int,UnionType>):UnionType
+     */
+    public function getTemplateTypeExtractorClosure(CodeBase $code_base, TemplateType $template_type)
+    {
+        $closure = null;
+        foreach ($this->parameter_list as $i => $parameter) {
+            $closure_for_type = $parameter->getUnionType()->getTemplateTypeExtractorClosure($code_base, $template_type);
+            if (!$closure_for_type) {
+                continue;
+            }
+            $closure = TemplateType::combineParameterClosures(
+                $closure,
+                function (array $parameters) use ($i, $closure_for_type) : UnionType {
+                    $param_type = $parameters[$i] ?? null;
+                    if ($param_type) {
+                        return $closure_for_type($param_type);
+                    }
+                    return UnionType::empty();
+                }
+            );
+        }
+        return $closure;
     }
 }

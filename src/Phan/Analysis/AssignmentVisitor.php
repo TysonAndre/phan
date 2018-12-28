@@ -1,4 +1,5 @@
 <?php declare(strict_types=1);
+
 namespace Phan\Analysis;
 
 use AssertionError;
@@ -572,7 +573,7 @@ class AssignmentVisitor extends AnalysisVisitor
                 $this->context,
                 $dim_node
             );
-            $dim_value = $dim_type->asSingleScalarValueOrNull();
+            $dim_value = $dim_type->asSingleScalarValueOrNullOrSelf();
         } elseif (\is_scalar($dim_node) && $dim_node !== null) {
             $dim_value = $dim_node;
             $dim_type = Type::fromObject($dim_node)->asUnionType();
@@ -582,7 +583,7 @@ class AssignmentVisitor extends AnalysisVisitor
             $dim_value = null;
         }
 
-        if ($dim_value !== null) {
+        if ($dim_type !== null && !\is_object($dim_value)) {
             $right_type = ArrayShapeType::fromFieldTypes([
                 $dim_value => $this->right_type,
             ], false)->asUnionType();
@@ -881,7 +882,7 @@ class AssignmentVisitor extends AnalysisVisitor
         }
 
         $property_union_type = $property->getUnionType();
-        if ($property_union_type->hasTemplateType()) {
+        if ($property_union_type->hasTemplateTypeRecursive()) {
             $property_union_type = $property_union_type->asExpandedTypes($this->code_base);
         }
 

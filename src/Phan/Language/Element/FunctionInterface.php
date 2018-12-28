@@ -1,4 +1,5 @@
 <?php declare(strict_types=1);
+
 namespace Phan\Language\Element;
 
 use ast\Node;
@@ -9,6 +10,7 @@ use Phan\Language\FQSEN\FullyQualifiedMethodName;
 use Phan\Language\Scope\ClosedScope;
 use Phan\Language\Type;
 use Phan\Language\Type\FunctionLikeDeclarationType;
+use Phan\Language\Type\TemplateType;
 use Phan\Language\UnionType;
 
 /**
@@ -402,4 +404,17 @@ interface FunctionInterface extends AddressableElementInterface
      * Returns this function's union type without resolving `static` in the function declaration's context.
      */
     public function getUnionTypeWithUnmodifiedStatic() : UnionType;
+
+    /**
+     * Check this method's return types (phpdoc and real) to make sure they're valid,
+     * and infer a return type from the combination of the signature and phpdoc return types.
+     *
+     * @return void
+     */
+    public function analyzeReturnTypes(CodeBase $code_base);
+
+    /**
+     * Does this function/method declare an (at)template type for this type?
+     */
+    public function declaresTemplateTypeInComment(TemplateType $template_type) : bool;
 }
