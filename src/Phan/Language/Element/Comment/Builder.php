@@ -10,6 +10,7 @@ use Phan\Language\Context;
 use Phan\Language\Element\Comment;
 use Phan\Language\Element\Flags;
 use Phan\Language\FQSEN;
+use Phan\Language\Scope\TemplateScope;
 use Phan\Language\Type;
 use Phan\Language\Type\TemplateType;
 use Phan\Language\Type\VoidType;
@@ -26,6 +27,8 @@ use Phan\Library\Some;
  */
 final class Builder
 {
+    /** @var string the original raw comment */
+    public $comment;
     /** @var array<int,string> the list of lines of the doc comment */
     public $lines;
     /** @var int count($this->lines) */
@@ -42,7 +45,7 @@ final class Builder
     public $variable_list = [];
     /** @var array<int,Parameter> the list of extracted (at)param annotations */
     public $parameter_list = [];
-    /** @var array<int,TemplateType> the list of extracted (at)template annotations */
+    /** @var array<string,TemplateType> the list of extracted (at)template annotations */
     public $template_type_list = [];
     /** @var Option<Type> the (at)inherits annotation */
     public $inherited_type;
@@ -66,6 +69,11 @@ final class Builder
     public $phan_overrides = [];
     /** @var UnionType the union type of the set of (at)throws annotations */
     public $throw_union_type;
+    /** @var array<string,Assertion> assertions about each parameter */
+    public $param_assertion_map = [];
+
+    /** @var bool did we add template types already */
+    protected $did_add_template_types;
 
     /**
      * A list of issues detected in the comment being built.
@@ -80,14 +88,17 @@ final class Builder
         CodeBase $code_base,
         Context $context,
         int $lineno,
-        int $comment_type
+        int $comment_type,
+        bool $did_add_template_types = false
     ) {
+        $this->comment = $comment;
         $this->lines = \explode("\n", $comment);
         $this->comment_lines_count = \count($this->lines);
         $this->code_base = $code_base;
         $this->context = $context;
         $this->lineno = $lineno;
         $this->comment_type = $comment_type;
+        $this->did_add_template_types = $did_add_template_types;
 
         $this->inherited_type = new None();
         $this->return_comment = null;
@@ -290,15 +301,8 @@ final class Builder
         }
 
         if (\count($this->template_type_list)) {
-            switch ($this->comment_type) {
-                case Comment::ON_CLASS:
-                    // Resolve template types in magic methods, properties, etc.
-                    $this->fixClassTemplateTypes();
-                    break;
-                case Comment::ON_FUNCTION:
-                case Comment::ON_METHOD:
-                    $this->fixMethodTemplateTypes();
-                    break;
+            if (!$this->did_add_template_types) {
+                return $this->buildWithTemplateTypes();
             }
         }
         if ($this->issues) {
@@ -310,7 +314,7 @@ final class Builder
             $this->comment_flags,
             $this->variable_list,
             $this->parameter_list,
-            $this->template_type_list,
+            array_values($this->template_type_list),
             $this->inherited_type,
             $this->return_comment,
             $this->suppress_issue_list,
@@ -319,61 +323,27 @@ final class Builder
             $this->phan_overrides,
             $this->closure_scope,
             $this->throw_union_type,
+            $this->param_assertion_map,
             // NOTE: The code base and context are used for emitting issues, and are not saved
             $this->code_base,
             $this->context
         );
     }
 
-    /**
-     * @return array<string,TemplateType>
-     */
-    private function buildTemplateFixMap(Context $context)
+    private function buildWithTemplateTypes() : Comment
     {
-        $template_fix_map = [];
-        foreach ($this->template_type_list as $t) {
-            $regular_type = Type::fromStringInContext($t->getName(), $context, Type::FROM_PHPDOC);
-            $template_fix_map[$regular_type->__toString()] = $t;
-        }
-        return $template_fix_map;
-    }
-
-    /**
-     * Fix any uses of (at)template annotations within this class comment.
-     * Affects (at)method annotations, (at)property annotations, etc.
-     *
-     * Precondition: $this->template_type_list has 1 or more elements
-     */
-    private function fixClassTemplateTypes()
-    {
-        $template_fix_map = $this->buildTemplateFixMap($this->context);
-        foreach ($this->magic_method_list as $method) {
-            $method->convertTypesToTemplateTypes($template_fix_map);
-        }
-        foreach ($this->magic_property_list as $property) {
-            $property->convertTypesToTemplateTypes($template_fix_map);
-        }
-    }
-
-    /**
-     * Fix any uses of (at)template annotations within this function/method comment.
-     * Affects (at)param annotations, (at)return annotations, etc.
-     *
-     * Precondition: $this->template_type_list has 1 or more elements
-     */
-    private function fixMethodTemplateTypes()
-    {
-        $template_fix_map = $this->buildTemplateFixMap($this->context);
-        foreach ($this->parameter_list as $parameter) {
-            $parameter->convertTypesToTemplateTypes($template_fix_map);
-        }
-        $return_comment = $this->return_comment;
-        if ($return_comment) {
-            $return_comment->convertTypesToTemplateTypes($template_fix_map);
-        }
-        foreach ($this->magic_property_list as $property) {
-            $property->convertTypesToTemplateTypes($template_fix_map);
-        }
+        $old_scope = $this->context->getScope();
+        $new_scope = new TemplateScope($old_scope, $this->template_type_list);
+        $new_context = $this->context->withScope($new_scope);
+        // $result = Type::fromStringInContext('T', $new_context, Type::FROM_PHPDOC, $this->code_base);
+        return (new self(
+            $this->comment,
+            $this->code_base,
+            $new_context,
+            $this->lineno,
+            $this->comment_type,
+            true
+        ))->build();
     }
 
     /**
@@ -471,19 +441,7 @@ final class Builder
             $this->checkCompatible('@template', Comment::HAS_TEMPLATE_ANNOTATION, $i);
             $template_type = $this->templateTypeFromCommentLine($line);
             if ($template_type) {
-                $this->template_type_list[] = $template_type;
-            }
-        }
-    }
-
-    private function maybeParsePhanTemplateType(int $i, string $line)
-    {
-        // Make sure support for generic types is enabled
-        if (Config::getValue('generic_types_enabled')) {
-            $this->checkCompatible('@template', Comment::HAS_TEMPLATE_ANNOTATION, $i);
-            $template_type = $this->templateTypeFromCommentLine($line);
-            if ($template_type) {
-                $this->phan_overrides['template'][] = $template_type;
+                $this->template_type_list[$template_type->getName()] = $template_type;
             }
         }
     }
@@ -503,6 +461,50 @@ final class Builder
         // Make sure support for generic types is enabled
         if (Config::getValue('generic_types_enabled')) {
             $this->phan_overrides['inherits'] = $this->inheritsFromCommentLine($line);
+        }
+    }
+
+    /**
+     * @internal
+     */
+    const ASSERT_REGEX = '/@phan-assert(?:(-true-condition|-false-condition)|\s+(!?)(' . UnionType::union_type_regex . '))\s+\$' . self::WORD_REGEX . '/';
+    /**
+     * @return ?Assertion
+     */
+    private function assertFromCommentLine(string $line)
+    {
+        if (!preg_match(self::ASSERT_REGEX, $line, $match)) {
+            return null;
+        }
+        $extra_text = $match[1];
+        if ($extra_text) {
+            $assertion_type = $extra_text === '-true-condition' ? Assertion::IS_TRUE : Assertion::IS_FALSE;
+            $union_type = UnionType::empty();
+        } else {
+            $assertion_type = $match[2] === '!' ? Assertion::IS_NOT_OF_TYPE : Assertion::IS_OF_TYPE;
+            $type_string = $match[3];
+            $union_type = UnionType::fromStringInContext(
+                $type_string,
+                $this->context,
+                Type::FROM_PHPDOC,
+                $this->code_base
+            );
+        }
+        $param_name = $match[21];
+
+        return new Assertion($union_type, $param_name, $assertion_type);
+    }
+
+    /**
+     * @return void
+     */
+    private function maybeParsePhanAssert(int $i, string $line)
+    {
+        $this->checkCompatible('@phan-assert', Comment::FUNCTION_LIKE, $i);
+        // Make sure support for generic types is enabled
+        $assert = $this->assertFromCommentLine($line);
+        if ($assert) {
+            $this->param_assertion_map[$assert->param_name] = $assert;
         }
     }
 
@@ -584,79 +586,108 @@ final class Builder
 
     private function maybeParsePhanCustomAnnotation(int $i, string $line, string $type, string $case_sensitive_type)
     {
-        if ($type === 'phan-forbid-undeclared-magic-properties') {
-            $this->checkCompatible('@phan-forbid-undeclared-magic-properties', [Comment::ON_CLASS], $i);
-            $this->comment_flags |= Flags::CLASS_FORBID_UNDECLARED_MAGIC_PROPERTIES;
-        } elseif ($type === 'phan-forbid-undeclared-magic-methods') {
-            $this->checkCompatible('@phan-forbid-undeclared-magic-methods', [Comment::ON_CLASS], $i);
-            $this->comment_flags |= Flags::CLASS_FORBID_UNDECLARED_MAGIC_METHODS;
-        } elseif ($type === 'phan-closure-scope') {
-            $this->checkCompatible('@phan-closure-scope', Comment::FUNCTION_LIKE, $i);
-            $this->closure_scope = $this->getPhanClosureScopeFromCommentLine($line, $i);
-        } elseif ($type === 'phan-param') {
-            $this->checkCompatible('@phan-param', Comment::FUNCTION_LIKE, $i);
-            $this->phan_overrides['param'][] =
-                $this->parameterFromCommentLine($line, false, $i);
-        } elseif ($type === 'phan-return') {
-            $this->checkCompatible('@phan-return', Comment::FUNCTION_LIKE, $i);
-            $this->phan_overrides['return'] = new ReturnComment($this->returnTypeFromCommentLine($line, $i), $this->guessActualLineLocation($i));
-        } elseif ($type === 'phan-override') {
-            $this->checkCompatible('@override', [Comment::ON_METHOD, Comment::ON_CONST], $i);
-            $this->comment_flags |= Flags::IS_OVERRIDE_INTENDED;
-        } elseif ($type === 'phan-var') {
-            $this->checkCompatible('@phan-var', Comment::HAS_VAR_ANNOTATION, $i);
-            $comment_var = $this->parameterFromCommentLine($line, true, $i);
-            if ($comment_var->getName() !== '' || !\in_array($this->comment_type, Comment::FUNCTION_LIKE)) {
-                $this->phan_overrides['var'][] = $comment_var;
-            }
-        } elseif ($type === 'phan-file-suppress') {
-            // See BuiltinSuppressionPlugin
-            return;
-        } elseif ($type === 'phan-suppress') {
-            $this->parsePhanSuppress($i, $line);
-        } elseif ($type === 'phan-property' || $type === 'phan-property-read' || $type === 'phan-property-write') {
-            $this->parsePhanProperty($i, $line);
-        } elseif ($type === 'phan-method') {
-            $this->parsePhanMethod($i, $line);
-        } elseif ($case_sensitive_type === 'phan-suppress-next-line' || $case_sensitive_type === 'phan-suppress-current-line') {
-            // Do nothing, see BuiltinSuppressionPlugin
-        } elseif ($type === 'phan-template') {
-            $this->maybeParsePhanTemplateType($i, $line);
-        } elseif ($type === 'phan-inherits') {
-            $this->maybeParsePhanInherits($i, $line);
-        } elseif ($type === 'phan-read-only') {
-            $this->setPhanAccessFlag($i, false);
-        } elseif ($type === 'phan-write-only') {
-            $this->setPhanAccessFlag($i, true);
-        } elseif ($type === 'phan-transient') {
-            // Do nothing, see SleepCheckerPlugin
-        } else {
-            $this->emitIssue(
-                Issue::MisspelledAnnotation,
-                $this->guessActualLineLocation($i),
-                '@' . $case_sensitive_type,
-                implode(' ', [
-                    '@phan-closure-scope',
-                    '@phan-file-suppress',
-                    '@phan-forbid-undeclared-magic-methods',
-                    '@phan-forbid-undeclared-magic-properties',
-                    '@phan-inherits',
-                    '@phan-method',
-                    '@phan-override',
-                    '@phan-param',
-                    '@phan-property',
-                    '@phan-property-read',
-                    '@phan-property-write',
-                    '@phan-read-only',
-                    '@phan-return',
-                    '@phan-suppress',
-                    '@phan-suppress-current-line',
-                    '@phan-suppress-next-line',
-                    '@phan-template',
-                    '@phan-var',
-                    '@phan-write-only',
-                ])
-            );
+        switch ($type) {
+            case 'phan-forbid-undeclared-magic-properties':
+                $this->checkCompatible('@phan-forbid-undeclared-magic-properties', [Comment::ON_CLASS], $i);
+                $this->comment_flags |= Flags::CLASS_FORBID_UNDECLARED_MAGIC_PROPERTIES;
+                return;
+            case 'phan-forbid-undeclared-magic-methods':
+                $this->checkCompatible('@phan-forbid-undeclared-magic-methods', [Comment::ON_CLASS], $i);
+                $this->comment_flags |= Flags::CLASS_FORBID_UNDECLARED_MAGIC_METHODS;
+                return;
+            case 'phan-closure-scope':
+                $this->checkCompatible('@phan-closure-scope', Comment::FUNCTION_LIKE, $i);
+                $this->closure_scope = $this->getPhanClosureScopeFromCommentLine($line, $i);
+                return;
+            case 'phan-param':
+                $this->checkCompatible('@phan-param', Comment::FUNCTION_LIKE, $i);
+                $this->phan_overrides['param'][] =
+                    $this->parameterFromCommentLine($line, false, $i);
+                return;
+            case 'phan-return':
+                $this->checkCompatible('@phan-return', Comment::FUNCTION_LIKE, $i);
+                $this->phan_overrides['return'] = new ReturnComment($this->returnTypeFromCommentLine($line, $i), $this->guessActualLineLocation($i));
+                return;
+            case 'phan-override':
+                $this->checkCompatible('@override', [Comment::ON_METHOD, Comment::ON_CONST], $i);
+                $this->comment_flags |= Flags::IS_OVERRIDE_INTENDED;
+                return;
+            case 'phan-var':
+                $this->checkCompatible('@phan-var', Comment::HAS_VAR_ANNOTATION, $i);
+                $comment_var = $this->parameterFromCommentLine($line, true, $i);
+                if ($comment_var->getName() !== '' || !\in_array($this->comment_type, Comment::FUNCTION_LIKE)) {
+                    $this->phan_overrides['var'][] = $comment_var;
+                }
+                return;
+            case 'phan-file-suppress':
+                // See BuiltinSuppressionPlugin
+                return;
+            case 'phan-suppress':
+                $this->parsePhanSuppress($i, $line);
+                return;
+            case 'phan-property':
+            case 'phan-property-read':
+            case 'phan-property-write':
+                $this->parsePhanProperty($i, $line);
+                return;
+            case 'phan-method':
+                $this->parsePhanMethod($i, $line);
+                return;
+            case 'phan-suppress-next-line':
+            case 'phan-suppress-current-line':
+                // Do nothing, see BuiltinSuppressionPlugin
+                return;
+            case 'phan-template':
+                $this->maybeParseTemplateType($i, $line);
+                return;
+            case 'phan-inherits':
+                $this->maybeParsePhanInherits($i, $line);
+                return;
+            case 'phan-read-only':
+                $this->setPhanAccessFlag($i, false);
+                return;
+            case 'phan-write-only':
+                $this->setPhanAccessFlag($i, true);
+                return;
+            case 'phan-transient':
+                // Do nothing, see SleepCheckerPlugin
+                return;
+            case 'phan-assert':
+            case 'phan-assert-true-condition':
+            case 'phan-assert-false-condition':
+                $this->maybeParsePhanAssert($i, $line);
+                return;
+            default:
+                $this->emitIssue(
+                    Issue::MisspelledAnnotation,
+                    $this->guessActualLineLocation($i),
+                    '@' . $case_sensitive_type,
+                    implode(' ', [
+                        '@phan-assert',
+                        '@phan-assert-true-condition',
+                        '@phan-assert-false-condition',
+                        '@phan-closure-scope',
+                        '@phan-file-suppress',
+                        '@phan-forbid-undeclared-magic-methods',
+                        '@phan-forbid-undeclared-magic-properties',
+                        '@phan-inherits',
+                        '@phan-method',
+                        '@phan-override',
+                        '@phan-param',
+                        '@phan-property',
+                        '@phan-property-read',
+                        '@phan-property-write',
+                        '@phan-read-only',
+                        '@phan-return',
+                        '@phan-suppress',
+                        '@phan-suppress-current-line',
+                        '@phan-suppress-next-line',
+                        '@phan-template',
+                        '@phan-var',
+                        '@phan-write-only',
+                    ])
+                );
+                return;
         }
     }
 

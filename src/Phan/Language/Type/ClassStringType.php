@@ -9,7 +9,9 @@ use Phan\Language\Type;
 use Phan\Language\UnionType;
 
 /**
- * Phan's representation for `class-string` and `class-string<T>`
+ * A type representing a string with an unknown value that is a fully qualified class name.
+ *
+ * Phan's representation for `class-string` and `class-string<T>`.
  */
 final class ClassStringType extends StringType
 {
@@ -45,6 +47,20 @@ final class ClassStringType extends StringType
     }
 
     /**
+     * Returns the class union type this class string represents, or the empty union type
+     */
+    public function getClassUnionType() : UnionType
+    {
+        $template_union_type = $this->template_parameter_type_list[0] ?? null;
+        if (!$template_union_type) {
+            return UnionType::empty();
+        }
+        return $template_union_type->makeFromFilter(function (Type $type) : bool {
+            return $type instanceof TemplateType || $type->isObjectWithKnownFQSEN();
+        });
+    }
+
+    /**
      * @param CodeBase $code_base may be used for resolving inheritance @phan-unused-param
      * @param TemplateType $template_type the template type that this union type is being searched for
      *
@@ -76,29 +92,18 @@ final class ClassStringType extends StringType
         };
     }
 
-    /**
-     * Replace the resolved reference to class T (possibly namespaced) with a regular template type.
-     *
-     * @param array<string,TemplateType> $template_fix_map maps the incorrectly resolved name to the template type
-     * @return Type
-     *
-     * @see UnionType::withTemplateParameterTypeMap() for the opposite
-     */
-    public function withConvertTypesToTemplateTypes(array $template_fix_map) : Type
+    public function __toString() : string
     {
-        $template_union_type = $this->template_parameter_type_list[0] ?? null;
-        if (!$template_union_type) {
-            return $this;
+        $string = self::NAME;
+
+        if (\count($this->template_parameter_type_list) > 0) {
+            $string .= $this->templateParameterTypeListAsString();
         }
-        $new_type = $template_union_type->withConvertTypesToTemplateTypes($template_fix_map);
-        if ($new_type === $template_union_type) {
-            return $this;
+
+        if ($this->is_nullable) {
+            $string = '?' . $string;
         }
-        return new self(
-            '',
-            'class-string',
-            [$new_type],
-            $this->is_nullable
-        );
+
+        return $string;
     }
 }

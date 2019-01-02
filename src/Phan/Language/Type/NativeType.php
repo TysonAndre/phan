@@ -3,6 +3,7 @@
 namespace Phan\Language\Type;
 
 use Phan\CodeBase;
+use Phan\Language\Context;
 use Phan\Language\Type;
 use Phan\Language\UnionType;
 
@@ -255,18 +256,6 @@ abstract class NativeType extends Type
     }
 
     /**
-     * Replace the resolved reference to class T (possibly namespaced) with a regular template type.
-     *
-     * @param array<string,TemplateType> $template_fix_map maps the incorrectly resolved name to the template type @phan-unused-param
-     * @return Type
-     */
-    public function withConvertTypesToTemplateTypes(array $template_fix_map) : Type
-    {
-        // TODO: Override in subclasses
-        return $this;
-    }
-
-    /**
      * @override
      */
     public function withTemplateParameterTypeMap(
@@ -292,6 +281,12 @@ abstract class NativeType extends Type
 
     public function getTemplateTypeExtractorClosure(CodeBase $unused_code_base, TemplateType $unused_template_type)
     {
+        return null;
+    }
+
+    public function asFunctionInterfaceOrNull(CodeBase $unused_codebase, Context $unused_context)
+    {
+        // overridden in subclasses
         return null;
     }
 }

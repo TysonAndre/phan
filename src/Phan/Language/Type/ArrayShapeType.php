@@ -2,14 +2,19 @@
 
 namespace Phan\Language\Type;
 
+use Closure;
+use Exception;
 use Phan\CodeBase;
 use Phan\Config;
 use Phan\Exception\RecursionDepthException;
+use Phan\Issue;
 use Phan\Language\AnnotatedUnionType;
+use Phan\Language\Context;
+use Phan\Language\Element\FunctionInterface;
+use Phan\Language\FQSEN\FullyQualifiedClassName;
 use Phan\Language\Type;
 use Phan\Language\UnionType;
 use Phan\Language\UnionTypeBuilder;
-
 use RuntimeException;
 
 /**
@@ -216,6 +221,14 @@ final class ArrayShapeType extends ArrayType implements GenericArrayInterface
     public function genericArrayElementUnionType() : UnionType
     {
         return $this->generic_array_element_union_type ?? ($this->generic_array_element_union_type = UnionType::merge($this->field_types));
+    }
+
+    /**
+     * Returns true for `T` and `T[]` and `\MyClass<T>`, but not `\MyClass<\OtherClass>` or `false`
+     */
+    public function hasTemplateTypeRecursive() : bool
+    {
+        return $this->genericArrayElementUnionType()->hasTemplateTypeRecursive();
     }
 
     /**
@@ -614,5 +627,130 @@ final class ArrayShapeType extends ArrayType implements GenericArrayInterface
             return true;
         }
         return false;
+    }
+
+    /**
+     * @param array<string,UnionType> $template_parameter_type_map
+     * A map from template type identifiers to concrete types
+     *
+     * @return UnionType
+     * This UnionType with any template types contained herein
+     * mapped to concrete types defined in the given map.
+     *
+     * Overridden in subclasses
+     */
+    public function withTemplateParameterTypeMap(
+        array $template_parameter_type_map
+    ) : UnionType {
+        $field_types = $this->field_types;
+        foreach ($field_types as $i => $type) {
+            $new_type = $type->withTemplateParameterTypeMap($template_parameter_type_map);
+            if ($new_type !== $type) {
+                $field_types[$i] = $new_type;
+            }
+        }
+        if ($field_types === $this->field_types) {
+            return $this->asUnionType();
+        }
+        return self::fromFieldTypes($field_types, $this->is_nullable)->asUnionType();
+    }
+
+    /**
+     * If this generic array type in a parameter declaration has template types, get the closure to extract the real types for that template type from argument union types
+     *
+     * @param CodeBase $code_base
+     * @return ?Closure(UnionType, Context):UnionType
+     */
+    public function getTemplateTypeExtractorClosure(CodeBase $code_base, TemplateType $template_type)
+    {
+        $closure = null;
+        foreach ($this->field_types as $key => $type) {
+            $field_closure = $type->getTemplateTypeExtractorClosure($code_base, $template_type);
+            if (!$field_closure) {
+                continue;
+            }
+            $closure = TemplateType::combineParameterClosures(
+                $closure,
+                function (UnionType $union_type, Context $context) use ($key, $field_closure) : UnionType {
+                    $result = UnionType::empty();
+                    foreach ($union_type->getTypeSet() as $type) {
+                        if (!($type instanceof ArrayShapeType)) {
+                            continue;
+                        }
+                        $field_type = $type->field_types[$key] ?? null;
+                        if ($field_type) {
+                            $result = $result->withUnionType($field_closure($field_type, $context));
+                        }
+                    }
+                    return $result;
+                }
+            );
+        }
+        return $closure;
+    }
+
+    /**
+     * Returns the function interface this references
+     * @return ?FunctionInterface
+     */
+    public function asFunctionInterfaceOrNull(CodeBase $code_base, Context $context)
+    {
+        if (\count($this->field_types) !== 2) {
+            Issue::maybeEmit(
+                $code_base,
+                $context,
+                Issue::TypeInvalidCallableArraySize,
+                $context->getLineNumberStart(),
+                \count($this->field_types)
+            );
+            return null;
+        }
+        $i = 0;
+        foreach ($this->field_types as $key => $_) {
+            if ($key !== $i) {
+                // TODO: Be more consistent about emitting issues in Type->asFunctionInterfaceOrNull and its subclasses (e.g. if missing __invoke)
+                Issue::maybeEmit(
+                    $code_base,
+                    $context,
+                    Issue::TypeInvalidCallableArrayKey,
+                    $context->getLineNumberStart(),
+                    $i
+                );
+                return null;
+            }
+            $i++;
+        }
+        $method_name = $this->field_types[1]->asSingleScalarValueOrNull();
+        if (!\is_string($method_name)) {
+            return null;
+        }
+        foreach ($this->field_types[0]->getTypeSet() as $type) {
+            $class = null;
+            if ($type instanceof LiteralStringType) {
+                try {
+                    $fqsen = FullyQualifiedClassName::fromFullyQualifiedString($type->getValue());
+                    if (!$code_base->hasClassWithFQSEN($fqsen)) {
+                        continue;
+                    }
+                } catch (Exception $_) {
+                    continue;
+                }
+            } elseif ($type->isObjectWithKnownFQSEN()) {
+                $fqsen = $type->asFQSEN();
+                if (!$fqsen instanceof FullyQualifiedClassName) {
+                    continue;
+                }
+            } else {
+                continue;
+            }
+            if ($code_base->hasClassWithFQSEN($fqsen)) {
+                $class = $code_base->getClassByFQSEN($fqsen);
+                if ($class->hasMethodWithName($code_base, $method_name)) {
+                    return $class->getMethodByName($code_base, $method_name);
+                }
+            }
+        }
+
+        return null;
     }
 }

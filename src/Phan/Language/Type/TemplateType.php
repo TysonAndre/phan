@@ -4,6 +4,7 @@ namespace Phan\Language\Type;
 
 use Closure;
 use Phan\CodeBase;
+use Phan\Language\Context;
 use Phan\Language\Type;
 use Phan\Language\UnionType;
 
@@ -109,17 +110,6 @@ final class TemplateType extends Type
     }
 
     /**
-     * Replace the resolved reference to class T (possibly namespaced) with a regular template type.
-     *
-     * @param array<string,TemplateType> $template_fix_map maps the incorrectly resolved name to the template type @phan-unused-param
-     * @return Type
-     */
-    public function withConvertTypesToTemplateTypes(array $template_fix_map) : Type
-    {
-        return $this;
-    }
-
-    /**
      * Returns true for `T` and `T[]` and `\MyClass<T>`, but not `\MyClass<\OtherClass>`
      *
      * Overridden in subclasses.
@@ -136,8 +126,6 @@ final class TemplateType extends Type
      * @return UnionType
      * This UnionType with any template types contained herein
      * mapped to concrete types defined in the given map.
-     *
-     * @see UnionType::withConvertTypesToTemplateTypes() for the opposite
      */
     public function withTemplateParameterTypeMap(
         array $template_parameter_type_map
@@ -147,9 +135,9 @@ final class TemplateType extends Type
 
     /**
      * Combine two closures that generate union types
-     * @param ?Closure(mixed):UnionType $left
-     * @param ?Closure(mixed):UnionType $right
-     * @return ?Closure(mixed):UnionType
+     * @param ?Closure(mixed, Context):UnionType $left
+     * @param ?Closure(mixed, Context):UnionType $right
+     * @return ?Closure(mixed, Context):UnionType
      */
     public static function combineParameterClosures($left, $right)
     {
@@ -163,20 +151,20 @@ final class TemplateType extends Type
         /**
          * @param mixed $params
          */
-        return function ($params) use ($left, $right) : UnionType {
-            return $left($params)->withUnionType($right($params));
+        return function ($params, Context $context) use ($left, $right) : UnionType {
+            return $left($params, $context)->withUnionType($right($params, $context));
         };
     }
 
     /**
      * @param TemplateType $template_type the template type that this union type is being searched for.
      *
-     * @return ?Closure(UnionType):UnionType a closure to map types to the template type wherever it was in the original union type
+     * @return ?Closure(UnionType, Context):UnionType a closure to map types to the template type wherever it was in the original union type
      */
     public function getTemplateTypeExtractorClosure(CodeBase $unused_code_base, TemplateType $template_type)
     {
         if ($this === $template_type) {
-            return function (UnionType $type) : UnionType {
+            return function (UnionType $type, Context $_) : UnionType {
                 return $type;
             };
         }

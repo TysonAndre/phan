@@ -135,6 +135,9 @@ class ThrowVisitor extends PluginAwarePostAnalysisVisitor
             if (!$this->shouldWarnAboutThrowType($expanded_type)) {
                 continue;
             }
+            if ($type->hasTemplateTypeRecursive()) {
+                continue;
+            }
             $throws_union_type = $analyzed_function->getThrowsUnionType();
             if ($throws_union_type->isEmpty()) {
                 if ($call !== null) {
@@ -180,7 +183,7 @@ class ThrowVisitor extends PluginAwarePostAnalysisVisitor
 
     protected static function calculateConfiguredIgnoreThrowsUnionType() : UnionType
     {
-        $throws_union_type = new UnionType();
+        $throws_union_type = UnionType::empty();
         foreach (Config::getValue('exception_classes_with_optional_throws_phpdoc') as $type_string) {
             if (!\is_string($type_string) || $type_string === '') {
                 continue;

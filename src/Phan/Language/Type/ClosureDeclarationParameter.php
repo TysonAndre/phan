@@ -124,6 +124,21 @@ final class ClosureDeclarationParameter
         return $this->type->canCastToUnionTypeHandlingTemplates($other->type, $code_base);
     }
 
+    /**
+     * Creates a ClosureDeclarationParameter with template types replaced with the corresponding union types.
+     *
+     * @param array<string,UnionType> $template_parameter_type_map
+     */
+    public function withTemplateParameterTypeMap(array $template_parameter_type_map) : ClosureDeclarationParameter
+    {
+        $new_type = $this->type->withTemplateParameterTypeMap($template_parameter_type_map);
+        if ($new_type === $this->type) {
+            return $this;
+        }
+
+        return new self($new_type, $this->is_variadic, $this->is_reference, $this->is_optional);
+    }
+
     // TODO: Memoize?
     /**
      * Creates a parameter with the non-variadic version of the type
@@ -171,18 +186,5 @@ final class ClosureDeclarationParameter
             $result->setDefaultValueType(MixedType::instance(false)->asUnionType());
         }
         return $result;
-    }
-
-    /**
-     * Replace the resolved reference to class T (possibly namespaced) with a regular template type.
-     */
-    public function withConvertTypesToTemplateTypes(
-        array $template_fix_map
-    ) : ClosureDeclarationParameter {
-        $new_type = $this->type->withConvertTypesToTemplateTypes($template_fix_map);
-        if ($this->type === $new_type) {
-            return $this;
-        }
-        return new self($this->type, $this->is_variadic, $this->is_reference, $this->is_optional);
     }
 }

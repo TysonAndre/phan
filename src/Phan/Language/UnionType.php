@@ -669,8 +669,6 @@ class UnionType implements Serializable
      * @return UnionType
      * This UnionType with any template types contained herein
      * mapped to concrete types defined in the given map.
-     *
-     * @see UnionType::withConvertTypesToTemplateTypes() for the opposite
      */
     public function withTemplateParameterTypeMap(
         array $template_parameter_type_map
@@ -713,6 +711,18 @@ class UnionType implements Serializable
     {
         return $this->hasTypeMatchingCallback(function (Type $type) : bool {
             return $type->hasTemplateTypeRecursive();
+        });
+    }
+
+    /**
+     * @return UnionType
+     * Removes template types from this union type, e.g. converts T|\stdClass to \stdClass.
+     * @suppress PhanUnreferencedPublicMethod
+     */
+    public function withoutTemplateTypeRecursive() : UnionType
+    {
+        return $this->makeFromFilter(function (Type $type) : bool {
+            return !$type->hasTemplateTypeRecursive();
         });
     }
 
@@ -3629,30 +3639,9 @@ class UnionType implements Serializable
     }
 
     /**
-     * Replace the resolved reference to class T (possibly namespaced) with a regular template type.
-     *
-     * @param array<string,TemplateType> $template_fix_map maps the incorrectly resolved name to the template type
-     * @return UnionType
-     *
-     * @see UnionType::withTemplateParameterTypeMap() for the opposite
-     */
-    public function withConvertTypesToTemplateTypes(array $template_fix_map) : UnionType
-    {
-        $result = $this;
-        foreach ($this->getTypeSet() as $type) {
-            $new_type = $type->withConvertTypesToTemplateTypes($template_fix_map);
-            if ($new_type === $type) {
-                continue;
-            }
-            $result = $result->withoutType($type)->withType($new_type);
-        }
-        return $result;
-    }
-
-    /**
      * @param TemplateType $template_type the template type that this union type is being searched for
      *
-     * @return ?Closure(UnionType):UnionType a closure to map types to the template type wherever it was in the original union type
+     * @return ?Closure(UnionType, Context):UnionType a closure to map types to the template type wherever it was in the original union type
      */
     public function getTemplateTypeExtractorClosure(CodeBase $code_base, TemplateType $template_type)
     {
@@ -3664,6 +3653,17 @@ class UnionType implements Serializable
             );
         }
         return $closure;
+    }
+
+    /**
+     * Returns true if this references $template_type in any way
+     */
+    public function usesTemplateType(TemplateType $template_type) : bool
+    {
+        $new_union_type = $this->withTemplateParameterTypeMap([
+            $template_type->getName() => UnionType::fromFullyQualifiedString('mixed'),
+        ]);
+        return !$this->isEqualTo($new_union_type);
     }
 }
 

@@ -39,6 +39,7 @@ use Phan\Language\Type\ArrayShapeType;
 use Phan\Language\Type\ArrayType;
 use Phan\Language\Type\BoolType;
 use Phan\Language\Type\CallableType;
+use Phan\Language\Type\ClassStringType;
 use Phan\Language\Type\ClosureType;
 use Phan\Language\Type\FloatType;
 use Phan\Language\Type\GenericArrayType;
@@ -1174,7 +1175,7 @@ class UnionTypeVisitor extends AnalysisVisitor
             // And use those closures to infer the (possibly transformed) types
             $template_type_list = [];
             foreach ($template_type_resolvers as $template_type_resolver) {
-                $template_type_list[] = $template_type_resolver($arg_type_list);
+                $template_type_list[] = $template_type_resolver($arg_type_list, $this->context);
             }
 
             // Create a new type that assigns concrete
@@ -2336,7 +2337,13 @@ class UnionTypeVisitor extends AnalysisVisitor
             } elseif (\get_class($sub_type) === Type::class || $sub_type instanceof ClosureType) {
                 $result = $result->withType($sub_type);
             } elseif ($is_valid) {
-                if (!($sub_type instanceof StringType || $sub_type instanceof MixedType)) {
+                if ($sub_type instanceof StringType) {
+                    if ($sub_type instanceof ClassStringType) {
+                        $result = $result->withUnionType($sub_type->getClassUnionType());
+                    }
+                    continue;
+                }
+                if (!($sub_type instanceof MixedType)) {
                     $is_valid = false;
                 }
             }

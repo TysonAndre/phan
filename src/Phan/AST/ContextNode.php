@@ -35,8 +35,6 @@ use Phan\Language\FQSEN\FullyQualifiedGlobalConstantName;
 use Phan\Language\FQSEN\FullyQualifiedMethodName;
 use Phan\Language\FQSEN\FullyQualifiedPropertyName;
 use Phan\Language\Type;
-use Phan\Language\Type\ClosureType;
-use Phan\Language\Type\FunctionLikeDeclarationType;
 use Phan\Language\Type\IntType;
 use Phan\Language\Type\LiteralStringType;
 use Phan\Language\Type\MixedType;
@@ -879,60 +877,10 @@ class ContextNode
 
         $has_type = false;
         foreach ($union_type->getTypeSet() as $type) {
-            // TODO: Allow CallableType to have FQSENs as well, e.g. `$x = [MyClass::class, 'myMethod']` has an FQSEN in a sense.
-            if ($type instanceof ClosureType) {
-                $closure_fqsen = $type->asFQSEN();
-
-                if ($closure_fqsen instanceof FullyQualifiedFunctionName) {
-                    if ($code_base->hasFunctionWithFQSEN($closure_fqsen)) {
-                        // Get the closure
-                        $function = $code_base->getFunctionByFQSEN(
-                            $closure_fqsen
-                        );
-
-                        $has_type = true;
-                        yield $function;
-                    }
-                } elseif ($closure_fqsen instanceof FullyQualifiedMethodName) {
-                    if ($code_base->hasMethodWithFQSEN($closure_fqsen)) {
-                        // Get the closure
-                        $function = $code_base->getMethodByFQSEN(
-                            $closure_fqsen
-                        );
-
-                        $has_type = true;
-                        yield $function;
-                    }
-                }
-            } elseif ($type instanceof FunctionLikeDeclarationType) {
+            $func = $type->asFunctionInterfaceOrNull($code_base, $context);
+            if ($func) {
+                yield $func;
                 $has_type = true;
-                yield $type;
-            } elseif ($type instanceof LiteralStringType) {
-                // TODO: deduplicate this functionality
-                try {
-                    yield (new ContextNode(
-                        $code_base,
-                        $context,
-                        $expression
-                    ))->getFunction($type->getValue());
-                    $has_type = true;
-                } catch (IssueException $exception) {
-                    Issue::maybeEmitInstance(
-                        $code_base,
-                        $context,
-                        $exception->getIssueInstance()
-                    );
-                    continue;
-                } catch (FQSENException $exception) {
-                    Issue::maybeEmit(
-                        $code_base,
-                        $context,
-                        $exception instanceof EmptyFQSENException ? Issue::EmptyFQSENInCallable : Issue::InvalidFQSENInCallable,
-                        $expression->lineno ?? $context->getLineNumberStart(),
-                        $exception->getFQSEN()
-                    );
-                    continue;
-                }
             }
         }
         if (!$has_type) {
@@ -1393,16 +1341,12 @@ class ContextNode
             );
 
             if ($property->isDeprecated()) {
-                throw new IssueException(
-                    Issue::fromType(Issue::DeprecatedProperty)(
-                        $this->context->getFile(),
-                        $node->lineno ?? 0,
-                        [
-                            $property->getRepresentationForIssue(),
-                            $property->getFileRef()->getFile(),
-                            $property->getFileRef()->getLineNumberStart(),
-                        ]
-                    )
+                $this->emitIssue(
+                    Issue::DeprecatedProperty,
+                    $node->lineno,
+                    $property->getRepresentationForIssue(),
+                    $property->getFileRef()->getFile(),
+                    $property->getFileRef()->getLineNumberStart()
                 );
             }
 
@@ -1412,18 +1356,14 @@ class ContextNode
                     $this->context
                 )
             ) {
-                throw new IssueException(
-                    Issue::fromType(Issue::AccessPropertyInternal)(
-                        $this->context->getFile(),
-                        $node->lineno ?? 0,
-                        [
-                            $property->getRepresentationForIssue(),
-                            $property->getElementNamespace(),
-                            $property->getFileRef()->getFile(),
-                            $property->getFileRef()->getLineNumberStart(),
-                            $this->context->getNamespace(),
-                        ]
-                    )
+                $this->emitIssue(
+                    Issue::AccessPropertyInternal,
+                    $node->lineno,
+                    $property->getRepresentationForIssue(),
+                    $property->getElementNamespace(),
+                    $property->getFileRef()->getFile(),
+                    $property->getFileRef()->getLineNumberStart(),
+                    $this->context->getNamespace()
                 );
             }
 
@@ -1660,7 +1600,7 @@ class ContextNode
 
                     if (!$code_base->hasGlobalConstantWithFQSEN($fqsen)) {
                         if (\strpos($constant_name, '\\') !== false) {
-                            $this->throwUndeclaredGlobalConstantIssueException($fqsen);
+                            $this->throwUndeclaredGlobalConstantIssueException($code_base, $context, $fqsen);
                         }
                         $fqsen = FullyQualifiedGlobalConstantName::fromFullyQualifiedString(
                             $constant_name
@@ -1680,7 +1620,7 @@ class ContextNode
         // or a relative constant for which nothing was found in the namespace
 
         if (!$code_base->hasGlobalConstantWithFQSEN($fqsen)) {
-            $this->throwUndeclaredGlobalConstantIssueException($fqsen);
+            $this->throwUndeclaredGlobalConstantIssueException($code_base, $context, $fqsen);
         }
 
         $constant = $code_base->getGlobalConstantByFQSEN($fqsen);
@@ -1713,13 +1653,14 @@ class ContextNode
     /**
      * @throws IssueException
      */
-    private function throwUndeclaredGlobalConstantIssueException(FullyQualifiedGlobalConstantName $fqsen)
+    private function throwUndeclaredGlobalConstantIssueException(CodeBase $code_base, Context $context, FullyQualifiedGlobalConstantName $fqsen)
     {
         throw new IssueException(
             Issue::fromType(Issue::UndeclaredConstant)(
                 $this->context->getFile(),
                 $this->node->lineno ?? 0,
-                [ $fqsen ]
+                [ $fqsen ],
+                IssueFixSuggester::suggestSimilarGlobalConstant($code_base, $context, $fqsen)
             )
         );
     }
@@ -2058,7 +1999,7 @@ class ContextNode
                 Issue::fromType($e instanceof EmptyFQSENException ? Issue::EmptyFQSENInClasslike : Issue::InvalidFQSENInClasslike)(
                     $e instanceof EmptyFQSENException ? Issue::EmptyFQSENInClasslike : Issue::InvalidFQSENInClasslike,
                     $this->node->lineno ?? $this->context->getLineNumberStart(),
-                    $e->getFQSEN()
+                    [$e->getFQSEN()]
                 )
             );
         }

@@ -27,6 +27,9 @@ class Issue
     const InvalidNode                    = 'PhanInvalidNode';
     const InvalidWriteToTemporaryExpression = 'PhanInvalidWriteToTemporaryExpression';
     const InvalidTraitUse                = 'PhanInvalidTraitUse';
+    const ContinueTargetingSwitch        = 'PhanContinueTargetingSwitch';
+    const ContinueOrBreakNotInLoop       = 'PhanContinueOrBreakNotInLoop';
+    const ContinueOrBreakTooManyLevels   = 'PhanContinueOrBreakTooManyLevels';
 
     // Issue::CATEGORY_UNDEFINED
     const AmbiguousTraitAliasSource = 'PhanAmbiguousTraitAliasSource';
@@ -70,6 +73,7 @@ class Issue
     const UndeclaredStaticMethodInCallable = 'PhanUndeclaredStaticMethodInCallable';
     const UndeclaredFunctionInCallable = 'PhanUndeclaredFunctionInCallable';
     const UndeclaredMethodInCallable = 'PhanUndeclaredMethodInCallable';
+    const UndeclaredInvokeInCallable = 'PhanUndeclaredInvokeInCallable';
     const EmptyFQSENInCallable      = 'PhanEmptyFQSENInCallable';
     const InvalidFQSENInCallable    = 'PhanInvalidFQSENInCallable';
     const EmptyFQSENInClasslike     = 'PhanEmptyFQSENInClasslike';
@@ -393,6 +397,7 @@ class Issue
     const UnextractableAnnotationSuffix    = 'PhanUnextractableAnnotationSuffix';
     const UnextractableAnnotationElementName = 'PhanUnextractableAnnotationElementName';
     const CommentParamWithoutRealParam     = 'PhanCommentParamWithoutRealParam';
+    const CommentParamAssertionWithoutRealParam = 'PhanCommentParamAssertionWithoutRealParam';
     const CommentParamOnEmptyParamList     = 'PhanCommentParamOnEmptyParamList';
     const CommentOverrideOnNonOverrideMethod = 'PhanCommentOverrideOnNonOverrideMethod';
     const CommentOverrideOnNonOverrideConstant = 'PhanCommentOverrideOnNonOverrideConstant';
@@ -646,6 +651,31 @@ class Issue
                 'Invalid trait use: {DETAILS}',
                 self::REMEDIATION_A,
                 17004
+            ),
+            // Could try to make a better suggestion, optionally
+            new Issue(
+                self::ContinueTargetingSwitch,
+                self::CATEGORY_SYNTAX,
+                self::SEVERITY_NORMAL,
+                '"continue" targeting switch is equivalent to "break". Did you mean to use "continue 2"?',
+                self::REMEDIATION_A,
+                17005
+            ),
+            new Issue(
+                self::ContinueOrBreakNotInLoop,
+                self::CATEGORY_SYNTAX,
+                self::SEVERITY_CRITICAL,
+                '\'{OPERATOR}\' not in the \'loop\' or \'switch\' context.',
+                self::REMEDIATION_A,
+                17006
+            ),
+            new Issue(
+                self::ContinueOrBreakTooManyLevels,
+                self::CATEGORY_SYNTAX,
+                self::SEVERITY_CRITICAL,
+                'Cannot \'{OPERATOR}\' {INDEX} levels.',
+                self::REMEDIATION_A,
+                17007
             ),
 
             // Issue::CATEGORY_UNDEFINED
@@ -1008,6 +1038,14 @@ class Issue
                 "Reference to magic constant {CONST} that is undeclared in the current scope",
                 self::REMEDIATION_B,
                 11044
+            ),
+            new Issue(
+                self::UndeclaredInvokeInCallable,
+                self::CATEGORY_UNDEFINED,
+                self::SEVERITY_LOW,
+                "Possible attempt to access missing magic method {FUNCTIONLIKE} of '{CLASS}'",
+                self::REMEDIATION_B,
+                11045
             ),
 
             // Issue::CATEGORY_ANALYSIS
@@ -3329,6 +3367,14 @@ class Issue
                 16004
             ),
             new Issue(
+                self::CommentParamAssertionWithoutRealParam,
+                self::CATEGORY_COMMENT,
+                self::SEVERITY_LOW,
+                "Saw an @phan-assert annotation for {VARIABLE}, but it was not found in the param list of {FUNCTIONLIKE}",
+                self::REMEDIATION_B,
+                16019
+            ),
+            new Issue(
                 self::CommentParamOnEmptyParamList,
                 self::CATEGORY_COMMENT,
                 self::SEVERITY_LOW,
@@ -3586,6 +3632,7 @@ class Issue
     }
 
     /**
+     * @param array<int,mixed> $template_parameters
      * @return IssueInstance
      */
     public function __invoke(

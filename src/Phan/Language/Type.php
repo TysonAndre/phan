@@ -17,6 +17,7 @@ use Phan\Exception\IssueException;
 use Phan\Exception\RecursionDepthException;
 use Phan\Issue;
 use Phan\Language\Element\Comment;
+use Phan\Language\Element\FunctionInterface;
 use Phan\Language\FQSEN\FullyQualifiedClassName;
 use Phan\Language\Type\ArrayShapeType;
 use Phan\Language\Type\ArrayType;
@@ -31,6 +32,7 @@ use Phan\Language\Type\ClosureType;
 use Phan\Language\Type\FalseType;
 use Phan\Language\Type\FloatType;
 use Phan\Language\Type\FunctionLikeDeclarationType;
+use Phan\Language\Type\GenericArrayTemplateKeyType;
 use Phan\Language\Type\GenericArrayType;
 use Phan\Language\Type\GenericIterableType;
 use Phan\Language\Type\GenericMultiArrayType;
@@ -983,26 +985,38 @@ class Type
         bool $is_nullable
     ) : ArrayType {
         $template_count = count($template_parameter_type_list);
-        if ($template_count <= 2) {  // array<T> or array<key, T>
-            $key_type = ($template_count === 2)
-                ? GenericArrayType::keyTypeFromUnionTypeValues($template_parameter_type_list[0])
-                : GenericArrayType::KEY_MIXED;
-
-            $types = $template_parameter_type_list[$template_count - 1]->getTypeSet();
-            if (count($types) === 1) {
-                return GenericArrayType::fromElementType(
+        if ($template_count > 2) {
+            return ArrayType::instance($is_nullable);
+        }
+        // array<T> or array<key, T>
+        $types = $template_parameter_type_list[$template_count - 1]->getTypeSet();
+        if ($template_count === 2) {
+            if (count($types) === 1 && $template_parameter_type_list[0]->hasTemplateType()) {
+                return GenericArrayTemplateKeyType::fromTemplateAndElementType(
                     // @phan-suppress-next-line PhanPossiblyFalseTypeArgument
                     \reset($types),
                     $is_nullable,
-                    $key_type
-                );
-            } elseif (count($types) > 1) {
-                return new GenericMultiArrayType(
-                    $types,
-                    $is_nullable,
-                    $key_type
+                    $template_parameter_type_list[0]
                 );
             }
+            $key_type = GenericArrayType::keyTypeFromUnionTypeValues($template_parameter_type_list[0]);
+        } else {
+            $key_type = GenericArrayType::KEY_MIXED;
+        }
+
+        if (count($types) === 1) {
+            return GenericArrayType::fromElementType(
+                // @phan-suppress-next-line PhanPossiblyFalseTypeArgument
+                \reset($types),
+                $is_nullable,
+                $key_type
+            );
+        } elseif (count($types) > 1) {
+            return new GenericMultiArrayType(
+                $types,
+                $is_nullable,
+                $key_type
+            );
         }
         return ArrayType::instance($is_nullable);
     }
@@ -2675,7 +2689,7 @@ class Type
      * Gets the part of the Type string for the template parameters.
      * Precondition: $this->template_parameter_string is not null.
      */
-    private function templateParameterTypeListAsString() : string
+    final protected function templateParameterTypeListAsString() : string
     {
         return '<' .
             \implode(',', \array_map(function (UnionType $type) : string {
@@ -3088,36 +3102,6 @@ class Type
     }
 
     /**
-     * Replace the resolved reference to class T (possibly namespaced) with a regular template type.
-     *
-     * @param array<string,TemplateType> $template_fix_map maps the incorrectly resolved name to the template type
-     * @return Type
-     *
-     * @see UnionType::withTemplateParameterTypeMap() for the opposite
-     */
-    public function withConvertTypesToTemplateTypes(array $template_fix_map) : Type
-    {
-        $result = $template_fix_map[$this->__toString()] ?? null;
-        if ($result) {
-            return $result;
-        }
-        $template_parameter_type_list = $this->template_parameter_type_list;
-        foreach ($template_parameter_type_list as $i => $type) {
-            $template_parameter_type_list[$i] = $type->withConvertTypesToTemplateTypes($template_fix_map);
-        }
-        if ($template_parameter_type_list === $this->template_parameter_type_list) {
-            return $this;
-        }
-        return static::make(
-            $this->namespace,
-            $this->name,
-            $template_parameter_type_list,
-            $this->is_nullable,
-            Type::FROM_TYPE
-        );
-    }
-
-    /**
      * Returns true if this is `MyNs\MyClass<T..>` when $type is `MyNs\MyClass`
      */
     public function isTemplateSubtypeOf(Type $type) : bool
@@ -3152,8 +3136,6 @@ class Type
      * mapped to concrete types defined in the given map.
      *
      * Overridden in subclasses
-     *
-     * @see self::withConvertTypesToTemplateTypes() for the opposite
      */
     public function withTemplateParameterTypeMap(
         array $template_parameter_type_map
@@ -3183,7 +3165,7 @@ class Type
      * @param CodeBase $code_base may be used for resolving inheritance
      * @param TemplateType $template_type the template type that this union type is being searched for
      *
-     * @return ?Closure(UnionType):UnionType a closure to determine the union type(s) that are in the same position(s) as the template type.
+     * @return ?Closure(UnionType, Context):UnionType a closure to determine the union type(s) that are in the same position(s) as the template type.
      * This is overridden in subclasses.
      */
     public function getTemplateTypeExtractorClosure(CodeBase $code_base, TemplateType $template_type)
@@ -3202,12 +3184,12 @@ class Type
             }
             $closure = TemplateType::combineParameterClosures(
                 $closure,
-                function (UnionType $type) use ($inner_extracter_closure, $i) : UnionType {
+                function (UnionType $type, Context $context) use ($inner_extracter_closure, $i) : UnionType {
                     $result = UnionType::empty();
                     foreach ($type->getTypeSet() as $inner_type) {
                         $replacement_type = $inner_type->template_parameter_type_list[$i] ?? null;
                         if ($replacement_type) {
-                            $result = $result->withUnionType($inner_extracter_closure($replacement_type));
+                            $result = $result->withUnionType($inner_extracter_closure($replacement_type, $context));
                         }
                     }
                     return $result;
@@ -3216,5 +3198,37 @@ class Type
         }
 
         return $closure;
+    }
+
+    /**
+     * Returns the function interface that would be used if this type were a callable, or null.
+     *
+     * @param CodeBase $code_base the code base in which the function interface is found
+     * @param Context $context the context where the function interface is referenced (for emitting issues) @phan-unused-param
+     * @return ?FunctionInterface
+     */
+    public function asFunctionInterfaceOrNull(CodeBase $code_base, Context $context)
+    {
+        if (static::class !== self::class) {
+            // Overridden in other subclasses
+            return null;
+        }
+        $fqsen = FullyQualifiedClassName::fromType($this);
+        if (!$code_base->hasClassWithFQSEN($fqsen)) {
+            return null;
+        }
+        $class = $code_base->getClassByFQSEN($fqsen);
+        if (!$class->hasMethodWithName($code_base, '__invoke')) {
+            Issue::maybeEmit(
+                $code_base,
+                $context,
+                Issue::UndeclaredInvokeInCallable,
+                $context->getLineNumberStart(),
+                '__invoke',
+                $fqsen
+            );
+            return null;
+        }
+        return $class->getMethodByName($code_base, '__invoke');
     }
 }

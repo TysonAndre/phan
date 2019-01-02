@@ -1,7 +1,55 @@
 Phan NEWS
 
-?? ??? 201?, Phan 1.1.10(dev)
------------------------
+?? ??? 201?, Phan 1.1.11 (dev)
+------------------------
+
+New features(Analysis):
++ Infer that `new $x` is of the template type `T` if `$x` is `class-string<T>` (#2257)
++ Improve detection of invalid arguments in code implicitly calling `__invoke`.
++ Support extracting template types from more forms of `callable` types. (#2264)
++ Support `@phan-assert`, `@phan-assert-true-condition`, and `@phan-assert-false-condition`.
+  Examples of side effects when this annotation is used on a function/method declaration:
+
+  - `@phan-assert int $x` will assert that the argument to the parameter `$x` is of type `int`.
+  - `@phan-assert !false $x` will assert that the argument to the parameter `$x` is not false.
+  - `@phan-assert !\Traversable $x` will assert that the argument to the parameter `$x` is not `Traversable` (or a subclass)
+  - `@phan-assert-true-condition $x` will make Phan infer that the argument to parameter `$x` is truthy if the function returned successfully.
+  - `@phan-assert-false-condition $x` will make Phan infer that the argument to parameter `$x` is falsey if the function returned successfully.
+  - This can be used in combination with Phan's template support.
+
+  See [tests/plugin_test/src/072_custom_assertions.php](tests/plugin_test/src/072_custom_assertions.php) for example uses of these annotations.
+
+Plugins:
+- Add `PHPUnitAssertionPlugin`.
+  This plugin will make Phan infer side effects from some of the uses of the helper methods PHPUnit provides within test cases.
+
+  - Infer that a condition is truthy from `assertTrue()` and `assertNotFalse()` (e.g. `assertTrue($x instanceof MyClass)`)
+  - Infer that a condition is null/not null from `assertNull()` and `assertNotNull()`
+  - Infer class type of `$actual` from `assertInstanceOf(MyClass::class, $actual)`
+  - Infer that `$actual` has the exact type of `$expected` after calling `assertSame($expected, $actual)`
+  - Other methods aren't supported yet.
+
+30 Dec 2018, Phan 1.1.10
+------------------------
+
+New features(Analysis):
++ Add suggestions if to `PhanUndeclaredConstant` issue messages about undeclared global constants, if possible. (#2240)
+  Suggestions include other global constants, variables, class constants, properties, and function names.
++ Warn about `continue` and `break` with no matching loop/switch scope. (#1869)
+  New issue types: `PhanContinueOrBreakTooManyLevels`, `PhanContinueOrBreakNotInLoop`
++ Warn about `continue` statements targeting `switch` control structures (doing the same thing as a `break`) (#1869)
+  New issue types: `PhanContinueTargetingSwitch`
++ Support inferring template types from array keys.
+  int/string/mixed can be inferred from `array<TKey,\someType>` when `@template TKey` is in the class/function-like scope.
++ Phan can now infer template types from even more categories of parameter types in constructors and regular functions/methods. (#522)
+
+  - infer `T` from `Closure(T):\OtherClass` and `callable(T):\OtherClass`
+  - infer `T` from `array{keyName:T}`
+  - infer `TKey` from `array<TKey,\OtherClass>` (as int, string, or mixed)
+
+Bug fixes:
++ Refactor the way `@template` annotations are parsed on classes and function-likes to avoid various edge cases (#2253)
++ Fix a bug causing Phan to fail to analyze closures/uses of closures when used inline (e.g. in function calls)
 
 27 Dec 2018, Phan 1.1.9
 -----------------------
