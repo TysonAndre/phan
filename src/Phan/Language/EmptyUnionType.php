@@ -303,6 +303,14 @@ final class EmptyUnionType extends UnionType
     }
 
     /**
+     * @return bool - True if empty or at least one type is NullType or nullable.
+     */
+    public function containsNullableOrIsEmpty() : bool
+    {
+        return true;
+    }
+
+    /**
      * @return bool - True if not empty, not possibly undefined, and at least one type is NullType or nullable.
      */
     public function containsNullableOrUndefined() : bool
@@ -819,6 +827,11 @@ final class EmptyUnionType extends UnionType
      * @see nonGenericArrayTypes
      */
     public function nonArrayTypes() : UnionType
+    {
+        return $this;
+    }
+
+    public function arrayTypes() : UnionType
     {
         return $this;
     }

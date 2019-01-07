@@ -1,10 +1,24 @@
 Phan NEWS
 
-?? ??? 201?, Phan 1.2.0 (dev)
+?? ??? 2019, Phan 1.2.1 (dev)
 -----------------------
 
 New features(Analysis):
-+ Infer that `new $x` is of the template type `T` if `$x` is `class-string<T>` (#2257)
++ Infer that the result of `array_map` has integer keys when passed two or more arrays (#2277)
++ Improve inferences about the left hand side of `&&` statements such as `$leftVar && (other_expression);` (#2300)
++ Warn about passing an undefined variable to a function expecting a reference parameter with a real, non-nullable type (#1344)
+
+Plugins:
++ Add a new issue type to `DuplicateExpressionPlugin`: `PhanPluginBothLiteralsBinaryOp`. (#2297)
+  (warns about suspicious expressions such as `null == 'a literal` in `$x ?? null == 'a literal'`)
++ Support `assertInternalType` in `PHPUnitAssertionPlugin` (#2290)
++ Warn when identical dynamic expressions (e.g. variables, function calls) are used as array keys in `DuplicateArrayKeyPlugin`
+
+05 Jan 2019, Phan 1.2.0
+-----------------------
+
+New features(Analysis):
++ Infer match keys of `$matches` for a wider range of regexes (e.g. non-capturing groups, named subgroups) (#2294)
 + Improve detection of invalid arguments in code implicitly calling `__invoke`.
 + Support extracting template types from more forms of `callable` types. (#2264)
 + Support `@phan-assert`, `@phan-assert-true-condition`, and `@phan-assert-false-condition`.
@@ -18,6 +32,8 @@ New features(Analysis):
   - This can be used in combination with Phan's template support.
 
   See [tests/plugin_test/src/072_custom_assertions.php](tests/plugin_test/src/072_custom_assertions.php) for example uses of these annotations.
++ Suggest typo fixes when emitting `PhanUnusedVariable`, if only one definition was seen. (#2281)
++ Infer that `new $x` is of the template type `T` if `$x` is `class-string<T>` (#2257)
 
 Plugins:
 - Add `PHPUnitAssertionPlugin`.
@@ -28,6 +44,10 @@ Plugins:
   - Infer class type of `$actual` from `assertInstanceOf(MyClass::class, $actual)`
   - Infer that `$actual` has the exact type of `$expected` after calling `assertSame($expected, $actual)`
   - Other methods aren't supported yet.
+
+Bug fixes:
+- Infer that some internal classes' properties (such as `\Exception->message`) are protected (#2283)
+- Fix a crash running Phan without php-ast when no files were parsed (#2287)
 
 30 Dec 2018, Phan 1.1.10
 ------------------------

@@ -53,6 +53,8 @@ Warns about common errors in php array keys and switch statements. Has the follo
 - **PhanPluginDuplicateArrayKey**: a duplicate or equivalent array key literal.
 
   (E.g `[2 => "value", "other" => "s", "2" => "value2"]` duplicates the key `2`)
+- **PhanPluginDuplicateArrayKeyExpression**: `Duplicate/Equivalent dynamic array key expression ({CODE}) detected in array - the earlier entry will be ignored if the expression had the same value.`
+  (E.g. `[$x => 'value', $y => "s", $y => "value2"]`)
 - **PhanPluginDuplicateSwitchCase**: a duplicate or equivalent case statement.
 
   (E.g `switch ($x) { case 2: echo "A\n"; break; case 2: echo "B\n"; break;}` duplicates the key `2`. The later case statements are ignored.)
@@ -142,6 +144,7 @@ This plugin will make Phan infer side effects from calls to some of the helper m
 - Infer that a condition is truthy from `assertTrue()` and `assertNotFalse()` (e.g. `assertTrue($x instanceof MyClass)`)
 - Infer that a condition is null/not null from `assertNull()` and `assertNotNull()`
 - Infer class types from `assertInstanceOf(MyClass::class, $actual)`
+- Infer types from `assertInternalType($expected, $actual)`
 - Infer that $actual has the exact type of $expected after calling `assertSame($expected, $actual)`
 - Other methods aren't supported yet.
 
@@ -251,6 +254,7 @@ that are likely to be a bug. (e.g. `expr1 == expr`)
 - **PhanPluginDuplicateExpressionBinaryOp**: `Both sides of the binary operator {OPERATOR} are the same: {CODE}`
 - **PhanPluginDuplicateConditionalTernaryDuplication**: `"X ? X : Y" can usually be simplified to "X ?: Y". The duplicated expression X was {CODE}`
 - **PhanPluginDuplicateConditionalNullCoalescing**: `"isset(X) ? X : Y" can usually be simplified to "X ?? Y" in PHP 7. The duplicated expression X was {CODE}`
+- **PhanPluginBothLiteralsBinaryOp**: `Suspicious usage of a binary operator where both operands are literals. Expression: {CODE} {OPERATOR} {CODE} (result is {CODE})` (e.g. warns about `null == 'a literal` in `$x ?? null == 'a literal'`)
 
 ### 4. Demo plugins:
 

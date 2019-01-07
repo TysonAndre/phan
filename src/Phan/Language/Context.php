@@ -361,6 +361,19 @@ class Context extends FileRef
     }
 
     /**
+     * Returns a string representing this Context for debugging
+     * @suppress PhanUnreferencedPublicMethod kept around to make it easy to dump variables in a context
+     */
+    public function toDebugString() : string
+    {
+        $result = (string)$this;
+        foreach ($this->getScope()->getVariableMap() as $variable) {
+            $result .= "\n$variable";
+        }
+        return $result;
+    }
+
+    /**
      * @return bool
      * True if this context is currently within a class
      * scope, else false.
@@ -758,5 +771,17 @@ class Context extends FileRef
     public function importNamespaceMapFromParsePhase(CodeBase $code_base)
     {
         $this->parse_namespace_map = $code_base->getNamespaceMapFromParsePhase($this->getFile(), $this->namespace, $this->namespace_id);
+    }
+
+    /**
+     * Copy private properties of $other to this
+     * @suppress PhanTypeSuspiciousNonTraversableForeach
+     * @return void
+     */
+    final protected function copyPropertiesFrom(Context $other)
+    {
+        foreach ($other as $k => $v) {
+            $this->{$k} = $v;
+        }
     }
 }

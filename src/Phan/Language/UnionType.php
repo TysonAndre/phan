@@ -968,6 +968,20 @@ class UnionType implements Serializable
     }
 
     /**
+     * @return bool - True if empty or at least one type is NullType or nullable.
+     * e.g. true for `?int`, `int|null`, or ``
+     */
+    public function containsNullableOrIsEmpty() : bool
+    {
+        foreach ($this->type_set as $type) {
+            if ($type->getIsNullable()) {
+                return true;
+            }
+        }
+        return \count($this->type_set) === 0;
+    }
+
+    /**
      * @return bool - True if not empty, not possibly undefined, and at least one type is NullType or nullable.
      */
     public function containsNullableOrUndefined() : bool
@@ -2265,6 +2279,23 @@ class UnionType implements Serializable
         return $this->makeFromFilter(
             function (Type $type) : bool {
                 return !($type instanceof ArrayType);
+            }
+        );
+    }
+
+    /**
+     * Takes `a|b[]|c|d[]|e|f[]|ArrayAccess` and returns `f[]`
+     *
+     * @return UnionType
+     * A UnionType with non-array types filtered out
+     *
+     * @see self::nonArrayTypes()
+     */
+    public function arrayTypes() : UnionType
+    {
+        return $this->makeFromFilter(
+            function (Type $type) : bool {
+                return $type instanceof ArrayType;
             }
         );
     }
