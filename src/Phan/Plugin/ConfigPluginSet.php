@@ -33,6 +33,7 @@ use Phan\Plugin\Internal\CallableParamPlugin;
 use Phan\Plugin\Internal\ClosureReturnTypeOverridePlugin;
 use Phan\Plugin\Internal\CompactPlugin;
 use Phan\Plugin\Internal\DependentReturnTypeOverridePlugin;
+use Phan\Plugin\Internal\HavingPlugin;
 use Phan\Plugin\Internal\MiscParamPlugin;
 use Phan\Plugin\Internal\NodeSelectionPlugin;
 use Phan\Plugin\Internal\NodeSelectionVisitor;
@@ -805,6 +806,7 @@ final class ConfigPluginSet extends PluginV2 implements
                 new CompactPlugin(),
                 new ClosureReturnTypeOverridePlugin(),
                 new DependentReturnTypeOverridePlugin(),
+                new HavingPlugin(),
                 new StringFunctionPlugin(),
                 new MiscParamPlugin(),
             ];

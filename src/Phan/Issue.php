@@ -420,6 +420,7 @@ class Issue
     const CommentDuplicateParam            = 'PhanCommentDuplicateParam';
     const CommentDuplicateMagicMethod      = 'PhanCommentDuplicateMagicMethod';
     const CommentDuplicateMagicProperty    = 'PhanCommentDuplicateMagicProperty';
+    const CommentInvalidHavingExpression   = 'PhanCommentInvalidHavingExpression';
     // phpcs:enable Generic.NamingConventions.UpperCaseConstantName.ClassConstantNotUpperCase
     // end of issue name constants
 
@@ -3563,6 +3564,14 @@ class Issue
                 'Comment declares @method {METHOD} multiple times',
                 self::REMEDIATION_A,
                 16018
+            ),
+            new Issue(
+                self::CommentInvalidHavingExpression,
+                self::CATEGORY_COMMENT,
+                self::SEVERITY_NORMAL,
+                'Invalid expression @phan-having({STRING_LITERAL}): {DETAILS}',
+                self::REMEDIATION_A,
+                16020
             ),
         ];
         // phpcs:enable Generic.Files.LineLength
