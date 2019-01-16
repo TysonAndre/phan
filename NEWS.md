@@ -3,16 +3,39 @@ Phan NEWS
 ?? ??? 2019, Phan 1.2.1 (dev)
 -----------------------
 
+New features(CLI):
++ Add short flags: `-S` for `--strict-type-checking`, `-C` for `--color`, `-P` for `--plugin <plugin>`
+
 New features(Analysis):
 + Infer that the result of `array_map` has integer keys when passed two or more arrays (#2277)
 + Improve inferences about the left hand side of `&&` statements such as `$leftVar && (other_expression);` (#2300)
 + Warn about passing an undefined variable to a function expecting a reference parameter with a real, non-nullable type (#1344)
++ Include variables in scope as alternative suggestions for undeclared properties (#1680)
++ Infer a string literal when analyzing calls to `basename` or `dirname` on an expression that evaluates to a string literal. (#2323)
+
+Maintenance:
++ End the output for `--output-mode <json>` with a newline.
++ Upgrade tolerant-php-parser, making the polyfill/fallback properly parse `$a && $b = $c` (#2180)
++ Add updates to the function/method signature map from Psalm and PHPStan.
+
+Language Server/Daemon mode:
++ Add `--output-mode <mode>` to `phan_client`. (#1568)
+
+  Supported formats: `phan_client` (default), `text`, `json`, `csv`, `codeclimate`, `checkstyle`, or `pylint`
++ Add `--color` to `phan_client` (e.g. for use with `--output-mode text`)
++ Add `--language-server-completion-vscode`. This is a workaround to make completion of variables and static properties work in [the Phan plugin for VS Code](https://github.com/tysonandre/vscode-php-phan)
++ Include Phan's signature types in hover text for internal and user-defined methods (instead of just the real types) (#2309)
+  Also, show defaults of non-nullable parameters as `= default` instead of `= null`
++ Properly return a result set when requesting variable completion of `$` followed by nothing.
++ Fix code completion when `--language-server-analyze-only-on-save` is on. (#2327)
 
 Plugins:
 + Add a new issue type to `DuplicateExpressionPlugin`: `PhanPluginBothLiteralsBinaryOp`. (#2297)
+
   (warns about suspicious expressions such as `null == 'a literal` in `$x ?? null == 'a literal'`)
 + Support `assertInternalType` in `PHPUnitAssertionPlugin` (#2290)
 + Warn when identical dynamic expressions (e.g. variables, function calls) are used as array keys in `DuplicateArrayKeyPlugin`
++ Allow plugins to include a `Suggestion` when calling `$this->emitIssue()`
 
 05 Jan 2019, Phan 1.2.0
 -----------------------

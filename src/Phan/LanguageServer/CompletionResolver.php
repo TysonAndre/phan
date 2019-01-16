@@ -99,6 +99,9 @@ class CompletionResolver
                     if (!is_string($var_name)) {
                         return;
                     }
+                    if ($var_name === TolerantASTConverter::INCOMPLETE_VARIABLE) {
+                        $var_name = '';
+                    }
                     self::locateVariableCompletion($request, $code_base, $context, $var_name);
                     return;
             }
@@ -353,6 +356,7 @@ class CompletionResolver
         string $incomplete_variable_name
     ) {
         $variable_candidates = $context->getScope()->getVariableMap();
+        $prefix = CompletionRequest::useVSCodeCompletion() ? '$' : '';
         // TODO: Use the alias map
         // TODO: Remove the namespace
         foreach ($variable_candidates as $suggested_variable_name => $variable) {
@@ -363,7 +367,7 @@ class CompletionResolver
             $request->recordCompletionElement(
                 $code_base,
                 $variable,
-                $suggested_variable_name
+                $prefix . $incomplete_variable_name
             );
         }
         $superglobal_names = array_merge(array_keys(Variable::_BUILTIN_SUPERGLOBAL_TYPES), Config::getValue('runkit_superglobals'));
@@ -379,7 +383,7 @@ class CompletionResolver
                     Variable::getUnionTypeOfHardcodedGlobalVariableWithName($superglobal_name),
                     0
                 ),
-                $superglobal_name
+                $prefix . $incomplete_variable_name
             );
         }
     }
