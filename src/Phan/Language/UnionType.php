@@ -2586,7 +2586,7 @@ class UnionType implements Serializable
         int $recursion_depth = 0
     ) : UnionType {
         if ($recursion_depth >= 12) {
-            throw new RecursionDepthException("Recursion has gotten out of hand");
+            throw new RecursionDepthException("Recursion has gotten out of hand: expanding union type=$this");
         }
 
         $type_set = $this->type_set;
@@ -2631,7 +2631,7 @@ class UnionType implements Serializable
         int $recursion_depth = 0
     ) : UnionType {
         if ($recursion_depth >= 12) {
-            throw new RecursionDepthException("Recursion has gotten out of hand");
+            throw new RecursionDepthException("Recursion has gotten out of hand: expanding union type=$this");
         }
 
         $type_set = $this->type_set;

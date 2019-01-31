@@ -8,20 +8,40 @@ New features(CLI):
 
 New features(Analysis):
 + Add `@phan-extends` and `@extends` as an alias of `@inherits` (#2351)
++ Make checks such as `$x !== 'a literal'` (and `!=`) remove the literal string/int type from the union type. (#1789)
 
 Language Server/Daemon mode:
++ Limit analysis results of the language server to only the currently open files. (#1722)
++ Limit analysis results of Phan daemon to just the requested files in **all** output formats (#2374)
+  (not just when `phan_client` post-processes the output)
 + Make code completion immediately after typing `->` and `::` behave more consistently (#2343)
   Note: this fix only applies at the very last character of a line
 + Be more consistent about including types in hover text for properties (#2348)
 + Make "Go to Definition" on `new MyClass` go to `MyClass::__construct` if it exists. (#2276)
 + Support "Go to Definition" for references to global functions and global constants in comments and literal strings.
   Previously, Phan would only look for class definitions in comments and literal strings.
++ Fix a crash requesting completion results for some class names/global constants.
 
 Maintenance:
 + Warn and exit immediately if any plugins are missing or invalid (instead of crashing after parsing all files) (#2099)
++ Emit warnings to stderr if any config settings seem to be the wrong type (#2376)
++ Standardize on logging to stderr.
++ Add more details about the call that crashed to the crash report.
 
 Bug fixes:
 + Emit a warning and exit if `--config-file <file>` does not exist (#2271)
++ Fix inferences about `foreach ($arr as [[$nested]]) {...}` (#2362)
++ Properly analyze accesses of `@internal` elements of the root namespace from other parts of the root namespace. (#2366)
++ Consistently emit `UseNormalNoEffect` (etc.) when using names/functions/constants of the global scrope from the global scope.
++ Fix a bug causing incorrect warnings due to uses of global/class constants.
+
+Plugins:
++ Add `UseReturnValuePlugin`, which will warn about code that calls a function/method such as `sprintf` or `array_merge` without using the return value.
+
+  The list it uses is not comprehensive; it is a small subset of commonly used functions.
+
+  This plugin can also be configured to automatically warn about failing to use a return value of **any** user-defined or internal function-like,
+  when over 98% of the other calls in the codebase did use the return value.
 
 18 Jan 2019, Phan 1.2.1
 -----------------------
@@ -31,7 +51,7 @@ New features(CLI):
 
 New features(Analysis):
 + Infer that the result of `array_map` has integer keys when passed two or more arrays (#2277)
-+ Improve inferences about the left hand side of `&&` statements such as `$leftVar && (other_expression);` (#2300)
++ Improve inferences about the left-hand side of `&&` statements such as `$leftVar && (other_expression);` (#2300)
 + Warn about passing an undefined variable to a function expecting a reference parameter with a real, non-nullable type (#1344)
 + Include variables in scope as alternative suggestions for undeclared properties (#1680)
 + Infer a string literal when analyzing calls to `basename` or `dirname` on an expression that evaluates to a string literal. (#2323)
