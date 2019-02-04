@@ -1,6 +1,29 @@
 Phan NEWS
 
-?? ??? 2019, Phan 1.2.2 (dev)
+?? ??? 2019, Phan 1.2.3 (dev)
+-----------------------
+
+New features(CLI):
++ Add `-I <file_list>` as an alias of `--include-analysis-file-list <file>`.
++ Support repeating the include option (`-I <file_or_list> -I <file_or_list>`)
+  and the exclude option (`-3 <file_or_list> -3 <file_or_list>`).
+
+New features(Analysis):
++ Detect more expressions without side effects: `PhanNoopEmpty` and `PhanNoopIsset` (for `isset(expr)` and `empty(expr)`) (#2389)
++ Also emit `PhanNoopBinaryOperator` for the `??`, `||`, and `&&` operators,
+  but only when the result is unused and the right hand side has no obvious side effects. (#2389)
++ Properly analyze effects of a property/field access expression as the key of a `foreach` statement. (#1601)
++ Emit `PhanTypeInstantiateTrait` when calling `new TraitName()` (#2379)
+
+Maintenance
++ Don't emit a warning to stderr when `--language-server-completion-vscode` is used.
++ Catch the rare RecursionDepthException in more places, improve readability of its exception message. (#2386)
+
+Bug fixes:
++ Fix edge cases in checking if properties/methods are accessible from a trait (#2371)
++ Fix edge cases checking for `PhanTypeInstantiateInterface` and `PhanTypeInstantiateAbstract` (#2379)
+
+02 Feb 2019, Phan 1.2.2
 -----------------------
 
 New features(CLI):

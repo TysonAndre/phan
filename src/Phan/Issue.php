@@ -95,6 +95,7 @@ class Issue
     const TypeConversionFromArray   = 'PhanTypeConversionFromArray';
     const TypeInstantiateAbstract   = 'PhanTypeInstantiateAbstract';
     const TypeInstantiateInterface  = 'PhanTypeInstantiateInterface';
+    const TypeInstantiateTrait      = 'PhanTypeInstantiateTrait';
     const TypeInvalidCloneNotObject = 'PhanTypeInvalidCloneNotObject';
     const TypeInvalidClosureScope   = 'PhanTypeInvalidClosureScope';
     const TypeInvalidLeftOperand    = 'PhanTypeInvalidLeftOperand';
@@ -227,6 +228,7 @@ class Issue
     const ParamSignatureMismatch    = 'PhanParamSignatureMismatch';
     const ParamSignatureMismatchInternal = 'PhanParamSignatureMismatchInternal';
     const ParamRedefined            = 'PhanParamRedefined';
+    const ParamMustBeUserDefinedClassname = 'PhanParamMustBeUserDefinedClassname';
 
     const ParamSignatureRealMismatchReturnType                        = 'PhanParamSignatureRealMismatchReturnType';
     const ParamSignatureRealMismatchReturnTypeInternal                = 'PhanParamSignatureRealMismatchReturnTypeInternal';
@@ -270,6 +272,9 @@ class Issue
     const NoopStringLiteral             = 'PhanNoopStringLiteral';
     const NoopEncapsulatedStringLiteral = 'PhanNoopEncapsulatedStringLiteral';
     const NoopNumericLiteral            = 'PhanNoopNumericLiteral';
+    const NoopEmpty                     = 'PhanNoopEmpty';
+    const NoopIsset                     = 'PhanNoopIsset';
+    const NoopCast                      = 'PhanNoopCast';
     const UnreachableCatch              = 'PhanUnreachableCatch';
     const UnreferencedClass             = 'PhanUnreferencedClass';
     const UnreferencedFunction          = 'PhanUnreferencedFunction';
@@ -1364,6 +1369,14 @@ class Issue
                 10014
             ),
             new Issue(
+                self::TypeInstantiateTrait,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Instantiation of trait {TRAIT}",
+                self::REMEDIATION_B,
+                10074
+            ),
+            new Issue(
                 self::TypeInvalidClosureScope,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
@@ -2370,6 +2383,14 @@ class Issue
                 self::REMEDIATION_B,
                 7047
             ),
+            new Issue(
+                self::ParamMustBeUserDefinedClassname,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_CRITICAL,
+                "First argument of class_alias() must be a name of user defined class ('{CLASS}' attempted)",
+                self::REMEDIATION_B,
+                7048
+            ),
 
             // Issue::CATEGORY_NOOP
             new Issue(
@@ -2435,6 +2456,30 @@ class Issue
                 "Unused result of a string literal {STRING_LITERAL} near this line",
                 self::REMEDIATION_B,
                 6029
+            ),
+            new Issue(
+                self::NoopEmpty,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_LOW,
+                "Unused result of an empty(expr) check",
+                self::REMEDIATION_B,
+                6051
+            ),
+            new Issue(
+                self::NoopIsset,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_LOW,
+                "Unused result of an isset(expr) check",
+                self::REMEDIATION_B,
+                6052
+            ),
+            new Issue(
+                self::NoopCast,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_LOW,
+                "Unused result of a ({TYPE})(expr) cast",
+                self::REMEDIATION_B,
+                6053
             ),
             new Issue(
                 self::NoopEncapsulatedStringLiteral,

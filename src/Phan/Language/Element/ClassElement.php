@@ -5,6 +5,7 @@ namespace Phan\Language\Element;
 use AssertionError;
 use Phan\CodeBase;
 use Phan\Exception\CodeBaseException;
+use Phan\Exception\RecursionDepthException;
 use Phan\Language\Context;
 use Phan\Language\FQSEN;
 use Phan\Language\FQSEN\FullyQualifiedClassElement;
@@ -75,6 +76,17 @@ abstract class ClassElement extends AddressableElement
             throw new AssertionError('should check hasDefiningFQSEN');
         }
         return $defining_fqsen;
+    }
+
+    /**
+     * Gets the real defining FQSEN.
+     * This differs from getDefiningFQSEN() if the definition was from a trait.
+     *
+     * @return FullyQualifiedClassElement
+     */
+    public function getRealDefiningFQSEN()
+    {
+        return $this->getDefiningFQSEN();
     }
 
     /**
@@ -239,7 +251,19 @@ abstract class ClassElement extends AddressableElement
         if ($defining_fqsen === $accessing_class_fqsen) {
             return true;
         }
+        $real_defining_fqsen = $this->getRealDefiningFQSEN()->getFullyQualifiedClassName();
+        if ($real_defining_fqsen === $accessing_class_fqsen) {
+            return true;
+        }
         if ($this->isPrivate()) {
+            if ($code_base->hasClassWithFQSEN($defining_fqsen)) {
+                $defining_class = $code_base->getClassByFQSEN($defining_fqsen);
+                foreach ($defining_class->getTraitFQSENList() as $trait_fqsen) {
+                    if ($trait_fqsen === $accessing_class_fqsen) {
+                        return true;
+                    }
+                }
+            }
             return false;
         }
         return $this->checkCanAccessProtectedElement($code_base, $defining_fqsen, $accessing_class_fqsen);
@@ -257,16 +281,19 @@ abstract class ClassElement extends AddressableElement
 
         // If the definition of the property is protected,
         // then the subclasses of the defining class can access it.
-        foreach ($accessing_class_type->asExpandedTypes($code_base)->getTypeSet() as $type) {
-            if ($type->canCastToType($type_of_class_of_property)) {
-                return true;
+        try {
+            foreach ($accessing_class_type->asExpandedTypes($code_base)->getTypeSet() as $type) {
+                if ($type->canCastToType($type_of_class_of_property)) {
+                    return true;
+                }
             }
-        }
-        // and base classes of the defining class can access it
-        foreach ($type_of_class_of_property->asExpandedTypes($code_base)->getTypeSet() as $type) {
-            if ($type->canCastToType($accessing_class_type)) {
-                return true;
+            // and base classes of the defining class can access it
+            foreach ($type_of_class_of_property->asExpandedTypes($code_base)->getTypeSet() as $type) {
+                if ($type->canCastToType($accessing_class_type)) {
+                    return true;
+                }
             }
+        } catch (RecursionDepthException $_) {
         }
         return false;
     }

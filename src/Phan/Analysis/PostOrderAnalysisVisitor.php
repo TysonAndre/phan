@@ -8,6 +8,7 @@ use ast\flags;
 use ast\Node;
 use Exception;
 use Phan\AST\AnalysisVisitor;
+use Phan\AST\ASTSimplifier;
 use Phan\AST\ContextNode;
 use Phan\AST\PhanAnnotationAdder;
 use Phan\AST\UnionTypeVisitor;
@@ -18,10 +19,12 @@ use Phan\Exception\EmptyFQSENException;
 use Phan\Exception\FQSENException;
 use Phan\Exception\IssueException;
 use Phan\Exception\NodeException;
+use Phan\Exception\RecursionDepthException;
 use Phan\Issue;
 use Phan\IssueFixSuggester;
 use Phan\Language\Context;
 use Phan\Language\Element\Clazz;
+use Phan\Language\Element\Func;
 use Phan\Language\Element\FunctionInterface;
 use Phan\Language\Element\Method;
 use Phan\Language\Element\Parameter;
@@ -33,6 +36,7 @@ use Phan\Language\Type;
 use Phan\Language\Type\ArrayType;
 use Phan\Language\Type\FalseType;
 use Phan\Language\Type\GenericArrayType;
+use Phan\Language\Type\LiteralStringType;
 use Phan\Language\Type\MixedType;
 use Phan\Language\Type\NullType;
 use Phan\Language\Type\StringType;
@@ -444,6 +448,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 }
             } catch (CodeBaseException $_) {
                 // Swallow "Cannot find class", go on to emit issue
+            } catch (RecursionDepthException $_) {
             }
             $this->emitIssue(
                 Issue::TypeSuspiciousStringExpression,
@@ -727,7 +732,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
 
     /**
      * @param Node $node
-     * A node to parse
+     * A node of type AST_BINARY_OP to parse
      *
      * @return Context
      * A new or an unchanged context resulting from
@@ -735,16 +740,26 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      */
     public function visitBinaryOp(Node $node) : Context
     {
+        $flags = $node->flags;
         if ((\end($this->parent_node_list)->kind ?? null) === ast\AST_STMT_LIST) {
-            if (!\in_array($node->flags, [flags\BINARY_BOOL_AND, flags\BINARY_BOOL_OR, flags\BINARY_COALESCE])) {
+            if (\in_array($flags, [flags\BINARY_BOOL_AND, flags\BINARY_BOOL_OR, flags\BINARY_COALESCE], true)) {
+                // @phan-suppress-next-line PhanAccessMethodInternal
+                if (ASTSimplifier::isExpressionWithoutSideEffects($node->children['right'])) {
+                    $this->emitIssue(
+                        Issue::NoopBinaryOperator,
+                        $node->lineno,
+                        self::NAME_FOR_BINARY_OP[$flags] ?? ''
+                    );
+                }
+            } else {
                 $this->emitIssue(
                     Issue::NoopBinaryOperator,
                     $node->lineno,
-                    self::NAME_FOR_BINARY_OP[$node->flags] ?? ''
+                    self::NAME_FOR_BINARY_OP[$flags] ?? ''
                 );
             }
         }
-        if ($node->flags === flags\BINARY_CONCAT) {
+        if ($flags === flags\BINARY_CONCAT) {
             $this->analyzeBinaryConcat($node);
         }
         return $this->context;
@@ -769,6 +784,78 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         flags\UNARY_PLUS => '+',
         flags\UNARY_MINUS => '-',
     ];
+
+    /**
+     * @param Node $node
+     * A node of type AST_EMPTY to parse
+     *
+     * @return Context
+     * A new or an unchanged context resulting from
+     * parsing the node
+     */
+    public function visitEmpty(Node $node) : Context
+    {
+        if ((\end($this->parent_node_list)->kind ?? null) === ast\AST_STMT_LIST) {
+            $this->emitIssue(
+                Issue::NoopEmpty,
+                $node->lineno
+            );
+        }
+        return $this->context;
+    }
+
+    /**
+     * @internal
+     * Maps the flags of nodes with kind AST_CAST to their types
+     */
+    const AST_CAST_FLAGS_LOOKUP = [
+        flags\TYPE_NULL => 'unset',
+        flags\TYPE_BOOL => 'bool',
+        flags\TYPE_LONG => 'int',
+        flags\TYPE_DOUBLE => 'float',
+        flags\TYPE_STRING => 'string',
+        flags\TYPE_ARRAY => 'array',
+        flags\TYPE_OBJECT => 'object',
+    ];
+
+    /**
+     * @param Node $node
+     * A node of type AST_EMPTY to parse
+     *
+     * @return Context
+     * A new or an unchanged context resulting from
+     * parsing the node
+     */
+    public function visitCast(Node $node) : Context
+    {
+        if ((\end($this->parent_node_list)->kind ?? null) === ast\AST_STMT_LIST) {
+            $this->emitIssue(
+                Issue::NoopCast,
+                $node->lineno,
+                self::AST_CAST_FLAGS_LOOKUP[$node->flags] ?? 'unknown'
+            );
+        }
+        return $this->context;
+    }
+
+    /**
+     * @param Node $node
+     * A node of type AST_EMPTY to parse
+     *
+     * @return Context
+     * A new or an unchanged context resulting from
+     * parsing the node
+     */
+    public function visitIsset(Node $node) : Context
+    {
+        if ((\end($this->parent_node_list)->kind ?? null) === ast\AST_STMT_LIST) {
+            $this->emitIssue(
+                Issue::NoopIsset,
+                $node->lineno
+            );
+        }
+        return $this->context;
+    }
 
     /**
      * @param Node $node
@@ -1155,15 +1242,18 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             $yield_value_type = UnionTypeVisitor::unionTypeFromNode($code_base, $context, $yield_value_node);
         }
         $expected_value_type = $template_type_list[\min(1, $type_list_count - 1)];
-        if (!$yield_value_type->asExpandedTypes($code_base)->canCastToUnionType($expected_value_type)) {
-            $this->emitIssue(
-                Issue::TypeMismatchGeneratorYieldValue,
-                $node->lineno,
-                (string)$yield_value_type,
-                $method->getNameForIssue(),
-                (string)$expected_value_type,
-                '\Generator<' . implode(',', $template_type_list) . '>'
-            );
+        try {
+            if (!$yield_value_type->asExpandedTypes($code_base)->canCastToUnionType($expected_value_type)) {
+                $this->emitIssue(
+                    Issue::TypeMismatchGeneratorYieldValue,
+                    $node->lineno,
+                    (string)$yield_value_type,
+                    $method->getNameForIssue(),
+                    (string)$expected_value_type,
+                    '\Generator<' . implode(',', $template_type_list) . '>'
+                );
+            }
+        } catch (RecursionDepthException $_) {
         }
 
         if ($type_list_count > 1) {
@@ -1294,8 +1384,12 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         }
         // We allow base classes to cast to subclasses, and subclasses to cast to base classes,
         // but don't allow subclasses to cast to subclasses on a separate branch of the inheritance tree
-        return $expression_type->asExpandedTypes($code_base)->canCastToUnionType($method_return_type) ||
-            $expression_type->canCastToUnionType($method_return_type->asExpandedTypes($code_base));
+        try {
+            return $expression_type->asExpandedTypes($code_base)->canCastToUnionType($method_return_type) ||
+                $expression_type->canCastToUnionType($method_return_type->asExpandedTypes($code_base));
+        } catch (RecursionDepthException $_) {
+            return false;
+        }
     }
 
     /**
@@ -1320,7 +1414,11 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         // For the strict
         foreach ($type_set as $type) {
             // Expand it to include all parent types up the chain
-            $individual_type_expanded = $type->asExpandedTypes($code_base);
+            try {
+                $individual_type_expanded = $type->asExpandedTypes($code_base);
+            } catch (RecursionDepthException $_) {
+                continue;
+            }
 
             // See if the argument can be cast to the
             // parameter
@@ -1613,11 +1711,11 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     public function visitNew(Node $node) : Context
     {
         try {
-            $context_node = (new ContextNode(
+            $context_node = new ContextNode(
                 $this->code_base,
                 $this->context,
                 $node
-            ));
+            );
 
             $method = $context_node->getMethod(
                 '__construct',
@@ -1677,26 +1775,11 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             );
 
             foreach ($class_list as $class) {
-                // Make sure we're not instantiating an abstract
-                // class
-                if ($class->isAbstract()
-                    && (!$this->context->isInClassScope()
-                    || $class->getFQSEN() != $this->context->getClassFQSEN())
-                ) {
-                    $this->emitIssue(
-                        Issue::TypeInstantiateAbstract,
-                        $node->lineno ?? 0,
-                        (string)$class->getFQSEN()
-                    );
-                }
-
-                // Make sure we're not instantiating an interface
-                if ($class->isInterface()) {
-                    $this->emitIssue(
-                        Issue::TypeInstantiateInterface,
-                        $node->lineno ?? 0,
-                        (string)$class->getFQSEN()
-                    );
+                if ($class->isAbstract() || $class->isInterface() || $class->isTrait()) {
+                    // Check the full list of classes if any of the classes
+                    // are abstract or interfaces.
+                    $this->checkForInvalidNewType($node, $class_list);
+                    break;
                 }
             }
         } catch (IssueException $exception) {
@@ -1712,6 +1795,103 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         }
 
         return $this->context;
+    }
+
+    /**
+     * @param Node $node a node of type AST_NEW
+     * @param Clazz[] $class_list
+     */
+    private function checkForInvalidNewType(Node $node, array $class_list) {
+        // This is either a string (new 'something'()) or a class name (new something())
+        $class_node = $node->children['class'];
+        if (!$class_node instanceof Node) {
+            foreach ($class_list as $class) {
+                $this->warnIfInvalidClassForNew($class, $node);
+            }
+            return;
+        }
+
+        if ($class_node->kind === ast\AST_NAME) {
+            $class_name = $class_node->children['name'];
+            if (is_string($class_name) && \strcasecmp('static', $class_name) === 0) {
+                if ($this->isStaticGuaranteedToBeNonAbstract()) {
+                    return;
+                }
+            }
+            foreach ($class_list as $class) {
+                $this->warnIfInvalidClassForNew($class, $class_node);
+            }
+            return;
+        }
+        foreach (UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $class_node)->getTypeSet() as $type) {
+            if ($type instanceof LiteralStringType) {
+                try {
+                    $class_fqsen = FullyQualifiedClassName::fromFullyQualifiedString($type->getValue());
+                } catch (FQSENException $_) {
+                    // Probably already emitted elsewhere, but emit anyway
+                    Issue::maybeEmit(
+                        $this->code_base,
+                        $this->context,
+                        Issue::TypeExpectedObjectOrClassName,
+                        $node->lineno,
+                        $type->getValue()
+                    );
+                    continue;
+                }
+                if (!$this->code_base->hasClassWithFQSEN($class_fqsen)) {
+                    continue;
+                }
+                $class = $this->code_base->getClassByFQSEN($class_fqsen);
+                $this->warnIfInvalidClassForNew($class, $class_node);
+            }
+        }
+    }
+
+    /**
+     * Given a call to `new static`, is the context likely to be guaranteed to be a non-abstract class?
+     */
+    private function isStaticGuaranteedToBeNonAbstract() : bool
+    {
+        if (!$this->context->isInMethodScope()) {
+            return false;
+        }
+        // TODO: Could do a better job with closures inside of methods
+        $method = $this->context->getFunctionLikeInScope($this->code_base);
+        if (!($method instanceof Method)) {
+            if ($method instanceof Func && $method->isClosure()) {
+                // closures can be rebound
+                return true;
+            }
+            return false;
+        }
+        return !$method->isStatic();
+    }
+
+    private function warnIfInvalidClassForNew(Clazz $class, Node $node)
+    {
+        // Make sure we're not instantiating an abstract
+        // class
+        if ($class->isAbstract()) {
+            $this->emitIssue(
+                Issue::TypeInstantiateAbstract,
+                $node->lineno ?? 0,
+                (string)$class->getFQSEN()
+            );
+        } elseif ($class->isInterface()) {
+            // Make sure we're not instantiating an interface
+            $this->emitIssue(
+                Issue::TypeInstantiateInterface,
+                $node->lineno ?? 0,
+                (string)$class->getFQSEN()
+            );
+        } elseif ($class->isTrait()) {
+            // Make sure we're not instantiating a trait
+            $this->emitIssue(
+                Issue::TypeInstantiateTrait,
+                $node->lineno ?? 0,
+                (string)$class->getFQSEN()
+            );
+        }
     }
 
     /**
@@ -1924,17 +2104,16 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         if ($node->children['class']->kind !== ast\AST_NAME) {
             return;
         }
-        $class_context_node = (new ContextNode(
-            $this->code_base,
-            $this->context,
-            $node->children['class']
-        ));
         // TODO: check for self/static/<class name of self> and warn about recursion?
         // TODO: Only allow calls to __construct from other constructors?
         $found_ancestor_constructor = false;
         if ($this->context->isInMethodScope()) {
             try {
-                $possible_ancestor_type = $class_context_node->getClassUnionType();
+                $possible_ancestor_type = UnionTypeVisitor::unionTypeFromClassNode(
+                    $this->code_base,
+                    $this->context,
+                    $node->children['class']
+                );
             } catch (FQSENException $e) {
                 $this->emitIssue(
                     $e instanceof EmptyFQSENException ? Issue::EmptyFQSENInCallable : Issue::InvalidFQSENInCallable,
@@ -2587,12 +2766,13 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         Method $method,
         Node $node
     ) {
-        if ($method->isPrivate()
-            && (
-                !$this->context->isInClassScope()
-                || $this->context->getClassFQSEN() != $method->getDefiningClassFQSEN()
-            )
-        ) {
+        if ($method->isPublic()) {
+            return;
+        }
+        if ($method->isAccessibleFromClass($this->code_base, $this->context->getClassFQSENOrNull())) {
+            return;
+        }
+        if ($method->isPrivate()) {
             $has_call_magic_method = !$method->isStatic()
                 && $method->getDefiningClass($this->code_base)->hasMethodWithName($this->code_base, '__call');
 
@@ -2604,7 +2784,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 $method->getFileRef()->getFile(),
                 (string)$method->getFileRef()->getLineNumberStart()
             );
-        } elseif ($method->isProtected() && !$this->canAccessProtectedMethodFromContext($method)) {
+        } else {
             $has_call_magic_method = !$method->isStatic()
                 && $method->getDefiningClass($this->code_base)->hasMethodWithName($this->code_base, '__call');
 
@@ -2617,32 +2797,6 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 (string)$method->getFileRef()->getLineNumberStart()
             );
         }
-    }
-
-    private function canAccessProtectedMethodFromContext(Method $method) : bool
-    {
-        $context = $this->context;
-        if (!$context->isInClassScope()) {
-            return false;
-        }
-        $class_fqsen = $context->getClassFQSEN();
-        $class_fqsen_type = $class_fqsen->asType();
-        $method_class_fqsen_type = $method->getClassFQSEN()->asType();
-        if ($class_fqsen_type->canCastToType($method_class_fqsen_type)) {
-            return true;
-        }
-        $method_defining_class_fqsen = $method->getDefiningClassFQSEN();
-        if ($class_fqsen === $method_defining_class_fqsen) {
-            return true;
-        }
-        $method_defining_class_fqsen_type = $method_defining_class_fqsen->asType();
-        if ($class_fqsen_type->isSubclassOf($this->code_base, $method_defining_class_fqsen_type)) {
-            return true;
-        }
-        if ($method_defining_class_fqsen_type->isSubclassOf($this->code_base, $class_fqsen_type)) {
-            return true;
-        }
-        return false;
     }
 
     /**
