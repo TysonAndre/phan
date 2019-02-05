@@ -14,6 +14,7 @@ New features(Analysis):
   but only when the result is unused and the right hand side has no obvious side effects. (#2389)
 + Properly analyze effects of a property/field access expression as the key of a `foreach` statement. (#1601)
 + Emit `PhanTypeInstantiateTrait` when calling `new TraitName()` (#2379)
++ Emit `PhanTemplateTypeConstant` when using `@var T` on a class constant's doc comment. (#2402)
 
 Maintenance
 + Don't emit a warning to stderr when `--language-server-completion-vscode` is used.
@@ -22,6 +23,9 @@ Maintenance
 Bug fixes:
 + Fix edge cases in checking if properties/methods are accessible from a trait (#2371)
 + Fix edge cases checking for `PhanTypeInstantiateInterface` and `PhanTypeInstantiateAbstract` (#2379)
+
+Plugins:
++ Infer the literal string's value when calling `sprintf` on literal scalar types in `PrintfCheckerPlugin`. (#2131)
 
 02 Feb 2019, Phan 1.2.2
 -----------------------
