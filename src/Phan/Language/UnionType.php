@@ -1385,6 +1385,23 @@ class UnionType implements Serializable
     }
      */
 
+    // TODO: Callers should call withStaticResolvedInContext?
+    public function isExclusivelyNarrowedFormOf(CodeBase $code_base, UnionType $other) : bool
+    {
+        if ($other->isEmpty()) {
+            return true;
+        }
+        if ($this->isEmpty() || $this->hasMixedType()) {
+            return false;
+        }
+        foreach ($this->type_set as $type) {
+            if (!$type->asExpandedTypes($code_base)->canStrictCastToUnionType($other)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /**
      * @param Type[] $type_list
      * A list of types
@@ -1681,7 +1698,7 @@ class UnionType implements Serializable
         // every single type in T overlaps with T, a future call to Type->canCastToType will pass.
         $matches = true;
         foreach ($type_set as $type) {
-            if (!\in_array($type, $target_type_set)) {
+            if (!\in_array($type, $target_type_set, true)) {
                 $matches = false;
                 break;
             }

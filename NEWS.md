@@ -9,12 +9,25 @@ New features(CLI):
   and the exclude option (`-3 <file_or_list> -3 <file_or_list>`).
 
 New features(Analysis):
++ Inherit more specific phpdoc types even when there are real types in the signature. (#2409)
+  e.g. inherit `@param array<int,\stdClass>` and `@return MyClass[]` from the
+  ancestor class of `function someMethod(array $x) : array {}`.
+
+  This is only done when each phpdoc type is compatible with the real signature type.
 + Detect more expressions without side effects: `PhanNoopEmpty` and `PhanNoopIsset` (for `isset(expr)` and `empty(expr)`) (#2389)
 + Also emit `PhanNoopBinaryOperator` for the `??`, `||`, and `&&` operators,
   but only when the result is unused and the right hand side has no obvious side effects. (#2389)
 + Properly analyze effects of a property/field access expression as the key of a `foreach` statement. (#1601)
 + Emit `PhanTypeInstantiateTrait` when calling `new TraitName()` (#2379)
 + Emit `PhanTemplateTypeConstant` when using `@var T` on a class constant's doc comment. (#2402)
++ Warn for invalid operands of a wider variety of binary operators (`/`, `/=`, `>>`, `<<=`, `-`, `%`, `**`, etc) (#2410)
+  New issue types: `PhanTypeInvalidRightOperandOfIntegerOp` and `PhanTypeInvalidLeftOperandOfIntegerOp`.
+  Also, mention the operator name in the issue message.
+
+Language Server/Daemon mode:
++ Attempted fixes for bugs with issue filtering in the language server on Windows.
++ Add `--language-server-disable-output-filter`, which disables the language server filter to limit outputted issues
+  to those in files currently open in the IDE.
 
 Maintenance
 + Don't emit a warning to stderr when `--language-server-completion-vscode` is used.
@@ -26,6 +39,7 @@ Bug fixes:
 
 Plugins:
 + Infer a literal string return value when calling `sprintf` on known literal scalar types in `PrintfCheckerPlugin`. (#2131)
++ Infer that `;@foo();` is not a usage of `foo()` in `UseReturnValuePlugin`. (#2412)
 
 02 Feb 2019, Phan 1.2.2
 -----------------------
