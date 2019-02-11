@@ -27,7 +27,7 @@ class Utils
      */
     public static function crash(Throwable $err)
     {
-        Loop\nextTick(function () use ($err) {
+        Loop\nextTick(static function () use ($err) {
             // @phan-suppress-next-line PhanThrowTypeAbsent this is meant to crash the loop for debugging.
             throw $err;
         });
@@ -69,7 +69,7 @@ class Utils
             throw new InvalidArgumentException("Not a valid file URI: $uri");
         }
         $filepath = \urldecode($fragments['path']);
-        if (DIRECTORY_SEPARATOR === "\\") {
+        if (\DIRECTORY_SEPARATOR === "\\") {
             $filepath = self::normalizePathFromWindowsURI($filepath);
         }
         return $filepath;

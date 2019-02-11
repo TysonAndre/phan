@@ -7,6 +7,8 @@ use Phan\Language\Context;
 use Phan\Language\Type;
 use Phan\Language\UnionType;
 
+use function in_array;
+
 /**
  * Phan's base class for native types such as IntType, ObjectType, etc.
  *
@@ -130,7 +132,7 @@ abstract class NativeType extends Type
         /**
          * @return array<string,bool>
          */
-        $generate_row = function (string ...$permitted_cast_type_names) : array {
+        $generate_row = static function (string ...$permitted_cast_type_names) : array {
             return [
                 ArrayType::NAME    => in_array(ArrayType::NAME, $permitted_cast_type_names, true),
                 IterableType::NAME => in_array(IterableType::NAME, $permitted_cast_type_names, true),

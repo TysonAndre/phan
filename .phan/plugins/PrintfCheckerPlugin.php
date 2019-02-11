@@ -20,7 +20,11 @@ use Phan\Language\UnionType;
 use Phan\PluginV2;
 use Phan\PluginV2\AnalyzeFunctionCallCapability;
 use Phan\PluginV2\ReturnTypeOverrideCapability;
+use function count;
 use function implode;
+use function is_object;
+use function is_string;
+use function strcasecmp;
 use function var_export;
 
 /**
@@ -207,7 +211,7 @@ class PrintfCheckerPlugin extends PluginV2 implements AnalyzeFunctionCallCapabil
             }
             $result = with_disabled_phan_error_handler(
                 /** @return string */
-                function () use ($format_string, $sprintf_args) {
+                static function () use ($format_string, $sprintf_args) {
                     return @vsprintf($format_string, $sprintf_args);
                 }
             );
@@ -328,7 +332,7 @@ class PrintfCheckerPlugin extends PluginV2 implements AnalyzeFunctionCallCapabil
 
     protected function encodeString(string $str) : string
     {
-        $result = \json_encode($str, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $result = \json_encode($str, \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE);
         if ($result !== false) {
             return $result;
         }
@@ -604,7 +608,7 @@ class PrintfCheckerPlugin extends PluginV2 implements AnalyzeFunctionCallCapabil
      */
     private function getSpecStringsRepresentation(array $specs) : string
     {
-        return \implode(',', \array_unique(\array_map(function (ConversionSpec $spec) : string {
+        return \implode(',', \array_unique(\array_map(static function (ConversionSpec $spec) : string {
             return $spec->directive;
         }, $specs)));
     }
@@ -754,7 +758,7 @@ class ConversionSpec
     {
         // echo "format is $fmt_str\n";
         $directives = [];
-        \preg_match_all(self::FORMAT_STRING_REGEX, (string) $fmt_str, $matches, PREG_SET_ORDER);
+        \preg_match_all(self::FORMAT_STRING_REGEX, (string) $fmt_str, $matches, \PREG_SET_ORDER);
         $unnamed_count = 0;
         foreach ($matches as $match) {
             if ($match[0] === '%%') {

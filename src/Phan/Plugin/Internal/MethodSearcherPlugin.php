@@ -119,10 +119,10 @@ final class MethodSearcherPlugin extends PluginV2 implements
         }
         $fqsens = $code_base->suggestSimilarClassInOtherNamespace($fqsen, new Context());
         if (!$fqsens) {
-            fwrite(STDERR, "Phoogle could not find '$fqsen' in any namespace\n");
-            exit(EXIT_FAILURE);
+            fwrite(\STDERR, "Phoogle could not find '$fqsen' in any namespace\n");
+            exit(\EXIT_FAILURE);
         }
-        return array_map(function (FullyQualifiedClassName $fqsen) use ($type) : Type {
+        return array_map(static function (FullyQualifiedClassName $fqsen) use ($type) : Type {
             return $fqsen->asType()->withIsNullable($type->getIsNullable());
         }, $fqsens);
     }
@@ -186,7 +186,7 @@ final class MethodSearcherPlugin extends PluginV2 implements
                 break;
             }
         }
-        exit(EXIT_SUCCESS);
+        exit(\EXIT_SUCCESS);
     }
 
     private function checkFunction(CodeBase $code_base, FunctionInterface $function)

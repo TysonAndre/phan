@@ -22,6 +22,18 @@ use Phan\Output\Printer\FilteringPrinter;
 use Phan\Output\PrinterFactory;
 use Symfony\Component\Console\Output\BufferedOutput;
 
+use function count;
+use function get_class;
+use function in_array;
+use function is_array;
+use function is_string;
+use function strlen;
+
+use const DEBUG_BACKTRACE_IGNORE_ARGS;
+use const SIGCHLD;
+use const SORT_STRING;
+use const WNOHANG;
+
 /**
  * Represents the state of a client request to a daemon, and contains methods for sending formatted responses.
  * @phan-file-suppress PhanPluginDescriptionlessCommentOnPublicMethod

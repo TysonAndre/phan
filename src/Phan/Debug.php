@@ -138,7 +138,7 @@ class Debug
         $string .= self::nodeName($node);
 
         $string .= ' ['
-            . (is_int($kind) ? self::astFlagDescription($node->flags ?? 0, $kind) : 'unknown')
+            . (\is_int($kind) ? self::astFlagDescription($node->flags ?? 0, $kind) : 'unknown')
             . ']';
 
         if (isset($node->lineno)) {
@@ -214,7 +214,7 @@ class Debug
                     $names[] = $name;
                 }
             }
-            if (count($names) > 0) {
+            if (\count($names) > 0) {
                 return implode(" | ", $names) . " ($flags)";
             }
         }
@@ -230,7 +230,7 @@ class Debug
      */
     public static function backtrace(int $levels = 0)
     {
-        $bt = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, $levels + 1);
+        $bt = debug_backtrace(\DEBUG_BACKTRACE_IGNORE_ARGS, $levels + 1);
         foreach ($bt as $level => $context) {
             if (!$level) {
                 continue;

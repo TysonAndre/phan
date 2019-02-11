@@ -78,7 +78,7 @@ final class DumpPHPDocPlugin extends PluginV2 implements
             $markup .= "Description:\n\n";
             $markup .= $doc_comment_markup . "\n\n";
         }
-        $this->stubs[$element->getFQSEN() . "\x00" . get_class($element)] = $markup;
+        $this->stubs[$element->getFQSEN() . "\x00" . \get_class($element)] = $markup;
     }
 
     /**
@@ -217,7 +217,7 @@ final class DumpPHPDocPlugin extends PluginV2 implements
         ksort($this->stubs);
         echo "# Phan Signatures\n\n";
         echo implode('', $this->stubs);
-        exit(EXIT_SUCCESS);
+        exit(\EXIT_SUCCESS);
     }
 }
 

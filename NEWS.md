@@ -1,6 +1,9 @@
 Phan NEWS
 
-?? ??? 2019, Phan 1.2.3 (dev)
+?? ??? 2019, Phan 1.2.4 (dev)
+-----------------------
+
+10 Feb 2019, Phan 1.2.3
 -----------------------
 
 New features(CLI):
@@ -32,6 +35,7 @@ Language Server/Daemon mode:
 Maintenance
 + Don't emit a warning to stderr when `--language-server-completion-vscode` is used.
 + Catch the rare RecursionDepthException in more places, improve readability of its exception message. (#2386)
++ Warn that php-ast 1.0.0 and older always crash with PHP 7.4-dev or newer.
 
 Bug fixes:
 + Fix edge cases in checking if properties/methods are accessible from a trait (#2371)
@@ -40,6 +44,7 @@ Bug fixes:
 Plugins:
 + Infer a literal string return value when calling `sprintf` on known literal scalar types in `PrintfCheckerPlugin`. (#2131)
 + Infer that `;@foo();` is not a usage of `foo()` in `UseReturnValuePlugin`. (#2412)
++ Implement `NotFullyQualifiedUsagePlugin` to warn about uses of global functions and constants that aren't fully qualified. (#857)
 
 02 Feb 2019, Phan 1.2.2
 -----------------------

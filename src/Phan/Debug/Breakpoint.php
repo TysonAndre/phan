@@ -2,7 +2,7 @@
 
 namespace Phan\Debug;
 
-readline_completion_function(function (string $input) : array {
+readline_completion_function(static function (string $input) : array {
     $matches = [];
     foreach (\get_declared_classes() as $class_name) {
         if (\strpos($class_name, $input) == 0) {
@@ -17,11 +17,11 @@ do {
     /** @var string|null */
     $input = readline("breakpoint> ");
 
-    if (is_string($input)) {
+    if (\is_string($input)) {
         readline_add_history($input);
     }
 
-    if (in_array($input, [
+    if (\in_array($input, [
         'quit',
         'exit',
         'continue',

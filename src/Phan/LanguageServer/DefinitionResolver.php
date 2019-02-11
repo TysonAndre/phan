@@ -22,6 +22,9 @@ use Phan\Language\FQSEN\FullyQualifiedGlobalConstantName;
 use Phan\Language\Type;
 use Phan\Language\UnionType;
 
+use function count;
+use function is_string;
+
 /**
  * This implements closures for finding definitions for nodes where isSelected is set
  * @phan-file-suppress PhanPluginDescriptionlessCommentOnPublicMethod
@@ -39,7 +42,7 @@ class DefinitionResolver
         /**
          * @param array<int,Node> $parent_node_list
          */
-        return function (Context $context, Node $node, array $parent_node_list = []) use ($request, $code_base) {
+        return static function (Context $context, Node $node, array $parent_node_list = []) use ($request, $code_base) {
             // @phan-suppress-next-line PhanUndeclaredProperty this is overridden
             $selected_fragment = $node->selectedFragment ?? null;
             if (is_string($selected_fragment)) {

@@ -10,6 +10,11 @@ use Phan\Language\FQSEN;
 use Phan\Language\Type;
 use Phan\Language\UnionType;
 use Phan\Library\StringUtil;
+use function count;
+use function get_class;
+use function is_array;
+use function is_object;
+use function is_resource;
 
 /**
  * Debug utilities for working with frames of debug_backtrace()
@@ -94,7 +99,7 @@ class Frame
      */
     public static function frameToString(array $frame) : string
     {
-        return with_disabled_phan_error_handler(function () use ($frame) : string {
+        return with_disabled_phan_error_handler(static function () use ($frame) : string {
             $invocation = $frame['function'] ?? '(unknown)';
             if (isset($frame['class'])) {
                 $invocation = $frame['class'] . ($frame['type'] ?? '::') . $invocation;

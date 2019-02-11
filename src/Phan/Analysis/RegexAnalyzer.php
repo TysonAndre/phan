@@ -62,14 +62,14 @@ class RegexAnalyzer
             return $array_type;
         }
         // TODO: Support PREG_UNMATCHED_AS_NULL
-        if ($bit & PREG_OFFSET_CAPTURE) {
-            if (is_array($regex_group_keys)) {
+        if ($bit & \PREG_OFFSET_CAPTURE) {
+            if (\is_array($regex_group_keys)) {
                 return self::makeArrayShape($regex_group_keys, $shape_array_inner_type);
             }
             return $shape_array_type;
         }
 
-        if (is_array($regex_group_keys)) {
+        if (\is_array($regex_group_keys)) {
             return self::makeArrayShape($regex_group_keys, $string_type);
         }
         return $string_array_type;
@@ -101,7 +101,7 @@ class RegexAnalyzer
         if ($bit & \PREG_SET_ORDER) {
             return $shape_array_type->asGenericArrayTypes(GenericArrayType::KEY_INT);
         }
-        return $shape_array_type->withMappedElementTypes(function (UnionType $type) : UnionType {
+        return $shape_array_type->withMappedElementTypes(static function (UnionType $type) : UnionType {
             return $type->elementTypesToGenericArray(GenericArrayType::KEY_INT);
         });
     }
@@ -115,7 +115,7 @@ class RegexAnalyzer
     ) : UnionType {
         $field_types = array_map(
             /** @param true $_ */
-            function ($_) use ($type) : UnionType {
+            static function ($_) use ($type) : UnionType {
                 return $type;
             },
             $regex_group_keys

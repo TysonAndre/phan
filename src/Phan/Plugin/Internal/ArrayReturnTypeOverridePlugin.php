@@ -21,6 +21,7 @@ use Phan\Language\Type\StringType;
 use Phan\Language\UnionType;
 use Phan\PluginV2;
 use Phan\PluginV2\ReturnTypeOverrideCapability;
+use function count;
 
 /**
  * NOTE: This is automatically loaded by phan. Do not include it in a config.
@@ -159,7 +160,7 @@ final class ArrayReturnTypeOverridePlugin extends PluginV2 implements
                     } elseif (\count($args) === 1) {
                         // array_filter with count($args) === 1 implies elements of the resulting array aren't falsey
                         return $generic_passed_array_type->withFlattenedArrayShapeOrLiteralTypeInstances()
-                                                         ->withMappedElementTypes(function (UnionType $union_type) : UnionType {
+                                                         ->withMappedElementTypes(static function (UnionType $union_type) : UnionType {
                                                             return $union_type->nonFalseyClone();
                                                          });
                     }
@@ -231,10 +232,9 @@ final class ArrayReturnTypeOverridePlugin extends PluginV2 implements
             /**
              * @param Node|int|string|float|null $argument
              */
-            $get_argument_type = function ($argument, int $i) use ($code_base, $context, &$cache_outer) : UnionType {
-                $argument_type = $cache_outer[$i] ?? null;
-                if ($argument_type) {
-                    return $argument_type;
+            $get_argument_type = static function ($argument, int $i) use ($code_base, $context, &$cache_outer) : UnionType {
+                if (isset($cache_outer[$i])) {
+                    return $cache_outer[$i];
                 }
                 $argument_type = UnionTypeVisitor::unionTypeFromNode(
                     $code_base,
@@ -250,10 +250,9 @@ final class ArrayReturnTypeOverridePlugin extends PluginV2 implements
             /**
              * @param Node|int|string|float|null $argument
              */
-            $get_argument_type_for_array_map = function ($argument, int $i) use ($get_argument_type, &$cache) : UnionType {
-                $argument_type = $cache[$i] ?? null;
-                if ($argument_type) {
-                    return $argument_type;
+            $get_argument_type_for_array_map = static function ($argument, int $i) use ($get_argument_type, &$cache) : UnionType {
+                if (isset($cache[$i])) {
+                    return $cache[$i];
                 }
                 // Convert T[] to T
                 $argument_type = $get_argument_type($argument, $i)->genericArrayElementTypes();

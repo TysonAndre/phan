@@ -61,7 +61,12 @@ use ReflectionException;
 use ReflectionProperty;
 use Throwable;
 use UnusedSuppressionPlugin;
+use function get_class;
 use function is_null;
+use function is_object;
+use const EXIT_FAILURE;
+use const PHP_EOL;
+use const STDERR;
 
 /**
  * The root plugin that calls out each hook
@@ -742,7 +747,7 @@ final class ConfigPluginSet extends PluginV2 implements
         }
         // Add user-defined plugins.
         $plugin_set = array_map(
-            function (string $plugin_file_name) : PluginV2 {
+            static function (string $plugin_file_name) : PluginV2 {
                 $plugin_file_name = self::normalizePluginPath($plugin_file_name);
 
                 try {

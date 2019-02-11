@@ -47,6 +47,9 @@ use Phan\Language\UnionType;
 use Phan\Library\FileCache;
 use Phan\Library\None;
 
+use function is_object;
+use function is_string;
+
 if (!\function_exists('spl_object_id')) {
     require_once __DIR__ . '/../../spl_object_id.php';
 }
@@ -263,7 +266,7 @@ class ContextNode
                 $trait_method_node->lineno ?? 0,
                 $trait_new_method_name,
                 $trait_original_method_name,
-                '[' . implode(', ', \array_map(function (TraitAdaptations $t) : string {
+                '[' . implode(', ', \array_map(static function (TraitAdaptations $t) : string {
                     return (string) $t->getTraitFQSEN();
                 }, $adaptations_map)) . ']'
             );
@@ -586,7 +589,7 @@ class ContextNode
 
         // TODO: Should this check that count($class_list) > 0 instead? Or just always check?
         if (\count($class_list) === 0 && $expected_type_categories !== self::CLASS_LIST_ACCEPT_ANY) {
-            if (!$union_type->hasTypeMatchingCallback(function (Type $type) use ($expected_type_categories) : bool {
+            if (!$union_type->hasTypeMatchingCallback(static function (Type $type) use ($expected_type_categories) : bool {
                 return $type->isObject() || ($type instanceof MixedType) || ($expected_type_categories === self::CLASS_LIST_ACCEPT_OBJECT_OR_CLASS_NAME && $type instanceof StringType);
             })) {
                 if ($custom_issue_type === Issue::TypeExpectedObjectPropAccess) {
@@ -843,11 +846,7 @@ class ContextNode
             $name = $expression->children['name'];
             try {
                 return [
-                    (new ContextNode(
-                        $this->code_base,
-                        $this->context,
-                        $expression
-                    ))->getFunction($name),
+                    $this->getFunction($name),
                 ];
             } catch (IssueException $exception) {
                 Issue::maybeEmitInstance(

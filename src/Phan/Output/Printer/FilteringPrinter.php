@@ -28,7 +28,7 @@ final class FilteringPrinter implements BufferedPrinterInterface
      */
     private static function normalize($file) : string
     {
-        return str_replace(DIRECTORY_SEPARATOR, "//", (string)$file);
+        return \str_replace(\DIRECTORY_SEPARATOR, "//", (string)$file);
     }
 
     /** @param array<int, string> $files a non-empty list of relative file paths. */
@@ -36,7 +36,7 @@ final class FilteringPrinter implements BufferedPrinterInterface
         array $files,
         IssuePrinterInterface $printer
     ) {
-        if (count($files) === 0) {
+        if (\count($files) === 0) {
             throw new InvalidArgumentException("FilteringPrinter expects 1 or more files");
         }
         foreach ($files as $file) {

@@ -16,6 +16,7 @@ use Phan\Language\Element\Func;
 use Phan\Language\Element\GlobalConstant;
 use Phan\Language\Element\Variable;
 use Phan\Language\FQSEN\FullyQualifiedClassName;
+use function is_string;
 
 /**
  * This implements closures for finding completions for valid/invalid nodes where isSelected is set
@@ -33,7 +34,7 @@ class CompletionResolver
     {
         // TODO: Could use the parent node list
         // (e.g. don't use a method with a void return as an argument to another function)
-        return function (Context $context, Node $node, array $unused_parent_node_list) use ($request, $code_base) {
+        return static function (Context $context, Node $node, array $unused_parent_node_list) use ($request, $code_base) {
             // @phan-suppress-next-line PhanUndeclaredProperty this is overridden
             $selected_fragment = $node->selectedFragment ?? null;
             if (is_string($selected_fragment)) {

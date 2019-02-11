@@ -328,7 +328,7 @@ class Type
     /** @throws Error this should not be called accidentally */
     public function __wakeup()
     {
-        debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
+        \debug_print_backtrace(\DEBUG_BACKTRACE_IGNORE_ARGS);
         throw new Error("Cannot unserialize Type '$this'");
     }
 
@@ -416,7 +416,7 @@ class Type
         $key = ($is_nullable ? '?' : '') . static::KEY_PREFIX . $namespace . '\\' . $type_name;
 
         if ($template_parameter_type_list) {
-            $key .= '<' . \implode(',', \array_map(function (UnionType $union_type) : string {
+            $key .= '<' . \implode(',', \array_map(static function (UnionType $union_type) : string {
                 return $union_type->__toString();
             }, $template_parameter_type_list)) . '>';
         }
@@ -662,7 +662,7 @@ class Type
             case 'resource':
                 return ResourceType::instance(false);  // For inferring the type of constants STDIN, etc.
             default:
-                throw new \AssertionError("Unknown type " . gettype($object));
+                throw new \AssertionError("Unknown type " . \gettype($object));
         }
     }
 
@@ -928,7 +928,7 @@ class Type
             // @phan-suppress-next-line PhanPossiblyFalseTypeArgument
             return LiteralStringType::fromEscapedString($escaped_literal, $is_nullable);
         }
-        $value = filter_var($escaped_literal, FILTER_VALIDATE_INT);
+        $value = filter_var($escaped_literal, \FILTER_VALIDATE_INT);
         if (\is_int($value)) {
             return LiteralIntType::instanceForValue($value, $is_nullable);
         }
@@ -941,7 +941,7 @@ class Type
      */
     private static function createTemplateParameterTypeList(array $template_parameter_type_name_list)
     {
-        return \array_map(function (string $type_name) : UnionType {
+        return \array_map(static function (string $type_name) : UnionType {
             return UnionType::fromFullyQualifiedString($type_name);
         }, $template_parameter_type_name_list);
     }
@@ -1176,7 +1176,7 @@ class Type
         // Map the names of the types to actual types in the
         // template parameter type list
         $template_parameter_type_list =
-            \array_map(function (string $type_name) use ($code_base, $context, $source) : UnionType {
+            \array_map(static function (string $type_name) use ($code_base, $context, $source) : UnionType {
                 return UnionType::fromStringInContext($type_name, $context, $source, $code_base);
             }, $template_parameter_type_name_list);
 
@@ -2696,7 +2696,7 @@ class Type
     final protected function templateParameterTypeListAsString() : string
     {
         return '<' .
-            \implode(',', \array_map(function (UnionType $type) : string {
+            \implode(',', \array_map(static function (UnionType $type) : string {
                 return $type->__toString();
             }, $this->template_parameter_type_list)) . '>';
     }
@@ -3188,7 +3188,7 @@ class Type
             }
             $closure = TemplateType::combineParameterClosures(
                 $closure,
-                function (UnionType $type, Context $context) use ($inner_extracter_closure, $i) : UnionType {
+                static function (UnionType $type, Context $context) use ($inner_extracter_closure, $i) : UnionType {
                     $result = UnionType::empty();
                     foreach ($type->getTypeSet() as $inner_type) {
                         $replacement_type = $inner_type->template_parameter_type_list[$i] ?? null;

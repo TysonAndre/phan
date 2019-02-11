@@ -25,7 +25,12 @@ abstract class IncompatibleSignatureDetectorBase
     /** @var array<string,string> maps aliases to originals - only set for xml parser */
     protected $aliases = [];
 
-    const FUNCTIONLIKE_BLACKLIST = '@(^___PHPSTORM_HELPERS)|PS_UNRESERVE_PREFIX@';
+    const FUNCTIONLIKE_BLACKLIST = '@' .
+        '(^___PHPSTORM_HELPERS)|PS_UNRESERVE_PREFIX|' .
+        '(^(ereg|expression|getsession|hrtime_|imageps|mssql_|mysql_|split|sql_regcase|sybase|xmldiff_))|' .
+        '(^closure_)|' .  // Phan's representation of a closure
+        '\.' .  // a literal `.`
+        '@';
 
     /**
      * @return void (does not return)
@@ -238,7 +243,7 @@ EOT;
      */
     public static function sortSignatureMap(array &$phan_signatures)
     {
-        uksort($phan_signatures, function (string $a, string $b) : int {
+        uksort($phan_signatures, static function (string $a, string $b) : int {
             $a = strtolower(str_replace("'", "\x0", $a));
             $b = strtolower(str_replace("'", "\x0", $b));
             return $a <=> $b;
@@ -311,18 +316,30 @@ EOT;
     }
 
     /**
-     * @param string[] $arguments the return type and parameter signatures
+     * @param array<mixed,string> $arguments the return type and parameter signatures
+
      */
     public static function encodeSingleSignature(string $function_like_name, array $arguments) : string
     {
-        $result = static::encodeScalar($function_like_name) . ' => [';
+        $result = static::encodeScalar($function_like_name) . ' => ';
+        $result .= static::encodeSignatureArguments($arguments);
+        $result .= ",\n";
+        return $result;
+    }
+
+    /**
+     * @param array<mixed,string> $arguments
+     */
+    public static function encodeSignatureArguments(array $arguments) : string
+    {
+        $result = '[';
         foreach ($arguments as $key => $arg) {
             if ($key !== 0) {
                 $result .= ', ' . static::encodeScalar($key) . '=>';
             }
             $result .= static::encodeScalar($arg);
         }
-        $result .= "],\n";
+        $result .= "]";
         return $result;
     }
 }

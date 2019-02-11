@@ -49,7 +49,7 @@ final class MiscParamPlugin extends PluginV2 implements
         /**
          * @return void
          */
-        $min_max_callback = function (
+        $min_max_callback = static function (
             CodeBase $code_base,
             Context $context,
             FunctionInterface $function,
@@ -63,7 +63,7 @@ final class MiscParamPlugin extends PluginV2 implements
                 $context,
                 $code_base,
                 ArrayType::instance(false)->asUnionType(),
-                function (UnionType $node_type) use ($context, $function) : IssueInstance {
+                static function (UnionType $node_type) use ($context, $function) : IssueInstance {
                     // "arg#1(values) is %s but {$function->getFQSEN()}() takes array when passed only one arg"
                     return Issue::fromType(Issue::ParamSpecial2)(
                         $context->getFile(),
@@ -82,7 +82,7 @@ final class MiscParamPlugin extends PluginV2 implements
         /**
          * @return void
          */
-        $array_udiff_callback = function (
+        $array_udiff_callback = static function (
             CodeBase $code_base,
             Context $context,
             FunctionInterface $function,
@@ -97,7 +97,7 @@ final class MiscParamPlugin extends PluginV2 implements
                 $context,
                 $code_base,
                 CallableType::instance(false)->asUnionType(),
-                function (UnionType $unused_node_type) use ($context, $function) : IssueInstance {
+                static function (UnionType $unused_node_type) use ($context, $function) : IssueInstance {
                     // "The last argument to {$function->getFQSEN()} must be a callable"
                     return Issue::fromType(Issue::ParamSpecial3)(
                         $context->getFile(),
@@ -116,7 +116,7 @@ final class MiscParamPlugin extends PluginV2 implements
                     $context,
                     $code_base,
                     ArrayType::instance(false)->asUnionType(),
-                    function (UnionType $node_type) use ($context, $function, $i) : IssueInstance {
+                    static function (UnionType $node_type) use ($context, $function, $i) : IssueInstance {
                         // "arg#".($i+1)." is %s but {$function->getFQSEN()}() takes array"
                         return Issue::fromType(Issue::ParamTypeMismatch)(
                             $context->getFile(),
@@ -138,7 +138,7 @@ final class MiscParamPlugin extends PluginV2 implements
          * @throws StopParamAnalysisException
          * to prevent Phan's default incorrect analysis of a call to join()
          */
-        $join_callback = function (
+        $join_callback = static function (
             CodeBase $code_base,
             Context $context,
             FunctionInterface $function,
@@ -153,7 +153,7 @@ final class MiscParamPlugin extends PluginV2 implements
                     $args[0],
                     $context,
                     $code_base,
-                    function (UnionType $node_type) use ($context, $function) : IssueInstance {
+                    static function (UnionType $node_type) use ($context, $function) : IssueInstance {
                         // "arg#1(pieces) is %s but {$function->getFQSEN()}() takes array when passed only 1 arg"
                         return Issue::fromType(Issue::ParamSpecial2)(
                             $context->getFile(),
@@ -252,7 +252,7 @@ final class MiscParamPlugin extends PluginV2 implements
         /**
          * @return void
          */
-        $array_uintersect_uassoc_callback = function (
+        $array_uintersect_uassoc_callback = static function (
             CodeBase $code_base,
             Context $context,
             FunctionInterface $function,
@@ -270,7 +270,7 @@ final class MiscParamPlugin extends PluginV2 implements
                 $context,
                 $code_base,
                 CallableType::instance(false)->asUnionType(),
-                function (UnionType $unused_node_type) use ($context, $function) : IssueInstance {
+                static function (UnionType $unused_node_type) use ($context, $function) : IssueInstance {
                     // "The last argument to {$function->getFQSEN()} must be a callable"
                     return Issue::fromType(Issue::ParamSpecial3)(
                         $context->getFile(),
@@ -288,7 +288,7 @@ final class MiscParamPlugin extends PluginV2 implements
                 $context,
                 $code_base,
                 CallableType::instance(false)->asUnionType(),
-                function (UnionType $unused_node_type) use ($context, $function) : IssueInstance {
+                static function (UnionType $unused_node_type) use ($context, $function) : IssueInstance {
                     // "The second last argument to {$function->getFQSEN()} must be a callable"
                     return Issue::fromType(Issue::ParamSpecial4)(
                         $context->getFile(),
@@ -307,7 +307,7 @@ final class MiscParamPlugin extends PluginV2 implements
                     $context,
                     $code_base,
                     ArrayType::instance(false)->asUnionType(),
-                    function (UnionType $node_type) use ($context, $function, $i) : IssueInstance {
+                    static function (UnionType $node_type) use ($context, $function, $i) : IssueInstance {
                     // "arg#".($i+1)." is %s but {$function->getFQSEN()}() takes array"
                         return Issue::fromType(Issue::ParamTypeMismatch)(
                             $context->getFile(),
@@ -328,7 +328,7 @@ final class MiscParamPlugin extends PluginV2 implements
          * @param Node|int|string|float|null $node
          * @return ?Variable the variable
          */
-        $get_variable = function (
+        $get_variable = static function (
             CodeBase $code_base,
             Context $context,
             $node
@@ -458,7 +458,7 @@ final class MiscParamPlugin extends PluginV2 implements
             // TODO: Handle unexpected types of flags and prefix and warn, low priority
             if (isset($args[1])) {
                 $flags = (new ContextNode($code_base, $context, $args[1]))->getEquivalentPHPScalarValue();
-                if (!is_int($flags)) {
+                if (!\is_int($flags)) {
                     // Could warn here, low priority
                     $flags = null;
                 }
@@ -476,10 +476,10 @@ final class MiscParamPlugin extends PluginV2 implements
             $scope = $context->getScope();
 
             foreach ($shape->getFieldTypes() as $field_name => $field_type) {
-                if (!is_string($field_name)) {
+                if (!\is_string($field_name)) {
                     continue;
                 }
-                $add_variable = function (string $name) use ($context, $field_type, $scope) {
+                $add_variable = static function (string $name) use ($context, $field_type, $scope) {
                     if (!Variable::isValidIdentifier($name)) {
                         return;
                     }
@@ -496,40 +496,40 @@ final class MiscParamPlugin extends PluginV2 implements
                 // TODO: Ignore superglobals
 
                 // Some parts of this are probably wrong - EXTR_OVERWRITE and EXTR_SKIP are probably the most common?
-                switch ($flags & ~EXTR_REFS) {
+                switch ($flags & ~\EXTR_REFS) {
                     default:
-                    case EXTR_OVERWRITE:
+                    case \EXTR_OVERWRITE:
                         $add_variable($field_name);
                         break;
-                    case EXTR_SKIP:
+                    case \EXTR_SKIP:
                         if ($scope->hasVariableWithName($field_name)) {
                             break;
                         }
                         $add_variable($field_name);
                         break;
                     // TODO: Do all of these behave like EXTR_OVERWRITE or like EXTR_SKIP?
-                    case EXTR_PREFIX_SAME:
+                    case \EXTR_PREFIX_SAME:
                         if ($scope->hasVariableWithName($field_name)) {
                             $field_name = $prefix . $field_name;
                         }
                         $add_variable($field_name);
                         break;
-                    case EXTR_PREFIX_ALL:
+                    case \EXTR_PREFIX_ALL:
                         $field_name = $prefix . $field_name;
                         $add_variable($field_name);
                         break;
-                    case EXTR_PREFIX_INVALID:
+                    case \EXTR_PREFIX_INVALID:
                         if (!Variable::isValidIdentifier($field_name)) {
                             $field_name = $prefix . $field_name;
                         }
                         $add_variable($field_name);
                         break;
-                    case EXTR_IF_EXISTS:
+                    case \EXTR_IF_EXISTS:
                         if ($scope->hasVariableWithName($field_name)) {
                             $add_variable($field_name);
                         }
                         break;
-                    case EXTR_PREFIX_IF_EXISTS:
+                    case \EXTR_PREFIX_IF_EXISTS:
                         if ($scope->hasVariableWithName($field_name) && $prefix !== '') {
                             $add_variable($prefix . $field_name);
                         }
@@ -616,7 +616,7 @@ final class MiscParamPlugin extends PluginV2 implements
                 $class_alias_first_param = $name_type->asSingleScalarValueOrNull();
             }
 
-            if (is_string($class_alias_first_param)) {
+            if (\is_string($class_alias_first_param)) {
                 try {
                     $first_param_fqsen = FullyQualifiedClassName::fromFullyQualifiedString($class_alias_first_param);
                     if ($code_base->hasClassWithFQSEN($first_param_fqsen)) {

@@ -36,7 +36,19 @@ use Phan\Phan;
 use Sabre\Event\Loop;
 use Sabre\Event\Promise;
 use Throwable;
+
+use function count;
+use function get_class;
+use function is_array;
+use function is_string;
 use function Sabre\Event\coroutine;
+use function strlen;
+
+use const EXIT_FAILURE;
+use const SIGCHLD;
+use const STDERR;
+use const STDIN;
+use const STDOUT;
 
 /**
  * Based on https://github.com/felixfbecker/php-language-server/blob/master/bin/php-language-server.php
@@ -257,14 +269,14 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
                  * @param int|null $pid
                  * @return void
                  */
-                function ($signo, $status = null, $pid = null) use (&$got_signal) {
+                static function ($signo, $status = null, $pid = null) use (&$got_signal) {
                     $got_signal = true;
                     Request::childSignalHandler($signo, $status, $pid);
                 }
             );
         }
 
-        $make_language_server = function (ProtocolStreamReader $in, ProtocolStreamWriter $out) use ($code_base, $file_path_lister) : LanguageServer {
+        $make_language_server = static function (ProtocolStreamReader $in, ProtocolStreamWriter $out) use ($code_base, $file_path_lister) : LanguageServer {
             return new LanguageServer(
                 $in,
                 $out,
@@ -577,7 +589,7 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
         }
 
         // TODO: check if $path_to_analyze can be analyzed first.
-        $sockets = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+        $sockets = stream_socket_pair(\STREAM_PF_UNIX, \STREAM_SOCK_STREAM, \STREAM_IPPROTO_IP);
         if (!$sockets) {
             error_log("unable to create stream socket pair");
             exit(EXIT_FAILURE);

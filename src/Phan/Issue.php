@@ -583,7 +583,7 @@ class Issue
         string $template
     ) : string {
         /** @param array<int,string> $matches */
-        return preg_replace_callback('/{([A-Z_]+)}/', function (array $matches) use ($template): string {
+        return preg_replace_callback('/{([A-Z_]+)}/', static function (array $matches) use ($template): string {
             $key = $matches[1];
             $replacement_exists = \array_key_exists($key, self::UNCOLORED_FORMAT_STRING_FOR_TEMPLATE);
             if (!$replacement_exists) {
@@ -3939,14 +3939,14 @@ class Issue
         }
         // If this issue type has been suppressed in
         // the config, ignore it
-        if (in_array($issue_type, Config::getValue('suppress_issue_types') ?? [])) {
+        if (\in_array($issue_type, Config::getValue('suppress_issue_types') ?? [])) {
             return true;
         }
         // If a white-list of allowed issue types is defined,
         // only emit issues on the white-list
         $whitelist_issue_types = Config::getValue('whitelist_issue_types') ?? [];
-        if (count($whitelist_issue_types) > 0 &&
-            !in_array($issue_type, $whitelist_issue_types)) {
+        if (\count($whitelist_issue_types) > 0 &&
+            !\in_array($issue_type, $whitelist_issue_types)) {
             return true;
         }
 

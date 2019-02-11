@@ -5,6 +5,9 @@ namespace Phan\Language\Element;
 use Phan\Language\Element\Comment\Builder;
 use Phan\Language\UnionType;
 
+use function count;
+use function is_string;
+
 /**
  * APIs for generating markup (markdown) description of elements
  *
@@ -259,7 +262,7 @@ class MarkupDescription
         if (count($lines) === 0) {
             return [];
         }
-        $min_whitespace = PHP_INT_MAX;
+        $min_whitespace = \PHP_INT_MAX;
         foreach ($lines as $line) {
             if ($line === '') {
                 continue;
