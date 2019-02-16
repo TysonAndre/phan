@@ -80,6 +80,9 @@
         <testsuite name="PHP73Test">
             <file>tests/Phan/PHP73Test.php</file>
         </testsuite>
+        <testsuite name="All">
+            <directory>tests/Phan</directory>
+        </testsuite>
     </testsuites>
     <filter>
         <whitelist>
