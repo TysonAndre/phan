@@ -29,7 +29,7 @@ final class CommentTest extends BaseTest
         'read_magic_method_annotations' => true,
     ];
 
-    protected function setUp()
+    protected function setUp() : void
     {
         $this->code_base = new CodeBase([], [], [], [], []);
         foreach (self::OVERRIDES as $key => $value) {
@@ -41,7 +41,7 @@ final class CommentTest extends BaseTest
     /**
      * @suppress PhanTypeMismatchProperty
      */
-    protected function tearDown()
+    protected function tearDown() : void
     {
         $this->code_base = null;
         foreach ($this->old_values as $key => $value) {

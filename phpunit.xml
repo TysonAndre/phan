@@ -89,6 +89,4 @@
             </exclude>
         </whitelist>
     </filter>
-    <!-- Just in case a bug is introduced causing infinite recursion, add a memory limit. -->
-    <ini name="memory_limit" value="1G" />
 </phpunit>

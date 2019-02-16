@@ -13,7 +13,7 @@ $internal_trait_name_list = get_declared_traits();
 $internal_function_name_list = get_defined_functions()['internal'];
 
 use Phan\CodeBase;
-use PHPUnit\Framework\BaseTestListener;
+use PHPUnit\Framework\TestListenerDefaultImplementation;
 use PHPUnit\Framework\Test;
 
 /**
@@ -22,9 +22,11 @@ use PHPUnit\Framework\Test;
  * @suppress PhanUnreferencedClass
  * This class is referenced in phpunit.xml
  */
-final class PhanTestListener extends BaseTestListener
+final class PhanTestListener implements \PHPUnit\Framework\TestListener
 {
-    public function startTest(Test $test)
+    use TestListenerDefaultImplementation;
+
+    public function startTest(Test $test) : void
     {
         if ($test instanceof CodeBaseAwareTestInterface) {
             // We're holding a static reference to the
@@ -55,7 +57,7 @@ final class PhanTestListener extends BaseTestListener
     /**
      * @param float $time @phan-unused-param
      */
-    public function endTest(Test $test, $time)
+    public function endTest(Test $test, $time) : void
     {
         if ($test instanceof CodeBaseAwareTestInterface) {
             $test->setCodeBase(null);

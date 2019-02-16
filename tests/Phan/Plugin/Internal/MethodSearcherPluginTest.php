@@ -46,7 +46,7 @@ final class MethodSearcherPluginTest extends BaseTest
         ],
     ];
 
-    protected function setUp()
+    protected function setUp() : void
     {
         // Deliberately not calling parent::setUp()
         global $internal_class_name_list;

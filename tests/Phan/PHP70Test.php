@@ -19,7 +19,7 @@ class PHP70Test extends AbstractPhanFileTest
         ],
     ];
 
-    public function setUp()
+    public function setUp() : void
     {
         parent::setUp();
         foreach (self::OVERRIDES as $key => $value) {

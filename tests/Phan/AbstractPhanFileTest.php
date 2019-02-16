@@ -42,7 +42,7 @@ abstract class AbstractPhanFileTest extends BaseTest implements CodeBaseAwareTes
     /**
      * @return void
      */
-    public static function setUpBeforeClass()
+    public static function setUpBeforeClass() : void
     {
         parent::setUpBeforeClass();
         // Reset the config file
@@ -54,7 +54,7 @@ abstract class AbstractPhanFileTest extends BaseTest implements CodeBaseAwareTes
     /**
      * @return void
      */
-    public static function tearDownAfterClass()
+    public static function tearDownAfterClass() : void
     {
         parent::tearDownAfterClass();
         // Reset the config file
@@ -68,7 +68,7 @@ abstract class AbstractPhanFileTest extends BaseTest implements CodeBaseAwareTes
      *
      * @return void
      */
-    public function setUp()
+    public function setUp() : void
     {
         parent::setUp();
 
@@ -79,7 +79,7 @@ abstract class AbstractPhanFileTest extends BaseTest implements CodeBaseAwareTes
      * Reset any changes we made to our global state
      * @return void
      */
-    public function tearDown()
+    public function tearDown() : void
     {
         parent::tearDown();
 

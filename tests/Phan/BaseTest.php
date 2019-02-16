@@ -15,10 +15,10 @@ abstract class BaseTest extends TestCase
      * @return void
      * @suppress PhanAccessMethodInternal
      */
-    public static function setUpBeforeClass()
+    public static function setUpBeforeClass() : void
     {
         parent::setUpBeforeClass();
-        ini_set('memory_limit', '1G');
+        ini_set('memory_limit', '2G');
         chdir(dirname(__DIR__, 2));
         Config::reset();
     }

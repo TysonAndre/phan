@@ -14,7 +14,7 @@ class PHP72Test extends AbstractPhanFileTest
         'target_php_version' => '7.2',
     ];
 
-    public function setUp()
+    public function setUp() : void
     {
         parent::setUp();
         foreach (self::OVERRIDES as $key => $value) {
