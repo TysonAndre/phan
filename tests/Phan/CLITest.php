@@ -44,6 +44,9 @@ final class CLITest extends BaseTest
         $this->assertSame($expected_message, CLI::getFlagSuggestionString($flag));
     }
 
+    /**
+     * @return array<int,array{0:string,1:string}>
+     */
     public function getFlagSuggestionStringProvider() : array
     {
         $wrap_suggestion = static function (string $text) : string {
@@ -68,13 +71,17 @@ final class CLITest extends BaseTest
     /**
      * @param array<string,mixed> $expected_changed_options
      * @param array<string,mixed> $opts
+     * @param array<string,mixed> $extra
      * @throws ExitException
      * @dataProvider setsConfigOptionsProvider
      */
     public function testSetsConfigOptions(array $expected_changed_options, array $opts, array $extra = [])
     {
-        $opts = array_merge(['project-root-directory' => dirname(__DIR__) . '/misc/config/'], $opts);
-        $expected_changed_options = array_merge(['directory_list' => ['src']], $expected_changed_options);
+        $opts = $opts + ['project-root-directory' => dirname(__DIR__) . '/misc/config/'];
+        $expected_changed_options = $expected_changed_options + ['directory_list' => ['src']];
+        if (!extension_loaded('pcntl')) {
+            $expected_changed_options = $expected_changed_options + ['language_server_use_pcntl_fallback' => true];
+        }
         $cli = CLI::fromRawValues($opts, []);
         $changed = [];
         foreach (Config::DEFAULT_CONFIGURATION as $key => $value) {
@@ -87,7 +94,7 @@ final class CLITest extends BaseTest
         ksort($expected_changed_options);
         $this->assertSame($expected_changed_options, $changed);
 
-        $this->assertSame([], $cli->getFileList());
+        $this->assertSame(['src' . DIRECTORY_SEPARATOR . 'empty.php'], $cli->getFileList());
 
         $printer_class = $extra['printer_class'] ?? null;
         unset($extra['printer_class']);
@@ -97,6 +104,9 @@ final class CLITest extends BaseTest
         $this->assertSame($extra, []);
     }
 
+    /**
+     * @return array<int,array{0:array,1:array,2?:array}>
+     */
     public function setsConfigOptionsProvider() : array
     {
         return [
@@ -113,6 +123,12 @@ final class CLITest extends BaseTest
                     'strict_return_checking' => true,
                 ],
                 ['S' => false],
+            ],
+            [
+                [
+                    'exclude_analysis_directory_list' => ['src/b.php','src/a.php'],
+                ],
+                ['3' => 'src/b.php,src/a.php'],
             ],
             [
                 ['include_analysis_file_list' => ['src/a.php', 'src/b.php']],
@@ -173,6 +189,7 @@ final class CLITest extends BaseTest
     }
 
     /**
+     * @param array<string,mixed> $opts
      * @dataProvider versionOptProvider
      */
     public function testVersionOpt(array $opts)
@@ -190,6 +207,7 @@ final class CLITest extends BaseTest
         $this->assertSame(sprintf("Phan %s\n", CLI::PHAN_VERSION), $stdout);
     }
 
+    /** @return array<int,array> */
     public function versionOptProvider() : array
     {
         return [

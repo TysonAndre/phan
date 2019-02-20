@@ -32,7 +32,7 @@ final class ClosureReturnTypeOverridePlugin extends PluginV2 implements
 
     /**
      * @param Node|int|string|float|null $arg_array_node
-     * @return ?array
+     * @return ?array<int,Node|int|string|float>
      */
     private static function extractArrayArgs($arg_array_node)
     {
@@ -146,6 +146,9 @@ final class ClosureReturnTypeOverridePlugin extends PluginV2 implements
             }
             return $closure_types;
         };
+        /**
+         * @param array<int,Node|int|float|string> $args
+         */
         $from_closure_callback = static function (
             CodeBase $code_base,
             Context $context,

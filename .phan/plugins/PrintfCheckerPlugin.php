@@ -178,6 +178,9 @@ class PrintfCheckerPlugin extends PluginV2 implements AnalyzeFunctionCallCapabil
     public function getReturnTypeOverrides(CodeBase $unused_code_base) : array
     {
         $string_union_type = StringType::instance(false)->asUnionType();
+        /**
+         * @param array<int,Node|string|int|float> $args the nodes for the arguments to the invocation
+         */
         $sprintf_handler = static function (
             CodeBase $code_base,
             Context $context,
@@ -187,35 +190,45 @@ class PrintfCheckerPlugin extends PluginV2 implements AnalyzeFunctionCallCapabil
             if (count($args) < 1) {
                 return FalseType::instance(false)->asUnionType();
             }
-            $format_string = UnionTypeVisitor::unionTypeFromNode($code_base, $context, $args[0])->asSingleScalarValueOrNullOrSelf();
-            if (!is_string($format_string)) {
-                // Give up
-                return $string_union_type;
-            }
-            $min_width = 0;
-            foreach (ConversionSpec::extractAll($format_string) as $spec_group) {
-                foreach ($spec_group as $spec) {
-                    $min_width += ($spec->width ?: 0);
-                }
-            }
-            if (!LiteralStringType::canRepresentStringOfLength($min_width)) {
-                return $string_union_type;
-            }
-            $sprintf_args = [];
-            for ($i = 1; $i < count($args); $i++) {
-                $arg = UnionTypeVisitor::unionTypeFromNode($code_base, $context, $args[$i])->asSingleScalarValueOrNullOrSelf();
-                if (is_object($arg)) {
+            $union_type = UnionTypeVisitor::unionTypeFromNode($code_base, $context, $args[0]);
+            $format_strings = [];
+            foreach ($union_type->getTypeSet() as $type) {
+                if (!$type instanceof LiteralStringType) {
                     return $string_union_type;
                 }
-                $sprintf_args[] = $arg;
+                $format_strings[] = $type->getValue();
             }
-            $result = with_disabled_phan_error_handler(
-                /** @return string */
-                static function () use ($format_string, $sprintf_args) {
-                    return @vsprintf($format_string, $sprintf_args);
+            if (count($format_strings) === 0) {
+                return $string_union_type;
+            }
+            $result_union_type = UnionType::empty();
+            foreach ($format_strings as $format_string) {
+                $min_width = 0;
+                foreach (ConversionSpec::extractAll($format_string) as $spec_group) {
+                    foreach ($spec_group as $spec) {
+                        $min_width += ($spec->width ?: 0);
+                    }
                 }
-            );
-            return Type::fromObject($result)->asUnionType();
+                if (!LiteralStringType::canRepresentStringOfLength($min_width)) {
+                    return $string_union_type;
+                }
+                $sprintf_args = [];
+                for ($i = 1; $i < count($args); $i++) {
+                    $arg = UnionTypeVisitor::unionTypeFromNode($code_base, $context, $args[$i])->asSingleScalarValueOrNullOrSelf();
+                    if (is_object($arg)) {
+                        return $string_union_type;
+                    }
+                    $sprintf_args[] = $arg;
+                }
+                $result = with_disabled_phan_error_handler(
+                    /** @return string */
+                    static function () use ($format_string, $sprintf_args) {
+                        return @vsprintf($format_string, $sprintf_args);
+                    }
+                );
+                $result_union_type = $result_union_type->withType(Type::fromObject($result));
+            }
+            return $result_union_type;
         };
         return [
             'sprintf'                     => $sprintf_handler,
@@ -230,6 +243,7 @@ class PrintfCheckerPlugin extends PluginV2 implements AnalyzeFunctionCallCapabil
     {
         /**
          * Analyzes a printf-like function with a format directive in the first position.
+         * @param array<int,Node|string|int|float> $args the nodes for the arguments to the invocation
          * @return void
          */
         $printf_callback = function (
@@ -252,6 +266,7 @@ class PrintfCheckerPlugin extends PluginV2 implements AnalyzeFunctionCallCapabil
         };
         /**
          * Analyzes a printf-like function with a format directive in the first position.
+         * @param array<int,Node|string|int|float> $args the nodes for the arguments to the invocation
          * @return void
          */
         $fprintf_callback = function (
@@ -298,6 +313,7 @@ class PrintfCheckerPlugin extends PluginV2 implements AnalyzeFunctionCallCapabil
         };
         /**
          * Analyzes a printf-like function with a format directive in the first position.
+         * @param array<int,Node|string|int|float> $args the nodes for the arguments to the invocation
          * @return void
          */
         $vfprintf_callback = function (
@@ -613,6 +629,9 @@ class PrintfCheckerPlugin extends PluginV2 implements AnalyzeFunctionCallCapabil
         }, $specs)));
     }
 
+    /**
+     * @param array<string,true> $expected_set the types being checked for the ability to weakly cast to
+     */
     private function canWeakCast(UnionType $actual_union_type, array $expected_set) : bool
     {
         if (isset($expected_set['string'])) {

@@ -34,6 +34,7 @@ use Phan\Language\Type\NullType;
 use Phan\Language\Type\StringType;
 use Phan\Language\UnionType;
 use Phan\Library\StringUtil;
+use function strcasecmp;
 
 /**
  * Analyzes assignments.
@@ -707,7 +708,8 @@ class AssignmentVisitor extends AnalysisVisitor
                     $this->code_base,
                     $property_name,
                     $this->context,
-                    false
+                    false,
+                    $node
                 );
             } catch (IssueException $exception) {
                 Issue::maybeEmitInstance(

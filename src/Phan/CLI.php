@@ -54,7 +54,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    const PHAN_VERSION = '1.2.4-dev';
+    const PHAN_VERSION = '1.2.5-dev';
 
     /**
      * List of short flags passed to getopt
@@ -206,7 +206,7 @@ class CLI
         $pruneargv = [];
         foreach ($opts as $opt => $value) {
             foreach ($argv as $key => $chunk) {
-                $regex = '/^' . (isset($opt[1]) ? '--' : '-') . preg_quote($opt, '/') . '/';
+                $regex = '/^' . (isset($opt[1]) ? '--' : '-') . preg_quote((string) $opt, '/') . '/';
 
                 if (in_array($chunk, is_array($value) ? $value : [$value])
                     && $argv[$key - 1][0] == '-'
@@ -353,6 +353,7 @@ class CLI
         $mask = -1;
 
         foreach ($opts as $key => $value) {
+            $key = (string)$key;
             switch ($key) {
                 case 'r':
                 case 'file-list-only':
@@ -932,7 +933,7 @@ $init_help
  -b, --backward-compatibility-checks
   Check for potential PHP 5 -> PHP 7 BC issues
 
- --target-php-version {7.0,7.1,7.2,7.3,native}
+ --target-php-version {7.0,7.1,7.2,7.3,7.4,native}
   The PHP version that the codebase will be checked for compatibility against.
   For best results, the PHP binary used to run Phan should have the same PHP version.
   (Phan relies on Reflection for some param counts
@@ -1436,7 +1437,11 @@ EOB;
                 if ($config_file_name !== false) {
                     throw new UsageException("Could not find a config file at '$config_file_name', but --require-config-exists was set", EXIT_FAILURE, true);
                 } else {
-                    throw new UsageException(sprintf("Could not figure out the path for config file %s, but --require-config-exists was set", StringUtil::encodeValue($this->config_file)), EXIT_FAILURE, true);
+                    $msg = sprintf(
+                        "Could not figure out the path for config file %s, but --require-config-exists was set",
+                        StringUtil::encodeValue($this->config_file)
+                    );
+                    throw new UsageException($msg, EXIT_FAILURE, true);
                 }
             }
             return;

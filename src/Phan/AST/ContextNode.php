@@ -46,9 +46,12 @@ use Phan\Language\Type\StringType;
 use Phan\Language\UnionType;
 use Phan\Library\FileCache;
 use Phan\Library\None;
-
+use function implode;
 use function is_object;
 use function is_string;
+use function strcasecmp;
+use function strpos;
+use function strtolower;
 
 if (!\function_exists('spl_object_id')) {
     require_once __DIR__ . '/../../spl_object_id.php';
@@ -1277,10 +1280,7 @@ class ContextNode
                 $property_name = (string)$property_name;
             }
             if (!\is_string($property_name)) {
-                throw new NodeException(
-                    $node,
-                    "Cannot figure out non-string property name"
-                );
+                throw $this->createExceptionForInvalidPropertyName($node, $is_static);
             }
         }
 
@@ -1353,7 +1353,8 @@ class ContextNode
                 $this->code_base,
                 $property_name,
                 $this->context,
-                $is_static
+                $is_static,
+                $node
             );
 
             if ($property->isDeprecated()) {
@@ -1398,7 +1399,8 @@ class ContextNode
                         $this->code_base,
                         $property_name,
                         $this->context,
-                        $is_static
+                        $is_static,
+                        $node
                     );
                 }
             }
@@ -1419,7 +1421,8 @@ class ContextNode
                     $this->code_base,
                     $property_name,
                     $this->context,
-                    $is_static
+                    $is_static,
+                    $node
                 );
             }
         }
@@ -1456,6 +1459,28 @@ class ContextNode
         throw new NodeException(
             $node,
             "Cannot figure out property from {$this->context}"
+        );
+    }
+
+    /**
+     * @return NodeException|IssueException
+     */
+    private function createExceptionForInvalidPropertyName(Node $node, bool $is_static) : Exception
+    {
+        $property_type = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $node->children['prop']);
+        if ($property_type->canCastToUnionType(StringType::instance(false)->asUnionType())) {
+            // If we know it can be a string, throw a NodeException instead of a specific issue
+            return new NodeException(
+                $node,
+                "Cannot figure out property name"
+            );
+        }
+        return new IssueException(
+            Issue::fromType($is_static ? Issue::TypeInvalidStaticPropertyName : Issue::TypeInvalidPropertyName)(
+                $this->context->getFile(),
+                $node->lineno,
+                [$property_type]
+            )
         );
     }
 
@@ -2043,7 +2068,7 @@ class ContextNode
 
     /**
      * @param int $flags - See self::RESOLVE_*
-     * @return ?array - array if elements could be resolved.
+     * @return ?array<mixed,mixed> - returns an array if elements could be resolved.
      */
     private function getEquivalentPHPArrayElements(Node $node, int $flags)
     {

@@ -184,11 +184,14 @@ class Issue
     const InfiniteRecursion               = 'PhanInfiniteRecursion';
     const TypeComparisonToInvalidClass    = 'PhanTypeComparisonToInvalidClass';
     const TypeComparisonToInvalidClassType = 'PhanTypeComparisonToInvalidClassType';
+    const TypeInvalidPropertyName = 'PhanTypeInvalidPropertyName';
+    const TypeInvalidStaticPropertyName = 'PhanTypeInvalidStaticPropertyName';
 
     // Issue::CATEGORY_ANALYSIS
     const Unanalyzable              = 'PhanUnanalyzable';
     const UnanalyzableInheritance   = 'PhanUnanalyzableInheritance';
     const InvalidConstantFQSEN      = 'PhanInvalidConstantFQSEN';
+    const ReservedConstantName      = 'PhanReservedConstantName';
 
     // Issue::CATEGORY_VARIABLE
     const VariableUseClause         = 'PhanVariableUseClause';
@@ -1080,6 +1083,14 @@ class Issue
                 self::REMEDIATION_B,
                 2002
             ),
+            new Issue(
+                self::ReservedConstantName,
+                self::CATEGORY_ANALYSIS,
+                self::SEVERITY_NORMAL,
+                "'{CONST}' has a reserved keyword in the constant name",
+                self::REMEDIATION_B,
+                2003
+            ),
 
             // Issue::CATEGORY_TYPE
             new Issue(
@@ -1898,6 +1909,22 @@ class Issue
                 "Invalid operator: unary operand of {STRING_LITERAL} is {TYPE} (expected int or string or float)",
                 self::REMEDIATION_B,
                 10099
+            ),
+            new Issue(
+                self::TypeInvalidPropertyName,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,  // Not a runtime Error for an instance property
+                "Saw a dynamic usage of an instance property with a name of type {TYPE} but expected the name to be a string",
+                self::REMEDIATION_B,
+                10102
+            ),
+            new Issue(
+                self::TypeInvalidStaticPropertyName,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_CRITICAL,  // Likely to be an Error for a static property
+                "Saw a dynamic usage of a static property with a name of type {TYPE} but expected the name to be a string",
+                self::REMEDIATION_B,
+                10103
             ),
             // Issue::CATEGORY_VARIABLE
             new Issue(
@@ -3550,10 +3577,13 @@ class Issue
         return $error_map;
     }
 
-    private static function getNextTypeId(array $error_list, int $invalid_type_id) : int
+    /**
+     * @param array<int,Issue> $issue_list the declared Issue types
+     */
+    private static function getNextTypeId(array $issue_list, int $invalid_type_id) : int
     {
         for ($id = $invalid_type_id + 1; true; $id++) {
-            foreach ($error_list as $error) {
+            foreach ($issue_list as $error) {
                 if ($error->getTypeId() === $id) {
                     continue 2;
                 }
@@ -3926,6 +3956,9 @@ class Issue
         );
     }
 
+    /**
+     * @param array<int,mixed> $parameters
+     */
     private static function shouldSuppressIssue(
         CodeBase $code_base,
         Context $context,

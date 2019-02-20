@@ -119,7 +119,11 @@ class UnionType implements Serializable
         }
     }
 
-    /** @return UnionType */
+    /**
+     * @param array<int,Type> $type_list
+     * @return UnionType
+     * @suppress PhanPossiblyNonClassMethodCall
+     */
     protected static function ofUniqueTypes(array $type_list)
     {
         $n = \count($type_list);
@@ -178,6 +182,7 @@ class UnionType implements Serializable
         $union_type = $memoize_map[$fully_qualified_string] ?? null;
 
         if (\is_null($union_type)) {
+            /** Convert the `|` separated types in the union type to a list of types */
             $types = \array_map(static function (string $type_name) : Type {
                 // @phan-suppress-next-line PhanThrowTypeAbsentForCall FIXME: Standardize on InvalidArgumentException
                 return Type::fromFullyQualifiedString($type_name);
@@ -651,7 +656,10 @@ class UnionType implements Serializable
 
         return \array_reduce(
             $this->type_set,
-            /** @return array<string,UnionType> */
+            /**
+             * @param array<string,UnionType> $map
+             * @return array<string,UnionType>
+             */
             static function (array $map, Type $type) use ($code_base) {
                 return \array_merge(
                     $type->getTemplateParameterTypeMap($code_base),
@@ -1395,7 +1403,7 @@ class UnionType implements Serializable
             return false;
         }
         foreach ($this->type_set as $type) {
-            if (!$type->asExpandedTypes($code_base)->canStrictCastToUnionType($other)) {
+            if (!$type->asUnionType()->canStrictCastToUnionType($code_base, $other)) {
                 return false;
             }
         }
@@ -1681,7 +1689,7 @@ class UnionType implements Serializable
      *
      * @suppress PhanUnreferencedPublicMethod may be used elsewhere in the future
      */
-    public function canStrictCastToUnionType(UnionType $target) : bool
+    public function canStrictCastToUnionType(CodeBase $code_base, UnionType $target) : bool
     {
         // Fast-track most common cases first
         $type_set = $this->type_set;
@@ -1716,7 +1724,7 @@ class UnionType implements Serializable
         // any.
         $matches = true;
         foreach ($type_set as $source_type) {
-            if (!$source_type->canCastToAnyTypeInSet($target_type_set)) {
+            if (!$source_type->asExpandedTypes($code_base)->canCastToUnionType($target)) {
                 $matches = false;
                 break;
             }
@@ -1729,7 +1737,7 @@ class UnionType implements Serializable
         if (\in_array($null_type, $target_type_set, true)) {
             foreach ($type_set as $source_type) {
                 // Only redo this check for the nullable types, we already failed the checks for non-nullable types.
-                if (!$source_type->withIsNullable(false)->canCastToAnyTypeInSet($target_type_set)) {
+                if (!$source_type->withIsNullable(false)->asExpandedTypes($code_base)->canCastToUnionType($target)) {
                     return false;
                 }
             }
@@ -2531,7 +2539,7 @@ class UnionType implements Serializable
     {
         return $this->asMappedUnionType(static function (Type $type) use ($closure) : Type {
             if ($type instanceof ArrayShapeType) {
-                $field_types = array_map($closure, $type->getFieldTypes());
+                $field_types = \array_map($closure, $type->getFieldTypes());
                 $result = ArrayShapeType::fromFieldTypes($field_types, $type->getIsNullable());
                 return $result;
             } elseif ($type instanceof GenericArrayType) {
@@ -2797,6 +2805,13 @@ class UnionType implements Serializable
         if (!$php73_map) {
             $php73_map = self::computeLatestFunctionSignatureMap();
         }
+        if ($target_php_version >= 70400) {
+            static $php74_map = [];
+            if (!$php74_map) {
+                $php74_map = self::computePHP74FunctionSignatureMap($php73_map);
+            }
+            return $php74_map;
+        }
         if ($target_php_version >= 70300) {
             return $php73_map;
         }
@@ -2829,6 +2844,9 @@ class UnionType implements Serializable
         return $php56_map;
     }
 
+    /**
+     * @return array<string,string[]>
+     */
     private static function computeLatestFunctionSignatureMap() : array
     {
         $map = [];
@@ -2837,6 +2855,16 @@ class UnionType implements Serializable
             $map[\strtolower($key)] = $value;
         }
         return $map;
+    }
+
+    /**
+     * @param array<string,array<int|string,string>> $php73_map
+     * @return array<string,array<int|string,string>>
+     */
+    private static function computePHP74FunctionSignatureMap(array $php73_map) : array
+    {
+        $delta_raw = require(__DIR__ . '/Internal/FunctionSignatureMap_php74_delta.php');
+        return self::applyDeltaToGetNewerSignatures($php73_map, $delta_raw);
     }
 
     /**

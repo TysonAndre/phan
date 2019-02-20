@@ -564,15 +564,18 @@ final class ConfigPluginSet extends PluginV2 implements
     }
 
     /**
-     * @param Closure(CodeBase, Context, FunctionInterface, array):void $a
-     * @param ?Closure(CodeBase, Context, FunctionInterface, array):void $b
-     * @return Closure(CodeBase, Context, FunctionInterface, array):void $b
+     * @param Closure(CodeBase, Context, FunctionInterface, array<int,Node|mixed>):void $a
+     * @param ?Closure(CodeBase, Context, FunctionInterface, array<int,Node|mixed>):void $b
+     * @return Closure(CodeBase, Context, FunctionInterface, array<int,Node|mixed>):void $b
      */
     public static function mergeAnalyzeFunctionCallClosures(Closure $a, Closure $b = null)
     {
         if (!$b) {
             return $a;
         }
+        /**
+         * @param array<int,Node|mixed> $args
+         */
         return static function (CodeBase $code_base, Context $context, FunctionInterface $func, array $args) use ($a, $b) {
             $a($code_base, $context, $func, $args);
             $b($code_base, $context, $func, $args);
@@ -638,10 +641,13 @@ final class ConfigPluginSet extends PluginV2 implements
             throw new AssertionError("Invalid kind for node");
         }
 
-        $closure = (static function (CodeBase $code_base, Context $context, Node $node, array $parent_node_list = []) {
+        /**
+         * @param array<int,Node|mixed> $parent_node_list
+         */
+        $closure = static function (CodeBase $code_base, Context $context, Node $node, array $parent_node_list = []) {
             $visitor = new NodeSelectionVisitor($code_base, $context);
             $visitor->visitCommonImplementation($node, $parent_node_list);
-        });
+        };
 
         $this->addNodeSelectionClosureForKind($node->kind, $closure);
     }
@@ -698,6 +704,7 @@ final class ConfigPluginSet extends PluginV2 implements
         $old_plugin_for_kind = $this->post_analyze_node_plugin_set[$kind] ?? null;
         if ($old_plugin_for_kind) {
             /**
+             * @param array<int,Node> $parent_node_list
              * @suppress PhanInfiniteRecursion the old plugin is referring to a different closure
              */
             $this->post_analyze_node_plugin_set[$kind] = static function (CodeBase $code_base, Context $context, Node $node, array $parent_node_list = []) use ($old_plugin_for_kind, $new_plugin) {
@@ -842,9 +849,9 @@ final class ConfigPluginSet extends PluginV2 implements
     }
 
     /**
-     * @return array<int,Closure>
+     * @param array<int,PluginV2> $plugin_set
+     * @return array<int,Closure(CodeBase,Context,Node,array<int,Node>=):void>
      *         Returned value maps ast\Node->kind to [function(CodeBase $code_base, Context $context, Node $node, array<int,Node> $parent_node_list = []): void]
-     * @phan-return array<int,Closure(CodeBase,Context,Node,array<int,Node>=):void>
      */
     private static function filterPreAnalysisPlugins(array $plugin_set) : array
     {
@@ -914,6 +921,7 @@ final class ConfigPluginSet extends PluginV2 implements
             /**
              * Create an instance of $plugin_analysis_class and run the visit*() method corresponding to $node->kind.
              *
+             * @param array<int,Node> $parent_node_list
              * @phan-closure-scope PluginAwarePreAnalysisVisitor
              */
             return (static function (CodeBase $code_base, Context $context, Node $node, array $parent_node_list = []) {
@@ -928,6 +936,7 @@ final class ConfigPluginSet extends PluginV2 implements
              * Create an instance of $plugin_analysis_class and run the visit*() method corresponding to $node->kind.
              *
              * @phan-closure-scope PluginAwarePreAnalysisVisitor
+             * @param array<int,Node> $unused_parent_node_list
              */
             return (static function (CodeBase $code_base, Context $context, Node $node, array $unused_parent_node_list = []) {
                 $visitor = new static($code_base, $context);
@@ -937,8 +946,8 @@ final class ConfigPluginSet extends PluginV2 implements
         }
     }
 
-
     /**
+     * @param array<int,PluginV2> $plugin_set
      * @return array<int,\Closure> - [function(CodeBase $code_base, Context $context, Node $node, array<int,Node> $parent_node_list = []): void]
      */
     private static function filterPostAnalysisPlugins(array $plugin_set) : array
@@ -953,6 +962,9 @@ final class ConfigPluginSet extends PluginV2 implements
          * @param array<int,Closure> $closure_list
          */
         return $closures_for_kind->getFlattenedClosures(static function (array $closure_list) : \Closure {
+            /**
+             * @param array<int,Node> $parent_node_list
+             */
             return static function (CodeBase $code_base, Context $context, Node $node, array $parent_node_list = []) use ($closure_list) {
                 foreach ($closure_list as $closure) {
                     $closure($code_base, $context, $node, $parent_node_list);
@@ -1015,6 +1027,7 @@ final class ConfigPluginSet extends PluginV2 implements
              * Create an instance of $plugin_analysis_class and run the visit*() method corresponding to $node->kind.
              *
              * @phan-closure-scope PluginAwarePostAnalysisVisitor
+             * @param array<int,Node> $parent_node_list
              */
             return (static function (CodeBase $code_base, Context $context, Node $node, array $parent_node_list = []) {
                 $visitor = new static($code_base, $context);
@@ -1028,6 +1041,7 @@ final class ConfigPluginSet extends PluginV2 implements
              * Create an instance of $plugin_analysis_class and run the visit*() method corresponding to $node->kind.
              *
              * @phan-closure-scope PluginAwarePostAnalysisVisitor
+             * @param array<int,Node> $unused_parent_node_list
              */
             return (static function (CodeBase $code_base, Context $context, Node $node, array $unused_parent_node_list = []) {
                 $visitor = new static($code_base, $context);
@@ -1037,6 +1051,13 @@ final class ConfigPluginSet extends PluginV2 implements
         }
     }
 
+    /**
+     * @template T
+     * @param array<int,PluginV2> $plugin_set
+     * @param class-string<T> $interface_name
+     * @return array<int,T>
+     * @suppress PhanPartialTypeMismatchReturn unable to infer this
+     */
     private static function filterByClass(array $plugin_set, string $interface_name) : array
     {
         $result = [];

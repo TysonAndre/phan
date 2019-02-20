@@ -450,7 +450,7 @@ class ParseVisitor extends ScopeVisitor
                 throw new AssertionError(
                     'Property name must be a string. '
                     . 'Got '
-                    . print_r($property_name, true)
+                    . \print_r($property_name, true)
                     . ' at '
                     . $context_for_property
                 );
@@ -731,7 +731,7 @@ class ParseVisitor extends ScopeVisitor
         do {
             // @phan-suppress-next-line PhanThrowTypeAbsentForCall this is valid
             $function_fqsen = FullyQualifiedFunctionName::fromFullyQualifiedString(
-                rtrim($context->getNamespace(), '\\') . '\\' . $function_name
+                \rtrim($context->getNamespace(), '\\') . '\\' . $function_name
             )->withAlternateId($alternate_id++);
         } while ($code_base->hasFunctionWithFQSEN($function_fqsen));
 
@@ -1116,7 +1116,7 @@ class ParseVisitor extends ScopeVisitor
                 $temp = $temp->children['name'];
                 $depth++;
             }
-            $dollars = str_repeat('$', $depth);
+            $dollars = \str_repeat('$', $depth);
             $cache_entry = FileCache::getOrReadEntry($this->context->getFile());
             $line = $cache_entry->getLine($node->lineno);
             if (!\is_string($line)) {
@@ -1200,6 +1200,22 @@ class ParseVisitor extends ScopeVisitor
         bool $use_future_union_type,
         bool $is_fully_qualified = false
     ) {
+        $i = \strrpos($name, '\\');
+        if ($i !== false) {
+            $name_fragment = (string)\substr($name, $i + 1);
+        } else {
+            $name_fragment = $name;
+        }
+        if (\in_array(\strtolower($name_fragment), ['true', 'false', 'null'], true)) {
+            Issue::maybeEmit(
+                $code_base,
+                $context,
+                Issue::ReservedConstantName,
+                $lineno,
+                $name
+            );
+            return;
+        }
         try {
             // Give it a fully-qualified name
             if ($is_fully_qualified) {

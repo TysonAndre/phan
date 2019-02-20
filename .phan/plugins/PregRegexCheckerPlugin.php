@@ -36,7 +36,7 @@ class PregRegexCheckerPlugin extends PluginV2 implements AnalyzeFunctionCallCapa
     {
         /**
          * @suppress PhanParamSuspiciousOrder 100% deliberate use of varying regex and constant $subject for preg_match
-         * @return ?array
+         * @return ?array<string,mixed>
          */
         $err = with_disabled_phan_error_handler(static function () use ($pattern) {
             $old_error_reporting = error_reporting();
@@ -104,6 +104,7 @@ class PregRegexCheckerPlugin extends PluginV2 implements AnalyzeFunctionCallCapa
 
     /**
      * @param array<int,string> $patterns 1 or more regex patterns
+     * @return array<string|int,true> the set of keys in the pattern
      * @throws InvalidArgumentException if any regex could not be parsed by the heuristics
      */
     private function computePatternKeys(array $patterns) : array
@@ -179,6 +180,7 @@ class PregRegexCheckerPlugin extends PluginV2 implements AnalyzeFunctionCallCapa
     public function getAnalyzeFunctionCallClosures(CodeBase $code_base) : array
     {
         /**
+         * @param array<int,Node|string|int|float> $args the nodes for the arguments to the invocation
          * @return void
          */
         $preg_pattern_callback = function (
@@ -246,6 +248,7 @@ class PregRegexCheckerPlugin extends PluginV2 implements AnalyzeFunctionCallCapa
         };
 
         /**
+         * @param array<int,Node|string|int|float> $args the nodes for the arguments to the invocation
          * @return void
          */
         $preg_replace_callback_array_callback = function (

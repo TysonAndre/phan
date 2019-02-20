@@ -17,10 +17,15 @@ use Microsoft\PhpParser\Parser;
 use Microsoft\PhpParser\Token;
 use Microsoft\PhpParser\TokenKind;
 use RuntimeException;
+use function array_merge;
+use function class_exists;
 use function count;
 use function get_class;
+use function implode;
 use function is_array;
+use function sprintf;
 use function substr;
+use function var_export;
 use const FILTER_FLAG_ALLOW_HEX;
 use const FILTER_FLAG_ALLOW_OCTAL;
 use const FILTER_VALIDATE_FLOAT;
@@ -192,6 +197,7 @@ class TolerantASTConverter
     }
 
     /**
+     * @param null|Diagnostic[] &$errors @phan-output-reference (TODO: param-out)
      * @return PhpParser\Node
      */
     public static function phpParserParse(string $file_contents, array &$errors = null) : PhpParser\Node
@@ -201,7 +207,6 @@ class TolerantASTConverter
         $errors = DiagnosticsProvider::getDiagnostics($result);
         return $result;
     }
-
 
     /**
      * Visible for testing
@@ -644,7 +649,10 @@ class TolerantASTConverter
                     static::getEndLine($n) ?: $start_line
                 );
             },
-            'Microsoft\PhpParser\Node\Expression\AnonymousFunctionCreationExpression' => static function (PhpParser\Node\Expression\AnonymousFunctionCreationExpression $n, int $start_line) : ast\Node {
+            'Microsoft\PhpParser\Node\Expression\AnonymousFunctionCreationExpression' => static function (
+                PhpParser\Node\Expression\AnonymousFunctionCreationExpression $n,
+                int $start_line
+            ) : ast\Node {
                 $ast_return_type = static::phpParserTypeToAstNode($n->returnType, static::getEndLine($n->returnType) ?: $start_line);
                 if (($ast_return_type->children['name'] ?? null) === '') {
                     $ast_return_type = null;
@@ -1362,6 +1370,7 @@ class TolerantASTConverter
                     $start_line
                 );
             },
+            /** @return array{} */
             'Microsoft\PhpParser\Node\Statement\EmptyStatement' => static function (PhpParser\Node\Statement\EmptyStatement $unused_node, int $unused_start_line) : array {
                 // `;;`
                 return [];
@@ -1622,6 +1631,9 @@ class TolerantASTConverter
         return new ast\Node(ast\AST_CATCH_LIST, 0, $children, $children[0]->lineno ?? $lineno);
     }
 
+    /**
+     * @param array<int,Token|PhpParser\Node> $types
+     */
     private static function phpParserNameListToAstNameList(array $types, int $line) : ast\Node
     {
         $ast_types = [];
@@ -2195,6 +2207,7 @@ class TolerantASTConverter
     /**
      * @param ?int $type
      * @param ?string $prefix
+     * @param array<int,ast\Node> $uses
      */
     private static function astStmtGroupUse($type, $prefix, array $uses, int $line) : ast\Node
     {
@@ -2822,8 +2835,7 @@ class TolerantASTConverter
     }
 
     /**
-     * NOTE: this may be removed in the future.
-     *
+     * @param array<mixed,ast\Node|string|int|float|null> $children
      * @return ast\Node
      */
     private static function newAstDecl(int $kind, int $flags, array $children, int $lineno, string $doc_comment = null, string $name = null, int $end_lineno = 0, int $decl_id = -1) : ast\Node

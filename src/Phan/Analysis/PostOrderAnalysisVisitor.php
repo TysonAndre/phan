@@ -44,6 +44,7 @@ use Phan\Language\Type\NullType;
 use Phan\Language\Type\StringType;
 use Phan\Language\Type\VoidType;
 use Phan\Language\UnionType;
+use function implode;
 
 /**
  * PostOrderAnalysisVisitor is where we do the post-order part of the analysis
@@ -2604,6 +2605,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     }
 
     /**
+     * @param array<int,Node> $parent_node_list
      * @return bool true if the union type should skip analysis due to being the left-hand side expression of an assignment
      * We skip checks for $x['key'] being valid in expressions such as `$x['key']['key2']['key3'] = 'value';`
      * because those expressions will create $x['key'] as a side effect.
@@ -2885,6 +2887,9 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 (string)$method->getFileRef()->getLineNumberStart()
             );
         } else {
+            if (Clazz::isAccessToElementOfThis($node)) {
+                return;
+            }
             $has_call_magic_method = !$method->isStatic()
                 && $method->getDefiningClass($this->code_base)->hasMethodWithName($this->code_base, '__call');
 
@@ -3059,6 +3064,8 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     }
 
     /**
+     * @param array<int,Node|string|int|float> $argument_list the arguments of the invocation, containing the pass by reference argument
+     *
      * @param Parameter $parameter the parameter types inferred from combination of real and union type
      *
      * @param ?Parameter $real_parameter the real parameter type from the type signature
@@ -3160,6 +3167,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
 
     /**
      * @param Property|Variable $variable
+     * @param array<int,Node|string|int|float> $argument_list
      */
     private function analyzeWriteOnlyReference(
         CodeBase $code_base,

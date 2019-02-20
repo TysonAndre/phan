@@ -2,6 +2,7 @@
 
 use Phan\CLI;
 use Phan\CodeBase;
+use Phan\Config;
 
 // Listen for all errors
 error_reporting(E_ALL);
@@ -14,14 +15,19 @@ define('CLASS_DIR', __DIR__ . '/../');
 set_include_path(get_include_path() . PATH_SEPARATOR . CLASS_DIR);
 
 // Use the composer autoloader
+$found_autoloader = false;
 foreach ([
-    __DIR__ . '/../../vendor/autoload.php',          // autoloader is in this project
-    __DIR__ . '/../../../../../vendor/autoload.php', // autoloader is in parent project
+    dirname(__DIR__, 2) . '/vendor/autoload.php', // autoloader is in this project (we're in src/Phan and want vendor/autoload.php)
+    dirname(__DIR__, 5) . '/vendor/autoload.php', // autoloader is in parent project (we're in vendor/phan/phan/src/Phan/Bootstrap.php and want autoload.php
     ] as $file) {
     if (file_exists($file)) {
         require_once($file);
+        $found_autoloader = true;
         break;
     }
+}
+if (!$found_autoloader) {
+    fwrite(STDERR, "Could not locate the autoloader\n");
 }
 
 define('EXIT_SUCCESS', 0);
@@ -123,11 +129,29 @@ function phan_error_handler($errno, $errstr, $errfile, $errline)
     $frames = debug_backtrace();
     if (isset($frames[1])) {
         fwrite(STDERR, 'More details:' . PHP_EOL);
+        if (class_exists(Config::class, false)) {
+            $max_frame_length = max(100, Config::getValue('debug_max_frame_length'));
+        } else {
+            $max_frame_length = 1000;
+        }
+        $truncated = false;
         foreach ($frames as $i => $frame) {
             if ($i == 0) {
                 continue;
             }
-            fprintf(STDERR, '#%d: %s' . PHP_EOL, $i, \Phan\Debug\Frame::frameToString($frame));
+            $frame_details = \Phan\Debug\Frame::frameToString($frame);
+            if (strlen($frame_details) > $max_frame_length) {
+                $truncated = true;
+                if (function_exists('mb_substr')) {
+                    $frame_details = mb_substr($frame_details, 0, $max_frame_length) . '...';
+                } else {
+                    $frame_details = substr($frame_details, 0, $max_frame_length) . '...';
+                }
+            }
+            fprintf(STDERR, '#%d: %s' . PHP_EOL, $i, $frame_details);
+        }
+        if ($truncated) {
+            fwrite(STDERR, "(Some long strings (usually JSON of AST Nodes) were truncated. To print more details for some stack frames of this crash, increase the Phan config setting debug_max_frame_length)" . PHP_EOL);
         }
     }
 
@@ -157,8 +181,9 @@ if (extension_loaded('ast')) {
     if (PHP_VERSION_ID >= 70400) {
         if (version_compare($ast_version, '1.0.0') <= 0) {
             fwrite(STDERR, "Phan is being run with php-ast version $ast_version.\n");
-            fwrite(STDERR, "However, when run with PHP 7.4+, Phan requires 1.0.1, which has not been released yet. Older versions of php-ast will crash Phan. 1.0.1-dev can be built from the source available at https://github.com/nikic/php-ast\n");
-            fwrite(STDERR, "Alternately, to run this version of Phan with PHP 7.4 without upgrading php-ast, uninstall/disable php-ast in php.ini then add the CLI option --allow-polyfill-parser (which is noticeably slower)\n");
+            fwrite(STDERR, "However, when run with PHP 7.4+, Phan requires php-ast 1.0.1 or newer. Older versions of php-ast will crash Phan.\n");
+            fwrite(STDERR, "Alternately, to run this version of Phan with PHP 7.4 without upgrading php-ast, uninstall/disable php-ast in php.ini,"
+               . " then add the CLI option --allow-polyfill-parser (which is noticeably slower)\n");
             exit(EXIT_FAILURE);
         }
     }

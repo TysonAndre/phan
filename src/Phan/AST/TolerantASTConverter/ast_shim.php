@@ -20,6 +20,7 @@ declare(strict_types=1);
  * for PHP 7.0-7.3
  *
  * @phan-file-suppress PhanUnreferencedConstant, UnusedPluginFileSuppression - Plugins may reference some of these constants
+ * @phan-file-suppress PhanPluginUnknownArrayPropertyType, PhanPluginUnknownArrayMethodParamType this is a stub
  *
  * @author Tyson Andre
  */
@@ -209,7 +210,7 @@ namespace ast;
 // The parse_file(), parse_code(), get_kind_name(), and kind_uses_flags() are deliberately omitted from this stub.
 // Use Phan\Debug and Phan\AST\Parser instead.
 
-if (!class_exists('\ast\Node')) {
+if (!\class_exists('\ast\Node')) {
     /**
      * This class describes a single node in a PHP AST.
      * @suppress PhanRedefineClassInternal
@@ -246,7 +247,7 @@ if (!class_exists('\ast\Node')) {
     }
 }
 
-if (!class_exists('ast\Metadata')) {
+if (!\class_exists('ast\Metadata')) {
     /**
      * Metadata entry for a single AST kind, as returned by ast\get_metadata().
      * @suppress PhanRedefineClassInternal

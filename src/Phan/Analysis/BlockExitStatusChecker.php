@@ -104,7 +104,7 @@ final class BlockExitStatusChecker extends KindVisitorImplementation
                 $cond_name = $cond->children['name'];
                 if ($cond_name->kind === \ast\AST_NAME) {
                     $cond_name_string = $cond_name->children['name'];
-                    return \is_string($cond_name_string) && strcasecmp($cond_name_string, 'true') === 0;
+                    return \is_string($cond_name_string) && \strcasecmp($cond_name_string, 'true') === 0;
                 }
             }
             return false;
@@ -280,6 +280,9 @@ final class BlockExitStatusChecker extends KindVisitorImplementation
         return $status;
     }
 
+    /**
+     * @param array<mixed,Node|int|string|float> $siblings
+     */
     private function computeStatusOfSwitchCase(Node $case_node, int $index, array $siblings) : int
     {
         $status = $this->visitStmtList($case_node->children['stmts']);

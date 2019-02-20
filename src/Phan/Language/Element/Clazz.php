@@ -2,6 +2,8 @@
 
 namespace Phan\Language\Element;
 
+use ast;
+use ast\Node;
 use Closure;
 use LogicException;
 use Phan\Analysis\AbstractMethodAnalyzer;
@@ -42,6 +44,7 @@ use ReflectionProperty;
 use RuntimeException;
 
 use function count;
+use function is_string;
 
 /**
  * Clazz represents the information Phan knows about a class, trait, or interface,
@@ -957,7 +960,8 @@ class Clazz extends AddressableElement
         CodeBase $code_base,
         string $name,
         Context $context,
-        bool $is_static
+        bool $is_static,
+        Node $node = null
     ) : Property {
 
         // Get the FQSEN of the property we're looking for
@@ -1026,17 +1030,19 @@ class Clazz extends AddressableElement
                     )
                 );
             } elseif ($method->isProtected()) {
-                throw new IssueException(
-                    Issue::fromType(Issue::AccessPropertyProtected)(
-                        $context->getFile(),
-                        $context->getLineNumberStart(),
-                        [
-                            $property ? $property->asPropertyFQSENString() : $property_fqsen,
-                            $method->getContext()->getFile(),
-                            $method->getContext()->getLineNumberStart()
-                        ]
-                    )
-                );
+                if (!self::isAccessToElementOfThis($node)) {
+                    throw new IssueException(
+                        Issue::fromType(Issue::AccessPropertyProtected)(
+                            $context->getFile(),
+                            $context->getLineNumberStart(),
+                            [
+                                $property ? $property->asPropertyFQSENString() : $property_fqsen,
+                                $method->getContext()->getFile(),
+                                $method->getContext()->getLineNumberStart()
+                            ]
+                        )
+                    );
+                }
             }
 
             $property = new Property(
@@ -1064,6 +1070,9 @@ class Clazz extends AddressableElement
                 );
             }
             if ($property->isProtected()) {
+                if (self::isAccessToElementOfThis($node)) {
+                    return $property;
+                }
                 throw new IssueException(
                     Issue::fromType(Issue::AccessPropertyProtected)(
                         $context->getFile(),
@@ -1102,6 +1111,29 @@ class Clazz extends AddressableElement
                 IssueFixSuggester::suggestSimilarProperty($code_base, $context, $this, $name, $is_static)
             )
         );
+    }
+
+    /**
+     * Returns true if this is an access to a property or method of self/static/$this
+     *
+     * @param ?Node $node
+     */
+    public static function isAccessToElementOfThis($node) : bool
+    {
+        if (!($node instanceof Node)) {
+            return false;
+        }
+        $node = $node->children['expr'] ?? $node->children['class'];
+        switch ($node->kind) {
+            case ast\AST_VAR:
+                $name = $node->children['name'];
+                return is_string($name) && $name === 'this';
+            case ast\AST_CONST:
+                $name = $node->children['name']->children['name'] ?? null;
+                return is_string($name) && \strcasecmp($name, 'static') === 0;
+            default:
+                return false;
+        }
     }
 
     /**
@@ -2464,8 +2496,11 @@ class Clazz extends AddressableElement
     ) : int {
         $count = parent::getReferenceCount($code_base);
 
-        // A function that maps a list of elements to the
-        // total reference count for all elements
+        /**
+         * A function that maps a list of elements to the
+         * total reference count for all elements
+         * @param array<string,AddressableElement> $list
+         */
         $list_count = static function (array $list) use ($code_base) : int {
             return \array_reduce($list, static function (
                 int $count,
@@ -2989,10 +3024,7 @@ class Clazz extends AddressableElement
      */
     public function getPropertyMapExcludingDynamicAndMagicProperties(CodeBase $code_base) : array
     {
-        /**
-         * @return array<string,Property>
-         */
-        return $this->memoize(__METHOD__, function () use ($code_base) : array {
+        return $this->memoize(__METHOD__, /** @return array<string,Property> */ function () use ($code_base) : array {
             // TODO: This won't work if a class declares both a real property and a magic property of the same name.
             // Low priority because that is uncommon
             return array_filter(
@@ -3069,6 +3101,7 @@ class Clazz extends AddressableElement
                                 $this->getFQSEN()
                             );
                         }
+                        /** @param array<int,\ast\Node|mixed> $unused_arg_list */
                         $template_type_resolver = static function (array $unused_arg_list) : UnionType {
                             return MixedType::instance(false)->asUnionType();
                         };

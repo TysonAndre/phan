@@ -1,7 +1,39 @@
 Phan NEWS
 
-?? ??? 2019, Phan 1.2.4 (dev)
+?? ??? 2019, Phan 1.2.5 (dev)
 -----------------------
+
+18 Feb 2019, Phan 1.2.4
+-----------------------
+
+New features(Analysis):
++ Inherit more specific phpdoc template types even when there are real types in the signature. (#2447)
+  e.g. inherit `@param MyClass<T>` and `@return MyClass<U>` from the
+  ancestor class of `function someMethod(MyClass $x) : MyClass {}`.
+
+  This is only done when each phpdoc type is compatible with the real signature type.
++ Warn about `@var Type` without a variable name in doc comments of function-likes (#2445)
++ Infer side effects of `array_push` and `array_unshift` on complex expressions such as properties. (#2365)
++ Warn when a non-string is used as a property name for a dynamic property access (#1402)
++ Don't emit `PhanAccessMethodProtected` for `if ($this instanceof OtherClasslike) { $this->protectedMethod(); }` (#2372)
+  (This only applies to uses of the variable `$this`, e.g. in closures or when checking interfaces)
+
+Plugins:
++ Warn about unspecialized array types of elements in UnknownElementTypePlugin. `mixed[]` can be used when absolutely nothing is known about the array's key or value types.
++ Warn about failing to use the return value of `var_export($value, true)` (and `print_r`) in `UseReturnValuePlugin` (#2391)
++ Fix plugin causing `InvalidVariableIssetPlugin` to go into an infinite loop for `isset(self::CONST['offset'])` (#2446)
+
+Maintenance
++ Limit frames of stack traces in crash reports to 1000 bytes of encoded data. (#2444)
++ Support analysis of the upcoming php 7.4 `??=` operator (#2369)
++ Add a `target_php_version` option for PHP 7.4.
+  This only affects inferred function signatures, and does not allow parsing newer syntax.
+
+Bug fixes:
++ Fix a crash seen when parsing return typehint for `Closure` in a different case (e.g. `closure`) (#2438)
++ Fix an issue loading the autoloader multiple times when the `vendor` folder is not lowercase on case-sensitive filesystems (#2440)
++ Fix bug causing template types on methods to not work properly when inherited from a trait method.
++ Catch and warn when declaring a constant that would conflict with built in keywords (true/false/null) and prevent it from affecting inferences. (#1642)
 
 10 Feb 2019, Phan 1.2.3
 -----------------------
