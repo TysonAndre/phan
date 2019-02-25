@@ -7,6 +7,7 @@ use InvalidArgumentException;
 use Phan\Config\Initializer;
 use Phan\Daemon\ExitException;
 use Phan\Exception\UsageException;
+use Phan\Language\Element\Comment\Builder;
 use Phan\Library\StringUtil;
 use Phan\Output\Collector\BufferingCollector;
 use Phan\Output\Filter\CategoryIssueFilter;
@@ -77,6 +78,7 @@ class CLI
         'daemonize-tcp-port:',
         'dead-code-detection',
         'directory:',
+        'disable-cache',
         'disable-plugins',
         'dump-ast',
         'dump-parsed-file-list',
@@ -89,6 +91,7 @@ class CLI
         'file-list-only:',
         'force-polyfill-parser',
         'help',
+        'help-annotations',
         'ignore-undeclared',
         'include-analysis-file-list:',
         'init',
@@ -287,6 +290,16 @@ class CLI
         }
         if (\array_key_exists('h', $opts) || \array_key_exists('help', $opts)) {
             throw new UsageException();  // --help prints help and calls exit(0)
+        }
+        if (\array_key_exists('help-annotations', $opts)) {
+            $result = "See https://github.com/phan/phan/wiki/Annotating-Your-Source-Code for more details." . PHP_EOL . PHP_EOL;
+
+            $result .= "Annotations specific to Phan:" . PHP_EOL;
+            // @phan-suppress-next-line PhanAccessClassConstantInternal
+            foreach (Builder::SUPPORTED_ANNOTATIONS as $key => $_) {
+                $result .= "- " . $key . PHP_EOL;
+            }
+            throw new ExitException($result, EXIT_SUCCESS);
         }
         if (\array_key_exists('v', $opts ?? []) || \array_key_exists('version', $opts ?? [])) {
             printf("Phan %s\n", self::PHAN_VERSION);
@@ -528,6 +541,9 @@ class CLI
                     break;  // handled earlier
                 case 'language-server-hide-category':
                     Config::setValue('language_server_hide_category_of_issues', true);
+                    break;
+                case 'disable-cache':
+                    Config::setValue('cache_polyfill_asts', false);
                     break;
                 case 'disable-plugins':
                     // Slightly faster, e.g. for daemon mode with lowest latency (along with --quick).
@@ -968,6 +984,13 @@ $init_help
   Analyze signatures for methods that are overrides to ensure
   compatibility with what they're overriding.
 
+ --disable-cache
+  Don't cache any ASTs from the polyfill/fallback.
+
+  ASTs from the native parser (php-ast) don't need to be cached.
+
+  This is useful if Phan will be run only once and php-ast is unavailable (e.g. in Travis)
+
  --disable-plugins
   Don't run any plugins. Slightly faster.
 
@@ -1137,6 +1160,8 @@ Extended help:
  --require-config-exists
   Exit immediately with an error code if `.phan/config.php` does not exist.
 
+ --help-annotations
+  Print details on annotations supported by Phan
 EOB;
         }
         exit($exit_code);
@@ -1509,5 +1534,20 @@ EOB;
         } catch (\ParseError $_) {
             // error message may validate with locale and version, don't validate that.
         }
+    }
+
+    /**
+     * Returns a string that can be used to check if dev-master versions changed (approximately).
+     *
+     * This is useful for checking if caches (e.g. of ASTs) should be invalidated.
+     */
+    public static function getDevelopmentVersionId() : string
+    {
+        $news_path = dirname(__DIR__) . '/NEWS.md';
+        $version = self::PHAN_VERSION;
+        if (file_exists($news_path)) {
+            $version .= '-' . filesize($news_path);
+        }
+        return $version;
     }
 }

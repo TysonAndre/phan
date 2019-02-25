@@ -4,6 +4,9 @@ declare(strict_types=1);
 use Phan\Memoize;
 
 define('ORIGINAL_SIGNATURE_PATH', dirname(dirname(__DIR__)) . '/src/Phan/Language/Internal/FunctionSignatureMap.php');
+define('ORIGINAL_FUNCTION_DOCUMENTATION_PATH', dirname(dirname(__DIR__)) . '/src/Phan/Language/Internal/FunctionDocumentationMap.php');
+define('ORIGINAL_CONSTANT_DOCUMENTATION_PATH', dirname(dirname(__DIR__)) . '/src/Phan/Language/Internal/ConstantDocumentationMap.php');
+define('ORIGINAL_CLASS_DOCUMENTATION_PATH', dirname(dirname(__DIR__)) . '/src/Phan/Language/Internal/ClassDocumentationMap.php');
 
 /**
  * Implementations of this can be used to check Phan's function signature map.
@@ -22,15 +25,15 @@ abstract class IncompatibleSignatureDetectorBase
 {
     use Memoize;
 
-    /** @var array<string,string> maps aliases to originals - only set for xml parser */
-    protected $aliases = [];
-
     const FUNCTIONLIKE_BLACKLIST = '@' .
-        '(^___PHPSTORM_HELPERS)|PS_UNRESERVE_PREFIX|' .
+        '(^_*PHPSTORM)|PS_UNRESERVE_PREFIX|' .
         '(^(ereg|expression|getsession|hrtime_|imageps|mssql_|mysql_|split|sql_regcase|sybase|xmldiff_))|' .
         '(^closure_)|' .  // Phan's representation of a closure
-        '\.' .  // a literal `.`
+        '\.|,' .  // a literal `.` or `,`
         '@';
+
+    /** @var array<string,string> maps aliases to originals - only set for xml parser */
+    protected $aliases = [];
 
     /**
      * @return void (does not return)
@@ -57,10 +60,116 @@ Usage: $program_name command [...args]
     (and updated via 'svn update')
     see http://doc.php.net/tutorial/structure.php
 
+  $program_name update-descriptions-svn path/to/phpdoc_svn_dir
+    Update Phan's descriptions for functions/methods based on the docs.php.net source repo.
+
 EOT;
         fwrite(STDERR, $msg);
         exit($exit_code);
     }
+
+    /**
+     * Update phpdoc summaries of elements with the docs from php.net
+     *
+     * @return void
+     */
+    protected function updatePHPDocSummaries()
+    {
+        $this->updatePHPDocFunctionSummaries();
+        $this->updatePHPDocConstantSummaries();
+        $this->updatePHPDocClassSummaries();
+    }
+
+    /**
+     * Merge signatures from $new into $old if the case-insensitive signatures don't already exist in $old.
+     *
+     * Returns the resulting sorted signature map.
+     *
+     * @template T
+     * @param array<string,T> $old
+     * @param array<string,T> $new
+     * @return array<string,T>
+     */
+    public static function mergeSignatureMaps(array $old, array $new)
+    {
+        $normalized_old = [];
+        foreach ($old as $key => $_) {
+            // NOTE: This won't work for the name part of constants, but low importance.
+            $normalized_old[strtolower($key)] = true;
+        }
+        foreach ($new as $key => $value) {
+            if (isset($normalized_old[strtolower($key)])) {
+                continue;
+            }
+            $old[$key] = $value;
+        }
+        self::sortSignatureMap($old);
+        return $old;
+    }
+
+    /**
+     * @return void
+     */
+    protected function updatePHPDocFunctionSummaries()
+    {
+        $old_function_documentation = $this->readFunctionDocumentationMap();
+        $new_function_documentation = $this->getAvailableMethodPHPDocSummaries();
+        $new_function_documentation = self::mergeSignatureMaps($old_function_documentation, $new_function_documentation);
+
+        $new_function_documentation_path = ORIGINAL_FUNCTION_DOCUMENTATION_PATH . '.new';
+        static::info("Saving modified function descriptions to $new_function_documentation_path\n");
+        static::saveFunctionDocumentationMap($new_function_documentation_path, $new_function_documentation);
+    }
+
+    /**
+     * Returns short phpdoc summaries of function and method signatures
+     *
+     * @return array<string,string>
+     */
+    abstract protected function getAvailableMethodPHPDocSummaries() : array;
+
+    /**
+     * @return void
+     */
+    protected function updatePHPDocConstantSummaries()
+    {
+        $old_constant_documentation = $this->readConstantDocumentationMap();
+        $new_constant_documentation = $this->getAvailableConstantPHPDocSummaries();
+        $new_constant_documentation = self::mergeSignatureMaps($old_constant_documentation, $new_constant_documentation);
+
+        self::sortSignatureMap($new_constant_documentation);
+
+        $new_constant_documentation_path = ORIGINAL_CONSTANT_DOCUMENTATION_PATH . '.new';
+        static::info("Saving modified constant descriptions to $new_constant_documentation_path\n");
+        static::saveConstantDocumentationMap($new_constant_documentation_path, $new_constant_documentation);
+    }
+
+    /**
+     * @return array<string,string>
+     */
+    abstract protected function getAvailableConstantPHPDocSummaries() : array;
+
+    /**
+     * @return void
+     */
+    protected function updatePHPDocClassSummaries()
+    {
+        $old_class_documentation = $this->readClassDocumentationMap();
+        $new_class_documentation = $this->getAvailableClassPHPDocSummaries();
+        $new_class_documentation = self::mergeSignatureMaps($old_class_documentation, $new_class_documentation);
+
+        self::sortSignatureMap($new_class_documentation);
+
+        $new_class_documentation_path = ORIGINAL_CLASS_DOCUMENTATION_PATH . '.new';
+        static::info("Saving modified class descriptions to $new_class_documentation_path\n");
+        static::saveClassDocumentationMap($new_class_documentation_path, $new_class_documentation);
+    }
+
+    /**
+     * @return array<string,string>
+     */
+    abstract protected function getAvailableClassPHPDocSummaries() : array;
+
 
     /** @return void */
     public function updateFunctionSignatures()
@@ -240,7 +349,7 @@ EOT;
     }
 
     /**
-     * @param array<string,array> &$phan_signatures
+     * @param array<string,mixed> &$phan_signatures
      * @return void
      */
     public static function sortSignatureMap(array &$phan_signatures)
@@ -263,7 +372,39 @@ EOT;
      */
     public static function readSignatureHeader() : string
     {
-        $fin = fopen(ORIGINAL_SIGNATURE_PATH, 'r');
+        return self::readArrayFileHeader(ORIGINAL_SIGNATURE_PATH);
+    }
+
+    /**
+     * @throws RuntimeException if the file could not be read
+     */
+    public static function readFunctionDocumentationHeader() : string
+    {
+        return self::readArrayFileHeader(ORIGINAL_FUNCTION_DOCUMENTATION_PATH);
+    }
+
+    /**
+     * @throws RuntimeException if the file could not be read
+     */
+    public static function readConstantDocumentationHeader() : string
+    {
+        return self::readArrayFileHeader(ORIGINAL_CONSTANT_DOCUMENTATION_PATH);
+    }
+
+    /**
+     * @throws RuntimeException if the file could not be read
+     */
+    public static function readClassDocumentationHeader() : string
+    {
+        return self::readArrayFileHeader(ORIGINAL_CLASS_DOCUMENTATION_PATH);
+    }
+
+    /**
+     * @throws RuntimeException if the file could not be read
+     */
+    private static function readArrayFileHeader(string $path) : string
+    {
+        $fin = fopen($path, 'r');
         if (!$fin) {
             throw new RuntimeException("Failed to start reading header\n");
         }
@@ -279,6 +420,33 @@ EOT;
             fclose($fin);
         }
         return '';
+    }
+
+    /**
+     * @suppress PhanUnreferencedPublicMethod
+     * @return array<string,string>
+     */
+    public static function readFunctionDocumentationMap() : array
+    {
+        return require(ORIGINAL_FUNCTION_DOCUMENTATION_PATH);
+    }
+
+    /**
+     * @suppress PhanUnreferencedPublicMethod
+     * @return array<string,string>
+     */
+    public static function readConstantDocumentationMap() : array
+    {
+        return require(ORIGINAL_CONSTANT_DOCUMENTATION_PATH);
+    }
+
+    /**
+     * @suppress PhanUnreferencedPublicMethod
+     * @return array<string,string>
+     */
+    public static function readClassDocumentationMap() : array
+    {
+        return require(ORIGINAL_CLASS_DOCUMENTATION_PATH);
     }
 
     /**
@@ -308,8 +476,61 @@ EOT;
         return $parts;
     }
 
+    /**
+     * @param array<string,string> $phan_documentation
+     * @return void
+     */
+    public static function saveFunctionDocumentationMap(string $new_documentation_path, array $phan_documentation, bool $include_header = true)
+    {
+        $contents = static::serializeDocumentation($phan_documentation);
+        if ($include_header) {
+            $contents = static::readFunctionDocumentationHeader() . $contents;
+        }
+        file_put_contents($new_documentation_path, $contents);
+    }
+
+    /**
+     * @param array<string,string> $phan_documentation
+     * @return void
+     */
+    public static function saveConstantDocumentationMap(string $new_documentation_path, array $phan_documentation, bool $include_header = true)
+    {
+        $contents = static::serializeDocumentation($phan_documentation);
+        if ($include_header) {
+            $contents = static::readConstantDocumentationHeader() . $contents;
+        }
+        file_put_contents($new_documentation_path, $contents);
+    }
+
+    /**
+     * @param array<string,string> $phan_documentation
+     * @return void
+     */
+    public static function saveClassDocumentationMap(string $new_documentation_path, array $phan_documentation, bool $include_header = true)
+    {
+        $contents = static::serializeDocumentation($phan_documentation);
+        if ($include_header) {
+            $contents = static::readClassDocumentationHeader() . $contents;
+        }
+        file_put_contents($new_documentation_path, $contents);
+    }
+
+    /**
+     * @param array<string,string> $signatures
+     * @return string
+     */
+    public static function serializeDocumentation(array $signatures) : string
+    {
+        $parts = "return [\n";
+        foreach ($signatures as $function_like_name => $arguments) {
+            $parts .= static::encodeSingleDocumentation($function_like_name, $arguments);
+        }
+        $parts .= "];\n";
+        return $parts;
+    }
+
     /** @param int|string|float $scalar */
-    private static function encodeScalar($scalar) : string
+    protected static function encodeScalar($scalar) : string
     {
         if (is_string($scalar)) {
             return "'" . addcslashes($scalar, "'") . "'";
@@ -325,6 +546,18 @@ EOT;
     {
         $result = static::encodeScalar($function_like_name) . ' => ';
         $result .= static::encodeSignatureArguments($arguments);
+        $result .= ",\n";
+        return $result;
+    }
+
+    /**
+     * Encodes a single line with documentation of internal functions/methods
+
+     */
+    public static function encodeSingleDocumentation(string $function_like_name, string $description) : string
+    {
+        $result = static::encodeScalar($function_like_name) . ' => ';
+        $result .= static::encodeScalar($description);
         $result .= ",\n";
         return $result;
     }

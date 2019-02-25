@@ -30,6 +30,7 @@ use Phan\Language\NamespaceMapEntry;
 use Phan\Language\UnionType;
 use Phan\Library\Map;
 use Phan\Library\Set;
+use Phan\Plugin\ConfigPluginSet;
 use ReflectionClass;
 
 use function count;
@@ -184,6 +185,12 @@ class CodeBase
     private $has_enabled_undo_tracker = false;
 
     /**
+     * @var bool should Phan expect files contents for any path to be changed frequently
+     * (i.e. running as Daemon or the language server)
+     */
+    private $expect_changes_to_file_contents = false;
+
+    /**
      * @var ?string (The currently parsed or analyzed file, if any. Used only for the crash reporting output)
      */
     private static $current_file = null;
@@ -307,6 +314,30 @@ class CodeBase
             // @phan-suppress-next-line PhanPossiblyNonClassMethodCall
             $this->undo_tracker->setCurrentParsedFile($current_parsed_file);
         }
+    }
+
+    /**
+     * Record that changes to file contents should be expected from now onwards, e.g. this is running as a language server or in daemon mode.
+     *
+     * E.g. this would disable caching ASTs of the polyfill/fallback to disk.
+     *
+     * @return void
+     */
+    public function setExpectChangesToFileContents()
+    {
+        $this->expect_changes_to_file_contents = true;
+    }
+
+    /**
+     * Returns true if changes to file contents should be expected frequently.
+     *
+     * E.g. this is called to check if Phan should disable caching ASTs of the polyfill/fallback to disk.
+     *
+     * @return bool
+     */
+    public function getExpectChangesToFileContents() : bool
+    {
+        return $this->expect_changes_to_file_contents;
     }
 
     /**
@@ -1427,6 +1458,7 @@ class CodeBase
                     $function->setRealParameterList(Parameter::listFromReflectionParameterList($reflection_function->getParameters()));
                 }
                 $this->addFunction($function);
+                $this->updatePluginsOnLazyLoadInternalFunction($function);
             }
 
             return true;
@@ -1437,11 +1469,17 @@ class CodeBase
                 new \ReflectionFunction($name)
             ) as $function) {
                 $this->addFunction($function);
+                $this->updatePluginsOnLazyLoadInternalFunction($function);
             }
 
             return true;
         }
         return false;
+    }
+
+    private function updatePluginsOnLazyLoadInternalFunction(Func $function)
+    {
+        ConfigPluginSet::instance()->handleLazyLoadInternalFunction($this, $function);
     }
 
     /**

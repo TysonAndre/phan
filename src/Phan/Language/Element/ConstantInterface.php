@@ -3,11 +3,13 @@
 namespace Phan\Language\Element;
 
 use ast\Node;
+use Phan\Language\FQSEN;
 use Phan\Language\FutureUnionType;
 
 /**
  * Represents APIs used when Phan is setting up/analyzing
  * the representation of a given global or class constant.
+ * @method FQSEN getFQSEN() return type covariance isn't supported in php 7.0, I think
  */
 interface ConstantInterface
 {

@@ -61,10 +61,12 @@ use Phan\Library\Tuple5;
 use function count;
 use function explode;
 use function in_array;
+use function ltrim;
 use function preg_match;
 use function strcasecmp;
 use function stripos;
 use function strtolower;
+use function substr;
 use function trim;
 
 /**
@@ -146,18 +148,18 @@ class Type
           . '<'
             . '('
               . '(?-5)(?:\|(?-5))*'
-              . '(\s*,\s*'
-                . '(?-6)(?:\|(?-6))*'
+              . '(?:\s*,\s*'
+                . '(?-5)(?:\|(?-5))*'
               . ')*'
             . ')'
           . '>'
           . '|'
           . '\{('  // Expect either '{' or '<', after a word token.
-            . '(?:' . self::shape_key_regex . '\s*:\s*(?-7)(?:\|(?-7))*=?)'  // {shape_key_regex:<type_regex>}
-            . '(?:,\s*' . self::shape_key_regex . '\s*:\s*(?-7)(?:\|(?-7))*=?)*'  // {shape_key_regex:<type_regex>}
+            . '(?:' . self::shape_key_regex . '\s*:\s*(?-6)(?:\|(?-6))*=?)'  // {shape_key_regex:<type_regex>}
+            . '(?:,\s*' . self::shape_key_regex . '\s*:\s*(?-6)(?:\|(?-6))*=?)*'  // {shape_key_regex:<type_regex>}
           . ')?\})?'
         . ')'
-        . '(\[\])*'
+        . '(?:\[\])*'
       . ')';
 
     /**
@@ -187,18 +189,18 @@ class Type
             . '(?:<'
               . '('
                 . '(?-6)(?:\|(?-6))*'  // We use relative references instead of named references so that more than one one type_regex can be used in a regex.
-                . '(\s*,\s*'
-                  . '(?-7)(?:\|(?-7))*'
+                . '(?:\s*,\s*'
+                  . '(?-6)(?:\|(?-6))*'
                 . ')*'
               . ')'
               . '>'
               . '|'
               . '(\{)('  // Expect either '{' or '<', after a word token. Match '{' to disambiguate 'array{}'
-                . '(?:' . self::shape_key_regex . '\s*:\s*(?-9)(?:\|(?-9))*=?)'  // {shape_key_regex:<type_regex>}
-                . '(?:,\s*' . self::shape_key_regex . '\s*:\s*(?-9)(?:\|(?-9))*=?)*'  // {shape_key_regex:<type_regex>}
+                . '(?:' . self::shape_key_regex . '\s*:\s*(?-8)(?:\|(?-8))*=?)'  // {shape_key_regex:<type_regex>}
+                . '(?:,\s*' . self::shape_key_regex . '\s*:\s*(?-8)(?:\|(?-8))*=?)*'  // {shape_key_regex:<type_regex>}
               . ')?\})?'
             . ')'
-          . '(\[\])*'
+          . '(?:\[\])*'
         . ')'
        . ')';
 
@@ -1144,10 +1146,11 @@ class Type
                 );
             }
         }
+
         // If our scope has a generic type identifier defined on it
         // that matches the type string, return that type.
-        if ($source === Type::FROM_PHPDOC && $context->getScope()->hasTemplateType($string)) {
-            return $context->getScope()->getTemplateType($string);
+        if ($source === Type::FROM_PHPDOC && $context->getScope()->hasTemplateType(ltrim($string, '?'))) {
+            return $context->getScope()->getTemplateType(ltrim($string, '?'))->withIsNullable(substr($string, 0, 1) === '?');
         }
 
         // Extract the namespace, type and parameter type name list
@@ -1158,6 +1161,7 @@ class Type
         $template_parameter_type_name_list = $tuple->_2;
         $is_nullable = $tuple->_3;
         $shape_components = $tuple->_4;
+
 
         if (\preg_match('/^(' . self::noncapturing_literal_regex . ')$/', $type_name)) {
             return self::fromEscapedLiteralScalar($type_name);
@@ -1481,9 +1485,9 @@ class Type
                     $context,
                     $source
                 );
-                $is_reference = $param_match[19] !== '';
-                $is_variadic = $param_match[20] === '...';
-                $default_str = $param_match[22];
+                $is_reference = $param_match[15] !== '';
+                $is_variadic = $param_match[16] === '...';
+                $default_str = $param_match[18];
                 $has_default_value = $default_str !== '';
                 if ($has_default_value) {
                     $default_value_repr = trim(explode('=', $default_str, 2)[1]);
@@ -2805,8 +2809,8 @@ class Type
                 $type_string = \substr($type_string, 1);
             }
 
-            if (($match[9] ?? '') !== '') {
-                $shape_components = self::extractShapeComponents($match[10] ?? '');  // will be empty array for 'array{}'
+            if (($match[8] ?? '') !== '') {
+                $shape_components = self::extractShapeComponents($match[9] ?? '');  // will be empty array for 'array{}'
             } else {
                 // Recursively parse this
                 $template_parameter_type_name_list = ($match[7] ?? '') !== ''

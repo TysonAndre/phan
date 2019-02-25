@@ -235,7 +235,7 @@ Encourages the usage of fully qualified global functions and constants (slightly
 
 Enforces that loose equality is used for numeric operands (e.g. `2 == 2.0`), and that strict equality is used for non-numeric operands (e.g. `"2" === "2e0"` is false).
 
-- **PhanPluginNumericalComparison**: non numerical values compared by the operators '==' or '!=='; numerical values compared by the operators '===' or '!=='
+- **PhanPluginNumericalComparison**: nonnumerical values compared by the operators '==' or '!=='; numerical values compared by the operators '===' or '!=='
 
 #### PHPUnitNotDeadCodePlugin
 
@@ -279,6 +279,17 @@ that are likely to be a bug. (e.g. `expr1 == expr`)
 - **PhanPluginDuplicateConditionalNullCoalescing**: `"isset(X) ? X : Y" can usually be simplified to "X ?? Y" in PHP 7. The duplicated expression X was {CODE}`
 - **PhanPluginBothLiteralsBinaryOp**: `Suspicious usage of a binary operator where both operands are literals. Expression: {CODE} {OPERATOR} {CODE} (result is {CODE})` (e.g. warns about `null == 'a literal` in `$x ?? null == 'a literal'`)
 
+#### SuspiciousParamOrderPlugin.php
+
+This plugin guesses if arguments to a function call are out of order, based on heuristics on the name in the expression (e.g. variable name).
+This will only warn if the argument types are compatible with the alternate parameters being suggested.
+This may be useful when analyzing methods with long parameter lists.
+
+E.g. warns about invoking `function example($first, $second, $third)` as `example($mySecond, $myThird, $myFirst)`
+
+- **PhanPluginSuspiciousParamOrder**: `Suspicious order for arguments named {DETAILS} - These are being passed to parameters {DETAILS} of {FUNCTION} defined at {FILE}:{LINE}`
+- **PhanPluginSuspiciousParamOrderInternal**: `Suspicious order for arguments named {DETAILS} - These are being passed to parameters {DETAILS}`
+
 ### 4. Demo plugins:
 
 These files demonstrate plugins for Phan.
@@ -299,3 +310,12 @@ Generates the following issue types under the types:
 Checks for complex variable access expressions `$$x`, which may be hard to read, and make the variable accesses hard/impossible to analyze.
 
 - **PhanPluginDollarDollar**: Warns about the use of $$x, ${(expr)}, etc.
+
+### 5. Third party plugins
+
+- https://github.com/Drenso/PhanExtensions is a third party project with several plugins to do the following:
+
+  - Analyze Symfony doc comment annotations.
+  - Mark elements in inline doc comments (which Phan doesn't parse) as referencing types from `use statements` as not dead code.
+
+- https://github.com/TysonAndre/PhanTypoCheckPlugin checks of calls to `gettext()` by default, and can optionally check all strings.

@@ -2,6 +2,8 @@
 
 namespace Phan\Language\Element;
 
+use Exception;
+use Phan\CodeBase;
 use Phan\Language\Element\Comment\Builder;
 use Phan\Language\UnionType;
 
@@ -20,12 +22,13 @@ class MarkupDescription
      * and its doc comment summary and description.
      */
     public static function buildForElement(
-        AddressableElementInterface $element
+        AddressableElementInterface $element,
+        CodeBase $code_base = null
     ) : string {
         // TODO: Use the doc comments of the ancestors if unavailable or if (at)inheritDoc is used.
         $markup = $element->getMarkupDescription();
         $result = "```php\n$markup\n```";
-        $extracted_doc_comment = self::extractDescriptionFromDocComment($element);
+        $extracted_doc_comment = self::extractDescriptionFromDocComment($element, $code_base);
         if ($extracted_doc_comment) {
             $result .= "\n\n" . $extracted_doc_comment;
         }
@@ -34,11 +37,108 @@ class MarkupDescription
     }
 
     /**
+     * @return array<string,string> mapping lowercase function/method FQSENs to short summaries.
+     * @internal - The data format may change
+     */
+    public static function loadFunctionDescriptionMap() : array
+    {
+        static $descriptions = null;
+        if (is_array($descriptions)) {
+            return $descriptions;
+        }
+        $descriptions = [];
+        foreach (require(dirname(__DIR__) . '/Internal/FunctionDocumentationMap.php') as $fqsen => $summary) {
+            $descriptions[strtolower($fqsen)] = $summary;
+        }
+        return $descriptions;
+    }
+
+    /**
+     * @return array<string,string> mapping lowercase constant/class constant FQSENs to short summaries.
+     * @internal - The data format may change
+     */
+    public static function loadConstantDescriptionMap() : array
+    {
+        static $descriptions = null;
+        if (is_array($descriptions)) {
+            return $descriptions;
+        }
+        $descriptions = [];
+        foreach (require(dirname(__DIR__) . '/Internal/ConstantDocumentationMap.php') as $fqsen => $summary) {
+            $descriptions[strtolower($fqsen)] = $summary;
+        }
+        return $descriptions;
+    }
+
+    /**
+     * @return array<string,string> mapping class FQSENs to short summaries.
+     * @internal - The data format may change
+     */
+    public static function loadClassDescriptionMap() : array
+    {
+        static $descriptions = null;
+        if (is_array($descriptions)) {
+            return $descriptions;
+        }
+        $descriptions = [];
+        foreach (require(dirname(__DIR__) . '/Internal/ClassDocumentationMap.php') as $fqsen => $summary) {
+            $descriptions[strtolower($fqsen)] = $summary;
+        }
+        return $descriptions;
+    }
+
+    /**
      * Extracts a plaintext description of the element from the doc comment of an element.
+     * (or from FunctionDocumentationMap.php)
      *
      * @return ?string
      */
-    public static function extractDescriptionFromDocComment(AddressableElementInterface $element)
+    public static function extractDescriptionFromDocComment(
+        AddressableElementInterface $element,
+        CodeBase $code_base = null
+    ) {
+        $extracted_doc_comment = self::extractDescriptionFromDocCommentRaw($element);
+        if ($extracted_doc_comment) {
+            return $extracted_doc_comment;
+        }
+
+        // This is an element internal to PHP.
+        if ($element->isPHPInternal()) {
+            if ($element instanceof FunctionInterface) {
+                // This is a function/method - Use Phan's FunctionDocumentationMap.php to try to load a markup description.
+                $key = strtolower(ltrim((string)$element->getFQSEN(), '\\'));
+                $result = self::loadFunctionDescriptionMap()[$key] ?? null;
+                if ($result) {
+                    return $result;
+                }
+                if ($code_base && $element instanceof Method) {
+                    try {
+                        if (strtolower($element->getName()) === '__construct') {
+                            $class = $element->getClass($code_base);
+                            $class_description = self::extractDescriptionFromDocComment($class, $code_base);
+                            if ($class_description) {
+                                return "Construct an instance of `{$class->getFQSEN()}`.\n\n$class_description";
+                            }
+                        }
+                    } catch (Exception $_) {
+                    }
+                }
+            } elseif ($element instanceof ConstantInterface) {
+                // This is a class or global constant - Use Phan's ConstantDocumentationMap.php to try to load a markup description.
+                $key = strtolower(ltrim((string)$element->getFQSEN(), '\\'));
+                return self::loadConstantDescriptionMap()[$key] ?? null;
+            } elseif ($element instanceof Clazz) {
+                $key = strtolower(ltrim((string)$element->getFQSEN(), '\\'));
+                return self::loadClassDescriptionMap()[$key] ?? null;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * @return ?string
+     */
+    private static function extractDescriptionFromDocCommentRaw(AddressableElementInterface $element)
     {
         $doc_comment = $element->getDocComment();
         if (!$doc_comment) {
