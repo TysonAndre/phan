@@ -11,6 +11,7 @@ use Phan\CodeBase;
 use Phan\Config;
 use Phan\Exception\CodeBaseException;
 use Phan\Language\Context;
+use Phan\Language\ElementContext;
 use Phan\Language\FQSEN\FullyQualifiedMethodName;
 use Phan\Language\Scope\FunctionLikeScope;
 use Phan\Language\Type\GenericArrayType;
@@ -368,16 +369,6 @@ class Method extends ClassElement implements FunctionInterface
         FullyQualifiedMethodName $fqsen
     ) : Method {
 
-        // @var array<int,Parameter>
-        // The list of parameters specified on the
-        // method
-        $parameter_list =
-            Parameter::listFromNode(
-                $context,
-                $code_base,
-                $node->children['params']
-            );
-
         // Create the skeleton method object from what
         // we know so far
         $method = new Method(
@@ -386,7 +377,7 @@ class Method extends ClassElement implements FunctionInterface
             UnionType::empty(),
             $node->flags ?? 0,
             $fqsen,
-            $parameter_list
+            null
         );
         $doc_comment = $node->children['docComment'] ?? '';
         $method->setDocComment($doc_comment);
@@ -400,6 +391,27 @@ class Method extends ClassElement implements FunctionInterface
             $node->lineno ?? 0,
             Comment::ON_METHOD
         );
+
+        // Defer adding params to the local scope for user functions. (FunctionTrait::addParamsToScopeOfFunctionOrMethod)
+        // See PostOrderAnalysisVisitor->analyzeCallToMethod
+        $method->setComment($comment);
+
+        $element_context = new ElementContext($method);
+        // @var array<int,Parameter>
+        // The list of parameters specified on the
+        // method
+        $parameter_list = Parameter::listFromNode(
+            $element_context,
+            $code_base,
+            $node->children['params']
+        );
+        $method->setParameterList($parameter_list);
+        foreach ($parameter_list as $parameter) {
+            if ($parameter->getUnionType()->hasTemplateTypeRecursive()) {
+                $method->recordHasTemplateType();
+                break;
+            }
+        }
 
         // Add each parameter to the scope of the function
         // NOTE: it's important to clone this,
@@ -483,10 +495,7 @@ class Method extends ClassElement implements FunctionInterface
             $method->setUnionType($method->getUnionType()->withUnionType($comment_return_union_type));
             $method->setPHPDocReturnType($comment_return_union_type);
         }
-
-        // Defer adding params to the local scope for user functions. (FunctionTrait::addParamsToScopeOfFunctionOrMethod)
-        // See PostOrderAnalysisVisitor->analyzeCallToMethod
-        $method->setComment($comment);
+        $element_context->freeElementReference();
 
         return $method;
     }

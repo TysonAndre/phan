@@ -55,7 +55,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    const PHAN_VERSION = '1.2.5-dev';
+    const PHAN_VERSION = '1.2.6-dev';
 
     /**
      * List of short flags passed to getopt
@@ -491,7 +491,7 @@ class CLI
                     break;
                 case 'i':
                 case 'ignore-undeclared':
-                    $mask |= Issue::CATEGORY_UNDEFINED;
+                    $mask &= ~Issue::CATEGORY_UNDEFINED;
                     break;
                 case '3':
                 case 'exclude-directory-list':

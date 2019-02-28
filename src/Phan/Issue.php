@@ -10,6 +10,7 @@ use Phan\Language\Element\UnaddressableTypedElement;
 use Phan\Language\FQSEN;
 use Phan\Language\Type;
 use Phan\Language\UnionType;
+use Phan\Library\ConversionSpec;
 use Phan\Plugin\ConfigPluginSet;
 
 /**
@@ -327,6 +328,8 @@ class Issue
     const RedefineClassInternal     = 'PhanRedefineClassInternal';
     const RedefineFunction          = 'PhanRedefineFunction';
     const RedefineFunctionInternal  = 'PhanRedefineFunctionInternal';
+    const RedefineClassConstant     = 'PhanRedefineClassConstant';
+    const RedefineProperty          = 'PhanRedefineProperty';
     const IncompatibleCompositionProp = 'PhanIncompatibleCompositionProp';
     const IncompatibleCompositionMethod = 'PhanIncompatibleCompositionMethod';
     const RedefinedUsedTrait            = 'PhanRedefinedUsedTrait';
@@ -553,6 +556,9 @@ class Issue
 
     /** @var string The printf format string for this issue type. If --color is enabled, this will have unix color codes. */
     private $template;
+
+    /** @var int the expected number of arguments to the format string $this->template */
+    private $argument_count;
 
     /** @var int self::REMEDIATION_* */
     private $remediation_difficulty;
@@ -2872,6 +2878,7 @@ class Issue
                 self::REMEDIATION_B,
                 8001
             ),
+            // TODO: Split into RedefineMethod, which would be fatal
             new Issue(
                 self::RedefineFunction,
                 self::CATEGORY_REDEFINE,
@@ -2935,6 +2942,22 @@ class Issue
                 "{CLASS} extends {CLASS} declared at {FILE}:{LINE} which is also declared at {FILE}:{LINE}. This may lead to confusing errors.",
                 self::REMEDIATION_B,
                 8009
+            ),
+            new Issue(
+                self::RedefineClassConstant,
+                self::CATEGORY_REDEFINE,
+                self::SEVERITY_CRITICAL,
+                "Class constant {CONST} defined at {FILE}:{LINE} was previously defined at {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                8010
+            ),
+            new Issue(
+                self::RedefineProperty,
+                self::CATEGORY_REDEFINE,
+                self::SEVERITY_CRITICAL,
+                'Property ${PROPERTY} defined at {FILE}:{LINE} was previously defined at {FILE}:{LINE}',
+                self::REMEDIATION_B,
+                8011
             ),
 
             // Issue::CATEGORY_ACCESS
@@ -3717,6 +3740,23 @@ class Issue
     public function getTemplate() : string
     {
         return $this->template;
+    }
+
+    /**
+     * Returns the number of arguments expected for the format string $this->getTemplate()
+     */
+    public function getExpectedArgumentCount() : int
+    {
+        return $this->argument_count ?? $this->argument_count = $this->computeExpectedArgumentCount();
+    }
+
+    private function computeExpectedArgumentCount() : int
+    {
+        $result = 0;
+        foreach (ConversionSpec::extractAll($this->template) as $i => $_) {
+            $result = \max($result, $i);
+        }
+        return $result;
     }
 
     /**
