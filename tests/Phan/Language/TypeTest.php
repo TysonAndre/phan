@@ -175,6 +175,16 @@ final class TypeTest extends BaseTest
         $this->assertTrue($parts[1]->isType(self::makePHPDocType('int[]')));
     }
 
+    public function testIntersectionType(): void
+    {
+        $type = self::makePHPDocType('MyClass&MyInterface');  // not exactly a template, but has the same parsing
+        $this->assertSame('\\', $type->getNamespace());
+        $this->assertSame('MyClass', $type->getName());
+        $this->assertSame('\MyClass&\MyInterface', (string)$type);
+        $parts = $type->getTemplateParameterTypeList();
+        $this->assertCount(1, $parts);
+    }
+
     public function testTemplateTypesWithTemplates(): void
     {
         $type = self::makePHPDocType('TypeTestClass<T1<int,string[]>,T2>');  // not exactly a template, but has the same parsing

@@ -108,6 +108,9 @@ class Type
     public const simple_noncapturing_type_regex =
         '\\\\?(?:callable-(?:string|object|array)|associative-array|class-string|non-(?:zero-int|empty-(?:associative-array|array|list|string|mixed))|[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*(?:\\\\[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)*)';
 
+    const simple_noncapturing_type_regex_classes =
+        '[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*(?:\\\\[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)*';
+
     /**
      * @var string
      * A legal type identifier (e.g. 'int' or 'DateTime')
@@ -158,8 +161,9 @@ class Type
           . ')?'
         . ')|'
         . self::noncapturing_literal_regex . '|'
+        . '(?:(&)((?-5)))+|'  // X&Y&Z FIXME adjust the preg_match offsets
         . '(' . self::simple_type_regex . ')'  // ?T or T.
-        . '(?:'
+        . '(?|'
           . '<'
             . '('
               . '(?-5)(?:\|(?-5))*'
@@ -200,8 +204,9 @@ class Type
               . ')?'
             . ')|'
             . self::noncapturing_literal_regex . '|'
+            . '(?:(&)((?-5)))+|'  // X&Y&Z FIXME adjust all of the offsets
             . '(' . self::simple_type_regex_or_this . ')'  // 3 patterns
-            . '(?:<'
+            . '(?|<'
               . '('
                 . '(?-6)(?:\|(?-6))*'  // We use relative references instead of named references so that more than one one type_regex can be used in a regex.
                 . '(?:\s*,\s*'
@@ -1693,9 +1698,9 @@ class Type
                     $context,
                     $source
                 );
-                $is_reference = $param_match[15] !== '';
-                $is_variadic = $param_match[16] === '...';
-                $default_str = $param_match[18];
+                $is_reference = $param_match[13] !== '';
+                $is_variadic = $param_match[14] === '...';
+                $default_str = $param_match[16];
                 $has_default_value = $default_str !== '';
                 if ($has_default_value) {
                     $default_value_repr = trim(explode('=', $default_str, 2)[1]);
@@ -3482,6 +3487,9 @@ class Type
         $match = [];
         $is_nullable = false;
         if (\preg_match('/^' . self::type_regex_or_this . '$/', $type_string, $match)) {
+            if (stripos($type_string, '&')) {
+                \var_export($match);
+            }
             $closure_components = $match[3] ?? '';
             if ($closure_components !== '') {
                 return self::closureTypeStringComponents($type_string, $closure_components);
@@ -3512,8 +3520,11 @@ class Type
                 $type_string = \substr($type_string, 1);
             }
 
-            if (($match[8] ?? '') !== '') {
-                $shape_components = self::extractShapeComponents($match[9] ?? '');  // will be empty array for 'array{}'
+            $type = $match[7] ?? '';
+            if ($type === '{') {
+                $shape_components = self::extractShapeComponents($match[8] ?? '');  // will be empty array for 'array{}'
+            } elseif ($type === '&') {
+                // TODO: Intersection type support
             } else {
                 // Recursively parse this
                 $template_parameter_type_name_list = ($match[7] ?? '') !== ''
