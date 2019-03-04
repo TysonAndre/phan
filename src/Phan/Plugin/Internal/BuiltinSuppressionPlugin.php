@@ -6,7 +6,7 @@ use Generator;
 use Phan\CodeBase;
 use Phan\Config;
 use Phan\Language\Context;
-use Phan\Language\Element\Comment;
+use Phan\Language\Element\Comment\Builder;
 use Phan\Language\Element\TypedElement;
 use Phan\Language\Element\UnaddressableTypedElement;
 use Phan\Language\FQSEN;
@@ -151,14 +151,14 @@ final class BuiltinSuppressionPlugin extends PluginV2 implements
             $comment_name,
             $kind_list_text
         )) {
-            $kind_list = array_map('trim', explode(',', $kind_list_text));
+            $kind_list = \array_map('trim', \explode(',', $kind_list_text));
             foreach ($kind_list as $issue_kind) {
                 // Build a map where the line being suppressed is mapped to the line causing the suppression.
                 if ($comment_name === 'file-suppress') {
                     if (Config::getValue('disable_file_based_suppression')) {
                         continue;
                     }
-                    $suggestion_list[$issue_kind][0] = $comment_start_line + substr_count($comment_text, "\n", 0, $comment_start_offset);
+                    $suggestion_list[$issue_kind][0] = $comment_start_line + \substr_count($comment_text, "\n", 0, $comment_start_offset);
                     continue;
                 }
                 if (Config::getValue('disable_line_based_suppression')) {
@@ -177,7 +177,7 @@ final class BuiltinSuppressionPlugin extends PluginV2 implements
                         $line += 2;
                         break;
                 }
-                $line += substr_count($comment_text, "\n", 0, $comment_start_offset);  // How many lines until that comment?
+                $line += \substr_count($comment_text, "\n", 0, $comment_start_offset);  // How many lines until that comment?
                 foreach ($kind_list as $issue_kind) {
                     // Store the suggestion for the issue kind.
                     // Make this an array set for easier lookup.
@@ -188,7 +188,8 @@ final class BuiltinSuppressionPlugin extends PluginV2 implements
         return $suggestion_list;
     }
 
-    const SUPPRESS_ISSUE_REGEX = '/@phan-(suppress-(next(?:-next)?|current|previous)-line|file-suppress)\s+(' . Comment::WORD_REGEX . '(,\s*' . Comment::WORD_REGEX . ')*)/';
+    // @phan-suppress-next-line PhanAccessClassConstantInternal
+    const SUPPRESS_ISSUE_REGEX = '/@phan-(suppress-(next(?:-next)?|current|previous)-line|file-suppress)\s+' . Builder::SUPPRESS_ISSUE_LIST . '/';
 
     /**
      * @return Generator<array{0:string,1:int,2:int,3:string,4:string}>

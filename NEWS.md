@@ -6,6 +6,13 @@ Phan NEWS
 New features(CLI,Configs)
 + Add config `enable_extended_internal_return_type_plugins` to more aggressively
   infer literal values for functions such as `json_decode`, `strtolower`, `implode`, etc. (disabled by default),
++ Make `--dead-code-detection` load `UnreachableCodePlugin` if that plugin isn't already loaded (#1824)
++ Add `--automatic-fix` to fix any issues Phan is capable of fixing
+  (currently a prototype. Fixes are guessed base on line numbers).
+  This is currently limited to:
+  - unreferenced use statements on their own line (requires `--dead-code-detection`).
+  - unqualified global function calls/constant uses from namespaces (requires `NotFullyQualifiedUsagePlugin`)
+    (will do the wrong thing for functions that are both global and in the same namespace)
 
 New features(Analysis):
 + Make Phan infer more precise literal types for internal constants such as `PHP_EOF`.
@@ -13,13 +20,25 @@ New features(Analysis):
 
   In most cases, that shouldn't matter.
 + Emit `PhanPluginPrintfVariableFormatString` in `PrintfCheckerPlugin` if the inferred format string isn't a single literal (#2431)
++ Don't emit `PhanWriteOnlyPrivateProperty` with dead code detection when at least one assignment is by reference (#1658)
++ Allow a single hyphen between words in `@suppress issue-name` annotations (and `@phan-suppress-next-line issue-name`, etc.) (#2515)
+  Note that CamelCase issue names are conventional for Phan and its plugins.
 
 Language Server/Daemon mode:
 + Fix an error in the language server on didChangeConfiguration
++ Show hover text of ancestors for class elements (methods, constants, and properties) when no summary is available for the class element. (#1945)
+
+Maintenance
++ Don't exit if the AST version Phan uses (currently version 50) is deprecated by php-ast (#1134)
+
+Plugins:
++ Write `PhanSelfCheckPlugin` for self-analysis of Phan and plugins for Phan. (#1576)
+  This warns if too many/too few arguments are provided for the issue template when emitting an issue.
 
 Bug fixes:
 + Fix bug: `--ignore-undeclared` failed to properly ignore undeclared elements since 1.2.3 (#2502)
 + Fix false positive `PhanTypeInvalidDimOffset` for functions nested within other functions.
++ Support commas in the union types of parameters of magic methods (#2507)
 
 27 Feb 2019, Phan 1.2.5
 -----------------------
@@ -44,7 +63,7 @@ Language Server/Daemon mode:
 + Show descriptions of superglobals and function parameters when hovering over a variable.
 
 Maintenance
-+ Render the constents in `PhanUndeclaredMagicConstant` as `__METHOD__` instead of `MAGIC_METHOD`
++ Render the constants in `PhanUndeclaredMagicConstant` as `__METHOD__` instead of `MAGIC_METHOD`
 
 Plugins:
 + Add `WhitespacePlugin` to check for trailing whitespace, tabs, and carriage returns in PHP files.

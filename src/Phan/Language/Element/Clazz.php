@@ -378,7 +378,7 @@ class Clazz extends AddressableElement
             return;
         }
         $class_fqsen = $clazz->getFQSEN();
-        $class_fqsen_string = strtolower($class_fqsen->__toString());
+        $class_fqsen_string = \strtolower($class_fqsen->__toString());
         if ($class_fqsen_string === '\closure') {
             $parameter_list = [
                 new Parameter($clazz->getContext(), 'callable', UnionType::fromFullyQualifiedString('callable'), 0)
@@ -2436,8 +2436,8 @@ class Clazz extends AddressableElement
                     $this->getContext(),
                     Issue::UndeclaredAliasedMethodOfTrait,
                     $original_trait_alias_source->getAliasLineno(),  // TODO: Track line number in TraitAdaptation
-                    sprintf('%s::%s', (string)$this->getFQSEN(), $alias_method_name),
-                    sprintf('%s::%s', (string)$class->getFQSEN(), $source_method_name),
+                    \sprintf('%s::%s', (string)$this->getFQSEN(), $alias_method_name),
+                    \sprintf('%s::%s', (string)$class->getFQSEN(), $source_method_name),
                     $class->getName()
                 );
                 continue;
@@ -2605,19 +2605,19 @@ class Clazz extends AddressableElement
 
         if (count($this->interface_fqsen_list) > 0) {
             if ($this->isInterface()) {
-                $extend_types = array_merge($extend_types, $this->interface_fqsen_list);
+                $extend_types = \array_merge($extend_types, $this->interface_fqsen_list);
             } else {
                 $implements_types = $this->interface_fqsen_list;
                 if (count($parent_implements_types) > 0) {
-                    $implements_types = array_diff($implements_types, $parent_implements_types);
+                    $implements_types = \array_diff($implements_types, $parent_implements_types);
                 }
             }
         }
         if (count($extend_types) > 0) {
-            $string .= ' extends ' . implode(', ', $extend_types);
+            $string .= ' extends ' . \implode(', ', $extend_types);
         }
         if (count($implements_types) > 0) {
-            $string .= ' implements ' . implode(', ', $implements_types);
+            $string .= ' implements ' . \implode(', ', $implements_types);
         }
         return $string;
     }
@@ -2626,7 +2626,7 @@ class Clazz extends AddressableElement
     {
         $fqsen = $this->getFQSEN();
         $string = '';
-        $namespace = ltrim($fqsen->getNamespace(), '\\');
+        $namespace = \ltrim($fqsen->getNamespace(), '\\');
         if ($namespace !== '') {
             // Render the namespace one line above the class
             $string .= "namespace $namespace;\n";
@@ -2660,7 +2660,7 @@ class Clazz extends AddressableElement
     {
         list($namespace, $string) = $this->toStubInfo($code_base);
         $namespace_text = $namespace === '' ? '' : "$namespace ";
-        $string = sprintf("namespace %s{\n%s}\n", $namespace_text, $string);
+        $string = \sprintf("namespace %s{\n%s}\n", $namespace_text, $string);
         return $string;
     }
 
@@ -2676,7 +2676,7 @@ class Clazz extends AddressableElement
         $constant_map = $this->getConstantMap($code_base);
         if (count($constant_map) > 0) {
             $stub .= "\n\n    // constants\n";
-            $stub .= implode("\n", array_map(static function (ClassConstant $constant) : string {
+            $stub .= \implode("\n", \array_map(static function (ClassConstant $constant) : string {
                 return $constant->toStub();
             }, $constant_map));
         }
@@ -2685,12 +2685,12 @@ class Clazz extends AddressableElement
         if (count($property_map) > 0) {
             $stub .= "\n\n    // properties\n";
 
-            $stub .= implode("\n", array_map(static function (Property $property) : string {
+            $stub .= \implode("\n", \array_map(static function (Property $property) : string {
                 return $property->toStub();
             }, $property_map));
         }
         $reflection_class = new \ReflectionClass((string)$this->getFQSEN());
-        $method_map = array_filter($this->getMethodMap($code_base), static function (Method $method) use ($reflection_class) : bool {
+        $method_map = \array_filter($this->getMethodMap($code_base), static function (Method $method) use ($reflection_class) : bool {
             if ($method->getFQSEN()->isAlternate()) {
                 return false;
             }
@@ -2704,13 +2704,13 @@ class Clazz extends AddressableElement
             $stub .= "\n\n    // methods\n";
 
             $is_interface = $this->isInterface();
-            $stub .= implode("\n", array_map(static function (Method $method) use ($is_interface) : string {
+            $stub .= \implode("\n", \array_map(static function (Method $method) use ($is_interface) : string {
                 return $method->toStub($is_interface);
             }, $method_map));
         }
 
         $stub .= "\n}\n\n";
-        $namespace = ltrim($this->getFQSEN()->getNamespace(), '\\');
+        $namespace = \ltrim($this->getFQSEN()->getNamespace(), '\\');
         return [$namespace, $stub];
     }
 
@@ -3028,7 +3028,7 @@ class Clazz extends AddressableElement
         return $this->memoize(__METHOD__, /** @return array<string,Property> */ function () use ($code_base) : array {
             // TODO: This won't work if a class declares both a real property and a magic property of the same name.
             // Low priority because that is uncommon
-            return array_filter(
+            return \array_filter(
                 $this->getPropertyMap($code_base),
                 static function (Property $property) : bool {
                     return !$property->isDynamicOrFromPHPDoc();
@@ -3112,5 +3112,43 @@ class Clazz extends AddressableElement
                 return $template_type_resolvers;
             }
         );
+    }
+
+    /**
+     * Given the FQSEN of an ancestor class and an element definition,
+     * return the overriden element's definition or null if this didn't override anything.
+     *
+     * TODO: Handle renamed elements from traits.
+     *
+     * @return ?ClassElement if non-null, this is of the same type as $element
+     */
+    public static function getAncestorElement(CodeBase $code_base, FullyQualifiedClassName $ancestor_fqsen, ClassElement $element)
+    {
+        if (!$code_base->hasClassWithFQSEN($ancestor_fqsen)) {
+            return null;
+        }
+        $ancestor_class = $code_base->getClassByFQSEN($ancestor_fqsen);
+        $name = $element->getName();
+        if ($element instanceof Method) {
+            if (!$ancestor_class->hasMethodWithName($code_base, $name)) {
+                return null;
+            }
+            return $ancestor_class->getMethodByName($code_base, $name);
+        } elseif ($element instanceof ClassConstant) {
+            if (!$ancestor_class->hasConstantWithName($code_base, $name)) {
+                return null;
+            }
+            $constant_fqsen = FullyQualifiedClassConstantName::make(
+                $ancestor_fqsen,
+                $name
+            );
+            return $code_base->getClassConstantByFQSEN($constant_fqsen);
+        } elseif ($element instanceof Property) {
+            if (!$ancestor_class->hasPropertyWithName($code_base, $name)) {
+                return null;
+            }
+            return $ancestor_class->getPropertyByName($code_base, $name);
+        }
+        return null;
     }
 }

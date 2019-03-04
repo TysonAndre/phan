@@ -162,6 +162,7 @@ class Phan implements IgnoredFilesFilterInterface
             $code_base->eagerlyLoadAllSignatures();
         }
         if ($is_undoable_request) {
+            self::checkForOptionsConflictingWithServerModes();
             $code_base->enableUndoTracking();
         }
 
@@ -186,7 +187,7 @@ class Phan implements IgnoredFilesFilterInterface
         if (Config::getValue('dump_parsed_file_list') === true) {
             // If --dump-parsed-file-list is provided,
             // print the files in the order they would be parsed.
-            echo implode("\n", $file_path_list) . (count($file_path_list) > 0 ? "\n" : "");
+            echo \implode("\n", $file_path_list) . (count($file_path_list) > 0 ? "\n" : "");
             exit(EXIT_SUCCESS);
         }
 
@@ -303,6 +304,13 @@ class Phan implements IgnoredFilesFilterInterface
         return self::finishAnalyzingRemainingStatements($code_base, $request, $analyze_file_path_list, $temporary_file_mapping);
     }
 
+    private static function checkForOptionsConflictingWithServerModes()
+    {
+        if (in_array(__DIR__ . '/Plugin/Internal/IssueFixingPlugin.php', Config::getValue('plugins'))) {
+            fwrite(STDERR, "Cannot use --automatic-fix in daemon mode or with the language server\n");
+            exit(EXIT_FAILURE);
+        }
+    }
     /**
      * Finish analyzing any files that need to be analyzed.
      * (for full analysis, or a limited number of files for daemon mode, etc.)

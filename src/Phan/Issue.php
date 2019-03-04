@@ -589,19 +589,22 @@ class Issue
         $this->type_id = $type_id;
     }
 
-    private static function templateToFormatString(
+    /**
+     * Converts the Phan template string to a regular format string.
+     */
+    public static function templateToFormatString(
         string $template
     ) : string {
         /** @param array<int,string> $matches */
-        return preg_replace_callback('/{([A-Z_]+)}/', static function (array $matches) use ($template): string {
+        return \preg_replace_callback('/{([A-Z_]+)}/', static function (array $matches) use ($template): string {
             $key = $matches[1];
             $replacement_exists = \array_key_exists($key, self::UNCOLORED_FORMAT_STRING_FOR_TEMPLATE);
             if (!$replacement_exists) {
-                error_log(sprintf(
+                \error_log(\sprintf(
                     "No coloring info for issue message (%s), key {%s}. Valid template types: %s",
                     $template,
                     $key,
-                    implode(', ', array_keys(self::UNCOLORED_FORMAT_STRING_FOR_TEMPLATE))
+                    \implode(', ', \array_keys(self::UNCOLORED_FORMAT_STRING_FOR_TEMPLATE))
                 ));
                 return '%s';
             }
@@ -3649,15 +3652,15 @@ class Issue
             }
             $unique_type_id_set[$error_type_id] = $error;
             $category = $error->getCategory();
-            $expected_category_for_type_id_bitpos = (int)floor($error_type_id / 1000);
+            $expected_category_for_type_id_bitpos = (int)\floor($error_type_id / 1000);
             $expected_category_for_type_id = 1 << $expected_category_for_type_id_bitpos;
             if ($category !== $expected_category_for_type_id) {
-                throw new AssertionError(sprintf(
+                throw new AssertionError(\sprintf(
                     "Expected error %s of type %d to be category %d(1<<%d), got 1<<%d\n",
                     $error_type,
                     $error_type_id,
                     $category,
-                    (int)round(log($category, 2)),
+                    (int)\round(\log($category, 2)),
                     $expected_category_for_type_id_bitpos
                 ));
             }
@@ -3756,16 +3759,7 @@ class Issue
      */
     public function getExpectedArgumentCount() : int
     {
-        return $this->argument_count ?? $this->argument_count = $this->computeExpectedArgumentCount();
-    }
-
-    private function computeExpectedArgumentCount() : int
-    {
-        $result = 0;
-        foreach (ConversionSpec::extractAll($this->template) as $i => $_) {
-            $result = \max($result, $i);
-        }
-        return $result;
+        return $this->argument_count ?? $this->argument_count = ConversionSpec::computeExpectedArgumentCount($this->template);
     }
 
     /**
