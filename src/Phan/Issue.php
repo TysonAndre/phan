@@ -313,8 +313,10 @@ class Issue
     const UnusedVariable                        = 'PhanUnusedVariable';
     const UnusedPublicMethodParameter           = 'PhanUnusedPublicMethodParameter';
     const UnusedPublicFinalMethodParameter      = 'PhanUnusedPublicFinalMethodParameter';
+    const UnusedPublicNoOverrideMethodParameter      = 'PhanUnusedPublicNoOverrideMethodParameter';
     const UnusedProtectedMethodParameter        = 'PhanUnusedProtectedMethodParameter';
     const UnusedProtectedFinalMethodParameter   = 'PhanUnusedProtectedFinalMethodParameter';
+    const UnusedProtectedNoOverrideMethodParameter   = 'PhanUnusedProtectedNoOverrideMethodParameter';
     const UnusedPrivateMethodParameter          = 'PhanUnusedPrivateMethodParameter';
     const UnusedPrivateFinalMethodParameter     = 'PhanUnusedPrivateFinalMethodParameter';
     const UnusedClosureUseVariable              = 'PhanUnusedClosureUseVariable';
@@ -2769,6 +2771,14 @@ class Issue
                 6037
             ),
             new Issue(
+                self::UnusedPublicNoOverrideMethodParameter,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_NORMAL,
+                'Parameter ${PARAMETER} is never used',
+                self::REMEDIATION_B,
+                6055
+            ),
+            new Issue(
                 self::UnusedProtectedMethodParameter,
                 self::CATEGORY_NOOP,
                 self::SEVERITY_NORMAL,
@@ -2777,12 +2787,20 @@ class Issue
                 6038
             ),
             new Issue(
-                self::UnusedProtectedFinalMethodParameter,
+                self::UnusedProtectedNoOverrideMethodParameter,
                 self::CATEGORY_NOOP,
                 self::SEVERITY_NORMAL,
                 'Parameter ${PARAMETER} is never used',
                 self::REMEDIATION_B,
                 6039
+            ),
+            new Issue(
+                self::UnusedProtectedFinalMethodParameter,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_NORMAL,
+                'Parameter ${PARAMETER} is never used',
+                self::REMEDIATION_B,
+                6054
             ),
             new Issue(
                 self::UnusedPrivateMethodParameter,
