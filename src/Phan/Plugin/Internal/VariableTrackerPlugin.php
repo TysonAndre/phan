@@ -139,7 +139,8 @@ final class VariableTrackerElementVisitor extends PluginAwarePostAnalysisVisitor
         return $result;
     }
 
-    private function methodHasOverrides() : bool {
+    private function methodHasOverrides() : bool
+    {
         try {
             $method = $this->context->getFunctionLikeInScope($this->code_base);
             if (!($method instanceof Method)) {
