@@ -1,6 +1,18 @@
 Phan NEWS
 
-?? ??? 2019, Phan 1.2.6 (dev)
+?? ??? 2019, Phan 1.2.7 (dev)
+-----------------------
+
+Maintenance:
++ Update tolerant-php-parser version to 0.0.17
+  (fix parsing of some edge cases, minor performance improvement, prepare to support php 7.4 in polyfill)
++ Use paratest for phpunit tests in Travis/Appveyor
+
+Bug fixes:
++ Make the codeclimate plugin analyze the correct directory. Update the dependencies of the codeclimate plugin. (#2139)
++ Fix false positive checking for undefined offset with `$foo['strVal']` when strings are in the union type of `$foo` (#2541)
+
+09 Mar 2019, Phan 1.2.6
 -----------------------
 
 New features(CLI,Configs)
@@ -8,7 +20,7 @@ New features(CLI,Configs)
   infer literal values for functions such as `json_decode`, `strtolower`, `implode`, etc. (disabled by default),
 + Make `--dead-code-detection` load `UnreachableCodePlugin` if that plugin isn't already loaded (#1824)
 + Add `--automatic-fix` to fix any issues Phan is capable of fixing
-  (currently a prototype. Fixes are guessed base on line numbers).
+  (currently a prototype. Fixes are guessed based on line numbers).
   This is currently limited to:
   - unreferenced use statements on their own line (requires `--dead-code-detection`).
   - issues emitted by `WhitespacePlugin` (#2523)
@@ -27,6 +39,7 @@ New features(Analysis):
 + Emit `PhanCompatibleAutoload` when using `function __autoload() {}` instead of `spl_autoload_register() {}` (#2528)
 + Be more aggressive about inferring that the result is `null` when accessing array offsets that don't exist. (#2541)
 + Fix a false positive analyzing `array_map` when the closure has a dependent return type. (#2554)
++ Emit `PhanNoopArrayAccess` when an array field is fetched but not used (#2538)
 
 Language Server/Daemon mode:
 + Fix an error in the language server on didChangeConfiguration
@@ -38,11 +51,14 @@ Maintenance
 Plugins:
 + Write `PhanSelfCheckPlugin` for self-analysis of Phan and plugins for Phan. (#1576)
   This warns if too many/too few arguments are provided for the issue template when emitting an issue.
++ Add `AutomaticFixCapability` for plugins to provide fixes for issues for `--automatic-fix` (#2549)
++ Change issue messages for closures in `UnknownElementTypePlugin` (#2543)
 
 Bug fixes:
 + Fix bug: `--ignore-undeclared` failed to properly ignore undeclared elements since 1.2.3 (#2502)
 + Fix false positive `PhanTypeInvalidDimOffset` for functions nested within other functions.
 + Support commas in the union types of parameters of magic methods (#2507)
++ Fix parsing `?(A|B|C)` (#2551)
 
 27 Feb 2019, Phan 1.2.5
 -----------------------
