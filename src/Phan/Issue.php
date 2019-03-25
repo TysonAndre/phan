@@ -309,7 +309,7 @@ class Issue
     const UseNormalNoEffect             = 'PhanUseNormalNoEffect';
     const UseNormalNamespacedNoEffect   = 'PhanUseNormalNamespacedNoEffect';
     const UseFunctionNoEffect           = 'PhanUseFunctionNoEffect';
-    const UseContantNoEffect           = 'PhanUseContantNoEffect';
+    const UseConstantNoEffect           = 'PhanUseConstantNoEffect';
 
     const UnusedVariable                        = 'PhanUnusedVariable';
     const UnusedPublicMethodParameter           = 'PhanUnusedPublicMethodParameter';
@@ -2712,7 +2712,7 @@ class Issue
                 self::UnreferencedPrivateClassConstant,
                 self::CATEGORY_NOOP,
                 self::SEVERITY_NORMAL,
-                "Possibly zero references to public class constant {CONST}",
+                "Possibly zero references to private class constant {CONST}",
                 self::REMEDIATION_B,
                 6019
             ),
@@ -2885,7 +2885,7 @@ class Issue
                 6049
             ),
             new Issue(
-                self::UseContantNoEffect,
+                self::UseConstantNoEffect,
                 self::CATEGORY_NOOP,
                 self::SEVERITY_NORMAL,
                 'The use statement for constant {CONST} has no effect',
