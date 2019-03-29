@@ -3,6 +3,12 @@ Phan NEWS
 ?? ??? 2019, Phan 1.2.8 (dev)
 -----------------------
 
+New features(Analysis):
++ Support analyzing `if (false !== is_string($var))` and similar complex conditions (#2613)
++ Emit `PhanUnusedGotoLabel` for labels without a corresponding `goto` in the same function scope. (#2617)
+  (note that Phan does not understand the effects of goto on control flow)
++ Don't emit `PhanUnreferencedClass` for anonymous classes (#2604)
+
 Maintenance:
 + Make escaped string arguments fit on a single line for more issue types.
 + Rename `UseContantNoEffect` to `UseConstantNoEffect`.
@@ -10,6 +16,9 @@ Maintenance:
 
 Plugins:
 + Fix edge case where `WhitespacePlugin` would not detect trailing whitespace.
+
+Bug fixes:
++ Catch and handle "Cannot access parent when not in object context" when parsing global functions incorrectly using `parent` parameter type. (#2619)
 
 22 Mar 2019, Phan 1.2.7
 -----------------------

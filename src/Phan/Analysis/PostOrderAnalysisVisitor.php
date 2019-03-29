@@ -3156,7 +3156,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         }
 
         if ($variable) {
-            $set_variable_type = function (UnionType $new_type) use ($context, $variable) {
+            $set_variable_type = static function (UnionType $new_type) use ($context, $variable) {
                 if ($variable instanceof Variable) {
                     $variable = clone($variable);
                     $variable->setUnionType($new_type);
@@ -3708,6 +3708,24 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             }
         }
         $this->warnBreakOrContinueWithoutLoop($node);
+        return $this->context;
+    }
+
+    /**
+     * Visit a node of kind AST_LABEL to check for unused labels.
+     * @override
+     */
+    public function visitLabel(Node $node) : Context
+    {
+        $label = $node->children['name'];
+        $used_labels = GotoAnalyzer::getLabelSet($this->parent_node_list);
+        if (!isset($used_labels[$label])) {
+            $this->emitIssue(
+                Issue::UnusedGotoLabel,
+                $node->lineno,
+                $label
+            );
+        }
         return $this->context;
     }
 
