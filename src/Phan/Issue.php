@@ -2779,7 +2779,7 @@ class Issue
                 self::SEVERITY_NORMAL,
                 'Parameter ${PARAMETER} is never used',
                 self::REMEDIATION_B,
-                6055
+                6057
             ),
             new Issue(
                 self::UnusedProtectedMethodParameter,
