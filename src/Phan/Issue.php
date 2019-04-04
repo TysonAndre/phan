@@ -2806,7 +2806,7 @@ class Issue
                 self::SEVERITY_NORMAL,
                 'Parameter ${PARAMETER} is never used',
                 self::REMEDIATION_B,
-                6057
+                6059
             ),
             new Issue(
                 self::UnusedProtectedMethodParameter,
@@ -2830,7 +2830,7 @@ class Issue
                 self::SEVERITY_NORMAL,
                 'Parameter ${PARAMETER} is never used',
                 self::REMEDIATION_B,
-                6056
+                6060
             ),
             new Issue(
                 self::UnusedPrivateMethodParameter,
