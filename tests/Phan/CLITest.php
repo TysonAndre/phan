@@ -78,7 +78,10 @@ final class CLITest extends BaseTest
     public function testSetsConfigOptions(array $expected_changed_options, array $opts, array $extra = [])
     {
         $opts += ['project-root-directory' => \dirname(__DIR__) . '/misc/config/'];
-        $expected_changed_options += ['directory_list' => ['src']];
+        $expected_changed_options += [
+            '__directory_regex' => '@^(\./)*(src)([/\\\\]|$)@',
+            'directory_list' => ['src'],
+        ];
         if (!\extension_loaded('pcntl')) {
             $expected_changed_options += ['language_server_use_pcntl_fallback' => true];
         }
@@ -126,9 +129,17 @@ final class CLITest extends BaseTest
             ],
             [
                 [
+                    '__exclude_analysis_regex' => '@^(\./)*(src/b\.php|src/a\.php)([/\\\\]|$)@',
                     'exclude_analysis_directory_list' => ['src/b.php','src/a.php'],
                 ],
                 ['3' => 'src/b.php,src/a.php'],
+            ],
+            [
+                [
+                    '__exclude_analysis_regex' => '@^(\./)*(src\@old|\.\./src/other)([/\\\\]|$)@',
+                    'exclude_analysis_directory_list' => ['src@old/','./../src/other'],
+                ],
+                ['3' => 'src@old/,./../src/other'],
             ],
             [
                 ['include_analysis_file_list' => ['src/a.php', 'src/b.php']],

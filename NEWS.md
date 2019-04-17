@@ -1,14 +1,40 @@
 Phan NEWS
 
-?? ??? 2019, Phan 1.2.8 (dev)
+?? ??? 2019, Phan 1.2.9 (dev)
 -----------------------
 
 New features(Analysis):
-+ Support analyzing `if (false !== is_string($var))` and similar complex conditions (#2613)
++ Fix false positive `UnusedSuppression` when a doc comment suppresses an issue about itself. (#2571)
++ Improve analysis of argument unpacking with reference parameters, fix false positive `PhanTypeNonVarPassByRef` (#2646)
++ In issue descriptions and suggestions, replace invalid utf-8 (and literal newlines) with placeholders (#2645)
++ Suggest typo fixes in `PhanMisspelledAnnotation` for `@phan-*` annotations. (#2640)
+
+Language Server/Daemon mode:
++ Analyze new but unsaved files, if they would be analyzed by Phan once they actually were saved to disk.
+
+Plugins:
++ Warn about assignments where the left and right hand side are the same expression in `DuplicateExpressionPlugin` (#2641)
+  New issue type: `PhanPluginDuplicateExpressionAssignment`
+
+Maintenance:
++ Print a message to stderr if the installed php-ast version is older than 1.0.1.
+  A future major Phan version of Phan will probably depend on AST version 70 to support new syntax found in PHP 7.4.
+
+Bug fixes:
++ Fix edge cases in how Phan checks if files are in `exclude_analysis_directory_list` (#2651)
+
+06 Apr 2019, Phan 1.2.8
+-----------------------
+
+New features(CLI):
++ Fix edge cases initializing directory list and target versions of config files (#2629, #2160)
+
+New features(Analysis):
++ Support analyzing `if (false !== is_string($var))` and similar complex conditions. (#2613)
 + Emit `PhanUnusedGotoLabel` for labels without a corresponding `goto` in the same function scope. (#2617)
   (note that Phan does not understand the effects of goto on control flow)
-+ Don't emit `PhanUnreferencedClass` for anonymous classes (#2604)
-+ Detect undeclared types in phpdoc callables and closures (#2562)
++ Don't emit `PhanUnreferencedClass` for anonymous classes. (#2604)
++ Detect undeclared types in phpdoc callables and closures. (#2562)
 + Warn about unreferenced PHPDoc `@property`/`@property-read`/`@property-write` annotations in `--dead-code-detection`.
   New issue types: `PhanWriteOnlyPHPDocProperty`, `PhanReadOnlyPHPDocProperty`, `PhanUnreferencedPHPDocProperty`.
 
@@ -20,10 +46,11 @@ Maintenance:
 Plugins:
 + Fix edge case where `WhitespacePlugin` would not detect trailing whitespace.
 + Detect `PhanPluginDuplicateSwitchCaseLooseEquality` in `DuplicateArrayKeyPlugin`. (#2310)
-  Warn about cases of switch cases that are loosely equivalent to earlier cases, and which might get unexpectedly missed because of that (e.g. `0` and `'foo'`)
+  Warn about cases of switch cases that are loosely equivalent to earlier cases, and which might get unexpectedly missed because of that. (e.g. `0` and `'foo'`)
 
 Bug fixes:
 + Catch and handle "Cannot access parent when not in object context" when parsing global functions incorrectly using `parent` parameter type. (#2619)
++ Improve the performance of `--progress-bar` when the terminal width can't be computed by symfony. (#2634)
 
 22 Mar 2019, Phan 1.2.7
 -----------------------

@@ -94,7 +94,7 @@ class ASTReverter
             $oct = \decoct(\ord($matches[1]));
             if ($matches[2] !== '') {
                 // If there is a trailing digit, use the full three character form
-                return '\\' . str_pad($oct, 3, '0', \STR_PAD_LEFT);
+                return '\\' . \str_pad($oct, 3, '0', \STR_PAD_LEFT);
             }
             return '\\' . $oct;
         }, $escaped);
@@ -120,6 +120,15 @@ class ASTReverter
             ast\AST_VAR => static function (Node $node) : string {
                 $name_node = $node->children['name'];
                 return '$' . (is_string($name_node) ? $name_node : ('{' . self::toShortString($name_node) . '}'));
+            },
+            ast\AST_DIM => static function (Node $node) : string {
+                $expr_str = self::toShortString($node->children['expr']);
+                if ($expr_str === '(unknown)') {
+                    return  '(unknown)';
+                }
+
+                $dim_str = self::toShortString($node->children['dim']);
+                return "${expr_str}[${dim_str}]";
             },
             ast\AST_NAME => static function (Node $node) : string {
                 $result = $node->children['name'];

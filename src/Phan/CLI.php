@@ -54,7 +54,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    const PHAN_VERSION = '1.2.8-dev';
+    const PHAN_VERSION = '1.2.9-dev';
 
     /**
      * List of short flags passed to getopt
@@ -411,7 +411,7 @@ class CLI
                                 return;
                             }
                             $this->file_list_in_config = \array_merge(
-                                $this->file_list,
+                                $this->file_list_in_config,
                                 \array_values($this->directoryNameToFileList(
                                     $directory_name
                                 ))
@@ -1245,6 +1245,30 @@ EOB;
     }
 
     /**
+     * Checks if a file (not a folder) which has potentially not yet been created on disk should be parsed.
+     * @param string $file_path a relative path to a file within the project
+     */
+    public static function shouldParse(string $file_path) : bool
+    {
+        $exclude_file_regex = Config::getValue('exclude_file_regex');
+        if ($exclude_file_regex && self::isPathExcludedByRegex($exclude_file_regex, $file_path)) {
+            return false;
+        }
+        $file_extensions = Config::getValue('analyzed_file_extensions');
+
+        if (!\is_array($file_extensions) || count($file_extensions) === 0) {
+            return false;
+        }
+        $extension = pathinfo($file_path, PATHINFO_EXTENSION);
+        if (!$extension || !in_array($extension, $file_extensions)) {
+            return false;
+        }
+
+        $directory_regex = Config::getValue('__directory_regex');
+        return $directory_regex && preg_match($directory_regex, $file_path) > 0;
+    }
+
+    /**
      * @param string $directory_name
      * The name of a directory to scan for files ending in `.php`.
      *
@@ -1395,7 +1419,11 @@ EOB;
                " " . \sprintf("%1$ 3d", (int)(100 * $p)) . "%" .
                \sprintf(' %0.2dMB/%0.2dMB', $memory, $peak);
 
-        $columns = (new Terminal())->getWidth();
+        static $columns = null;
+        if ($columns === null) {
+            // Only call this once per process, since it can be rather expensive
+            $columns = (new Terminal())->getWidth();
+        }
         // strlen("  99% 999MB/999MB") == 17
         $used_length = strlen($left_side) + \max(17, strlen($right_side));
         $remaining_length = $columns - $used_length;
@@ -1462,7 +1490,7 @@ EOB;
     public static function doesTerminalSupportUtf8() : bool
     {
         if (\strtoupper(\substr(PHP_OS, 0, 3)) === 'WIN') {
-            if (!function_exists('sapi_windows_cp_is_utf8') || !sapi_windows_cp_is_utf8()) {
+            if (!\function_exists('sapi_windows_cp_is_utf8') || !sapi_windows_cp_is_utf8()) {
                 return false;
             }
         }

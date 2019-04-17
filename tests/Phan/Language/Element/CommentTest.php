@@ -69,7 +69,9 @@ final class CommentTest extends BaseTest
         $this->assertInstanceOf(None::class, $comment->getClosureScopeOption());
         $this->assertSame([], $comment->getParameterList());
         $this->assertSame([], $comment->getParameterMap());
+        // @phan-suppress-next-line PhanDeprecatedFunction
         $this->assertSame([], $comment->getSuppressIssueList());
+        $this->assertSame([], $comment->getSuppressIssueSet());
         $this->assertFalse($comment->hasParameterWithNameOrOffset('bar', 0));
         $this->assertSame([], $comment->getVariableList());
     }
@@ -325,7 +327,7 @@ EOT;
         $this->assertTrue($scope_option->isDefined());
         $scope_type = $scope_option->get();
         $expected_type = Type::fromFullyQualifiedString('MyNS\MyClass');
-        $this->assertEquals($expected_type, $scope_type);
+        $this->assertSame($expected_type, $scope_type);
         $this->assertSame($expected_type, $scope_type);
     }
 

@@ -35,7 +35,7 @@ class Config
      * Older versions are likely to have edge cases we no longer support,
      * and version 50 got rid of Decl.
      *
-     * TODO: Also enable support for version 60 once there is a stable php-ast 1.0.0 release. (Issue #2038)
+     * TODO: Switch to version 70 in the next major Phan release.
      */
     const AST_VERSION = 50;
 
@@ -144,6 +144,9 @@ class Config
         // your application should be included in this list.
         'directory_list' => [],
 
+        // For internal use by Phan to quickly check for membership in directory_list.
+        '__directory_regex' => null,
+
         // List of case-insensitive file extensions supported by Phan.
         // (e.g. `['php', 'html', 'htm']`)
         'analyzed_file_extensions' => ['php'],
@@ -195,6 +198,9 @@ class Config
         //       should be added to the `directory_list` as well as
         //       to `exclude_analysis_directory_list`.
         'exclude_analysis_directory_list' => [],
+
+        // This is set internally by Phan based on exclude_analysis_directory_list
+        '__exclude_analysis_regex' => null,
 
         // A file list that defines files that will be included
         // in static analysis, to the exclusion of others.
@@ -1018,7 +1024,32 @@ class Config
                     self::$configuration['allow_method_param_type_widening'] = self::$closest_target_php_version_id >= 70200;
                 }
                 break;
+            case 'exclude_analysis_directory_list':
+                self::$configuration['__exclude_analysis_regex'] = self::generateDirectoryListRegex($value);
+                break;
+            case 'directory_list':
+                self::$configuration['__directory_regex'] = self::generateDirectoryListRegex($value);
+                break;
         }
+    }
+
+    /**
+     * @param string[] $value
+     * @return ?string
+     */
+    private static function generateDirectoryListRegex(array $value)
+    {
+        if (!$value) {
+            return null;
+        }
+        $parts = array_map(static function (string $path) : string {
+            $path = \str_replace('\\', '/', $path);  // Normalize \\ to / in configs
+            $path = \rtrim($path, '\//');  // remove trailing / from directory
+            $path = \preg_replace('@^(\./)+@', '', $path);  // Remove any number of leading ./ sections
+            return \preg_quote($path, '@');  // Quote this
+        }, $value);
+
+        return '@^(\./)*(' . implode('|', $parts) . ')([/\\\\]|$)@';
     }
 
     private static function computeClosestTargetPHPVersionId(string $version) : int
@@ -1287,7 +1318,7 @@ class Config
      */
     public static function isIssueFixingPluginEnabled() : bool
     {
-        return in_array(__DIR__ . '/Plugin/Internal/IssueFixingPlugin.php', Config::getValue('plugins'));
+        return \in_array(__DIR__ . '/Plugin/Internal/IssueFixingPlugin.php', Config::getValue('plugins'));
     }
 }
 
