@@ -964,7 +964,7 @@ class UnionType implements Serializable
         $new_variable_type = $this;
 
         foreach ($this->type_set as $type) {
-            if ($type->asExpandedTypes($code_base)->hasType($object_type)) {
+            if ($type->withIsNullable(false)->asExpandedTypes($code_base)->hasType($object_type)) {
                 $new_variable_type = $new_variable_type->withoutType($type);
             }
         }
@@ -1239,11 +1239,13 @@ class UnionType implements Serializable
     /**
      * @return UnionType result of removing truthy types from this value
      * (e.g. converts `0|1|bool|\stdClass` to `0|false`)
+     * (e.g. converts `?\stdClass` to `null`)
      */
     public function nonTruthyClone() : UnionType
     {
         $builder = new UnionTypeBuilder();
         $did_change = false;
+        $has_null = false;
         foreach ($this->type_set as $type) {
             if (!$type->getIsPossiblyTruthy()) {
                 $builder->addType($type);
@@ -1251,6 +1253,9 @@ class UnionType implements Serializable
             }
             $did_change = true;
             if ($type->getIsAlwaysTruthy()) {
+                if ($type->getIsNullable()) {
+                    $has_null = true;
+                }
                 // don't add null/false to the resulting type
                 continue;
             }
@@ -1258,7 +1263,13 @@ class UnionType implements Serializable
             // add non-nullable equivalents, and replace BoolType with non-nullable TrueType
             $builder->addType($type->asNonTruthyType());
         }
-        return $did_change ? $builder->getUnionType() : $this;
+        if (!$did_change) {
+            return $this;
+        }
+        if ($has_null) {
+            $builder->addType(NullType::instance(false));
+        }
+        return $builder->getUnionType()->asNormalizedTypes();
     }
 
     /**
@@ -1529,6 +1540,7 @@ class UnionType implements Serializable
         if (\count($target_type_set) === 0) {
             return true;
         }
+        $target = $target->asNormalizedTypes();
 
         // T overlaps with T, a future call to Type->canCastToType will pass.
         if ($this->hasCommonType($target)) {
@@ -1624,9 +1636,11 @@ class UnionType implements Serializable
         }
 
         // T overlaps with T, a future call to Type->canCastToType will pass.
+        $target = $target->asNormalizedTypes();
         if ($this->hasCommonType($target)) {
             return true;
         }
+
         static $float_type;
         static $int_type;
         static $mixed_type;
@@ -1690,6 +1704,27 @@ class UnionType implements Serializable
         // Only if no source types can be cast to any target
         // types do we say that we cannot perform the cast
         return false;
+    }
+
+    /**
+     * Precondition: $this->canCastToUnionType() is false.
+     *
+     * This tells us if it would have succeeded if the source type was not nullable.
+     *
+     * @internal
+     */
+    public function canCastToUnionTypeIfNonNull(UnionType $target) : bool
+    {
+        $non_null = $this->nonNullableClone();
+        if ($non_null === $this) {
+            // This wasn't nullable in the first place
+            return false;
+        }
+        if ($non_null->isEmpty()) {
+            // This was exclusively null - It should be a full TypeMismatch
+            return false;
+        }
+        return $non_null->canCastToUnionType($target);
     }
 
     /**
@@ -2419,6 +2454,7 @@ class UnionType implements Serializable
      * @param CodeBase $code_base (for detecting the iterable value types of `class MyIterator extends Iterator`)
      *
      * @return UnionType
+     * @suppress PhanTypeMismatchArgumentNullable false positive in static init
      */
     public function iterableValueUnionType(CodeBase $code_base) : UnionType
     {
@@ -2464,6 +2500,7 @@ class UnionType implements Serializable
      * Takes `array{field:int,other:string}` and returns `int|string`
      *
      * @return UnionType
+     * @suppress PhanTypeMismatchArgumentNullable false positive in static init
      */
     public function genericArrayElementTypes() : UnionType
     {
@@ -3074,6 +3111,7 @@ class UnionType implements Serializable
      * @param UnionTypeBuilder $builder (Containing only non-nullable values)
      * @return void
      * @var int $bool_id
+     * @suppress PhanTypeMismatchArgumentNullable false positive in static init
      */
     private static function convertToTypeSetWithNormalizedNonNullableBools(UnionTypeBuilder $builder)
     {
@@ -3098,6 +3136,7 @@ class UnionType implements Serializable
      * Removes ?false|?true types and adds ?bool
      *
      * @param UnionTypeBuilder $builder (Containing only non-nullable values)
+     * @suppress PhanTypeMismatchArgumentNullable false positive in static init
      */
     private static function convertToTypeSetWithNormalizedNullableBools(UnionTypeBuilder $builder)
     {

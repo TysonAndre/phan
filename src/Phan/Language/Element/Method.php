@@ -176,23 +176,23 @@ class Method extends ClassElement implements FunctionInterface
      */
     public function getIsOverriddenByAnother() : bool
     {
-        return $this->getPhanFlagsHasState(Flags::IS_OVERRIDEN_BY_ANOTHER);
+        return $this->getPhanFlagsHasState(Flags::IS_OVERRIDDEN_BY_ANOTHER);
     }
 
     /**
      * Sets whether this method is overridden by another method
      *
-     * @param bool $is_overriden_by_another
+     * @param bool $is_overridden_by_another
      * True if this method is overridden by another method
      *
      * @return void
      */
-    public function setIsOverriddenByAnother(bool $is_overriden_by_another)
+    public function setIsOverriddenByAnother(bool $is_overridden_by_another)
     {
         $this->setPhanFlags(Flags::bitVectorWithState(
             $this->getPhanFlags(),
-            Flags::IS_OVERRIDEN_BY_ANOTHER,
-            $is_overriden_by_another
+            Flags::IS_OVERRIDDEN_BY_ANOTHER,
+            $is_overridden_by_another
         ));
     }
 

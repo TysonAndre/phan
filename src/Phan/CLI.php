@@ -54,7 +54,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    const PHAN_VERSION = '1.2.9-dev';
+    const PHAN_VERSION = '1.3.1';
 
     /**
      * List of short flags passed to getopt
@@ -204,7 +204,7 @@ class CLI
      * @param array<int,string> $argv
      * @throws UsageException
      */
-    private function checkAllArgsUsed(array $opts, array &$argv)
+    private static function checkAllArgsUsed(array $opts, array &$argv)
     {
         $pruneargv = [];
         foreach ($opts as $opt => $value) {
@@ -589,7 +589,7 @@ class CLI
                     break;
                 case 's':
                 case 'daemonize-socket':
-                    $this->checkCanDaemonize('unix', $key);
+                    self::checkCanDaemonize('unix', $key);
                     if (!is_string($value)) {
                         throw new UsageException(\sprintf("Invalid arguments to --daemonize-socket: args=%s", StringUtil::jsonEncode($value)), EXIT_FAILURE);
                     }
@@ -707,7 +707,7 @@ class CLI
         }
 
         self::checkPluginsExist();
-        $this->ensureASTParserExists();
+        self::ensureASTParserExists();
 
         $output = $this->output;
         $printer = $factory->getPrinter($printer_type, $output);
@@ -718,7 +718,7 @@ class CLI
         ]);
         $collector = new BufferingCollector($filter);
 
-        $this->checkAllArgsUsed($opts, $argv);
+        self::checkAllArgsUsed($opts, $argv);
 
         Phan::setPrinter($printer);
         Phan::setIssueCollector($collector);
@@ -750,7 +750,12 @@ class CLI
             // @phan-suppress-next-line PhanAccessMethodInternal
             $plugin_file_name = ConfigPluginSet::normalizePluginPath($plugin_path_or_name);
             if (!\is_file($plugin_file_name)) {
-                $details = $plugin_file_name === $plugin_path_or_name ? '' : ' (Referenced as ' . StringUtil::jsonEncode($plugin_path_or_name) . ')';
+                if ($plugin_file_name === $plugin_path_or_name) {
+                    $details = '';
+                } else {
+                    $details = ' (Referenced as ' . StringUtil::jsonEncode($plugin_path_or_name) . ')';
+                    $details .= self::getPluginSuggestionText($plugin_path_or_name);
+                }
                 \fprintf(
                     STDERR,
                     "Phan could not find plugin %s%s\n",
@@ -764,6 +769,27 @@ class CLI
             \fwrite(STDERR, "Exiting due to invalid plugin config.\n");
             exit(1);
         }
+    }
+
+    /**
+     * @internal (visible for tests)
+     */
+    public static function getPluginSuggestionText(string $plugin_path_or_name) : string
+    {
+        $plugin_dirname = ConfigPluginSet::getBuiltinPluginDirectory();
+        $candidates = [];
+        foreach (\scandir($plugin_dirname) as $basename) {
+            if (substr($basename, -4) !== '.php') {
+                continue;
+            }
+            $plugin_name = substr($basename, 0, -4);
+            $candidates[$plugin_name] = $plugin_name;
+        }
+        $suggestions = IssueFixSuggester::getSuggestionsForStringSet($plugin_path_or_name, $candidates);
+        if (!$suggestions) {
+            return '';
+        }
+        return ' (Did you mean ' . implode(' or ', $suggestions) . '?)';
     }
 
     /**
@@ -785,7 +811,7 @@ class CLI
             foreach (Config::getValue('directory_list') as $directory_name) {
                 $this->file_list = \array_merge(
                     $this->file_list,
-                    \array_values($this->directoryNameToFileList($directory_name))
+                    \array_values(self::directoryNameToFileList($directory_name))
                 );
             }
 
@@ -817,7 +843,7 @@ class CLI
      * @return void - exits on usage error
      * @throws UsageException
      */
-    private function checkCanDaemonize(string $protocol, string $opt)
+    private static function checkCanDaemonize(string $protocol, string $opt)
     {
         $opt = strlen($opt) >= 2 ? "--$opt" : "-$opt";
         if (!in_array($protocol, \stream_get_transports())) {
@@ -1278,7 +1304,7 @@ EOB;
      * @throws InvalidArgumentException
      * if there is nothing to analyze
      */
-    private function directoryNameToFileList(
+    private static function directoryNameToFileList(
         string $directory_name
     ) : array {
         $file_list = [];
@@ -1549,7 +1575,7 @@ EOB;
      * @return void
      * @throws AssertionError on failure
      */
-    private function ensureASTParserExists()
+    private static function ensureASTParserExists()
     {
         if (Config::getValue('use_polyfill_parser')) {
             return;

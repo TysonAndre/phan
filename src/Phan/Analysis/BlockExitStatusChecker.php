@@ -210,6 +210,7 @@ final class BlockExitStatusChecker extends KindVisitorImplementation
         $combined_status = 0;
         // Try to cover all possible cases, such as try { return throwsException(); } catch(Exception $e) { break; }
         foreach ($node->children as $catch_node) {
+            // @phan-suppress-next-line PhanTypeMismatchArgumentNullable this is never null for catch nodes
             $catch_node_status = $this->visitStmtList($catch_node->children['stmts']);
             $combined_status |= $catch_node_status;
         }
@@ -285,6 +286,7 @@ final class BlockExitStatusChecker extends KindVisitorImplementation
      */
     private function computeStatusOfSwitchCase(Node $case_node, int $index, array $siblings) : int
     {
+        // @phan-suppress-next-line PhanTypeMismatchArgumentNullable this is never null
         $status = $this->visitStmtList($case_node->children['stmts']);
         if (($status & self::STATUS_PROCEED) === 0) {
             // Check if the current switch case will not fall through.
@@ -330,7 +332,7 @@ final class BlockExitStatusChecker extends KindVisitorImplementation
         if (self::isTruthyLiteral($node->children['cond'])) {
             // Use a special case to analyze "while (1) {exprs}" or "for (; true; ) {exprs}"
             // TODO: identify infinite loops, mark those as STATUS_NO_PROCEED or STATUS_RETURN.
-            return $this->computeDerivedStatusOfInfiniteLoop($inner_status);
+            return self::computeDerivedStatusOfInfiniteLoop($inner_status);
         }
         // This is (to our awareness) **not** an infinite loop
 
@@ -353,7 +355,7 @@ final class BlockExitStatusChecker extends KindVisitorImplementation
         if (count($cond_nodes) === 0 || self::isTruthyLiteral(\end($cond_nodes))) {
             // Use a special case to analyze "while (1) {exprs}" or "for (; true; ) {exprs}"
             // TODO: identify infinite loops, mark those as STATUS_NO_PROCEED or STATUS_RETURN.
-            return $this->computeDerivedStatusOfInfiniteLoop($inner_status);
+            return self::computeDerivedStatusOfInfiniteLoop($inner_status);
         }
         // This is (to our awareness) **not** an infinite loop
 
@@ -373,7 +375,7 @@ final class BlockExitStatusChecker extends KindVisitorImplementation
 
     // Logic to determine status of "while (1) {exprs}" or "for (; true; ) {exprs}"
     // TODO: identify infinite loops, mark those as STATUS_NO_PROCEED or STATUS_RETURN.
-    private function computeDerivedStatusOfInfiniteLoop(int $inner_status) : int
+    private static function computeDerivedStatusOfInfiniteLoop(int $inner_status) : int
     {
         $status = $inner_status & ~self::UNEXITABLE_LOOP_INNER_STATUS;
         if ($status === 0) {
@@ -464,7 +466,7 @@ final class BlockExitStatusChecker extends KindVisitorImplementation
         }
         // @phan-suppress-next-line PhanPossiblyFalseTypeArgumentInternal
         if (\strcasecmp($function_name, 'trigger_error') === 0) {
-            return $this->computeTriggerErrorStatusCodeForConstant($node->children['args']->children[1] ?? null);
+            return self::computeTriggerErrorStatusCodeForConstant($node->children['args']->children[1] ?? null);
         }
         // TODO: Could allow .phan/config.php or plugins to define additional behaviors, e.g. for methods.
         // E.g. if (!$var) {HttpFramework::generate_302_and_die(); }
@@ -474,7 +476,7 @@ final class BlockExitStatusChecker extends KindVisitorImplementation
     /**
      * @param Node|string|int|float $constant_ast
      */
-    private function computeTriggerErrorStatusCodeForConstant($constant_ast) : int
+    private static function computeTriggerErrorStatusCodeForConstant($constant_ast) : int
     {
         // return PROCEED if this can't be determined.
         // TODO: Could check for integer literals
@@ -536,6 +538,7 @@ final class BlockExitStatusChecker extends KindVisitorImplementation
         $has_if_elems_for_all_cases = false;
         $combined_statuses = 0;
         foreach ($node->children as $child_node) {
+            // @phan-suppress-next-line PhanTypeMismatchArgumentNullable this is never null
             $status = $this->visitStmtList($child_node->children['stmts']);
             $combined_statuses |= $status;
 
@@ -559,6 +562,7 @@ final class BlockExitStatusChecker extends KindVisitorImplementation
      */
     public function visitDoWhile(Node $node)
     {
+        // @phan-suppress-next-line PhanTypeMismatchArgumentNullable this is never null
         $inner_status = $this->visitStmtList($node->children['stmts']);
         if (($inner_status & ~self::STATUS_THROW_OR_RETURN_BITMASK) === 0) {
             // The inner block throws or returns before the end can be reached.
@@ -589,6 +593,7 @@ final class BlockExitStatusChecker extends KindVisitorImplementation
         if ($status) {
             return $status;
         }
+        // @phan-suppress-next-line PhanTypeMismatchArgumentNullable this is never null
         $status = $this->visitStmtList($node->children['stmts']);
         $node->flags = $status;
         return $status;

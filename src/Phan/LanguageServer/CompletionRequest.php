@@ -176,39 +176,39 @@ final class CompletionRequest extends NodeInfoRequest
 
     public function finalize()
     {
-        $promise = $this->promise;
-        if ($promise) {
-            $result = $this->completions ?: null;
-            if ($result !== null) {
-                // Sort completion suggestions alphabetically,
-                // ignoring the leading `$` in variables/static properties.
-                \uksort(
-                    $result,
-                    /**
-                     * @param string $a
-                     * @param string $b
-                     */
-                    static function ($a, $b) : int {
-                        $a = \ltrim((string)$a, '$');
-                        $b = \ltrim((string)$b, '$');
-                        return (\strtolower($a) <=> \strtolower($b)) ?: ($a <=> $b);
-                    }
-                );
-                $result_list = new CompletionList(\array_values($result));
-            } else {
-                $result_list = null;
-            }
-            $promise->fulfill($result_list);
-            $this->promise = null;
+        if ($this->fulfilled) {
+            return;
         }
+        $this->fulfilled = true;
+        $result = $this->completions ?: null;
+        if ($result !== null) {
+            // Sort completion suggestions alphabetically,
+            // ignoring the leading `$` in variables/static properties.
+            \uksort(
+                $result,
+                /**
+                 * @param string $a
+                 * @param string $b
+                 */
+                static function ($a, $b) : int {
+                    $a = \ltrim((string)$a, '$');
+                    $b = \ltrim((string)$b, '$');
+                    return (\strtolower($a) <=> \strtolower($b)) ?: ($a <=> $b);
+                }
+            );
+            $result_list = new CompletionList(\array_values($result));
+        } else {
+            $result_list = null;
+        }
+        $this->promise->fulfill($result_list);
     }
 
     public function __destruct()
     {
-        $promise = $this->promise;
-        if ($promise) {
-            $promise->reject(new Exception('Failed to send a valid textDocument/definition result'));
-            $this->promise = null;
+        if ($this->fulfilled) {
+            return;
         }
+        $this->fulfilled = true;
+        $this->promise->reject(new Exception('Failed to send a valid textDocument/definition result'));
     }
 }

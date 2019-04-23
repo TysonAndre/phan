@@ -71,11 +71,10 @@ abstract class ClassElement extends AddressableElement
      */
     public function getDefiningFQSEN() : FullyQualifiedClassElement
     {
-        $defining_fqsen = $this->defining_fqsen;
-        if ($defining_fqsen === null) {
+        if ($this->defining_fqsen === null) {
             throw new AssertionError('should check hasDefiningFQSEN');
         }
-        return $defining_fqsen;
+        return $this->defining_fqsen;
     }
 
     /**
@@ -266,7 +265,7 @@ abstract class ClassElement extends AddressableElement
             }
             return false;
         }
-        return $this->checkCanAccessProtectedElement($code_base, $defining_fqsen, $accessing_class_fqsen);
+        return self::checkCanAccessProtectedElement($code_base, $defining_fqsen, $accessing_class_fqsen);
     }
 
     /**
@@ -274,7 +273,7 @@ abstract class ClassElement extends AddressableElement
      *
      * Precondition: The property in $defining_fqsen is protected.
      */
-    private function checkCanAccessProtectedElement(CodeBase $code_base, FullyQualifiedClassName $defining_fqsen, FullyQualifiedClassName $accessing_class_fqsen) : bool
+    private static function checkCanAccessProtectedElement(CodeBase $code_base, FullyQualifiedClassName $defining_fqsen, FullyQualifiedClassName $accessing_class_fqsen) : bool
     {
         $accessing_class_type = $accessing_class_fqsen->asType();
         $type_of_class_of_property = $defining_fqsen->asType();

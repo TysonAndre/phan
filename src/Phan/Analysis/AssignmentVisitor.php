@@ -766,6 +766,8 @@ class AssignmentVisitor extends AnalysisVisitor
 
     /**
      * This analyzes an assignment to an instance or static property.
+     *
+     * @param Node $node the left hand side of the assignment
      */
     private function analyzePropAssignment(Clazz $clazz, Property $property, Node $node) : Context
     {
@@ -827,6 +829,9 @@ class AssignmentVisitor extends AnalysisVisitor
             // stdClass is an exception to this, for issues such as https://github.com/phan/phan/pull/700
             return $this->context;
         } else {
+            if (($node->children['expr']->kind ?? null) === \ast\AST_VAR && $node->children['expr']->children['name'] === 'this') {
+                $this->handleThisPropertyAssignmentInLocalScope($property);
+            }
             // This is a regular assignment, not an assignment to an offset
             if (!$this->right_type->canCastToExpandedUnionType(
                 $property_union_type,
@@ -835,14 +840,29 @@ class AssignmentVisitor extends AnalysisVisitor
                 && !($this->right_type->hasTypeInBoolFamily() && $property_union_type->hasTypeInBoolFamily())
                 && !$clazz->getHasDynamicProperties($this->code_base)
             ) {
-                // TODO: optionally, change the message from "::" to "->"?
-                $this->emitIssue(
-                    Issue::TypeMismatchProperty,
-                    $node->lineno ?? 0,
-                    (string)$this->right_type,
-                    $property->getRepresentationForIssue(),
-                    (string)$property_union_type
-                );
+                if ($this->right_type->nonNullableClone()->canCastToExpandedUnionType($property_union_type, $this->code_base) &&
+                        !$this->right_type->isType(NullType::instance(false))) {
+                    if ($this->shouldSuppressIssue(Issue::TypeMismatchProperty, $node->lineno)) {
+                        return $this->context;
+                    }
+                    $this->emitIssue(
+                        Issue::PossiblyNullTypeMismatchProperty,
+                        $node->lineno,
+                        (string)$this->right_type,
+                        $property->getRepresentationForIssue(),
+                        (string)$property_union_type,
+                        'null'
+                    );
+                } else {
+                    // TODO: optionally, change the message from "::" to "->"?
+                    $this->emitIssue(
+                        Issue::TypeMismatchProperty,
+                        $node->lineno,
+                        (string)$this->right_type,
+                        $property->getRepresentationForIssue(),
+                        (string)$property_union_type
+                    );
+                }
                 return $this->context;
             }
 
@@ -855,6 +875,17 @@ class AssignmentVisitor extends AnalysisVisitor
         $this->addTypesToProperty($property, $node);
 
         return $this->context;
+    }
+
+    /**
+     * Modifies $this->context (if needed) to track the assignment to a property of $this within a function-like.
+     * This handles conditional branches.
+     *
+     * @return void
+     */
+    private function handleThisPropertyAssignmentInLocalScope(Property $property)
+    {
+        $this->context = $this->context->withThisPropertySetToType($property, $this->right_type);
     }
 
     private function analyzeAssignmentToReadOnlyProperty(Property $property, Node $node)
@@ -919,9 +950,13 @@ class AssignmentVisitor extends AnalysisVisitor
             // No mismatches
             return;
         }
+        if ($this->shouldSuppressIssue(Issue::TypeMismatchProperty, $node->lineno)) {
+            // TypeMismatchProperty also suppresses PhanPossiblyNullTypeMismatchProperty, etc.
+            return;
+        }
 
         $this->emitIssue(
-            self::getStrictIssueType($mismatch_type_set),
+            self::getStrictPropertyMismatchIssueType($mismatch_type_set),
             $node->lineno ?? 0,
             (string)$this->right_type,
             $property->getRepresentationForIssue(),
@@ -930,7 +965,7 @@ class AssignmentVisitor extends AnalysisVisitor
         );
     }
 
-    private static function getStrictIssueType(UnionType $union_type) : string
+    private static function getStrictPropertyMismatchIssueType(UnionType $union_type) : string
     {
         if ($union_type->typeCount() === 1) {
             $type = $union_type->getTypeSet()[0];
@@ -1251,12 +1286,14 @@ class AssignmentVisitor extends AnalysisVisitor
                         'int'
                     );
                 } else {
+                    // @phan-suppress-next-line PhanTypeMismatchArgumentNullable false positive for static
                     if ($right_type->canCastToUnionType($string_array_type)) {
                         // e.g. $a = 'aaa'; $a[0] = 'x';
                         // (Currently special casing this, not handling deeper dimensions)
                         return StringType::instance(false)->asUnionType();
                     }
                 }
+            // @phan-suppress-next-line PhanTypeMismatchArgumentNullable false positive for static
             } elseif (!$assign_type->hasType($mixed_type) && !$assign_type->hasType($simple_xml_element_type)) {
                 // Imitate the check in UnionTypeVisitor, don't warn for mixed, etc.
                 $this->emitIssue(

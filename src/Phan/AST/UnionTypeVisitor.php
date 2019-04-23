@@ -1302,7 +1302,7 @@ class UnionTypeVisitor extends AnalysisVisitor
 
         // If we have generics, we're all set
         if (!$generic_types->isEmpty()) {
-            if (!($node->flags & self::FLAG_IGNORE_NULLABLE) && $this->isSuspiciousNullable($union_type)) {
+            if (!($node->flags & self::FLAG_IGNORE_NULLABLE) && self::isSuspiciousNullable($union_type)) {
                 $this->emitIssue(
                     Issue::TypeArraySuspiciousNullable,
                     $node->lineno,
@@ -1417,7 +1417,7 @@ class UnionTypeVisitor extends AnalysisVisitor
         return $element_types;
     }
 
-    private function isSuspiciousNullable(UnionType $union_type) : bool
+    private static function isSuspiciousNullable(UnionType $union_type) : bool
     {
         foreach ($union_type->getTypeSet() as $type) {
             if ($type->getIsNullable() && ($type instanceof ArrayType || $type instanceof StringType)) {
@@ -1655,6 +1655,7 @@ class UnionTypeVisitor extends AnalysisVisitor
 
         if (!$this->context->getScope()->hasVariableWithName($variable_name)) {
             if (Variable::isHardcodedVariableInScopeWithName($variable_name, $this->context->isInGlobalScope())) {
+                // @phan-suppress-next-line PhanTypeMismatchReturnNullable variable existence was checked
                 return Variable::getUnionTypeOfHardcodedGlobalVariableWithName($variable_name);
             }
             if (!Config::getValue('ignore_undeclared_variables_in_global_scope')
@@ -1824,7 +1825,6 @@ class UnionTypeVisitor extends AnalysisVisitor
                 $this->context,
                 $node
             ))->getProperty($is_static);
-            $union_type = $property->getUnionType()->withStaticResolvedInContext($property->getContext());
 
             if ($property->isWriteOnly()) {
                 $this->emitIssue(
@@ -1836,13 +1836,26 @@ class UnionTypeVisitor extends AnalysisVisitor
                 );
             }
 
+            $expr_node = $node->children['expr'] ?? null;
+            if ($expr_node instanceof Node &&
+                    $expr_node->kind === ast\AST_VAR &&
+                    $expr_node->children['name'] === 'this') {
+                $override_union_type = $this->context->getThisPropertyIfOverridden($property->getName());
+                if ($override_union_type) {
+                    // There was an earlier expression such as `$this->prop = 2;`
+                    // fwrite(STDERR, "Saw override '$override_union_type' for $property\n");
+                    return $override_union_type;
+                }
+            }
+
+            $union_type = $property->getUnionType()->withStaticResolvedInContext($property->getContext());
             // Map template types to concrete types
             if ($union_type->hasTemplateTypeRecursive()) {
                 // Get the type of the object calling the property
                 $expression_type = UnionTypeVisitor::unionTypeFromNode(
                     $this->code_base,
                     $this->context,
-                    $node->children['expr']
+                    $expr_node
                 );
 
                 $union_type = $union_type->withTemplateParameterTypeMap(
@@ -2418,7 +2431,7 @@ class UnionTypeVisitor extends AnalysisVisitor
 
         $class_name = (string)$node->children['name'];
 
-        if ('parent' === $class_name) {
+        if (\strcasecmp('parent', $class_name) === 0) {
             if (!$context->isInClassScope()) {
                 throw new IssueException(
                     Issue::fromType(Issue::ContextNotObject)(

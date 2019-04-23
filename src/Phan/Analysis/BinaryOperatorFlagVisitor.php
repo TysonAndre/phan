@@ -239,7 +239,7 @@ final class BinaryOperatorFlagVisitor extends FlagVisitorImplementation
 
         if ($left->hasNonNullIntType()) {
             if ($right->hasNonNullIntType()) {
-                return $this->computeIntegerOperationResult($node, $left, $right);
+                return self::computeIntegerOperationResult($node, $left, $right);
             }
             if ($right->hasNonNullStringType()) {
                 $this->emitIssue(
@@ -277,7 +277,7 @@ final class BinaryOperatorFlagVisitor extends FlagVisitorImplementation
         return IntType::instance(false)->asUnionType();
     }
 
-    private function computeIntegerOperationResult(
+    private static function computeIntegerOperationResult(
         Node $node,
         UnionType $left,
         UnionType $right
@@ -612,6 +612,7 @@ final class BinaryOperatorFlagVisitor extends FlagVisitorImplementation
      *
      * @return UnionType
      * The resulting type(s) of the binary operation
+     * @suppress PhanTypeMismatchArgumentNullable false positives for static initializing
      */
     public function visitBinaryAdd(Node $node) : UnionType
     {
@@ -633,7 +634,7 @@ final class BinaryOperatorFlagVisitor extends FlagVisitorImplementation
 
         // fast-track common cases
         if ($left->isNonNullIntType() && $right->isNonNullIntType()) {
-            return $this->computeIntegerOperationResult($node, $left, $right);
+            return self::computeIntegerOperationResult($node, $left, $right);
         }
 
         // If both left and right union types are arrays, then this is array
@@ -681,11 +682,13 @@ final class BinaryOperatorFlagVisitor extends FlagVisitorImplementation
             !$left->genericArrayElementTypes()->isEmpty()
             && $left->nonArrayTypes()->isEmpty()
         ) || $left->isType($array_type);
+        // @phan-suppress-previous-line PhanTypeMismatchArgumentNullable false positive for static initialization
 
         $right_is_array = (
             !$right->genericArrayElementTypes()->isEmpty()
             && $right->nonArrayTypes()->isEmpty()
         ) || $right->isType($array_type);
+        // @phan-suppress-previous-line PhanTypeMismatchArgumentNullable false positive for static initialization
 
         if ($left_is_array || $right_is_array) {
             if ($left_is_array && $right_is_array) {
@@ -750,7 +753,7 @@ final class BinaryOperatorFlagVisitor extends FlagVisitorImplementation
 
         // fast-track common cases
         if ($left->isNonNullIntType() && $right->isNonNullIntType()) {
-            return $this->computeIntegerOperationResult($node, $left, $right);
+            return self::computeIntegerOperationResult($node, $left, $right);
         }
 
         $this->warnAboutInvalidUnionType(

@@ -28,6 +28,7 @@ abstract class AbstractPhanFileTest extends BaseTest implements CodeBaseAwareTes
 
     /**
      * @return void
+     * @suppress PhanPossiblyNullTypeMismatchProperty
      */
     public function setCodeBase(CodeBase $code_base = null)
     {

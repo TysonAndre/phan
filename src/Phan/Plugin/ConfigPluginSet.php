@@ -442,10 +442,9 @@ final class ConfigPluginSet extends PluginV2 implements
                 $parameters,
                 $suggestion
             )) {
-                $unused_suppression_plugin = $this->unused_suppression_plugin;
-                if ($unused_suppression_plugin) {
+                if ($this->unused_suppression_plugin) {
                     // @phan-suppress-next-line PhanAccessMethodInternal
-                    $unused_suppression_plugin->recordPluginSuppression($plugin, $context->getFile(), $issue_type, $lineno);
+                    $this->unused_suppression_plugin->recordPluginSuppression($plugin, $context->getFile(), $issue_type, $lineno);
                 }
                 return true;
             }
@@ -641,8 +640,7 @@ final class ConfigPluginSet extends PluginV2 implements
      */
     public function prepareNodeSelectionPluginForNode(Node $node)
     {
-        $node_selection_plugin = $this->node_selection_plugin;
-        if (!$node_selection_plugin) {
+        if (!$this->node_selection_plugin) {
             \fwrite(STDERR, "Error: " . __METHOD__ . " called before node selection plugin was created\n");
             return;
         }
@@ -752,9 +750,17 @@ final class ConfigPluginSet extends PluginV2 implements
     public static function normalizePluginPath(string $plugin_file_name) : string
     {
         if (\preg_match('@^[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*$@', $plugin_file_name) > 0) {
-            return \dirname(__DIR__, 3) . '/.phan/plugins/' . $plugin_file_name . '.php';
+            return self::getBuiltinPluginDirectory() . '/' . $plugin_file_name . '.php';
         }
         return $plugin_file_name;
+    }
+
+    /**
+     * Returns the path to the plugins bundled with Phan.
+     */
+    public static function getBuiltinPluginDirectory() : string
+    {
+        return \dirname(__DIR__, 3) . '/.phan/plugins';
     }
 
     /**

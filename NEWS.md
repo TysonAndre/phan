@@ -1,6 +1,37 @@
 Phan NEWS
 
-?? ??? 2019, Phan 1.2.9 (dev)
+?? ??? 2019, Phan 1.3.2 (dev)
+-----------------------
+
+New features(CLI):
++ Suggest similarly named plugins if `--plugin SomePluginName` refers to a built-in plugin that doesn't exist.
+
+New features(Analysis):
++ Support locally tracking assignments to and conditionals on `$this->prop` inside of function scopes. (#805, #204)
+
+  This supports only one level of nesting.
+
+  Properties are deliberately tracked for just the variable `$this` (which can't be reassigned), and not other variables.
++ Fix false positives with dead code detection for internal stubs in `autoload_internal_extension_signatures`. (#2605)
++ Add a way to escape/unescape array shape keys (newlines, binary data, etc) (#1664)
+
+  e.g. `@return array{\n\r\t\x01\\:true}` in phpdoc would correspond to `return ["\n\r\t\x01\\" => true];`
+
+20 Apr 2019, Phan 1.3.1
+-----------------------
+
+New features(Analysis):
++ Fix false positive `PhanTypeMismatchReturnNullable` and `PhanTypeMismatchArgumentNullable` introduced in 1.3.0 (#2667)
++ Emit `PhanPossiblyNullTypeMismatchProperty` instead of `PhanTypeMismatchProperty` when assigning `?T`
+  to a property expecting a compatible but non-nullable type.
+
+  (The same issue was already emitted when the internal union type representation was `T|null` (not `?T`) and strict property type checking was enabled)
+
+Plugins:
++ Add `PossiblyStaticMethodPlugin` to detect instance methods that can be changed to static methods (#2609)
++ Fix edge cases checking if left/right-hand side of binary operations are numbers in `NumericalComparisonPlugin`
+
+19 Apr 2019, Phan 1.3.0
 -----------------------
 
 New features(Analysis):
@@ -18,6 +49,13 @@ New features(Analysis):
   Setting `unused_variable_detection_assume_override_exists` to true in `.phan/config.php` can be used to continue emitting the old issue names instead of `*NoOverride*` equivalents.
 + Warn about more numeric operations(+, /, etc) on unknown strings and non-numeric literal strings (#2656)
   The settings `scalar_implicit_cast` and `scalar_implicit_partial` affect this for the `string` union type but not for literals.
++ Improve types inferred from checks such as `if (is_array($var['field'])) { use($var['field']); }` and `if ($var['field'] instanceof stdClass) {...}` (#2601)
++ Infer that $varName is non-null and an object for conditions such as `if (isset($varName->field['prop']))`
++ Be more consistent about warning when passing `?SomeClass` to a parameter expecting non-null `SomeClass`.
++ Add `PhanTypeMismatchArgumentNullable*` and `PhanTypeMismatchReturnNullable` when the main reason the type check failed was nullability
+
+  Previously, Phan would fail to detect that some nullable class instances were incompatible with the non-null expected types in some cases.
++ Improve analysis of negation of `instanceof` checks on nullable types. (#2663)
 
 Language Server/Daemon mode:
 + Analyze new but unsaved files, if they would be analyzed by Phan once they actually were saved to disk.
@@ -26,9 +64,13 @@ Plugins:
 + Warn about assignments where the left and right hand side are the same expression in `DuplicateExpressionPlugin` (#2641)
   New issue type: `PhanPluginDuplicateExpressionAssignment`
 
-Maintenance:
+Deprecations:
 + Print a message to stderr if the installed php-ast version is older than 1.0.1.
   A future major Phan version of Phan will probably depend on AST version 70 to support new syntax found in PHP 7.4.
++ Print a message to stderr if the installed PHP version is 7.0.
+  A future major version of Phan will require PHP 7.1+ to run.
+
+  Phan will still continue to support setting `target_php_version` to `'7.0'` and `--target-php-version 7.0` in that release.
 
 Bug fixes:
 + Fix edge cases in how Phan checks if files are in `exclude_analysis_directory_list` (#2651)

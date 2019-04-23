@@ -1372,11 +1372,10 @@ trait FunctionTrait
                 );
             }
         }
-        $comment = $this->comment;
-        if ($comment) {
+        if ($this->comment) {
             // Add plugins **after** the phpdoc and real comment types were merged.
             // Plugins affecting return types (for template in (at)return)
-            $template_type_list = $comment->getTemplateTypeList();
+            $template_type_list = $this->comment->getTemplateTypeList();
             if ($template_type_list) {
                 $this->addClosureForDependentTemplateType($code_base, $context, $template_type_list);
             }
@@ -1388,10 +1387,9 @@ trait FunctionTrait
      */
     public function declaresTemplateTypeInComment(TemplateType $template_type) : bool
     {
-        $comment = $this->comment;
-        if ($comment) {
+        if ($this->comment) {
             // Template types are identical if they have the same name. See TemplateType::instanceForId.
-            return \in_array($template_type, $comment->getTemplateTypeList(), true);
+            return \in_array($template_type, $this->comment->getTemplateTypeList(), true);
         }
         return false;
     }
@@ -1403,9 +1401,8 @@ trait FunctionTrait
             return true;
         }
 
-        $comment = $this->comment;
-        if ($comment) {
-            foreach ($comment->getParamAssertionMap() as $assertion) {
+        if ($this->comment) {
+            foreach ($this->comment->getParamAssertionMap() as $assertion) {
                 // @phan-suppress-next-line PhanAccessPropertyInternal
                 if ($assertion->union_type->usesTemplateType($type)) {
                     // used in `@phan-assert`
@@ -1592,7 +1589,7 @@ trait FunctionTrait
                 return $union_type;
             };
         }
-        return $this->createClosureForUnionTypeExtractorAndAssertionType($union_type_extractor, $assertion->assertion_type, $i);
+        return self::createClosureForUnionTypeExtractorAndAssertionType($union_type_extractor, $assertion->assertion_type, $i);
     }
 
     /**
@@ -1601,7 +1598,7 @@ trait FunctionTrait
      * @param Closure(CodeBase, Context, array):UnionType $union_type_extractor
      * @return ?Closure(CodeBase, Context, FunctionInterface, array):void
      */
-    public function createClosureForUnionTypeExtractorAndAssertionType(Closure $union_type_extractor, int $assertion_type, int $i)
+    public static function createClosureForUnionTypeExtractorAndAssertionType(Closure $union_type_extractor, int $assertion_type, int $i)
     {
         switch ($assertion_type) {
             case Assertion::IS_OF_TYPE:

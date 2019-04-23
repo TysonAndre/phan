@@ -401,12 +401,12 @@ class Clazz extends AddressableElement
     }
 
     /**
-     * @param Type|null $parent_type
+     * @param Type $parent_type
      * The type of the parent (extended) class of this class.
      *
      * @return void
      */
-    public function setParentType(Type $parent_type = null)
+    public function setParentType(Type $parent_type)
     {
         if ($parent_type && $this->getInternalScope()->hasAnyTemplateType()) {
             // Get a reference to the local list of templated
@@ -464,9 +464,8 @@ class Clazz extends AddressableElement
      */
     public function getParentTypeOption()
     {
-        $parent_type = $this->parent_type;
-        if ($parent_type !== null) {
-            return new Some($parent_type);
+        if ($this->parent_type !== null) {
+            return new Some($this->parent_type);
         }
 
         return new None();
@@ -697,7 +696,7 @@ class Clazz extends AddressableElement
         if ($this->hasPropertyWithName($code_base, $property_name)) {
             // TODO: Check if trait properties would be inherited first.
             // TODO: Figure out semantics and use $from_trait?
-            $this->checkPropertyCompatibility(
+            self::checkPropertyCompatibility(
                 $code_base,
                 $property,
                 $this->getPropertyByName($code_base, $property_name)
@@ -756,7 +755,7 @@ class Clazz extends AddressableElement
     /**
      * @return void
      */
-    private function checkPropertyCompatibility(
+    private static function checkPropertyCompatibility(
         CodeBase $code_base,
         Property $inherited_property,
         Property $overriding_property
@@ -1009,6 +1008,7 @@ class Clazz extends AddressableElement
 
         // If the property exists and is accessible, return it
         if ($is_property_accessible) {
+            // @phan-suppress-next-line PhanTypeMismatchReturnNullable is_property_accessible ensures that this is non-null
             return $property;
         }
 
@@ -1167,7 +1167,7 @@ class Clazz extends AddressableElement
             // If the constant with that name already exists, mark it as an override.
             $overriding_constant = $code_base->getClassConstantByFQSEN($constant_fqsen);
             $overriding_constant->setIsOverride(true);
-            $this->checkConstantCompatibility(
+            self::checkConstantCompatibility(
                 $code_base,
                 $constant,
                 $code_base->getClassConstantByFQSEN(
@@ -1190,7 +1190,7 @@ class Clazz extends AddressableElement
     /**
      * @return void
      */
-    private function checkConstantCompatibility(
+    private static function checkConstantCompatibility(
         CodeBase $code_base,
         ClassConstant $inherited_constant,
         ClassConstant $overriding_constant
@@ -1967,7 +1967,7 @@ class Clazz extends AddressableElement
      *
      * @return array<int,Clazz>
      */
-    private function getClassListFromFQSENList(
+    private static function getClassListFromFQSENList(
         CodeBase $code_base,
         array $fqsen_list
     ) : array {
@@ -1989,7 +1989,7 @@ class Clazz extends AddressableElement
      */
     public function getAncestorClassList(CodeBase $code_base)
     {
-        return $this->getClassListFromFQSENList(
+        return self::getClassListFromFQSENList(
             $code_base,
             $this->getAncestorFQSENList()
         );
@@ -2642,9 +2642,8 @@ class Clazz extends AddressableElement
         $implements_types = [];
         $parent_implements_types = [];
 
-        $parent_type = $this->parent_type;
-        if ($parent_type) {
-            $extend_types[] = FullyQualifiedClassName::fromType($parent_type);
+        if ($this->parent_type) {
+            $extend_types[] = FullyQualifiedClassName::fromType($this->parent_type);
             $parent_class = $this->getParentClass($code_base);
             $parent_implements_types = $parent_class->interface_fqsen_list;
         }
@@ -2846,7 +2845,7 @@ class Clazz extends AddressableElement
      * @param ClassConstant[] $original_declared_class_constants
      * @return void
      */
-    private function analyzeClassConstantOverrides(CodeBase $code_base, array $original_declared_class_constants)
+    private static function analyzeClassConstantOverrides(CodeBase $code_base, array $original_declared_class_constants)
     {
         foreach ($original_declared_class_constants as $constant) {
             if ($constant->isOverrideIntended() && !$constant->getIsOverride()) {
@@ -3047,14 +3046,13 @@ class Clazz extends AddressableElement
         if (\count($template_parameter_type_map) === 0) {
             return UnionType::empty();
         }
-        $parent_type = $this->parent_type;
-        if ($parent_type === null) {
+        if ($this->parent_type === null) {
             return UnionType::empty();
         }
-        if (!$parent_type->hasTemplateParameterTypes()) {
+        if (!$this->parent_type->hasTemplateParameterTypes()) {
             return UnionType::empty();
         }
-        $parent_template_parameter_type_list = $parent_type->getTemplateParameterTypeList();
+        $parent_template_parameter_type_list = $this->parent_type->getTemplateParameterTypeList();
         $changed = false;
         foreach ($parent_template_parameter_type_list as $i => $template_type) {
             $new_template_type = $template_type->withTemplateParameterTypeMap($template_parameter_type_map);
@@ -3067,7 +3065,7 @@ class Clazz extends AddressableElement
         if (!$changed) {
             return UnionType::empty();
         }
-        return Type::fromType($parent_type, $parent_template_parameter_type_list)->asUnionType();
+        return Type::fromType($this->parent_type, $parent_template_parameter_type_list)->asUnionType();
     }
 
     /**

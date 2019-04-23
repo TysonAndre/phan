@@ -99,7 +99,7 @@ class Type
         '(\??)(callable-string|class-string|[a-zA-Z_\x7f-\xff\\\][a-zA-Z0-9_\x7f-\xff\\\]*|\$this)';
 
     const shape_key_regex =
-        '[-._a-zA-Z0-9\x7f-\xff]+\??';
+        '(?:[-.\/^;$%*+_a-zA-Z0-9\x7f-\xff]|\\\\(?:[nrt\\\\]|x[0-9a-fA-F]{2}))+\??';
 
     /**
      * A literal integer or string.
@@ -1391,6 +1391,9 @@ class Type
     {
         $result = [];
         foreach ($shape_components as $key => $component_string) {
+            if (\is_string($key) && \strpos($key, '\\') !== false) {
+                $key = ArrayShapeType::unescapeKey($key);
+            }
             if (\is_string($key) && \substr($key, -1) === '?') {
                 if (\substr($component_string, -1) === '=') {
                     $component_string = \substr($component_string, 0, -1);
@@ -2120,11 +2123,11 @@ class Type
             $clazz = $code_base->getClassByFQSEN($class_fqsen);
 
             $union_type = $union_type->withUnionType(
-                $clazz->getUnionType()
+                $clazz->getUnionType()->withIsNullable($this->is_nullable)
             );
             $additional_union_type = $clazz->getAdditionalTypes();
             if ($additional_union_type !== null) {
-                $union_type = $union_type->withUnionType($additional_union_type);
+                $union_type = $union_type->withUnionType($additional_union_type->withIsNullable($this->is_nullable));
             }
 
             // Recurse up the tree to include all types
@@ -2154,7 +2157,7 @@ class Type
             foreach ($fqsen_aliases as $alias_fqsen_record) {
                 $alias_fqsen = $alias_fqsen_record->alias_fqsen;
                 $recursive_union_type_builder->addType(
-                    $alias_fqsen->asType()
+                    $alias_fqsen->asType()->withIsNullable($this->is_nullable)
                 );
             }
 
@@ -2202,7 +2205,7 @@ class Type
             $clazz = $code_base->getClassByFQSEN($class_fqsen);
 
             $union_type = $union_type->withUnionType(
-                $clazz->getUnionType()
+                $clazz->getUnionType()->withIsNullable($this->is_nullable)
             );
 
             if (count($this->template_parameter_type_list) > 0) {
@@ -2214,7 +2217,7 @@ class Type
 
             $additional_union_type = $clazz->getAdditionalTypes();
             if ($additional_union_type !== null) {
-                $union_type = $union_type->withUnionType($additional_union_type);
+                $union_type = $union_type->withUnionType($additional_union_type->withIsNullable($this->is_nullable));
             }
 
             $representation = $this->__toString();
@@ -2245,7 +2248,7 @@ class Type
             foreach ($fqsen_aliases as $alias_fqsen_record) {
                 $alias_fqsen = $alias_fqsen_record->alias_fqsen;
                 $recursive_union_type_builder->addType(
-                    $alias_fqsen->asType()
+                    $alias_fqsen->asType()->withIsNullable($this->is_nullable)
                 );
             }
 
@@ -2590,12 +2593,9 @@ class Type
 
         // Test to see if this (or any ancestor types) can cast to the given union type.
         $expanded_types = $this_resolved->asExpandedTypes($code_base);
-        if ($expanded_types->canCastToUnionType(
+        return $expanded_types->canCastToUnionType(
             $union_type
-        )) {
-            return true;
-        }
-        return false;
+        );
     }
 
     /**

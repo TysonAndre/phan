@@ -145,13 +145,20 @@ class ContextNode
          * @param Node|int|string|float|null $name_node
          * @throws FQSENException
          */
-        return \array_map(function ($name_node) : FullyQualifiedClassName {
-            return (new ContextNode(
+        $result = [];
+        foreach ($this->node->children as $name_node) {
+            $trait_fqsen = (new ContextNode(
                 $this->code_base,
                 $this->context,
                 $name_node
             ))->getTraitFQSEN([]);
-        }, $this->node->children);
+            if ($trait_fqsen) {
+                // Should never be null but check anyway
+                // TODO warn
+                $result[] = $trait_fqsen;
+            }
+        }
+        return $result;
     }
 
     /**
@@ -191,8 +198,7 @@ class ContextNode
      */
     public function getTraitAdaptationsMap(array $trait_fqsen_list) : array
     {
-        $node = $this->node;
-        if (!($node instanceof Node)) {
+        if (!($this->node instanceof Node)) {
             return [];
         }
 
@@ -1072,6 +1078,7 @@ class ContextNode
                 return new Variable(
                     $this->context,
                     $variable_name,
+                    // @phan-suppress-next-line PhanTypeMismatchArgumentNullable
                     Variable::getUnionTypeOfHardcodedGlobalVariableWithName($variable_name),
                     0
                 );
@@ -1128,6 +1135,7 @@ class ContextNode
                     return new Variable(
                         $this->context,
                         $variable_name,
+                        // @phan-suppress-next-line PhanTypeMismatchArgumentNullable
                         Variable::getUnionTypeOfHardcodedGlobalVariableWithName($variable_name),
                         0
                     );
@@ -1815,12 +1823,11 @@ class ContextNode
      */
     public function getUnqualifiedNameForAnonymousClass() : string
     {
-        $node = $this->node;
-        if (!($node instanceof Node)) {
+        if (!($this->node instanceof Node)) {
             throw new AssertionError('$this->node must be a node');
         }
 
-        if (!($node->flags & ast\flags\CLASS_ANONYMOUS)) {
+        if (!($this->node->flags & ast\flags\CLASS_ANONYMOUS)) {
             throw new AssertionError('Node must be an anonymous class node');
         }
 
