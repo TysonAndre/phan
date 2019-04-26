@@ -3,8 +3,11 @@ Phan NEWS
 ?? ??? 2019, Phan 1.3.2 (dev)
 -----------------------
 
-New features(CLI):
+New features(CLI, Configs):
 + Suggest similarly named plugins if `--plugin SomePluginName` refers to a built-in plugin that doesn't exist.
++ Add `assume_no_external_class_overrides` - When enabled, Phan will more aggressively assume class elements aren't overridden.
+  - e.g. infer that non-final methods without return statements have type `void`.
+  Disabled by default.
 
 New features(Analysis):
 + Support locally tracking assignments to and conditionals on `$this->prop` inside of function scopes. (#805, #204)
@@ -16,6 +19,12 @@ New features(Analysis):
 + Add a way to escape/unescape array shape keys (newlines, binary data, etc) (#1664)
 
   e.g. `@return array{\n\r\t\x01\\:true}` in phpdoc would correspond to `return ["\n\r\t\x01\\" => true];`
+
+Plugins:
++ Add `FFIAnalysisPlugin` to avoid false positives in uses of PHP 7.4's `FFI\CData`  (#2659)
+  (C data of scalar types may be read and assigned as regular PHP data. `$x = FFI::new(“int”); $x = 42;`)
+
+  Note that this is only implemented for variables right now.
 
 20 Apr 2019, Phan 1.3.1
 -----------------------
