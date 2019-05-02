@@ -333,6 +333,7 @@ class Issue
     const UnusedVariableValueOfForeachWithKey   = 'PhanUnusedVariableValueOfForeachWithKey';  // has higher false positive rates than UnusedVariable
     const UnusedVariableCaughtException         = 'PhanUnusedVariableCaughtException';  // has higher false positive rates than UnusedVariable
     const UnusedGotoLabel                       = 'PhanUnusedGotoLabel';
+    const VariableDefinitionCouldBeConstant     = 'PhanVariableDefinitionCouldBeConstant';
 
     // Issue::CATEGORY_REDEFINE
     const RedefineClass             = 'PhanRedefineClass';
@@ -2971,6 +2972,14 @@ class Issue
                 "Unused goto label {CODE}",
                 self::REMEDIATION_B,
                 6055
+            ),
+            new Issue(
+                self::VariableDefinitionCouldBeConstant,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_LOW,
+                'Uses of ${VARIABLE} could probably be replaced with a literal or constant',
+                self::REMEDIATION_B,
+                6061
             ),
 
             // Issue::CATEGORY_REDEFINE

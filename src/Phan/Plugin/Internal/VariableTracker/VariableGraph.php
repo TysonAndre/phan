@@ -21,9 +21,16 @@ final class VariableGraph
     /**
      * @var array<string,array<int,int>>
      *
-     * Maps variable id to variable line
+     * Maps variable id to line number of the node for a definition ids
      */
     public $def_lines = [];
+
+    /**
+     * @var array<string,array<int,true>>
+     *
+     * Maps variable id to a set of definition ids that have constant values.
+     */
+    public $is_constant_map = [];
 
     /**
      * @var array<int,true>
@@ -58,9 +65,10 @@ final class VariableGraph
 
     /**
      * Record the fact that $node is a definition of the variable with name $name in the scope $scope
+     * @param bool $is_const_expr is the definition's value a value that could be a constant?
      * @return void
      */
-    public function recordVariableDefinition(string $name, Node $node, VariableTrackingScope $scope)
+    public function recordVariableDefinition(string $name, Node $node, VariableTrackingScope $scope, bool $is_const_expr)
     {
         // TODO: Measure performance against SplObjectHash
         $id = \spl_object_id($node);
@@ -68,6 +76,9 @@ final class VariableGraph
             $this->def_uses[$name][$id] = [];
         }
         $this->def_lines[$name][$id] = $node->lineno;
+        if ($is_const_expr) {
+            $this->is_constant_map[$name][$id] = true;
+        }
         $scope->recordDefinitionById($name, $id);
     }
 
@@ -81,6 +92,10 @@ final class VariableGraph
             // (it will be overridden later if there are flags to set)
             $this->variable_types[$name] = 0;
         }
+        // @phan-suppress-next-line PhanUndeclaredProperty added by ArgumentType analyzer
+        if (isset($node->is_reference)) {
+            $this->markAsReference($name);
+        }
         $defs_for_variable = $scope->getDefinition($name);
         if (!$defs_for_variable) {
             return;
@@ -92,6 +107,13 @@ final class VariableGraph
                 $this->def_uses[$name][$def_id][$node_id] = true;
             }
         }
+    }
+
+    /**
+     * Record that $name was modified in place
+     */
+    public function recordVariableModification(string $name) {
+        $this->is_constant_map[$name][-1] = true;
     }
 
     /**

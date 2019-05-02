@@ -8,6 +8,7 @@ use ast\Node;
 use Phan\Analysis\BlockExitStatusChecker;
 use Phan\AST\AnalysisVisitor;
 use Phan\AST\Visitor\Element;
+use Phan\Parse\ParseVisitor;
 use function is_string;
 
 /**
@@ -100,7 +101,62 @@ final class VariableTrackerVisitor extends AnalysisVisitor
                 self::$variable_graph->recordVariableUsage($name, $var_node, $this->scope);
             }
         }
-        return $this->analyzeAssignmentTarget($var_node, false);
+        return $this->analyzeAssignmentTarget($var_node, false, false);
+    }
+
+    /**
+     * Analyze X++
+     * @override
+     * @return VariableTrackingScope
+     */
+    public function visitPostInc(Node $node)
+    {
+        return $this->analyzeIncDec($node);
+    }
+
+    /**
+     * Analyze X--
+     * @override
+     * @return VariableTrackingScope
+     */
+    public function visitPostDec(Node $node)
+    {
+        return $this->analyzeIncDec($node);
+    }
+
+    /**
+     * Analyze ++X
+     * @override
+     * @return VariableTrackingScope
+     */
+    public function visitPreInc(Node $node)
+    {
+        return $this->analyzeIncDec($node);
+    }
+
+    /**
+     * Analyze --X
+     * @override
+     * @return VariableTrackingScope
+     */
+    public function visitPreDec(Node $node)
+    {
+        return $this->analyzeIncDec($node);
+    }
+
+    /**
+     * @return VariableTrackingScope
+     */
+    private function analyzeIncDec(Node $node)
+    {
+        $var = $node->children['var'];
+        if ($var instanceof Node && $var->kind === ast\AST_VAR) {
+            $name = $var->children['name'];
+            if (is_string($name)) {
+                self::$variable_graph->recordVariableModification($name);
+            }
+        }
+        return $this->visit($node);
     }
 
     /**
@@ -128,7 +184,7 @@ final class VariableTrackerVisitor extends AnalysisVisitor
                 // The left-hand node ($var_node) is the usage of this variable
                 self::$variable_graph->recordVariableUsage($name, $var_node, $this->scope);
                 // And the whole assignment operation is the redefinition of this variable
-                self::$variable_graph->recordVariableDefinition($name, $node, $this->scope);
+                self::$variable_graph->recordVariableDefinition($name, $node, $this->scope, false);
                 $this->scope->recordDefinition($name, $node);
                 return $this->scope;
             case ast\AST_PROP:
@@ -154,13 +210,13 @@ final class VariableTrackerVisitor extends AnalysisVisitor
         if ($expr instanceof Node) {
             $this->scope = $this->analyze($this->scope, $expr);
         }
-        return $this->analyzeAssignmentTarget($node->children['var'], false);
+        return $this->analyzeAssignmentTarget($node->children['var'], false, ParseVisitor::isConstExpr($expr));
     }
 
     /**
      * @param Node|int|string|float|null $node
      */
-    private function analyzeAssignmentTarget($node, bool $is_ref) : VariableTrackingScope
+    private function analyzeAssignmentTarget($node, bool $is_ref, bool $is_constant) : VariableTrackingScope
     {
         // TODO: Push onto the node list?
         if (!($node instanceof Node)) {
@@ -175,14 +231,14 @@ final class VariableTrackerVisitor extends AnalysisVisitor
                 if ($is_ref) {
                     self::$variable_graph->markAsReference($name);
                 }
-                self::$variable_graph->recordVariableDefinition($name, $node, $this->scope);
+                self::$variable_graph->recordVariableDefinition($name, $node, $this->scope, $is_constant);
                 $this->scope->recordDefinition($name, $node);
                 return $this->scope;
             case ast\AST_ARRAY:
-                return $this->analyzeArrayAssignmentTarget($node);
+                return $this->analyzeArrayAssignmentTarget($node, $is_constant);
 
             case ast\AST_REF:
-                return $this->analyzeAssignmentTarget($node->children['var'], true);
+                return $this->analyzeAssignmentTarget($node->children['var'], true, false);
             case ast\AST_PROP:
                 return $this->analyzePropAssignmentTarget($node);
             case ast\AST_DIM:
@@ -196,7 +252,7 @@ final class VariableTrackerVisitor extends AnalysisVisitor
         return $this->scope;
     }
 
-    private function analyzeArrayAssignmentTarget(Node $node) : VariableTrackingScope
+    private function analyzeArrayAssignmentTarget(Node $node, bool $is_constant) : VariableTrackingScope
     {
         foreach ($node->children as $elem_node) {
             if (!($elem_node instanceof Node)) {
@@ -204,7 +260,7 @@ final class VariableTrackerVisitor extends AnalysisVisitor
             }
             // Treat $key in `[$key => $y] = $array` as a usage of $key
             $this->scope = $this->analyzeWhenValidNode($this->scope, $elem_node->children['key']);
-            $this->scope = $this->analyzeAssignmentTarget($elem_node->children['value'], false);
+            $this->scope = $this->analyzeAssignmentTarget($elem_node->children['value'], false, $is_constant);
         }
         return $this->scope;
     }
@@ -219,6 +275,7 @@ final class VariableTrackerVisitor extends AnalysisVisitor
             if (is_string($name)) {
                 // treat $x->prop = 2 like a usage of $x
                 self::$variable_graph->recordVariableUsage($name, $expr, $this->scope);
+                self::$variable_graph->recordVariableModification($name);
             }
         }
         return $this->analyzeWhenValidNode($this->scope, $expr);  // lower false positives by not treating this as a definition
@@ -231,16 +288,24 @@ final class VariableTrackerVisitor extends AnalysisVisitor
         // Treat $y in `$x[$y] = $z;` as a usage of $y
         $this->scope = $this->analyzeWhenValidNode($this->scope, $node->children['dim']);
         $expr = $node->children['expr'];
-        if ($expr instanceof Node && $expr->kind === \ast\AST_VAR) {
-            $name = $expr->children['name'];
-            if (is_string($name)) {
-                // treat $x['dim_name'] = 2 like a usage of $x
-                //
-                // TODO: More aggressively warn if there is only a single dimension to $x
-                self::$variable_graph->recordVariableUsage($name, $expr, $this->scope);
+        while ($expr instanceof Node) {
+            if ($expr->kind === \ast\AST_VAR) {
+                $name = $expr->children['name'];
+                if (is_string($name)) {
+                    // treat $x['dim_name'] = 2 like a usage of $x
+                    //
+                    // TODO: More aggressively warn if there is only a single dimension to $x
+                    self::$variable_graph->recordVariableUsage($name, $expr, $this->scope);
+                    self::$variable_graph->recordVariableModification($name);
+                }
+                break;
+            } elseif (\in_array($expr->kind, [ast\AST_DIM, ast\AST_PROP], true)) {
+                $expr = $expr->children['expr'];
+            } else {
+                break;
             }
         }
-        return $this->analyzeWhenValidNode($this->scope, $expr);  // lower false positives by not treating this as a definition
+        return $this->analyzeWhenValidNode($this->scope, $node->children['expr']);  // lower false positives by not treating this as a definition
         // // treat $x['dim_name'] = 2 like a definition to $x (in addition to having treated this as a usage)
         // return $this->analyzeAssignmentTarget($expr, false);
     }
@@ -325,7 +390,7 @@ final class VariableTrackerVisitor extends AnalysisVisitor
             }
 
             if ($closure_use->flags & ast\flags\PARAM_REF) {
-                self::$variable_graph->recordVariableDefinition($name, $closure_use, $this->scope);
+                self::$variable_graph->recordVariableDefinition($name, $closure_use, $this->scope, false);
                 self::$variable_graph->markAsReference($name);
             } else {
                 self::$variable_graph->recordVariableUsage($name, $closure_use, $this->scope);
@@ -404,13 +469,13 @@ final class VariableTrackerVisitor extends AnalysisVisitor
         $this->scope = new VariableTrackingLoopScope($outer_scope);
 
         $key_node = $node->children['key'];
-        $this->scope = $this->analyzeAssignmentTarget($key_node, false);
+        $this->scope = $this->analyzeAssignmentTarget($key_node, false, false);
 
         $value_node = $node->children['value'];
         if (isset($key_node)) {
             self::$variable_graph->markAsLoopValueNode($value_node);
         }
-        $this->scope = $this->analyzeAssignmentTarget($value_node, false);  // analyzeAssignmentTarget checks for AST_REF
+        $this->scope = $this->analyzeAssignmentTarget($value_node, false, false);  // analyzeAssignmentTarget checks for AST_REF
 
         // TODO: Update graph: inner loop definitions can be used inside the loop.
         // TODO: Create a branchScope? - Loop iterations can run 0 times.
@@ -684,7 +749,7 @@ final class VariableTrackerVisitor extends AnalysisVisitor
         if ($var_node->kind === \ast\AST_VAR) {
             $name = $var_node->children['name'];
             if (is_string($name)) {
-                self::$variable_graph->recordVariableDefinition($name, $var_node, $scope);
+                self::$variable_graph->recordVariableDefinition($name, $var_node, $scope, false);
                 self::$variable_graph->markAsCaughtException($var_node);
                 $scope->recordDefinition($name, $var_node);
             }
