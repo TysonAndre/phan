@@ -116,7 +116,7 @@ final class VariableTrackerElementVisitor extends PluginAwarePostAnalysisVisitor
             // We narrow this down to the specific category if we need to warn.
             $result[\spl_object_id($parameter)] = Issue::UnusedPublicMethodParameter;
 
-            $graph->recordVariableDefinition($parameter_name, $parameter, $scope);
+            $graph->recordVariableDefinition($parameter_name, $parameter, $scope, false);
             if ($parameter->flags & ast\flags\PARAM_REF) {
                 $graph->markAsReference($parameter_name);
             }
@@ -131,7 +131,7 @@ final class VariableTrackerElementVisitor extends PluginAwarePostAnalysisVisitor
             }
             $result[\spl_object_id($closure_use)] = Issue::UnusedClosureUseVariable;
 
-            $graph->recordVariableDefinition($name, $closure_use, $scope);
+            $graph->recordVariableDefinition($name, $closure_use, $scope, false);
             if ($closure_use->flags & ast\flags\PARAM_REF) {
                 $graph->markAsReference($name);
             }
@@ -233,6 +233,7 @@ final class VariableTrackerElementVisitor extends PluginAwarePostAnalysisVisitor
                 // don't warn about static/global/references
                 continue;
             }
+            // Check for variable definitions that are unused
             foreach ($def_uses_for_variable as $definition_id => $use_list) {
                 if (count($use_list) > 0) {
                     // Don't warn if there's at least one usage of that definition
@@ -270,6 +271,30 @@ final class VariableTrackerElementVisitor extends PluginAwarePostAnalysisVisitor
                     // compute the suggestion for $variable_name based on the $issue_type
                     self::makeSuggestion($graph, $variable_name, $issue_type)
                 );
+            }
+            // Check for variables that could be replaced with constants or literals
+            if (count($def_uses_for_variable) === 1) {
+                foreach ($def_uses_for_variable as $definition_id => $use_list) {
+                    if (!$use_list) {
+                        // We already warned that this was unused
+                        continue;
+                    }
+                    if (!isset($graph->is_constant_map[$variable_name][$definition_id])) {
+                        continue;
+                    }
+                    if (isset($graph->is_constant_map[$variable_name][-1])) {
+                        // Set by recordVariableModification
+                        continue;
+                    }
+                    $line = $graph->def_lines[$variable_name][$definition_id] ?? 1;
+                    Issue::maybeEmitWithParameters(
+                        $this->code_base,
+                        $this->context,
+                        Issue::VariableDefinitionCouldBeConstant,
+                        $line,
+                        [$variable_name]
+                    );
+                }
             }
         }
     }
