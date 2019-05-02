@@ -26,11 +26,11 @@ final class VariableGraph
     public $def_lines = [];
 
     /**
-     * @var array<string,array<int,true>>
+     * @var array<string,array<int,Node|int|float|string>>
      *
-     * Maps variable id to a set of definition ids that have constant values.
+     * Maps variable id to a set of definition ids and their corresponding constant AST nodes
      */
-    public $is_constant_map = [];
+    public $const_expr_declarations = [];
 
     /**
      * @var array<int,true>
@@ -65,10 +65,10 @@ final class VariableGraph
 
     /**
      * Record the fact that $node is a definition of the variable with name $name in the scope $scope
-     * @param bool $is_const_expr is the definition's value a value that could be a constant?
+     * @param ?(Node|string|int|float) $const_expr is the definition's value a value that could be a constant?
      * @return void
      */
-    public function recordVariableDefinition(string $name, Node $node, VariableTrackingScope $scope, bool $is_const_expr)
+    public function recordVariableDefinition(string $name, Node $node, VariableTrackingScope $scope, $const_expr)
     {
         // TODO: Measure performance against SplObjectHash
         $id = \spl_object_id($node);
@@ -76,8 +76,8 @@ final class VariableGraph
             $this->def_uses[$name][$id] = [];
         }
         $this->def_lines[$name][$id] = $node->lineno;
-        if ($is_const_expr) {
-            $this->is_constant_map[$name][$id] = true;
+        if ($const_expr !== null) {
+            $this->const_expr_declarations[$name][$id] = $const_expr;
         }
         $scope->recordDefinitionById($name, $id);
     }
@@ -113,7 +113,7 @@ final class VariableGraph
      * Record that $name was modified in place
      */
     public function recordVariableModification(string $name) {
-        $this->is_constant_map[$name][-1] = true;
+        $this->const_expr_declarations[$name][-1] = 0;
     }
 
     /**

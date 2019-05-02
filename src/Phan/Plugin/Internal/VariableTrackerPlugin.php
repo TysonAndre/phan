@@ -116,7 +116,7 @@ final class VariableTrackerElementVisitor extends PluginAwarePostAnalysisVisitor
             // We narrow this down to the specific category if we need to warn.
             $result[\spl_object_id($parameter)] = Issue::UnusedPublicMethodParameter;
 
-            $graph->recordVariableDefinition($parameter_name, $parameter, $scope, false);
+            $graph->recordVariableDefinition($parameter_name, $parameter, $scope, null);
             if ($parameter->flags & ast\flags\PARAM_REF) {
                 $graph->markAsReference($parameter_name);
             }
@@ -131,7 +131,7 @@ final class VariableTrackerElementVisitor extends PluginAwarePostAnalysisVisitor
             }
             $result[\spl_object_id($closure_use)] = Issue::UnusedClosureUseVariable;
 
-            $graph->recordVariableDefinition($name, $closure_use, $scope, false);
+            $graph->recordVariableDefinition($name, $closure_use, $scope, null);
             if ($closure_use->flags & ast\flags\PARAM_REF) {
                 $graph->markAsReference($name);
             }
@@ -279,24 +279,59 @@ final class VariableTrackerElementVisitor extends PluginAwarePostAnalysisVisitor
                         // We already warned that this was unused
                         continue;
                     }
-                    if (!isset($graph->is_constant_map[$variable_name][$definition_id])) {
+                    $value_node = $graph->const_expr_declarations[$variable_name][$definition_id] ?? null;
+                    if ($value_node === null) {
                         continue;
                     }
-                    if (isset($graph->is_constant_map[$variable_name][-1])) {
+                    if (isset($graph->const_expr_declarations[$variable_name][-1])) {
                         // Set by recordVariableModification
                         continue;
                     }
-                    $line = $graph->def_lines[$variable_name][$definition_id] ?? 1;
-                    Issue::maybeEmitWithParameters(
-                        $this->code_base,
-                        $this->context,
-                        Issue::VariableDefinitionCouldBeConstant,
-                        $line,
-                        [$variable_name]
-                    );
+                    $this->warnAboutCouldBeConstant($graph, $variable_name, $definition_id, $value_node);
                 }
             }
         }
+    }
+
+    /**
+     * @param Node|string|int|float $value_node
+     */
+    private function warnAboutCouldBeConstant(VariableGraph $graph, string $variable_name, int $definition_id, $value_node) {
+        $issue_type = Issue::VariableDefinitionCouldBeConstant;
+        if ($value_node instanceof Node) {
+            if ($value_node->kind === ast\AST_ARRAY) {
+                if (count($value_node->children) === 0) {
+                    $issue_type = Issue::VariableDefinitionCouldBeConstantEmptyArray;
+                }
+            } elseif ($value_node->kind === ast\AST_CONST) {
+                $name = strtolower((string)$value_node->children['name']->children['name'] ?? '');
+                switch ($name) {
+                    case 'false':
+                        $issue_type = Issue::VariableDefinitionCouldBeConstantFalse;
+                        break;
+                    case 'true':
+                        $issue_type = Issue::VariableDefinitionCouldBeConstantTrue;
+                        break;
+                    case 'null':
+                        $issue_type = Issue::VariableDefinitionCouldBeConstantNull;
+                        break;
+                }
+            }
+        } elseif (is_string($value_node)) {
+            $issue_type = Issue::VariableDefinitionCouldBeConstantString;
+        } elseif (is_int($value_node)) {
+            $issue_type = Issue::VariableDefinitionCouldBeConstantInt;
+        } elseif (is_float($value_node)) {
+            $issue_type = Issue::VariableDefinitionCouldBeConstantFloat;
+        }
+        $line = $graph->def_lines[$variable_name][$definition_id] ?? 1;
+        Issue::maybeEmitWithParameters(
+            $this->code_base,
+            $this->context,
+            $issue_type,
+            $line,
+            [$variable_name]
+        );
     }
 
     /**
