@@ -644,9 +644,6 @@ trait ConditionVisitorUtil
         }
         $tmp = $var_node;
         while (\in_array($kind, [ast\AST_ASSIGN, ast\AST_ASSIGN_OP, ast\AST_ASSIGN_REF], true)) {
-            if (!$tmp instanceof Node) {
-                break;
-            }
             $var = $tmp->children['var'] ?? null;
             if (!$var instanceof Node) {
                 break;
@@ -819,7 +816,7 @@ trait ConditionVisitorUtil
                 $context,
                 $var_name,
                 UnionType::empty(),
-                $var_node->flags
+                0
             );
             $context->addScopeVariable($variable);
             return $variable;

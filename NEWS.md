@@ -1,9 +1,27 @@
 Phan NEWS
 
-?? ??? 2019, Phan 1.3.2 (dev)
+?? ??? 2019, Phan 1.3.3 (dev)
 -----------------------
 
 New features(CLI, Configs):
++ Make the progress bar guaranteed to display 100% at the end of the analysis phase (#2694)
+  Print a newline to stderr once Phan is done updating the progress bar.
++ Add `maximum_recursion_depth` - This setting specifies the maximum recursion depth that
+  can be reached during re-analysis.
+  Default is 2.
+
+New features(Analysis):
++ Emit `PhanDeprecatedClassConstant` for code using a constant marked with `@deprecated`.
+
+Plugins:
++ Add more forms of checks such as `$x !== null ? $x : null` to `PhanPluginDuplicateConditionalNullCoalescing` (#2691)
+
+28 Apr 2019, Phan 1.3.2
+-----------------------
+
+New features(CLI, Configs):
++ Add `--debug`/`-D` flag to generate verbose debug output.
+  This is useful when looking into poor performance or unexpected behavior (e.g. infinite loops or crashes).
 + Suggest similarly named plugins if `--plugin SomePluginName` refers to a built-in plugin that doesn't exist.
 + Add `assume_no_external_class_overrides` - When enabled, Phan will more aggressively assume class elements aren't overridden.
   - e.g. infer that non-final methods without return statements have type `void`.
@@ -12,7 +30,7 @@ New features(CLI, Configs):
 New features(Analysis):
 + Support locally tracking assignments to and conditionals on `$this->prop` inside of function scopes. (#805, #204)
 
-  This supports only one level of nesting.
+  This supports only one level of nesting. (i.e. Phan will not track `$this->prop->subProp` or `$this->prop['field']`)
 
   Properties are deliberately tracked for just the variable `$this` (which can't be reassigned), and not other variables.
 + Fix false positives with dead code detection for internal stubs in `autoload_internal_extension_signatures`. (#2605)

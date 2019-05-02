@@ -194,13 +194,13 @@ class Phan implements IgnoredFilesFilterInterface
         // This first pass parses code and populates the
         // global state we'll need for doing a second
         // analysis after.
-        CLI::progress('parse', 0.0);
+        CLI::progress('parse', 0.0, null);
         $code_base->setCurrentParsedFile(null);
         foreach ($file_path_list as $i => $file_path) {
             $file_path = (string)$file_path;
 
             $code_base->setCurrentParsedFile($file_path);
-            CLI::progress('parse', ($i + 1) / $file_count);
+            CLI::progress('parse', ($i + 1) / $file_count, $file_path);
 
             // Kick out anything we read from the former version
             // of this file
@@ -412,7 +412,7 @@ class Phan implements IgnoredFilesFilterInterface
              * @return void
              */
             $analysis_worker = static function (int $i, string $file_path) use ($file_count, $code_base, $temporary_file_mapping, $request) {
-                CLI::progress('analyze', ($i + 1) / $file_count);
+                CLI::progress('analyze', ($i + 1) / $file_count, $file_path);
                 Analysis::analyzeFile($code_base, $file_path, $request, $temporary_file_mapping[$file_path] ?? null);
             };
 
@@ -433,7 +433,7 @@ class Phan implements IgnoredFilesFilterInterface
 
             $did_fork_pool_have_error = false;
 
-            CLI::progress('analyze', 0.0);
+            CLI::progress('analyze', 0.0, null);
             // Check to see if we're running as multiple processes
             // or not
             if ($process_count > 1) {
@@ -488,6 +488,9 @@ class Phan implements IgnoredFilesFilterInterface
             $is_issue_found =
                 0 !== $issue_count;
 
+            // Indicate that --progress-bar or --debug has finished, if needed.
+            CLI::endProgressBar();
+
             // Collect all issues, blocking
             self::display();
 
@@ -506,7 +509,6 @@ class Phan implements IgnoredFilesFilterInterface
             }
             throw $e;
         }
-
 
         if ($request instanceof Request) {
             $request->respondWithIssues($issue_count);
@@ -554,9 +556,9 @@ class Phan implements IgnoredFilesFilterInterface
         // want to run an analysis on
         $dependency_file_path_list = [];
 
-        CLI::progress('dependencies', 0.0);  // trigger UI update of 0%
+        CLI::progress('dependencies', 0.0, null);  // trigger UI update of 0%
         foreach ($file_path_list as $i => $file_path) {
-            CLI::progress('dependencies', ($i + 1) / $file_count);
+            CLI::progress('dependencies', ($i + 1) / $file_count, $file_path);
 
             // Add the file itself to the list
             $dependency_file_path_list[] = $file_path;

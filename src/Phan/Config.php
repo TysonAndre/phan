@@ -147,6 +147,9 @@ class Config
         // For internal use by Phan to quickly check for membership in directory_list.
         '__directory_regex' => null,
 
+        // Whether to enable debugging output to stderr
+        'debug_output' => false,
+
         // List of case-insensitive file extensions supported by Phan.
         // (e.g. `['php', 'html', 'htm']`)
         'analyzed_file_extensions' => ['php'],
@@ -253,6 +256,14 @@ class Config
         // detect that it is actually returning the passed in
         // `string` instead of an `int` as declared.
         'quick_mode' => false,
+
+        // The maximum recursion depth that can be reached when analyzing the code.
+        // This setting only takes effect when quick_mode is disabled.
+        // A higher limit will make the analysis more accurate, but could possibly
+        // make it harder to track the code bit where a detected issue originates.
+        // As long as this is kept relatively low, performance is usually not affected
+        // by changing this setting.
+        'maximum_recursion_depth' => 2,
 
         // If enabled, check all methods that override a
         // parent method to make sure its signature is

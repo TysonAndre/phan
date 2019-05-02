@@ -162,7 +162,7 @@ class ReferenceCountsAnalyzer
         int &$i
     ) {
         foreach ($element_list as $element) {
-            CLI::progress('dead code', (++$i) / $total_count);
+            CLI::progress('dead code', (++$i) / $total_count, $element);
             // Don't worry about internal elements
             if ($element->isPHPInternal() || $element->getContext()->isPHPInternal()) {
                 // The extra check of the context is necessary for code in internal_stubs
@@ -189,7 +189,7 @@ class ReferenceCountsAnalyzer
         int &$i
     ) {
         foreach ($element_list as $element) {
-            CLI::progress('dead code', (++$i) / $total_count);
+            CLI::progress('dead code', (++$i) / $total_count, $element);
             // Don't worry about internal elements
             if ($element->isPHPInternal()) {
                 continue;
@@ -199,11 +199,9 @@ class ReferenceCountsAnalyzer
             if (!$element instanceof ClassElement) {
                 throw new TypeError("Expected an iterable of ClassElement values");
             }
-            if ($element instanceof ClassConstant) {
-                // should not warn about self::class
-                if (\strcasecmp($element->getName(), 'class') === 0) {
-                    continue;
-                }
+            // should not warn about self::class
+            if (\strcasecmp($element->getName(), 'class') === 0) {
+                continue;
             }
             $fqsen = $element->getFQSEN();
             if ($element instanceof Method || $element instanceof Property) {
