@@ -82,7 +82,7 @@ class Variable extends UnaddressableTypedElement implements TypedElementInterfac
      * This will always return false in so far as variables
      * cannot be passed by reference.
      */
-    public function isPassByReference()
+    public function isPassByReference() : bool
     {
         return false;
     }
@@ -92,7 +92,7 @@ class Variable extends UnaddressableTypedElement implements TypedElementInterfac
      * This will always return false in so far as variables
      * cannot be variadic
      */
-    public function isVariadic()
+    public function isVariadic() : bool
     {
         return false;
     }
@@ -195,7 +195,7 @@ class Variable extends UnaddressableTypedElement implements TypedElementInterfac
      */
     public static function getUnionTypeOfHardcodedGlobalVariableWithName(
         string $name
-    ) {
+    ) : ?UnionType {
         if (\array_key_exists($name, self::_BUILTIN_GLOBAL_TYPES)) {
             // More efficient than using context.
             return UnionType::fromFullyQualifiedString(self::_BUILTIN_GLOBAL_TYPES[$name]);

@@ -635,7 +635,7 @@ class Issue
     /**
      * @return array<string,Issue>
      */
-    public static function issueMap()
+    public static function issueMap() : array
     {
         static $error_map;
 
@@ -3812,7 +3812,7 @@ class Issue
      * @param array<int,Issue> $error_list
      * @return void
      */
-    private static function sanityCheckErrorList(array $error_list)
+    private static function sanityCheckErrorList(array $error_list) : void
     {
         $error_map = [];
         $unique_type_id_set = [];
@@ -3850,9 +3850,6 @@ class Issue
     }
 
 
-    /**
-     * @return string
-     */
     public function getType() : string
     {
         return $this->type;
@@ -3866,9 +3863,6 @@ class Issue
         return $this->type_id;
     }
 
-    /**
-     * @return int
-     */
     public function getCategory() : int
     {
         return $this->category;
@@ -3892,9 +3886,6 @@ class Issue
         return self::CATEGORY_NAME[$category] ?? '';
     }
 
-    /**
-     * @return int
-     */
     public function getSeverity() : int
     {
         return $this->severity;
@@ -3927,9 +3918,6 @@ class Issue
         return $this->remediation_difficulty;
     }
 
-    /**
-     * @return string
-     */
     public function getTemplate() : string
     {
         return $this->template;
@@ -4007,7 +3995,7 @@ class Issue
         string $file,
         int $line,
         ...$template_parameters
-    ) {
+    ) : void {
         self::emitWithParameters(
             $type,
             $file,
@@ -4040,7 +4028,7 @@ class Issue
         int $line,
         array $template_parameters,
         Suggestion $suggestion = null
-    ) {
+    ) : void {
         $issue = self::fromType($type);
 
         self::emitInstance(
@@ -4056,7 +4044,7 @@ class Issue
      */
     public static function emitInstance(
         IssueInstance $issue_instance
-    ) {
+    ) : void {
         Phan::getIssueCollector()->collectIssue($issue_instance);
     }
 
@@ -4076,7 +4064,7 @@ class Issue
         CodeBase $code_base,
         Context $context,
         IssueInstance $issue_instance
-    ) {
+    ) : void {
         // If this issue type has been suppressed in
         // the config, ignore it
 
@@ -4121,7 +4109,7 @@ class Issue
         string $issue_type,
         int $lineno,
         ...$parameters
-    ) {
+    ) : void {
         self::maybeEmitWithParameters(
             $code_base,
             $context,
@@ -4159,7 +4147,7 @@ class Issue
         int $lineno,
         array $parameters,
         Suggestion $suggestion = null
-    ) {
+    ) : void {
         if (self::shouldSuppressIssue(
             $code_base,
             $context,

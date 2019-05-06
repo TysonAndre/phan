@@ -258,12 +258,21 @@ class Context extends FileRef
 
     /**
      * @return bool
-     * True if strict_types is set to 1 in this
-     * context.
+     * Returns true if strict_types is set to 1 in this context.
      */
-    public function getIsStrictTypes() : bool
+    public function isStrictTypes() : bool
     {
         return (1 === $this->strict_types);
+    }
+
+    /**
+     * Returns true if strict_types is set to 1 in this context.
+     * @deprecated use isStrictTypes
+     * @suppress PhanUnreferencedPublicMethod
+     */
+    final public function getIsStrictTypes() : bool
+    {
+        return $this->isStrictTypes();
     }
 
     /**
@@ -281,7 +290,7 @@ class Context extends FileRef
      *
      * @return void
      */
-    public function setScope(Scope $scope)
+    public function setScope(Scope $scope) : void
     {
         $this->scope = $scope;
         // TODO: Less aggressive? ConditionVisitor creates a lot of scopes
@@ -337,7 +346,7 @@ class Context extends FileRef
      *
      * @return void
      */
-    public function addGlobalScopeVariable(Variable $variable)
+    public function addGlobalScopeVariable(Variable $variable) : void
     {
         $this->scope->addGlobalVariable($variable);
     }
@@ -355,7 +364,7 @@ class Context extends FileRef
      */
     public function addScopeVariable(
         Variable $variable
-    ) {
+    ) : void {
         $this->scope->addVariable($variable);
     }
 
@@ -372,7 +381,7 @@ class Context extends FileRef
      */
     public function unsetScopeVariable(
         string $variable_name
-    ) {
+    ) : void {
         $this->scope->unsetVariable($variable_name);
     }
 
@@ -409,10 +418,7 @@ class Context extends FileRef
         return $this->scope->getClassFQSEN();
     }
 
-    /**
-     * @return ?FullyQualifiedClassName
-     */
-    public function getClassFQSENOrNull()
+    public function getClassFQSENOrNull() : ?FullyQualifiedClassName
     {
         return $this->scope->getClassFQSENOrNull();
     }
@@ -666,7 +672,7 @@ class Context extends FileRef
      * @param bool $should_catch_issue_exception the value passed to UnionTypeVisitor
      * @return ?UnionType
      */
-    public function getUnionTypeOfNodeIfCached(int $node_id, bool $should_catch_issue_exception)
+    public function getUnionTypeOfNodeIfCached(int $node_id, bool $should_catch_issue_exception) : ?UnionType
     {
         if ($should_catch_issue_exception) {
             return $this->cache[$node_id] ?? null;
@@ -684,7 +690,7 @@ class Context extends FileRef
      * @param bool $should_catch_issue_exception the value passed to UnionTypeVisitor
      * @return void
      */
-    public function setCachedUnionTypeOfNode(int $node_id, UnionType $type, bool $should_catch_issue_exception)
+    public function setCachedUnionTypeOfNode(int $node_id, UnionType $type, bool $should_catch_issue_exception) : void
     {
         if (!$should_catch_issue_exception) {
             $this->cache[$node_id ^ self::HIGH_BIT_1] = $type;
@@ -700,7 +706,7 @@ class Context extends FileRef
      * @return ?array{0:UnionType,1:Clazz[]} $result
      * @suppress PhanPartialTypeMismatchReturn cache is mixed with other cache objects
      */
-    public function getCachedClassListOfNode(int $node_id)
+    public function getCachedClassListOfNode(int $node_id) : ?array
     {
         return $this->cache[$node_id ^ self::HIGH_BIT_2] ?? null;
     }
@@ -711,15 +717,12 @@ class Context extends FileRef
      * @param array{0:UnionType,1:Clazz[]} $result
      * @return void
      */
-    public function setCachedClassListOfNode(int $node_id, array $result)
+    public function setCachedClassListOfNode(int $node_id, array $result) : void
     {
         $this->cache[$node_id ^ self::HIGH_BIT_2] = $result;
     }
 
-    /**
-     * @return void
-     */
-    public function clearCachedUnionTypes()
+    public function clearCachedUnionTypes() : void
     {
         $this->cache = [];
     }
@@ -748,7 +751,7 @@ class Context extends FileRef
      *
      * @return void
      */
-    public function warnAboutUnusedUseElements(CodeBase $code_base)
+    public function warnAboutUnusedUseElements(CodeBase $code_base) : void
     {
         foreach ($this->namespace_map as $flags => $entries_for_flag) {
             foreach ($entries_for_flag as $namespace_map_entry) {
@@ -784,7 +787,7 @@ class Context extends FileRef
      * @internal
      * @suppress PhanAccessMethodInternal
      */
-    public function importNamespaceMapFromParsePhase(CodeBase $code_base)
+    public function importNamespaceMapFromParsePhase(CodeBase $code_base) : void
     {
         $this->parse_namespace_map = $code_base->getNamespaceMapFromParsePhase($this->getFile(), $this->namespace, $this->namespace_id);
     }
@@ -794,7 +797,7 @@ class Context extends FileRef
      * @suppress PhanTypeSuspiciousNonTraversableForeach
      * @return void
      */
-    final protected function copyPropertiesFrom(Context $other)
+    final protected function copyPropertiesFrom(Context $other) : void
     {
         foreach ($other as $k => $v) {
             $this->{$k} = $v;
@@ -886,10 +889,7 @@ class Context extends FileRef
         return $override_type;
     }
 
-    /**
-     * @return ?UnionType
-     */
-    public function getThisPropertyIfOverridden(string $name)
+    public function getThisPropertyIfOverridden(string $name) : ?UnionType
     {
         if (!$this->scope->hasVariableWithName(self::VAR_NAME_THIS_PROPERTIES)) {
             return null;
@@ -905,7 +905,7 @@ class Context extends FileRef
                 return null;
             }
             $extra = $type->getFieldTypes()[$name] ?? null;
-            if (!$extra || $extra->getIsPossiblyUndefined()) {
+            if (!$extra || $extra->isPossiblyUndefined()) {
                 return null;
             }
             $result = $result->withUnionType($extra);

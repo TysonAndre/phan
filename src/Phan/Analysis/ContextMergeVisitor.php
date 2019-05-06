@@ -287,8 +287,7 @@ class ContextMergeVisitor extends KindVisitorImplementation
         // A function that determines if a variable is defined on
         // every branch
         $is_defined_on_all_branches =
-            /** @return bool */
-            static function (string $variable_name) use ($scope_list) {
+            static function (string $variable_name) use ($scope_list) : bool {
                 foreach ($scope_list as $scope) {
                     if (!$scope->hasVariableWithName($variable_name)) {
                         return false;
@@ -300,8 +299,7 @@ class ContextMergeVisitor extends KindVisitorImplementation
         // Get the intersection of all types for all versions of
         // the variable from every side of the branch
         $union_type =
-            /** @return UnionType */
-            static function (string $variable_name) use ($scope_list) {
+            static function (string $variable_name) use ($scope_list) : UnionType {
                 $previous_type = null;
                 $type_list = [];
                 // Get a list of all variables with the given name from
@@ -350,7 +348,7 @@ class ContextMergeVisitor extends KindVisitorImplementation
             $name = (string)$name;
             // Skip variables that are only partially defined
             if (!$is_defined_on_all_branches($name)) {
-                if ($this->context->getIsStrictTypes()) {
+                if ($this->context->isStrictTypes()) {
                     continue;
                 } else {
                     // Limit the type of the variable to the subset

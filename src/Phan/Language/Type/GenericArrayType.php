@@ -240,7 +240,7 @@ class GenericArrayType extends ArrayType implements GenericArrayInterface
      * @return UnionType returns the array value's union type
      * @phan-override
      */
-    public function iterableValueUnionType(CodeBase $unused_codebase)
+    public function iterableValueUnionType(CodeBase $unused_codebase) : UnionType
     {
         return $this->element_type->asUnionType();
     }
@@ -249,7 +249,7 @@ class GenericArrayType extends ArrayType implements GenericArrayInterface
      * @return UnionType the array key's union type
      * @phan-override
      */
-    public function iterableKeyUnionType(CodeBase $unused_codebase)
+    public function iterableKeyUnionType(CodeBase $unused_codebase) : UnionType
     {
         return self::unionTypeForKeyType($this->key_type);
     }
@@ -448,7 +448,7 @@ class GenericArrayType extends ArrayType implements GenericArrayInterface
         CodeBase $code_base,
         UnionTypeBuilder $union_type_builder,
         FullyQualifiedClassName $class_fqsen
-    ) {
+    ) : void {
         $fqsen_aliases = $code_base->getClassAliasesByFQSEN($class_fqsen);
         foreach ($fqsen_aliases as $alias_fqsen_record) {
             $alias_fqsen = $alias_fqsen_record->alias_fqsen;
@@ -687,7 +687,7 @@ class GenericArrayType extends ArrayType implements GenericArrayInterface
      * @param CodeBase $code_base
      * @return ?Closure(UnionType,Context):UnionType
      */
-    public function getTemplateTypeExtractorClosure(CodeBase $code_base, TemplateType $template_type)
+    public function getTemplateTypeExtractorClosure(CodeBase $code_base, TemplateType $template_type) : ?Closure
     {
         $closure = $this->element_type->getTemplateTypeExtractorClosure($code_base, $template_type);
         if (!$closure) {
@@ -705,5 +705,14 @@ class GenericArrayType extends ArrayType implements GenericArrayInterface
     public function getReferencedClasses() : Generator
     {
         return $this->element_type->getReferencedClasses();
+    }
+
+    /**
+     * Returns the corresponding type that would be used in a signature
+     * @override
+     */
+    public function asSignatureType() : Type
+    {
+        return ArrayType::instance($this->is_nullable);
     }
 }

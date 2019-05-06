@@ -56,7 +56,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    const PHAN_VERSION = '1.3.3-dev';
+    const PHAN_VERSION = '2.0.0-dev';
 
     /**
      * List of short flags passed to getopt
@@ -114,6 +114,9 @@ class CLI
         'language-server-allow-missing-pcntl',
         'language-server-force-missing-pcntl',
         'language-server-require-pcntl',
+        'language-server-disable-go-to-definition',
+        'language-server-disable-hover',
+        'language-server-disable-completion',
         'language-server-enable',
         'language-server-enable-go-to-definition',
         'language-server-enable-hover',
@@ -208,7 +211,7 @@ class CLI
      * @param array<int,string> $argv
      * @throws UsageException
      */
-    private static function checkAllArgsUsed(array $opts, array &$argv)
+    private static function checkAllArgsUsed(array $opts, array &$argv) : void
     {
         $pruneargv = [];
         foreach ($opts as $opt => $value) {
@@ -272,7 +275,7 @@ class CLI
      * @throws UsageException
      * @internal - used for unit tests only
      */
-    public static function fromRawValues(array $opts, array $argv)
+    public static function fromRawValues(array $opts, array $argv) : CLI
     {
         return new self($opts, $argv);
     }
@@ -649,19 +652,24 @@ class CLI
                 case 'language-server-analyze-only-on-save':
                     Config::setValue('language_server_analyze_only_on_save', true);
                     break;
+                case 'language-server-disable-go-to-definition':
+                    Config::setValue('language_server_enable_go_to_definition', false);
+                    break;
                 case 'language-server-enable-go-to-definition':
                     Config::setValue('language_server_enable_go_to_definition', true);
+                    break;
+                case 'language-server-disable-hover':
+                    Config::setValue('language_server_enable_hover', false);
                     break;
                 case 'language-server-enable-hover':
                     Config::setValue('language_server_enable_hover', true);
                     break;
                 case 'language-server-completion-vscode':
                     break;
+                case 'language-server-disable-completion':
+                    Config::setValue('language_server_enable_completion', false);
+                    break;
                 case 'language-server-enable-completion':
-                    Config::setValue(
-                        'language_server_enable_completion',
-                        isset($opts['language-server-completion-vscode']) ? Config::COMPLETION_VSCODE : true
-                    );
                     break;
                 case 'language-server-verbose':
                     Config::setValue('language_server_debug_level', 'info');
@@ -688,7 +696,7 @@ class CLI
                         break;
                     }
                     $ast_version = (new ReflectionExtension('ast'))->getVersion();
-                    if (\version_compare($ast_version, '0.1.5') < 0) {
+                    if (\version_compare($ast_version, '1.0.0') <= 0) {
                         Config::setValue('use_polyfill_parser', true);
                         break;
                     }
@@ -716,6 +724,9 @@ class CLI
                 default:
                     throw new UsageException("Unknown option '-$key'" . self::getFlagSuggestionString($key), EXIT_FAILURE);
             }
+        }
+        if (isset($opts['language-server-completion-vscode']) && Config::getValue('language_server_enable_completion')) {
+            Config::setValue('language_server_enable_completion', Config::COMPLETION_VSCODE);
         }
 
         self::checkPluginsExist();
@@ -755,7 +766,7 @@ class CLI
         }
     }
 
-    private static function checkPluginsExist()
+    private static function checkPluginsExist() : void
     {
         $all_plugins_exist = true;
         foreach (Config::getValue('plugins') as $plugin_path_or_name) {
@@ -791,23 +802,20 @@ class CLI
         $plugin_dirname = ConfigPluginSet::getBuiltinPluginDirectory();
         $candidates = [];
         foreach (\scandir($plugin_dirname) as $basename) {
-            if (substr($basename, -4) !== '.php') {
+            if (\substr($basename, -4) !== '.php') {
                 continue;
             }
-            $plugin_name = substr($basename, 0, -4);
+            $plugin_name = \substr($basename, 0, -4);
             $candidates[$plugin_name] = $plugin_name;
         }
         $suggestions = IssueFixSuggester::getSuggestionsForStringSet($plugin_path_or_name, $candidates);
         if (!$suggestions) {
             return '';
         }
-        return ' (Did you mean ' . implode(' or ', $suggestions) . '?)';
+        return ' (Did you mean ' . \implode(' or ', $suggestions) . '?)';
     }
 
-    /**
-     * @return void
-     */
-    public function recomputeFileList()
+    public function recomputeFileList() : void
     {
         $this->file_list = $this->file_list_in_config;
 
@@ -855,7 +863,7 @@ class CLI
      * @return void - exits on usage error
      * @throws UsageException
      */
-    private static function checkCanDaemonize(string $protocol, string $opt)
+    private static function checkCanDaemonize(string $protocol, string $opt) : void
     {
         $opt = strlen($opt) >= 2 ? "--$opt" : "-$opt";
         if (!in_array($protocol, \stream_get_transports())) {
@@ -913,7 +921,7 @@ EOT;
     // FIXME: If I stop using defined() in UnionTypeVisitor,
     // this will warn about the undefined constant EXIT_SUCCESS when a
     // user-defined constant is used in parse phase in a function declaration
-    private static function usage(string $msg = '', int $exit_code = EXIT_SUCCESS, bool $print_extended_help = false)
+    private static function usage(string $msg = '', int $exit_code = EXIT_SUCCESS, bool $print_extended_help = false) : void
     {
         global $argv;
 
@@ -1173,17 +1181,17 @@ Extended help:
   Prevent the client from sending change notifications (Only notify the language server when the user saves a document)
   This significantly reduces CPU usage, but clients won't get notifications about issues immediately.
 
- --language-server-enable-go-to-definition
-  Enables support for "Go To Definition" and "Go To Type Definition" in the Phan Language Server.
-  Disabled by default.
+ --language-server-disable-go-to-definition, --language-server-enable-go-to-definition
+  Disables/Enables support for "Go To Definition" and "Go To Type Definition" in the Phan Language Server.
+  Enabled by default.
 
- --language-server-enable-hover
-  Enables support for "Hover" in the Phan Language Server.
-  Disabled by default.
+ --language-server-disable-hover, --language-server-enable-hover
+  Disables/Enables support for "Hover" in the Phan Language Server.
+  Enabled by default.
 
- --language-server-enable-completion
-  Enables support for "Completion" in the Phan Language Server.
-  Disabled by default.
+ --language-server-disable-completion, --language-server-enable-completion
+  Disables/Enables support for "Completion" in the Phan Language Server.
+  Enabled by default.
 
  --language-server-completion-vscode
   Adds a workaround to make completion of variables and static properties
@@ -1276,7 +1284,7 @@ EOB;
             // distance > 5 is to far off to be a typo
             // Make sure that if two flags have the same distance, ties are sorted alphabetically
             if ($distance <= 5) {
-                $similarities[$flag] = [$distance, "x" . strtolower($flag), $flag];
+                $similarities[$flag] = [$distance, "x" . \strtolower($flag), $flag];
             }
         }
 
@@ -1307,13 +1315,13 @@ EOB;
         if (!\is_array($file_extensions) || count($file_extensions) === 0) {
             return false;
         }
-        $extension = pathinfo($file_path, PATHINFO_EXTENSION);
+        $extension = \pathinfo($file_path, \PATHINFO_EXTENSION);
         if (!$extension || !in_array($extension, $file_extensions)) {
             return false;
         }
 
         $directory_regex = Config::getValue('__directory_regex');
-        return $directory_regex && preg_match($directory_regex, $file_path) > 0;
+        return $directory_regex && \preg_match($directory_regex, $file_path) > 0;
     }
 
     /**
@@ -1465,7 +1473,7 @@ EOB;
         string $msg,
         float $p,
         $details = null
-    ) {
+    ) : void {
         if (self::shouldShowDebugOutput()) {
             self::debugProgress($msg, $p, $details);
             return;
@@ -1529,7 +1537,7 @@ EOB;
      * Print an end to progress bars or debug output
      * @return void
      */
-    public static function endProgressBar()
+    public static function endProgressBar() : void
     {
         static $did_end = false;
         if ($did_end) {
@@ -1538,13 +1546,13 @@ EOB;
         }
         $did_end = true;
         if (self::shouldShowDebugOutput()) {
-            fwrite(STDERR, "Phan's analysis is complete\n");
+            \fwrite(STDERR, "Phan's analysis is complete\n");
             return;
         }
         if (self::shouldShowProgress()) {
             // Print a newline to stderr to visuall separate stderr from stdout
-            fwrite(STDERR, PHP_EOL);
-            fflush(STDOUT);
+            \fwrite(STDERR, \PHP_EOL);
+            \fflush(\STDOUT);
         }
     }
 
@@ -1552,7 +1560,7 @@ EOB;
      * @return void
      * @param ?(string|FQSEN|AddressableElement) $details
      */
-    public static function debugProgress(string $msg, float $p, $details)
+    public static function debugProgress(string $msg, float $p, $details) : void
     {
         $pct = \sprintf("%d%%", (int)(100 * self::boundPercentage($p)));
 
@@ -1578,10 +1586,7 @@ EOB;
         self::debugOutput($line);
     }
 
-    /**
-     * @return void
-     */
-    public static function debugOutput(string $line)
+    public static function debugOutput(string $line) : void
     {
         \fwrite(STDERR, $line . "\n");
     }
@@ -1646,7 +1651,7 @@ EOB;
      * the configuration.
      * @throws UsageException
      */
-    private function maybeReadConfigFile(bool $require_config_exists)
+    private function maybeReadConfigFile(bool $require_config_exists) : void
     {
 
         // If the file doesn't exist here, try a directory up
@@ -1692,7 +1697,7 @@ EOB;
      * @return void
      * @throws AssertionError on failure
      */
-    private static function ensureASTParserExists()
+    private static function ensureASTParserExists() : void
     {
         if (Config::getValue('use_polyfill_parser')) {
             return;
@@ -1719,6 +1724,7 @@ EOB;
                 . Config::AST_VERSION
                 . ') in configuration. '
                 . "You may need to rebuild the latest version of the php-ast extension.\n"
+                . "(You are using php-ast " . (new ReflectionExtension('ast'))->getVersion() . ", but " . Config::MINIMUM_AST_EXTENSION_VERSION . " or newer is required. Alternately, test with --force-polyfill-parser (which is noticeably slower))\n"
             );
             exit(EXIT_FAILURE);
         }

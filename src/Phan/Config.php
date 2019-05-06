@@ -32,19 +32,18 @@ class Config
 {
     /**
      * The version of the AST (defined in php-ast) that we're using.
-     * Older versions are likely to have edge cases we no longer support,
-     * and version 50 got rid of Decl.
-     *
-     * TODO: Switch to version 70 in the next major Phan release.
+     * @see https://github.com/nikic/php-ast#ast-versioning
      */
-    const AST_VERSION = 50;
+    const AST_VERSION = 70;
+
+    const MINIMUM_AST_EXTENSION_VERSION = '1.0.1';
 
     /**
      * The version of the Phan plugin system.
      * Plugin files that wish to be backwards compatible may check this and
      * return different classes based on its existence and
      * the results of version_compare.
-     * PluginV2 will correspond to 2.x.y, PluginV3 will correspond to 3.x.y, etc.
+     * PluginV3 will correspond to 2.x.y, PluginV3 will correspond to 3.x.y, etc.
      * New features increment minor versions, and bug fixes increment patch versions.
      * @suppress PhanUnreferencedPublicClassConstant
      */
@@ -766,17 +765,17 @@ class Config
         // When true, this will manually back up the state of the PHP process and restore it.
         'language_server_use_pcntl_fallback' => false,
 
-        // This should only be set via CLI (`--language-server-enable-go-to-definition`)
+        // This should only be set via CLI (`--language-server-disable-go-to-definition` to disable)
         // Affects "go to definition" and "go to type definition" of LSP.
-        'language_server_enable_go_to_definition' => false,
+        'language_server_enable_go_to_definition' => true,
 
-        // This should only be set via CLI (`--language-server-enable-hover`)
+        // This should only be set via CLI (`--language-server-disable-hover` to disable)
         // Affects "hover" of LSP.
-        'language_server_enable_hover' => false,
+        'language_server_enable_hover' => true,
 
-        // This should only be set via CLI (`--language-server-enable-completion`)
+        // This should only be set via CLI (`--language-server-disable-completion` to disable)
         // Affects "completion" of LSP.
-        'language_server_enable_completion' => false,
+        'language_server_enable_completion' => true,
 
         // Don't show the category name in issue messages.
         // This makes error messages slightly shorter.
@@ -848,14 +847,11 @@ class Config
      */
     public static function setProjectRootDirectory(
         string $project_root_directory
-    ) {
+    ) : void {
         self::$project_root_directory = $project_root_directory;
     }
 
-    /**
-     * @return void
-     */
-    public static function init()
+    public static function init() : void
     {
         static $did_init = false;
         if ($did_init) {
@@ -865,7 +861,7 @@ class Config
         self::initOnce();
     }
 
-    private static function initOnce()
+    private static function initOnce() : void
     {
         // Trigger magic setters
         foreach (self::$configuration as $name => $v) {
@@ -985,7 +981,7 @@ class Config
      * @return void
      * @internal - this should only be used in unit tests.
      */
-    public static function reset()
+    public static function reset() : void
     {
         self::$configuration = self::DEFAULT_CONFIGURATION;
         // Trigger magic behavior
@@ -997,7 +993,7 @@ class Config
      * @param mixed $value
      * @return void
      */
-    public static function setValue(string $name, $value)
+    public static function setValue(string $name, $value) : void
     {
         self::$configuration[$name] = $value;
         switch ($name) {
@@ -1066,19 +1062,19 @@ class Config
      * @param string[] $value
      * @return ?string
      */
-    private static function generateDirectoryListRegex(array $value)
+    private static function generateDirectoryListRegex(array $value) : ?string
     {
         if (!$value) {
             return null;
         }
-        $parts = array_map(static function (string $path) : string {
+        $parts = \array_map(static function (string $path) : string {
             $path = \str_replace('\\', '/', $path);  // Normalize \\ to / in configs
             $path = \rtrim($path, '\//');  // remove trailing / from directory
             $path = \preg_replace('@^(\./)+@', '', $path);  // Remove any number of leading ./ sections
             return \preg_quote($path, '@');  // Quote this
         }, $value);
 
-        return '@^(\./)*(' . implode('|', $parts) . ')([/\\\\]|$)@';
+        return '@^(\./)*(' . \implode('|', $parts) . ')([/\\\\]|$)@';
     }
 
     private static function computeClosestTargetPHPVersionId(string $version) : int
@@ -1130,7 +1126,7 @@ class Config
          * @param mixed $value
          * @return ?string
          */
-        $is_scalar = static function ($value) {
+        $is_scalar = static function ($value) : ?string {
             if (is_null($value) || \is_scalar($value)) {
                 return null;
             }
@@ -1140,7 +1136,7 @@ class Config
          * @param mixed $value
          * @return ?string
          */
-        $is_bool = static function ($value) {
+        $is_bool = static function ($value) : ?string {
             if (is_bool($value)) {
                 return null;
             }
@@ -1150,7 +1146,7 @@ class Config
          * @param mixed $value
          * @return ?string
          */
-        $is_string_or_null = static function ($value) {
+        $is_string_or_null = static function ($value) : ?string {
             if (is_null($value) || is_string($value)) {
                 return null;
             }
@@ -1160,7 +1156,7 @@ class Config
          * @param mixed $value
          * @return ?string
          */
-        $is_string = static function ($value) {
+        $is_string = static function ($value) : ?string {
             if (is_string($value)) {
                 return null;
             }
@@ -1170,7 +1166,7 @@ class Config
          * @param mixed $value
          * @return ?string
          */
-        $is_array = static function ($value) {
+        $is_array = static function ($value) : ?string {
             if (is_array($value)) {
                 return null;
             }
@@ -1180,7 +1176,7 @@ class Config
          * @param mixed $value
          * @return ?string
          */
-        $is_int_strict = static function ($value) {
+        $is_int_strict = static function ($value) : ?string {
             if (is_int($value)) {
                 return null;
             }
@@ -1190,7 +1186,7 @@ class Config
          * @param mixed $value
          * @return ?string
          */
-        $is_string_list = static function ($value) {
+        $is_string_list = static function ($value) : ?string {
             if (!is_array($value)) {
                 return 'Expected a list of strings' . self::errSuffixGotType($value);
             }
@@ -1205,7 +1201,7 @@ class Config
          * @param mixed $value
          * @return ?string
          */
-        $is_associative_string_array = static function ($value) {
+        $is_associative_string_array = static function ($value) : ?string {
             if (!is_array($value)) {
                 return 'Expected an associative array mapping strings to strings'  . self::errSuffixGotType($value);
             }
@@ -1334,7 +1330,7 @@ class Config
      * Prints errors to stderr if any config options are definitely invalid.
      * @return void
      */
-    public static function warnIfInvalid()
+    public static function warnIfInvalid() : void
     {
         $errors = self::getConfigErrors(self::$configuration);
         foreach ($errors as $error) {

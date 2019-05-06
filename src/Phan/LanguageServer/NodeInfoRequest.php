@@ -39,8 +39,7 @@ abstract class NodeInfoRequest
         $this->promise = new Promise();
     }
 
-    /** @return void */
-    abstract public function finalize();
+    abstract public function finalize() : void;
 
     /**
      * Returns the file URL for which info is being requested
@@ -68,8 +67,7 @@ abstract class NodeInfoRequest
         return $this->position;
     }
 
-    /** @return Promise */
-    final public function getPromise()
+    final public function getPromise() : Promise
     {
         return $this->promise;
     }

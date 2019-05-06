@@ -4,18 +4,18 @@ declare(strict_types=1);
 use ast\Node;
 use Phan\Language\Element\Variable;
 use Phan\Language\UnionType;
-use Phan\PluginV2;
-use Phan\PluginV2\PluginAwarePostAnalysisVisitor;
-use Phan\PluginV2\PluginAwarePreAnalysisVisitor;
-use Phan\PluginV2\PostAnalyzeNodeCapability;
-use Phan\PluginV2\PreAnalyzeNodeCapability;
+use Phan\PluginV3;
+use Phan\PluginV3\PluginAwarePostAnalysisVisitor;
+use Phan\PluginV3\PluginAwarePreAnalysisVisitor;
+use Phan\PluginV3\PostAnalyzeNodeCapability;
+use Phan\PluginV3\PreAnalyzeNodeCapability;
 
 /**
  * This plugin modifies Phan's analysis of code using FFI\CData variables.
  *
  * A plugin file must
  *
- * - Contain a class that inherits from \Phan\PluginV2
+ * - Contain a class that inherits from \Phan\PluginV3
  *
  * - End by returning an instance of that class.
  *
@@ -27,7 +27,7 @@ use Phan\PluginV2\PreAnalyzeNodeCapability;
  * Note: When adding new plugins,
  * add them to the corresponding section of README.md
  */
-class FFIAnalysisPlugin extends PluginV2 implements PostAnalyzeNodeCapability, PreAnalyzeNodeCapability
+class FFIAnalysisPlugin extends PluginV3 implements PostAnalyzeNodeCapability, PreAnalyzeNodeCapability
 {
     /**
      * @return class-string - name of PluginAwarePostAnalysisVisitor subclass
@@ -58,7 +58,7 @@ class FFIPreAnalysisVisitor extends PluginAwarePreAnalysisVisitor
      * @param Node $node a node of kind ast\AST_ASSIGN
      * @return void
      */
-    public function visitAssign(Node $node)
+    public function visitAssign(Node $node) : void
     {
         $left = $node->children['var'];
         if (!($left instanceof Node)) {
@@ -99,7 +99,7 @@ class FFIPreAnalysisVisitor extends PluginAwarePreAnalysisVisitor
             if (strcasecmp('CData', $type->getName()) !== 0) {
                 continue;
             }
-            if ($type->getIsNullable()) {
+            if ($type->isNullable()) {
                 return self::PARTIALLY_FFI_CDATA;
             }
             if ($union_type->typeCount() > 1) {
@@ -120,7 +120,7 @@ class FFIPostAnalysisVisitor extends PluginAwarePostAnalysisVisitor
      * @return void
      * @override
      */
-    public function visitAssign(Node $node)
+    public function visitAssign(Node $node) : void
     {
         // @phan-suppress-next-line PhanUndeclaredProperty
         if (isset($node->is_ffi)) {
@@ -128,7 +128,7 @@ class FFIPostAnalysisVisitor extends PluginAwarePostAnalysisVisitor
         }
     }
 
-    private function analyzeFFIAssign(Node $node)
+    private function analyzeFFIAssign(Node $node) : void
     {
         $var_name = $node->children['var']->children['name'] ?? null;
         if (!is_string($var_name)) {

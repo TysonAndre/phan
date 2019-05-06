@@ -1,5 +1,31 @@
 Phan NEWS
 
+?? ??? 2019, Phan 2.0.0 (dev)
+-----------------------
+
+New features(CLI, Configs):
++ Enable language server features by default. (#2358)
+  New CLI flags to disable features: `--language-server-disable-hover`, `--language-server-disable-go-to-definition`, `--language-server-disable-completion`
+
+Backwards Incompatible Changes:
++ Drop support for running Phan with PHP 7.0. (PHP 7.0 reached its end of life in December 2018)
+  Analyzing codebases with `--target-php-version 7.0` continues to be supported.
++ Require php-ast 1.0.1 or newer (or the absence of php-ast with `--allow-polyfill-parser`)
+  Phan switched from using [AST version 50 to version 70](https://github.com/nikic/php-ast#ast-versioning).
+
+Plugins:
++ Change `PluginV2` to `PluginV3`
+  `PluginV2` and its capabilities will continue to work to make migrating to Phan 2.x easier, but `PluginV2` is deprecated and will be removed in Phan 3.
+
+  `PluginV3` has the same APIs and capabilities as PluginV2, but uses PHP 7.1 signatures (`void`, `?MyClass`, etc.)
++ Third party plugins may need to be upgraded to support changes in AST version 70, e.g. the new node kinds `AST_PROP_GROUP` and `AST_CLASS_NAME`
++ Add `PHPDocToRealTypesPlugin` to suggest real types to replace (or use alongside) phpdoc return types.
+  This does not check that the phpdoc types are correct.
+
+  `--automatic-fix` can be used to automate making these changes for issues that are not suppressed.
++ Add `PHPDocRedundantPlugin` to detect functions/methods/closures where the doc comment just repeats the types in the signature.
++ Add a `BeforeAnalyzePhaseCapability`. Unlike `BeforeAnalyzeCapability`, this will run after methods are analyzed, not before.
+
 ?? ??? 2019, Phan 1.3.3 (dev)
 -----------------------
 

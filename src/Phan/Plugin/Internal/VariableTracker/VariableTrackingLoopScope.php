@@ -30,7 +30,7 @@ final class VariableTrackingLoopScope extends VariableTrackingBranchScope
      * @param bool $exits
      * @return void
      */
-    public function recordSkippedScope(VariableTrackingBranchScope $skipped_loop_scope, bool $exits)
+    public function recordSkippedScope(VariableTrackingBranchScope $skipped_loop_scope, bool $exits) : void
     {
         if ($exits) {
             $this->skipped_exiting_loop_scopes[] = $skipped_loop_scope;
@@ -46,7 +46,7 @@ final class VariableTrackingLoopScope extends VariableTrackingBranchScope
      *
      * @return void
      */
-    public function flattenSwitchCaseScopes(VariableGraph $graph)
+    public function flattenSwitchCaseScopes(VariableGraph $graph) : void
     {
         foreach ($this->skipped_loop_scopes as $alternate_scope) {
             $this->flattenScopeToMergedLoopResult($this, $alternate_scope, $graph);

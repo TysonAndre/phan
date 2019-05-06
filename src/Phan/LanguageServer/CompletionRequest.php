@@ -60,7 +60,7 @@ final class CompletionRequest extends NodeInfoRequest
      * @return void
      * @suppress PhanPartialTypeMismatchArgument this accepts multiple types of arrays
      */
-    public function recordCompletionList($completions)
+    public function recordCompletionList($completions) : void
     {
         if ($completions instanceof CompletionItem || isset($completions['label'])) {
             $completions = [$completions];
@@ -84,12 +84,12 @@ final class CompletionRequest extends NodeInfoRequest
         CodeBase $code_base,
         TypedElementInterface $element,
         string $prefix = null
-    ) {
+    ) : void {
         $item = $this->createCompletionItem($code_base, $element, $prefix);
         $this->recordCompletionItem($item);
     }
 
-    private function recordCompletionItem(CompletionItem $item)
+    private function recordCompletionItem(CompletionItem $item) : void
     {
         $this->completions[$item->label . ':' . $item->kind] = $item;
     }
@@ -142,10 +142,7 @@ final class CompletionRequest extends NodeInfoRequest
         return $element->getName();
     }
 
-    /**
-     * @return ?int
-     */
-    private function kindForElement(TypedElementInterface $element)
+    private function kindForElement(TypedElementInterface $element) : ?int
     {
         if ($element instanceof ClassConstant) {
             return CompletionItemKind::VARIABLE;
@@ -174,7 +171,7 @@ final class CompletionRequest extends NodeInfoRequest
         return \array_values($this->completions);
     }
 
-    public function finalize()
+    public function finalize() : void
     {
         if ($this->fulfilled) {
             return;
@@ -187,8 +184,8 @@ final class CompletionRequest extends NodeInfoRequest
             \uksort(
                 $result,
                 /**
-                 * @param string $a
-                 * @param string $b
+                 * @param int|string $a usually strings
+                 * @param int|string $b
                  */
                 static function ($a, $b) : int {
                     $a = \ltrim((string)$a, '$');

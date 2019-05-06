@@ -191,7 +191,7 @@ final class ArrayShapeType extends ArrayType implements GenericArrayInterface
      * @return UnionType
      * @phan-override
      */
-    public function iterableKeyUnionType(CodeBase $unused_code_base)
+    public function iterableKeyUnionType(CodeBase $unused_code_base) : UnionType
     {
         return $this->getKeyUnionType();
     }
@@ -214,7 +214,7 @@ final class ArrayShapeType extends ArrayType implements GenericArrayInterface
      * @return UnionType
      * @override
      */
-    public function iterableValueUnionType(CodeBase $unused_code_base)
+    public function iterableValueUnionType(CodeBase $unused_code_base) : UnionType
     {
         return $this->genericArrayElementUnionType();
     }
@@ -283,7 +283,7 @@ final class ArrayShapeType extends ArrayType implements GenericArrayInterface
                     $this_field_type = $this->field_types[$key] ?? null;
                     // Can't cast {a:int} to {a:int, other:string} if other is missing
                     if ($this_field_type === null) {
-                        if ($field_type->getIsPossiblyUndefined()) {
+                        if ($field_type->isPossiblyUndefined()) {
                             // ... unless the other field is allowed to be undefined.
                             continue;
                         }
@@ -340,7 +340,7 @@ final class ArrayShapeType extends ArrayType implements GenericArrayInterface
         $field_types = $this->field_types;
         $unique = [];
         foreach ($field_types as $value_union_type) {
-            if ($value_union_type->getIsPossiblyUndefined()) {
+            if ($value_union_type->isPossiblyUndefined()) {
                 continue;
             }
 
@@ -466,7 +466,7 @@ final class ArrayShapeType extends ArrayType implements GenericArrayInterface
              * @param array{0:string} $match
              * @return string
              */
-            static function (array $match) {
+            static function (array $match) : string {
                 $c = $match[0];
                 return self::ESCAPE_CHARACTER_LOOKUP[$c] ?? \sprintf('\\x%02x', \ord($c));
             },
@@ -511,7 +511,7 @@ final class ArrayShapeType extends ArrayType implements GenericArrayInterface
                 } catch (RecursionDepthException $_) {
                     $expanded_field_type = MixedType::instance(false)->asUnionType();
                 }
-                if ($union_type->getIsPossiblyUndefined()) {
+                if ($union_type->isPossiblyUndefined()) {
                     // array{key?:string} should become array{key?:string}.
                     $expanded_field_type = $union_type->withIsPossiblyUndefined(true);
                 }
@@ -558,7 +558,7 @@ final class ArrayShapeType extends ArrayType implements GenericArrayInterface
                 } catch (RecursionDepthException $_) {
                     $expanded_field_type = MixedType::instance(false)->asUnionType();
                 }
-                if ($union_type->getIsPossiblyUndefined()) {
+                if ($union_type->isPossiblyUndefined()) {
                     // array{key?:string} should become array{key?:string}.
                     $expanded_field_type = $union_type->withIsPossiblyUndefined(true);
                 }
@@ -638,13 +638,13 @@ final class ArrayShapeType extends ArrayType implements GenericArrayInterface
      * @return bool true if there is guaranteed to be at least one property
      * @phan-override
      */
-    public function getIsAlwaysTruthy() : bool
+    public function isAlwaysTruthy() : bool
     {
         if ($this->is_nullable) {
             return false;
         }
         foreach ($this->field_types as $field) {
-            if (!$field->getIsPossiblyUndefined()) {
+            if (!$field->isPossiblyUndefined()) {
                 return true;
             }
         }
@@ -704,7 +704,7 @@ final class ArrayShapeType extends ArrayType implements GenericArrayInterface
      * @param CodeBase $code_base
      * @return ?Closure(UnionType, Context):UnionType
      */
-    public function getTemplateTypeExtractorClosure(CodeBase $code_base, TemplateType $template_type)
+    public function getTemplateTypeExtractorClosure(CodeBase $code_base, TemplateType $template_type) : ?Closure
     {
         $closure = null;
         foreach ($this->field_types as $key => $type) {
@@ -757,7 +757,7 @@ final class ArrayShapeType extends ArrayType implements GenericArrayInterface
      * Returns the function interface this references
      * @return ?FunctionInterface
      */
-    public function asFunctionInterfaceOrNull(CodeBase $code_base, Context $context)
+    public function asFunctionInterfaceOrNull(CodeBase $code_base, Context $context) : ?FunctionInterface
     {
         if (\count($this->field_types) !== 2) {
             Issue::maybeEmit(
@@ -864,5 +864,14 @@ final class ArrayShapeType extends ArrayType implements GenericArrayInterface
             // @phan-suppress-next-line PhanPossiblyFalseTypeArgumentInternal
             $escaped_key
         );
+    }
+
+    /**
+     * Returns the corresponding type that would be used in a signature
+     * @override
+     */
+    public function asSignatureType() : Type
+    {
+        return ArrayType::instance($this->is_nullable);
     }
 }

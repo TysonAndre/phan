@@ -360,7 +360,7 @@ class ParseVisitor extends ScopeVisitor
             // TODO: More precise callable shape
             $class->addAdditionalType(CallableType::instance(false));
         } elseif ('__toString' === $method_name
-            && !$this->context->getIsStrictTypes()
+            && !$this->context->isStrictTypes()
         ) {
             $class->addAdditionalType(StringType::instance(false));
         }
@@ -373,7 +373,7 @@ class ParseVisitor extends ScopeVisitor
     }
 
     /**
-     * Visit a node with kind `\ast\AST_PROP_DECL`
+     * Visit a node with kind `\ast\AST_PROP_GROUP`
      *
      * @param Node $node
      * A node to parse
@@ -382,12 +382,15 @@ class ParseVisitor extends ScopeVisitor
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitPropDecl(Node $node) : Context
+    public function visitPropGroup(Node $node) : Context
     {
         // Bomb out if we're not in a class context
+        $props_node = $node->children['props'];
+        // TODO: Use $node->children['type']
+
         $class = $this->getContextClass();
         $doc_comment = '';
-        $first_child_node = $node->children[0] ?? null;
+        $first_child_node = $props_node->children[0] ?? null;
         if ($first_child_node instanceof Node) {
             $doc_comment = $first_child_node->children['docComment'] ?? '';
         }
@@ -396,11 +399,11 @@ class ParseVisitor extends ScopeVisitor
             $doc_comment,
             $this->code_base,
             $this->context,
-            $node->lineno ?? 0,
+            $props_node->lineno ?? 0,
             Comment::ON_PROPERTY
         );
 
-        foreach ($node->children as $i => $child_node) {
+        foreach ($props_node->children as $i => $child_node) {
             // Ignore children which are not property elements
             if (!($child_node instanceof Node)
                 || $child_node->kind != \ast\AST_PROP_ELEM
@@ -482,7 +485,7 @@ class ParseVisitor extends ScopeVisitor
                 $context_for_property,
                 $property_name,
                 $union_type,
-                $node->flags ?? 0,
+                $node->flags,
                 $property_fqsen
             );
 
@@ -878,7 +881,7 @@ class ParseVisitor extends ScopeVisitor
         return $this->context;
     }
 
-    private function analyzeDefine(Node $node)
+    private function analyzeDefine(Node $node) : void
     {
         $args = $node->children['args'];
         if (\count($args->children) < 2) {
@@ -947,7 +950,7 @@ class ParseVisitor extends ScopeVisitor
      * Analyze a node for syntax backward compatibility, if that option is enabled
      * @return void
      */
-    private function analyzeBackwardCompatibility(Node $node)
+    private function analyzeBackwardCompatibility(Node $node) : void
     {
         if (Config::get_backward_compatibility_checks()) {
             (new ContextNode(
@@ -1231,7 +1234,7 @@ class ParseVisitor extends ScopeVisitor
         string $comment_string,
         bool $use_future_union_type,
         bool $is_fully_qualified = false
-    ) {
+    ) : void {
         $i = \strrpos($name, '\\');
         if ($i !== false) {
             $name_fragment = (string)\substr($name, $i + 1);
@@ -1358,7 +1361,7 @@ class ParseVisitor extends ScopeVisitor
      * @param Node $node - An AST_CALL node with name 'class_alias' to attempt to resolve
      * @return void
      */
-    private function recordClassAlias(Node $node)
+    private function recordClassAlias(Node $node) : void
     {
         $args = $node->children['args']->children;
         if (\count($args) < 2 || \count($args) > 3) {
@@ -1406,43 +1409,35 @@ class ParseVisitor extends ScopeVisitor
     }
 
     // common no-ops
-    /** @return Context */
-    public function visitArrayElem(Node $node)
+    public function visitArrayElem(Node $node) : Context
     {
         return $this->context;
     }
-    /** @return Context */
-    public function visitVar(Node $node)
+    public function visitVar(Node $node) : Context
     {
         return $this->context;
     }
-    /** @return Context */
-    public function visitName(Node $node)
+    public function visitName(Node $node) : Context
     {
         return $this->context;
     }
-    /** @return Context */
-    public function visitArgList(Node $node)
+    public function visitArgList(Node $node) : Context
     {
         return $this->context;
     }
-    /** @return Context */
-    public function visitStmtList(Node $node)
+    public function visitStmtList(Node $node) : Context
     {
         return $this->context;
     }
-    /** @return Context */
-    public function visitProp(Node $node)
+    public function visitProp(Node $node) : Context
     {
         return $this->context;
     }
-    /** @return Context */
-    public function visitArray(Node $node)
+    public function visitArray(Node $node) : Context
     {
         return $this->context;
     }
-    /** @return Context */
-    public function visitBinaryOp(Node $node)
+    public function visitBinaryOp(Node $node) : Context
     {
         return $this->context;
     }
@@ -1475,7 +1470,7 @@ class ParseVisitor extends ScopeVisitor
      *
      * @internal
      */
-    public static function checkIsAllowedInConstExpr($n)
+    public static function checkIsAllowedInConstExpr($n) : void
     {
         if (!($n instanceof Node)) {
             return;

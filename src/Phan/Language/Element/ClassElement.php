@@ -39,7 +39,7 @@ abstract class ClassElement extends AddressableElement
      * @override
      * @suppress PhanParamSignatureMismatch deliberately more specific
      */
-    public function setFQSEN(FQSEN $fqsen)
+    public function setFQSEN(FQSEN $fqsen) : void
     {
         if (!($fqsen instanceof FullyQualifiedClassElement)) {
             throw new TypeError('Expected $fqsen to be a subclass of Phan\Language\Element\FullyQualifiedClassElement');
@@ -117,7 +117,7 @@ abstract class ClassElement extends AddressableElement
      */
     public function setDefiningFQSEN(
         FullyQualifiedClassElement $defining_fqsen
-    ) {
+    ) : void {
         $this->defining_fqsen = $defining_fqsen;
     }
 
@@ -179,9 +179,19 @@ abstract class ClassElement extends AddressableElement
      * @return bool
      * True if this element overrides another element
      */
-    public function getIsOverride() : bool
+    public function isOverride() : bool
     {
         return $this->getPhanFlagsHasState(Flags::IS_OVERRIDE);
+    }
+
+    /**
+     * True if this element overrides another element
+     * @deprecated use isOverride
+     * @suppress PhanUnreferencedPublicMethod
+     */
+    final public function getIsOverride() : bool
+    {
+        return $this->isOverride();
     }
 
     /**
@@ -192,7 +202,7 @@ abstract class ClassElement extends AddressableElement
      *
      * @return void
      */
-    public function setIsOverride(bool $is_override)
+    public function setIsOverride(bool $is_override) : void
     {
         $this->setPhanFlags(Flags::bitVectorWithState(
             $this->getPhanFlags(),
@@ -237,7 +247,7 @@ abstract class ClassElement extends AddressableElement
      *                                    null if in the global scope.
      * @return bool true if this can be accessed from the scope of $accessing_class_fqsen
      */
-    public function isAccessibleFromClass(CodeBase $code_base, $accessing_class_fqsen) : bool
+    public function isAccessibleFromClass(CodeBase $code_base, ?FullyQualifiedClassName $accessing_class_fqsen) : bool
     {
         if ($this->isPublic()) {
             return true;

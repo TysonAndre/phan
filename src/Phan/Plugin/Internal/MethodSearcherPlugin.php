@@ -12,8 +12,8 @@ use Phan\Language\Type;
 use Phan\Language\Type\GenericArrayType;
 use Phan\Language\Type\MixedType;
 use Phan\Language\UnionType;
-use Phan\PluginV2;
-use Phan\PluginV2\BeforeAnalyzeCapability;
+use Phan\PluginV3;
+use Phan\PluginV3\BeforeAnalyzeCapability;
 use TypeError;
 use function count;
 
@@ -24,7 +24,7 @@ use function count;
  *
  * @internal
  */
-final class MethodSearcherPlugin extends PluginV2 implements
+final class MethodSearcherPlugin extends PluginV3 implements
     BeforeAnalyzeCapability
 {
     /** @var array<int,UnionType> the param type we're looking for. */
@@ -45,7 +45,7 @@ final class MethodSearcherPlugin extends PluginV2 implements
      *
      * @throws InvalidArgumentException
      */
-    public static function setSearchString(string $search_string)
+    public static function setSearchString(string $search_string) : void
     {
         // XXX improve parsing this
         $parts = \array_map('trim', \explode('->', $search_string));
@@ -95,7 +95,7 @@ final class MethodSearcherPlugin extends PluginV2 implements
                 foreach ($replacement_element_types->getTypeSet() as $element_type) {
                     $replacement_type = GenericArrayType::fromElementType(
                         $element_type,
-                        $type->getIsNullable(),
+                        $type->isNullable(),
                         $type->getKeyType()
                     );
                     $union_type = $union_type->withType($replacement_type);
@@ -112,7 +112,7 @@ final class MethodSearcherPlugin extends PluginV2 implements
     public static function getReplacementTypesForFullyQualifiedClassName(
         CodeBase $code_base,
         Type $type
-    ) {
+    ) : array {
         $fqsen = FullyQualifiedClassName::fromType($type);
         if ($code_base->hasClassWithFQSEN($fqsen)) {
             return [$type];
@@ -123,11 +123,11 @@ final class MethodSearcherPlugin extends PluginV2 implements
             exit(\EXIT_FAILURE);
         }
         return \array_map(static function (FullyQualifiedClassName $fqsen) use ($type) : Type {
-            return $fqsen->asType()->withIsNullable($type->getIsNullable());
+            return $fqsen->asType()->withIsNullable($type->isNullable());
         }, $fqsens);
     }
 
-    private static function addMissingNamespacesToTypes(CodeBase $code_base)
+    private static function addMissingNamespacesToTypes(CodeBase $code_base) : void
     {
         $original_param_types = self::$param_types;
         $original_return_type = self::$return_type;
@@ -141,10 +141,7 @@ final class MethodSearcherPlugin extends PluginV2 implements
         }
     }
 
-    /**
-     * @param CodeBase $code_base
-     */
-    public function beforeAnalyze(CodeBase $code_base)
+    public function beforeAnalyze(CodeBase $code_base) : void
     {
         self::addMissingNamespacesToTypes($code_base);
 
@@ -189,7 +186,7 @@ final class MethodSearcherPlugin extends PluginV2 implements
         exit(\EXIT_SUCCESS);
     }
 
-    private function checkFunction(CodeBase $code_base, FunctionInterface $function)
+    private function checkFunction(CodeBase $code_base, FunctionInterface $function) : void
     {
         $result = $this->functionMatchesSignature($code_base, $function);
         if ($result) {
@@ -252,14 +249,14 @@ final class MethodSearcherPlugin extends PluginV2 implements
     {
         if ($function instanceof Method) {
             // TODO: convert __sleep to string[], etc.
-            if ($function->getIsMagicAndVoid()) {
+            if ($function->isMagicAndVoid()) {
                 return UnionType::fromFullyQualifiedString('void');
             }
-            if (!$function->isAbstract() && !$function->isPHPInternal() && !$function->getHasReturn()) {
+            if (!$function->isAbstract() && !$function->isPHPInternal() && !$function->hasReturn()) {
                 return UnionType::fromFullyQualifiedString('void');
             }
         } else {
-            if (!$function->isPHPInternal() && !$function->getHasReturn()) {
+            if (!$function->isPHPInternal() && !$function->hasReturn()) {
                 return UnionType::fromFullyQualifiedString('void');
             }
         }

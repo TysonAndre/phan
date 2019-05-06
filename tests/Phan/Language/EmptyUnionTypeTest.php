@@ -35,10 +35,11 @@ final class EmptyUnionTypeTest extends BaseTest
         '__construct',
         // UnionType implementation can't be optimized
         'withIsPossiblyUndefined',
-        'getIsPossiblyUndefined',
+        'isPossiblyUndefined',
+        'getIsPossiblyUndefined',  // alias of isPossiblyUndefined
     ];
 
-    public function testMethods()
+    public function testMethods() : void
     {
         $this->assertTrue(\class_exists(UnionType::class));  // Force the autoloader to load UnionType before attempting to load EmptyUnionType
         $failures = '';

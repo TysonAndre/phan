@@ -211,7 +211,7 @@ class Property extends ClassElement
      * @internal
      * @return ?Closure
      */
-    public function createRestoreCallback()
+    public function createRestoreCallback() : ?Closure
     {
         $future_union_type = $this->future_union_type;
         if ($future_union_type === null) {
@@ -221,7 +221,7 @@ class Property extends ClassElement
         }
         // If this refers to a class constant in another file,
         // the resolved union type might change if that file changes.
-        return function () use ($future_union_type) {
+        return function () use ($future_union_type) : void {
             $this->future_union_type = $future_union_type;
             // Probably don't need to call setUnionType(mixed) again...
         };
@@ -237,10 +237,7 @@ class Property extends ClassElement
         return $this->getPhanFlagsHasState(Flags::WAS_PROPERTY_READ);
     }
 
-    /**
-     * @return void
-     */
-    public function setHasReadReference()
+    public function setHasReadReference() : void
     {
         $this->enablePhanFlagBits(Flags::WAS_PROPERTY_READ);
     }
@@ -255,10 +252,7 @@ class Property extends ClassElement
         return $this->getPhanFlagsHasState(Flags::WAS_PROPERTY_WRITTEN);
     }
 
-    /**
-     * @return void
-     */
-    public function setHasWriteReference()
+    public function setHasWriteReference() : void
     {
         $this->enablePhanFlagBits(Flags::WAS_PROPERTY_WRITTEN);
     }
@@ -268,7 +262,7 @@ class Property extends ClassElement
      * @override
      * @return void
      */
-    public function copyReferencesFrom(AddressableElement $element)
+    public function copyReferencesFrom(AddressableElement $element) : void
     {
         if ($this === $element) {
             // Should be impossible
@@ -316,7 +310,7 @@ class Property extends ClassElement
      * @return void
      * @suppress PhanUnreferencedPublicMethod the caller now just sets all phan flags at once (including IS_READ_ONLY)
      */
-    public function setIsFromPHPDoc(bool $from_phpdoc)
+    public function setIsFromPHPDoc(bool $from_phpdoc) : void
     {
         $this->setPhanFlags(
             Flags::bitVectorWithState(
@@ -333,7 +327,7 @@ class Property extends ClassElement
      * @param bool $has_static
      * @return void
      */
-    public function setHasStaticInUnionType(bool $has_static)
+    public function setHasStaticInUnionType(bool $has_static) : void
     {
         $this->setPhanFlags(
             Flags::bitVectorWithState(
@@ -347,7 +341,7 @@ class Property extends ClassElement
     /**
      * Does this property contain `static` anywhere in the original union type?
      */
-    public function getHasStaticInUnionType() : bool
+    public function hasStaticInUnionType() : bool
     {
         return $this->getPhanFlagsHasState(Flags::HAS_STATIC_UNION_TYPE);
     }
@@ -378,10 +372,7 @@ class Property extends ClassElement
         return $this->getPhanFlagsHasState(Flags::IS_WRITE_ONLY);
     }
 
-    /**
-     * @return void
-     */
-    public function setIsDynamicProperty(bool $is_dynamic)
+    public function setIsDynamicProperty(bool $is_dynamic) : void
     {
         $this->setPhanFlags(
             Flags::bitVectorWithState(
@@ -392,10 +383,7 @@ class Property extends ClassElement
         );
     }
 
-    /**
-     * @return void
-     */
-    public function inheritStaticUnionType(FullyQualifiedClassName $old, FullyQualifiedClassName $new)
+    public function inheritStaticUnionType(FullyQualifiedClassName $old, FullyQualifiedClassName $new) : void
     {
         $union_type = $this->getUnionType();
         foreach ($union_type->getTypeSet() as $type) {
@@ -405,7 +393,7 @@ class Property extends ClassElement
             if (FullyQualifiedClassName::fromType($type) === $old) {
                 $union_type = $union_type
                     ->withoutType($type)
-                    ->withType($new->asType()->withIsNullable($type->getIsNullable()));
+                    ->withType($new->asType()->withIsNullable($type->isNullable()));
             }
         }
         $this->setUnionType($union_type);

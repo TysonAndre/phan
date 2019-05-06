@@ -54,7 +54,7 @@ class MarkupDescription
      *
      * @return void
      */
-    public static function eagerlyLoadAllDescriptionMaps()
+    public static function eagerlyLoadAllDescriptionMaps() : void
     {
         if (!\extension_loaded('pcntl')) {
             // There's no forking, so descriptions will always be available after the first time they're loaded.
@@ -131,7 +131,7 @@ class MarkupDescription
         AddressableElementInterface $element,
         CodeBase $code_base,
         array &$checked_class_fqsens = []
-    ) {
+    ) : ?string {
         $extracted_doc_comment = self::extractDescriptionFromDocComment($element, $code_base);
         if ($extracted_doc_comment) {
             return $extracted_doc_comment;
@@ -160,8 +160,8 @@ class MarkupDescription
         ClassElement $element,
         CodeBase $code_base,
         array &$checked_class_fqsens = []
-    ) {
-        if (!$element->getIsOverride() && $element->getRealDefiningFQSEN() === $element->getFQSEN()) {
+    ) : ?string {
+        if (!$element->isOverride() && $element->getRealDefiningFQSEN() === $element->getFQSEN()) {
             return null;
         }
         $class_fqsen = $element->getDefiningClassFQSEN();
@@ -178,6 +178,7 @@ class MarkupDescription
             }
             $extracted_doc_comment = self::extractDescriptionFromDocCommentOfAncestorOfClassElement($ancestor_element, $code_base, $checked_class_fqsens);
         }
+        return null;
     }
 
     /**
@@ -189,7 +190,7 @@ class MarkupDescription
     public static function extractDescriptionFromDocComment(
         AddressableElementInterface $element,
         CodeBase $code_base = null
-    ) {
+    ) : ?string {
         $extracted_doc_comment = self::extractDescriptionFromDocCommentRaw($element);
         if ($extracted_doc_comment) {
             return $extracted_doc_comment;
@@ -241,10 +242,7 @@ class MarkupDescription
         return null;
     }
 
-    /**
-     * @return ?string
-     */
-    private static function extractDescriptionFromDocCommentRaw(AddressableElementInterface $element)
+    private static function extractDescriptionFromDocCommentRaw(AddressableElementInterface $element) : ?string
     {
         $doc_comment = $element->getDocComment();
         if (!$doc_comment) {

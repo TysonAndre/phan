@@ -84,7 +84,7 @@ class NegatedConditionVisitor extends KindVisitorImplementation implements Condi
      * A node to parse
      * @return void
      */
-    private function checkVariablesDefined(Node $node)
+    private function checkVariablesDefined(Node $node) : void
     {
         while ($node->kind === ast\AST_UNARY_OP) {
             $node = $node->children['expr'];
@@ -260,7 +260,7 @@ class NegatedConditionVisitor extends KindVisitorImplementation implements Condi
      * A new or an unchanged context resulting from
      * parsing the node
      */
-    public function visitCall(Node $node)
+    public function visitCall(Node $node) : Context
     {
         $raw_function_name = self::getFunctionName($node);
         if (!\is_string($raw_function_name)) {
@@ -301,10 +301,7 @@ class NegatedConditionVisitor extends KindVisitorImplementation implements Condi
         return $context;
     }
 
-    /**
-     * @return Context
-     */
-    public function visitVar(Node $node)
+    public function visitVar(Node $node) : Context
     {
         $this->checkVariablesDefined($node);
         return $this->removeTruthyFromVariable($node, $this->context, false);
@@ -399,7 +396,7 @@ class NegatedConditionVisitor extends KindVisitorImplementation implements Condi
                  * @return void
                  * @suppress PhanUnusedClosureParameter
                  */
-                function (CodeBase $code_base, Context $context, Variable $variable, array $args) use ($class_node) {
+                function (CodeBase $code_base, Context $context, Variable $variable, array $args) use ($class_node) : void {
                     $union_type = $this->computeNegatedInstanceofType($variable->getUnionType(), $class_node);
                     if ($union_type) {
                         $variable->setUnionType($union_type);
@@ -451,7 +448,7 @@ class NegatedConditionVisitor extends KindVisitorImplementation implements Condi
      * @param Node|mixed $class_node
      * @return ?UnionType
      */
-    private function computeNegatedInstanceofType(UnionType $union_type, $class_node)
+    private function computeNegatedInstanceofType(UnionType $union_type, $class_node) : ?UnionType
     {
         $right_hand_union_type = UnionTypeVisitor::unionTypeFromNode(
             $this->code_base,
@@ -502,10 +499,10 @@ class NegatedConditionVisitor extends KindVisitorImplementation implements Condi
                         // Add types which are not instances of $base_class_name
                         foreach ($union_type->getTypeSet() as $type) {
                             if ($type instanceof $base_class_name) {
-                                $has_null = $has_null || $type->getIsNullable();
+                                $has_null = $has_null || $type->isNullable();
                                 continue;
                             }
-                            $has_other_nullable_types = $has_other_nullable_types || $type->getIsNullable();
+                            $has_other_nullable_types = $has_other_nullable_types || $type->isNullable();
                             $new_type_builder->addType($type);
                         }
                         // Add Null if some of the rejected types were were nullable, and none of the accepted types were nullable
@@ -539,10 +536,10 @@ class NegatedConditionVisitor extends KindVisitorImplementation implements Condi
                         // Add types which are not scalars
                         foreach ($union_type->getTypeSet() as $type) {
                             if ($type_filter($type)) {
-                                $has_null = $has_null || $type->getIsNullable();
+                                $has_null = $has_null || $type->isNullable();
                                 continue;
                             }
-                            $has_other_nullable_types = $has_other_nullable_types || $type->getIsNullable();
+                            $has_other_nullable_types = $has_other_nullable_types || $type->isNullable();
                             $new_type_builder->addType($type);
                         }
                         // Add Null if some of the rejected types were were nullable, and none of the accepted types were nullable
@@ -562,7 +559,7 @@ class NegatedConditionVisitor extends KindVisitorImplementation implements Condi
             return $type instanceof IntType || $type instanceof FloatType;
         });
         $remove_bool_callback = $remove_conditional_function_callback(static function (Type $type) : bool {
-            return $type->getIsInBoolFamily();
+            return $type->isInBoolFamily();
         });
         $remove_callable_callback = static function (NegatedConditionVisitor $cv, Node $var_node, Context $context) : Context {
             return $cv->updateVariableWithConditionalFilter(
@@ -582,10 +579,10 @@ class NegatedConditionVisitor extends KindVisitorImplementation implements Condi
                     // Add types which are not callable
                     foreach ($union_type->getTypeSet() as $type) {
                         if ($type->isCallable()) {
-                            $has_null = $has_null || $type->getIsNullable();
+                            $has_null = $has_null || $type->isNullable();
                             continue;
                         }
-                        $has_other_nullable_types = $has_other_nullable_types || $type->getIsNullable();
+                        $has_other_nullable_types = $has_other_nullable_types || $type->isNullable();
                         $new_type_builder->addType($type);
                     }
                     // Add Null if some of the rejected types were were nullable, and none of the accepted types were nullable
@@ -616,15 +613,15 @@ class NegatedConditionVisitor extends KindVisitorImplementation implements Condi
                     // Add types which are not callable
                     foreach ($union_type->getTypeSet() as $type) {
                         if ($type instanceof ArrayType) {
-                            $has_null = $has_null || $type->getIsNullable();
+                            $has_null = $has_null || $type->isNullable();
                             continue;
                         }
 
-                        $has_other_nullable_types = $has_other_nullable_types || $type->getIsNullable();
+                        $has_other_nullable_types = $has_other_nullable_types || $type->isNullable();
 
                         if (\get_class($type) === IterableType::class) {
                             // An iterable that is not an object must be an array
-                            $new_type_builder->addType($traversable_type->withIsNullable($type->getIsNullable()));
+                            $new_type_builder->addType($traversable_type->withIsNullable($type->isNullable()));
                             continue;
                         }
                         $new_type_builder->addType($type);
@@ -654,14 +651,14 @@ class NegatedConditionVisitor extends KindVisitorImplementation implements Condi
                     // Add types which are not callable
                     foreach ($union_type->getTypeSet() as $type) {
                         if ($type->isObject()) {
-                            $has_null = $has_null || $type->getIsNullable();
+                            $has_null = $has_null || $type->isNullable();
                             continue;
                         }
-                        $has_other_nullable_types = $has_other_nullable_types || $type->getIsNullable();
+                        $has_other_nullable_types = $has_other_nullable_types || $type->isNullable();
 
                         if (\get_class($type) === IterableType::class) {
                             // An iterable that is not an array must be a Traversable
-                            $new_type_builder->addType(ArrayType::instance($type->getIsNullable()));
+                            $new_type_builder->addType(ArrayType::instance($type->isNullable()));
                             continue;
                         }
                         $new_type_builder->addType($type);
@@ -721,7 +718,7 @@ class NegatedConditionVisitor extends KindVisitorImplementation implements Condi
      * Analyze expressions such as $x['offset'] inside of a negated isset type check
      * @return Context
      */
-    public function checkComplexIsset(Node $var_node)
+    public function checkComplexIsset(Node $var_node) : Context
     {
         $context = $this->context;
         if ($var_node->kind === ast\AST_DIM) {
@@ -836,10 +833,7 @@ class NegatedConditionVisitor extends KindVisitorImplementation implements Condi
         return $context;
     }
 
-    /**
-     * @return Context
-     */
-    private function checkComplexNegatedEmpty(Node $var_node)
+    private function checkComplexNegatedEmpty(Node $var_node) : Context
     {
         $context = $this->context;
         // TODO: !empty($obj->prop['offset']) should imply $obj is not null (removeNullFromVariable)

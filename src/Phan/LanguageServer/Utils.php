@@ -25,9 +25,9 @@ class Utils
      * @return void
      * @suppress PhanUnreferencedPublicMethod
      */
-    public static function crash(Throwable $err)
+    public static function crash(Throwable $err) : void
     {
-        Loop\nextTick(static function () use ($err) {
+        Loop\nextTick(static function () use ($err) : void {
             // @phan-suppress-next-line PhanThrowTypeAbsent this is meant to crash the loop for debugging.
             throw $err;
         });
@@ -65,7 +65,7 @@ class Utils
     public static function uriToPath(string $uri) : string
     {
         $fragments = \parse_url($uri);
-        if (!is_array($fragments) || !isset($fragments['scheme']) || $fragments['scheme'] !== 'file') {
+        if (!\is_array($fragments) || !isset($fragments['scheme']) || $fragments['scheme'] !== 'file') {
             throw new InvalidArgumentException("Not a valid file URI: $uri");
         }
         $filepath = \urldecode($fragments['path']);

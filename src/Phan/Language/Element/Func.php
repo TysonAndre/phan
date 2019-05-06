@@ -104,7 +104,7 @@ class Func extends AddressableElement implements FunctionInterface
         Context $context,
         Type $closure_scope_type,
         Node $node
-    ) {
+    ) : ?FullyQualifiedClassName {
         if ($node->kind !== ast\AST_CLOSURE) {
             return null;
         }
@@ -306,9 +306,6 @@ class Func extends AddressableElement implements FunctionInterface
         return $func;
     }
 
-    /**
-     * @return FullyQualifiedFunctionName
-     */
     public function getFQSEN() : FullyQualifiedFunctionName
     {
         return $this->fqsen;

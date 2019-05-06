@@ -48,7 +48,7 @@ class ComparisonCondition implements BinaryCondition
     /**
      * @suppress PhanUnusedPublicMethodParameter
      */
-    public function analyzeCall(ConditionVisitorInterface $visitor, $call_node, $expr)
+    public function analyzeCall(ConditionVisitorInterface $visitor, Node $call_node, $expr) : ?Context
     {
         return null;
     }

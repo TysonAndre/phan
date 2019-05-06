@@ -150,7 +150,7 @@ trait ConditionVisitorUtil
                 foreach ($union_type->getTypeSet() as $type) {
                     if ($cb($type)) {
                         $union_type = $union_type->withoutType($type);
-                        $has_nullable = $has_nullable || $type->getIsNullable();
+                        $has_nullable = $has_nullable || $type->isNullable();
                     }
                 }
                 if ($has_nullable) {
@@ -619,7 +619,7 @@ trait ConditionVisitorUtil
      * @return ?Context
      * @suppress PhanPartialTypeMismatchArgument
      */
-    private function analyzeBinaryConditionSide(Node $var_node, $expr_node, BinaryCondition $condition)
+    private function analyzeBinaryConditionSide(Node $var_node, $expr_node, BinaryCondition $condition) : ?Context
     {
         '@phan-var ConditionVisitorUtil|ConditionVisitorInterface $this';
         $kind = $var_node->kind;
@@ -666,7 +666,7 @@ trait ConditionVisitorUtil
      * @return ?Context
      * @suppress PhanUnreferencedPublicMethod referenced in ConditionVisitorInterface
      */
-    public function analyzeClassAssertion($object_node, $expr_node)
+    public function analyzeClassAssertion($object_node, $expr_node) : ?Context
     {
         if (!($object_node instanceof Node)) {
             return null;
@@ -731,6 +731,7 @@ trait ConditionVisitorUtil
         } catch (\Exception $_) {
             // Swallow it (E.g. IssueException for undefined variable)
         }
+        return null;
     }
 
     /**
@@ -770,7 +771,7 @@ trait ConditionVisitorUtil
      *
      * TODO: support assertions on superglobals, within the current file scope?
      */
-    final public function getVariableFromScope(Node $var_node, Context $context)
+    final public function getVariableFromScope(Node $var_node, Context $context) : ?Variable
     {
         if ($var_node->kind !== ast\AST_VAR) {
             return null;
@@ -843,7 +844,7 @@ trait ConditionVisitorUtil
      * Fetches the function name. Does not check for function uses or namespaces.
      * @return ?string (null if function name could not be found)
      */
-    final protected static function getFunctionName(Node $node)
+    final protected static function getFunctionName(Node $node) : ?string
     {
         $expr = $node->children['expr'];
         if (!($expr instanceof Node)) {
@@ -1037,7 +1038,7 @@ trait ConditionVisitorUtil
      * @param Node|mixed $node
      * @return ?string the name of the variable in a chain of field accesses such as $varName['field'][$i]
      */
-    private static function getVarNameOfDimNode($node)
+    private static function getVarNameOfDimNode($node) : ?string
     {
         // Loop to support getting the var name in is_array($x['field'][0])
         while (true) {

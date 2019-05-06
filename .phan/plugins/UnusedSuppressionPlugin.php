@@ -10,14 +10,14 @@ use Phan\Language\Element\Func;
 use Phan\Language\Element\Method;
 use Phan\Language\Element\Property;
 use Phan\Plugin\ConfigPluginSet;
-use Phan\PluginV2;
-use Phan\PluginV2\AnalyzeClassCapability;
-use Phan\PluginV2\AnalyzeFunctionCapability;
-use Phan\PluginV2\AnalyzeMethodCapability;
-use Phan\PluginV2\AnalyzePropertyCapability;
-use Phan\PluginV2\BeforeAnalyzeFileCapability;
-use Phan\PluginV2\FinalizeProcessCapability;
-use Phan\PluginV2\SuppressionCapability;
+use Phan\PluginV3;
+use Phan\PluginV3\AnalyzeClassCapability;
+use Phan\PluginV3\AnalyzeFunctionCapability;
+use Phan\PluginV3\AnalyzeMethodCapability;
+use Phan\PluginV3\AnalyzePropertyCapability;
+use Phan\PluginV3\BeforeAnalyzeFileCapability;
+use Phan\PluginV3\FinalizeProcessCapability;
+use Phan\PluginV3\SuppressionCapability;
 
 /**
  * Check for unused (at)suppress annotations.
@@ -25,7 +25,7 @@ use Phan\PluginV2\SuppressionCapability;
  * NOTE! This plugin only produces correct results when Phan
  *       is run on a single processor (via the `-j1` flag).
  */
-class UnusedSuppressionPlugin extends PluginV2 implements
+class UnusedSuppressionPlugin extends PluginV3 implements
     BeforeAnalyzeFileCapability,
     AnalyzeClassCapability,
     AnalyzeFunctionCapability,
@@ -73,7 +73,7 @@ class UnusedSuppressionPlugin extends PluginV2 implements
     private static function analyzeAddressableElement(
         CodeBase $code_base,
         AddressableElement $element
-    ) {
+    ) : void {
         // Get the set of suppressed issues on the element
         $suppress_issue_list =
             $element->getSuppressIssueList();
@@ -115,7 +115,7 @@ class UnusedSuppressionPlugin extends PluginV2 implements
     public function analyzeClass(
         CodeBase $unused_code_base,
         Clazz $class
-    ) {
+    ) : void {
         $this->elements_for_postponed_analysis[] = $class;
     }
 
@@ -133,7 +133,7 @@ class UnusedSuppressionPlugin extends PluginV2 implements
     public function analyzeMethod(
         CodeBase $unused_code_base,
         Method $method
-    ) {
+    ) : void {
 
         // Ignore methods inherited by subclasses
         if ($method->getFQSEN() !== $method->getDefiningFQSEN()) {
@@ -157,7 +157,7 @@ class UnusedSuppressionPlugin extends PluginV2 implements
     public function analyzeFunction(
         CodeBase $unused_code_base,
         Func $function
-    ) {
+    ) : void {
         $this->elements_for_postponed_analysis[] = $function;
     }
 
@@ -175,7 +175,7 @@ class UnusedSuppressionPlugin extends PluginV2 implements
     public function analyzeProperty(
         CodeBase $unused_code_base,
         Property $property
-    ) {
+    ) : void {
         $this->elements_for_postponed_analysis[] = $property;
     }
 
@@ -185,7 +185,7 @@ class UnusedSuppressionPlugin extends PluginV2 implements
      *       Putting this hook in finalizeProcess() just minimizes the incorrect result counts.
      * @override
      */
-    public function finalizeProcess(CodeBase $code_base)
+    public function finalizeProcess(CodeBase $code_base) : void
     {
         foreach ($this->elements_for_postponed_analysis as $element) {
             self::analyzeAddressableElement($code_base, $element);
@@ -193,7 +193,7 @@ class UnusedSuppressionPlugin extends PluginV2 implements
         $this->analyzePluginSuppressions($code_base);
     }
 
-    private function analyzePluginSuppressions(CodeBase $code_base)
+    private function analyzePluginSuppressions(CodeBase $code_base) : void
     {
         $suppression_plugin_set = ConfigPluginSet::instance()->getSuppressionPluginSet();
         if (count($suppression_plugin_set) === 0) {
@@ -215,10 +215,7 @@ class UnusedSuppressionPlugin extends PluginV2 implements
         return Config::getValue('plugin_config')['unused_suppression_ignore_list'] ?? [];
     }
 
-    /**
-     * @return void
-     */
-    private function analyzePluginSuppressionsForFile(CodeBase $code_base, SuppressionCapability $plugin, string $relative_file_path)
+    private function analyzePluginSuppressionsForFile(CodeBase $code_base, SuppressionCapability $plugin, string $relative_file_path) : void
     {
         $absolute_file_path = Config::projectPath($relative_file_path);
         $plugin_class = \get_class($plugin);
@@ -271,7 +268,7 @@ class UnusedSuppressionPlugin extends PluginV2 implements
         Context $context,
         string $unused_file_contents,
         Node $unused_node
-    ) {
+    ) : void {
         $file = $context->getFile();
         $this->files_for_postponed_analysis[$file] = $file;
     }
@@ -287,7 +284,7 @@ class UnusedSuppressionPlugin extends PluginV2 implements
         string $file_path,
         string $issue_type,
         int $line
-    ) {
+    ) : void {
         $file_name = Config::projectPath($file_path);
         $plugin_class = \get_class($plugin);
         $this->plugin_active_suppression_list[$plugin_class][$file_name][$issue_type][$line] = $line;

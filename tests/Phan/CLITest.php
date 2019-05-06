@@ -21,7 +21,7 @@ final class CLITest extends BaseTest
     /**
      * @suppress PhanAccessMethodInternal
      */
-    public function setUp()
+    public function setUp() : void
     {
         parent::setUp();
         Config::reset();
@@ -30,7 +30,7 @@ final class CLITest extends BaseTest
     /**
      * @suppress PhanAccessMethodInternal
      */
-    public function tearDown()
+    public function tearDown() : void
     {
         parent::tearDown();
         Config::reset();
@@ -39,7 +39,7 @@ final class CLITest extends BaseTest
     /**
      * @dataProvider getFlagSuggestionStringProvider
      */
-    public function testGetFlagSuggestionString(string $flag, string $expected_message)
+    public function testGetFlagSuggestionString(string $flag, string $expected_message) : void
     {
         $this->assertSame($expected_message, CLI::getFlagSuggestionString($flag));
     }
@@ -75,7 +75,7 @@ final class CLITest extends BaseTest
      * @throws ExitException
      * @dataProvider setsConfigOptionsProvider
      */
-    public function testSetsConfigOptions(array $expected_changed_options, array $opts, array $extra = [])
+    public function testSetsConfigOptions(array $expected_changed_options, array $opts, array $extra = []) : void
     {
         $opts += ['project-root-directory' => \dirname(__DIR__) . '/misc/config/'];
         $expected_changed_options += [
@@ -159,6 +159,15 @@ final class CLITest extends BaseTest
                 ['output-mode' => 'csv'],
                 ['printer_class' => CsvPrinter::class],
             ],
+            // --language-server-enable-feature are now no-ops for tested features.
+            [
+                [],
+                [
+                    'language-server-enable-go-to-definition' => false,
+                    'language-server-enable-hover' => false,
+                    'language-server-enable-completion' => false,
+                ],
+            ],
             [
                 [
                     'color_issue_messages' => true,
@@ -174,9 +183,9 @@ final class CLITest extends BaseTest
                     'language_server_config' => [
                         'stdin' => true
                     ],
-                    'language_server_enable_completion' => true,
-                    'language_server_enable_go_to_definition' => true,
-                    'language_server_enable_hover' => true,
+                    'language_server_enable_completion' => false,
+                    'language_server_enable_go_to_definition' => false,
+                    'language_server_enable_hover' => false,
                     'language_server_hide_category_of_issues' => true,
                     'plugins' => ['InvokePHPNativeSyntaxCheckPlugin'],
                     'quick_mode' => true,
@@ -189,9 +198,9 @@ final class CLITest extends BaseTest
                     'language-server-allow-missing-pcntl' => false,
                     'use-fallback-parser' => false,
                     'allow-polyfill-parser' => false,
-                    'language-server-enable-go-to-definition' => false,
-                    'language-server-enable-hover' => false,
-                    'language-server-enable-completion' => false,
+                    'language-server-disable-go-to-definition' => false,
+                    'language-server-disable-hover' => false,
+                    'language-server-disable-completion' => false,
                     'language-server-hide-category' => false,
                     'plugin' => 'InvokePHPNativeSyntaxCheckPlugin',
                 ],
@@ -203,7 +212,7 @@ final class CLITest extends BaseTest
      * @param array<string,mixed> $opts
      * @dataProvider versionOptProvider
      */
-    public function testVersionOpt(array $opts)
+    public function testVersionOpt(array $opts) : void
     {
         \ob_start();
         try {
@@ -227,7 +236,7 @@ final class CLITest extends BaseTest
         ];
     }
 
-    public function testGetPluginSuggestionText()
+    public function testGetPluginSuggestionText() : void
     {
         $this->assertSame(
             ' (Did you mean DuplicateArrayKeyPlugin?)',
@@ -243,16 +252,16 @@ final class CLITest extends BaseTest
         );
     }
 
-    public function testSameVersionAsNEWS()
+    public function testSameVersionAsNEWS() : void
     {
-        $news = file_get_contents(dirname(__DIR__, 2) . '/NEWS.md');
-        $this->assertTrue(is_string($news));
+        $news = \file_get_contents(\dirname(__DIR__, 2) . '/NEWS.md');
+        $this->assertTrue(\is_string($news));
         $versions = [];
-        $lines = explode("\n", $news);
+        $lines = \explode("\n", $news);
         foreach ($lines as $i => $line) {
-            if (preg_match('@^-----@', $line)) {
+            if (\preg_match('@^-----@', $line)) {
                 $version_line = $lines[$i - 1];
-                if (preg_match('@\b(\d+\.\d+\.\d+)(.*\(dev\))?@', $version_line, $matches)) {
+                if (\preg_match('@\b(\d+\.\d+\.\d+)(.*\(dev\))?@', $version_line, $matches)) {
                     $version = $matches[1] . (!empty($matches[2]) ? '-dev' : '');
                     $versions[] = $version;
                 } else {
@@ -266,7 +275,7 @@ final class CLITest extends BaseTest
             if ($i == 0) {
                 continue;
             }
-            $this->assertLessThan(0, version_compare($version, $versions[$i - 1]), "unexpected order of $version and {$versions[$i - 1]}");
+            $this->assertLessThan(0, \version_compare($version, $versions[$i - 1]), "unexpected order of $version and {$versions[$i - 1]}");
         }
     }
 }

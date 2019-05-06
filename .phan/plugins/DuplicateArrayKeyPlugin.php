@@ -5,16 +5,16 @@ use Phan\AST\ASTHasher;
 use Phan\AST\ASTReverter;
 use Phan\AST\UnionTypeVisitor;
 use Phan\Issue;
-use Phan\PluginV2;
-use Phan\PluginV2\PluginAwarePostAnalysisVisitor;
-use Phan\PluginV2\PostAnalyzeNodeCapability;
+use Phan\PluginV3;
+use Phan\PluginV3\PluginAwarePostAnalysisVisitor;
+use Phan\PluginV3\PostAnalyzeNodeCapability;
 
 /**
  * Checks for duplicate/equivalent array keys and case statements, as well as arrays mixing `key => value, with `value,`.
  *
  * @see DollarDollarPlugin for generic plugin documentation.
  */
-class DuplicateArrayKeyPlugin extends PluginV2 implements PostAnalyzeNodeCapability
+class DuplicateArrayKeyPlugin extends PluginV3 implements PostAnalyzeNodeCapability
 {
     /**
      * @return string - name of PluginAwarePostAnalysisVisitor subclass
@@ -49,7 +49,7 @@ class DuplicateArrayKeyVisitor extends PluginAwarePostAnalysisVisitor
      *
      * @override
      */
-    public function visitSwitchList(Node $node)
+    public function visitSwitchList(Node $node) : void
     {
         $children = $node->children;
         if (count($children) <= 1) {
@@ -146,7 +146,7 @@ class DuplicateArrayKeyVisitor extends PluginAwarePostAnalysisVisitor
      * @param array<int,mixed> $values_to_check
      * @param array<int,mixed> $children an array of scalars
      */
-    private function extendedLooseEqualityCheck(array $values_to_check, $children)
+    private function extendedLooseEqualityCheck(array $values_to_check, array $children) : void
     {
         $numeric_set = [];
         $fuzzy_numeric_set = [];
@@ -186,7 +186,7 @@ class DuplicateArrayKeyVisitor extends PluginAwarePostAnalysisVisitor
      *
      * @override
      */
-    public function visitArray(Node $node)
+    public function visitArray(Node $node) : void
     {
         $children = $node->children;
         if (count($children) <= 1) {
@@ -237,7 +237,7 @@ class DuplicateArrayKeyVisitor extends PluginAwarePostAnalysisVisitor
     /**
      * @param int|string|float|bool|null $key
      */
-    private function warnAboutDuplicateArrayKey(Node $node, Node $entry, $key)
+    private function warnAboutDuplicateArrayKey(Node $node, Node $entry, $key) : void
     {
         if (is_string($key) && strncmp($key, self::HASH_PREFIX, strlen(self::HASH_PREFIX)) === 0) {
             $this->emitPluginIssue(
@@ -290,7 +290,7 @@ class DuplicateArrayKeyVisitor extends PluginAwarePostAnalysisVisitor
      * @param int|string|float|bool|null $key - The array key literal to be normalized.
      * @return string - The normalized representation.
      */
-    private static function normalizeKey($key)
+    private static function normalizeKey($key) : string
     {
         if (is_int($key)) {
             return (string)$key;
