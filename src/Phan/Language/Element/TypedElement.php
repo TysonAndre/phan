@@ -124,7 +124,7 @@ abstract class TypedElement implements TypedElementInterface
      *
      * @return void
      */
-    public function setUnionType(UnionType $type)
+    public function setUnionType(UnionType $type) : void
     {
         $this->type = $type;
     }
@@ -139,9 +139,6 @@ abstract class TypedElement implements TypedElementInterface
         return $this->getUnionType();
     }
 
-    /**
-     * @return int
-     */
     public function getFlags() : int
     {
         return $this->flags;
@@ -161,19 +158,11 @@ abstract class TypedElement implements TypedElementInterface
     }
 
 
-    /**
-     * @param int $flags
-     *
-     * @return void
-     */
-    public function setFlags(int $flags)
+    public function setFlags(int $flags) : void
     {
         $this->flags = $flags;
     }
 
-    /**
-     * @return int
-     */
     public function getPhanFlags() : int
     {
         return $this->phan_flags;
@@ -192,12 +181,7 @@ abstract class TypedElement implements TypedElementInterface
         return ($this->phan_flags & $flag) === $flag;
     }
 
-    /**
-     * @param int $phan_flags
-     *
-     * @return void
-     */
-    public function setPhanFlags(int $phan_flags)
+    public function setPhanFlags(int $phan_flags) : void
     {
         $this->phan_flags = $phan_flags;
     }
@@ -207,7 +191,7 @@ abstract class TypedElement implements TypedElementInterface
      *
      * @return void
      */
-    public function enablePhanFlagBits(int $bits)
+    public function enablePhanFlagBits(int $bits) : void
     {
         $this->phan_flags |= $bits;
     }
@@ -218,7 +202,7 @@ abstract class TypedElement implements TypedElementInterface
      * @return void
      * @suppress PhanUnreferencedPublicMethod keeping this for consistency
      */
-    public function disablePhanFlagBits(int $bits)
+    public function disablePhanFlagBits(int $bits) : void
     {
         $this->phan_flags &= (~$bits);
     }
@@ -258,7 +242,7 @@ abstract class TypedElement implements TypedElementInterface
      *
      * @return void
      */
-    public function setIsDeprecated(bool $is_deprecated)
+    public function setIsDeprecated(bool $is_deprecated) : void
     {
         $this->setPhanFlags(Flags::bitVectorWithState(
             $this->getPhanFlags(),
@@ -268,29 +252,13 @@ abstract class TypedElement implements TypedElementInterface
     }
 
     /**
-     * @param string[] $suppress_issue_list a list
-     * Set the list of issue names to suppress
-     *
-     * @return void
-     * @deprecated
-     * @suppress PhanUnreferencedPublicMethod
-     */
-    public function setSuppressIssueList(array $suppress_issue_list)
-    {
-        $this->suppress_issue_list = [];
-        foreach ($suppress_issue_list as $issue_name) {
-            $this->suppress_issue_list[$issue_name] = 0;
-        }
-    }
-
-    /**
      * Set the set of issue names to suppress.
      * If the values are 0, the suppressions haven't been used yet.
      *
      * @param array<string,int> $suppress_issue_set
      * @return void
      */
-    public function setSuppressIssueSet(array $suppress_issue_set)
+    public function setSuppressIssueSet(array $suppress_issue_set) : void
     {
         $this->suppress_issue_list = $suppress_issue_set;
     }
@@ -307,7 +275,7 @@ abstract class TypedElement implements TypedElementInterface
      * Increments the number of times $issue_name was suppressed.
      * @return void
      */
-    public function incrementSuppressIssueCount(string $issue_name)
+    public function incrementSuppressIssueCount(string $issue_name) : void
     {
         ++$this->suppress_issue_list[$issue_name];
     }
@@ -349,10 +317,7 @@ abstract class TypedElement implements TypedElementInterface
         return $this->getPhanFlagsHasState(Flags::IS_PHP_INTERNAL);
     }
 
-    /**
-     * @return void
-     */
-    private function setIsPHPInternal(bool $is_internal)
+    private function setIsPHPInternal(bool $is_internal) : void
     {
         $this->setPhanFlags(
             Flags::bitVectorWithState(
@@ -369,7 +334,7 @@ abstract class TypedElement implements TypedElementInterface
      *
      * @return void
      */
-    public function hydrate(CodeBase $unused_code_base)
+    public function hydrate(CodeBase $unused_code_base) : void
     {
         // Do nothing unless overridden
     }

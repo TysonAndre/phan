@@ -6,9 +6,9 @@ use ast\Node;
 use Phan\Analysis\PostOrderAnalysisVisitor;
 use Phan\AST\ASTHasher;
 use Phan\AST\ASTReverter;
-use Phan\PluginV2;
-use Phan\PluginV2\PluginAwarePostAnalysisVisitor;
-use Phan\PluginV2\PostAnalyzeNodeCapability;
+use Phan\PluginV3;
+use Phan\PluginV3\PluginAwarePostAnalysisVisitor;
+use Phan\PluginV3\PostAnalyzeNodeCapability;
 
 /**
  * This plugin checks for duplicate expressions in a statement
@@ -25,7 +25,7 @@ use Phan\PluginV2\PostAnalyzeNodeCapability;
  *
  * A plugin file must
  *
- * - Contain a class that inherits from \Phan\PluginV2
+ * - Contain a class that inherits from \Phan\PluginV3
  *
  * - End by returning an instance of that class.
  *
@@ -35,7 +35,7 @@ use Phan\PluginV2\PostAnalyzeNodeCapability;
  * Note: When adding new plugins,
  * add them to the corresponding section of README.md
  */
-class DuplicateExpressionPlugin extends PluginV2 implements PostAnalyzeNodeCapability
+class DuplicateExpressionPlugin extends PluginV3 implements PostAnalyzeNodeCapability
 {
 
     /**
@@ -109,7 +109,7 @@ class RedundantNodeVisitor extends PluginAwarePostAnalysisVisitor
      * @override
      * @suppress PhanAccessClassConstantInternal
      */
-    public function visitBinaryOp(Node $node)
+    public function visitBinaryOp(Node $node) : void
     {
         $flags = $node->flags;
         if (!\array_key_exists($flags, self::REDUNDANT_BINARY_OP_SET)) {
@@ -167,7 +167,7 @@ class RedundantNodeVisitor extends PluginAwarePostAnalysisVisitor
      * @return void
      * @override
      */
-    public function visitAssignRef(Node $node)
+    public function visitAssignRef(Node $node) : void
     {
         $this->visitAssign($node);
     }
@@ -179,7 +179,7 @@ class RedundantNodeVisitor extends PluginAwarePostAnalysisVisitor
      * @return void
      * @override
      */
-    public function visitAssign(Node $node)
+    public function visitAssign(Node $node) : void
     {
         $var = $node->children['var'];
         $expr = $node->children['expr'];
@@ -267,7 +267,7 @@ class RedundantNodeVisitor extends PluginAwarePostAnalysisVisitor
      * @return void
      * @override
      */
-    public function visitConditional(Node $node)
+    public function visitConditional(Node $node) : void
     {
         $cond_node = $node->children['cond'];
         $true_node_hash = ASTHasher::hash($node->children['true']);
@@ -303,7 +303,7 @@ class RedundantNodeVisitor extends PluginAwarePostAnalysisVisitor
     /**
      * @param int|string $true_node_hash
      */
-    private function checkBinaryOpOfConditional(Node $cond_node, $true_node_hash)
+    private function checkBinaryOpOfConditional(Node $cond_node, $true_node_hash) : void
     {
         if ($cond_node->flags !== ast\flags\BINARY_IS_NOT_IDENTICAL) {
             return;
@@ -324,7 +324,7 @@ class RedundantNodeVisitor extends PluginAwarePostAnalysisVisitor
     /**
      * @param int|string $true_node_hash
      */
-    private function checkUnaryOpOfConditional(Node $cond_node, $true_node_hash)
+    private function checkUnaryOpOfConditional(Node $cond_node, $true_node_hash) : void
     {
         if ($cond_node->flags !== ast\flags\UNARY_BOOL_NOT) {
             return;
@@ -362,7 +362,7 @@ class RedundantNodeVisitor extends PluginAwarePostAnalysisVisitor
     /**
      * @param ?(Node|string|int|float) $x_node
      */
-    private function warnDuplicateConditionalNullCoalescing(string $expr, $x_node)
+    private function warnDuplicateConditionalNullCoalescing(string $expr, $x_node) : void
     {
         $this->emitPluginIssue(
             $this->code_base,

@@ -30,10 +30,7 @@ class ClassMap
      */
     private $method_map = [];
 
-    /**
-     * @return void
-     */
-    public function addClassConstant(ClassConstant $constant)
+    public function addClassConstant(ClassConstant $constant) : void
     {
         $this->class_constant_map[
             $constant->getFQSEN()->getNameWithAlternateId()
@@ -64,27 +61,18 @@ class ClassMap
         return $this->class_constant_map;
     }
 
-    /**
-     * @return void
-     */
-    public function addProperty(Property $property)
+    public function addProperty(Property $property) : void
     {
         $this->property_map[
             $property->getFQSEN()->getNameWithAlternateId()
         ] = $property;
     }
 
-    /**
-     * @return bool
-     */
     public function hasPropertyWithName(string $name) : bool
     {
         return isset($this->property_map[$name]);
     }
 
-    /**
-     * @return Property
-     */
     public function getPropertyByName(string $name) : Property
     {
         return $this->property_map[$name];
@@ -98,27 +86,18 @@ class ClassMap
         return $this->property_map;
     }
 
-    /**
-     * @return void
-     */
-    public function addMethod(Method $method)
+    public function addMethod(Method $method) : void
     {
         $this->method_map[\strtolower(
             $method->getFQSEN()->getNameWithAlternateId()
         )] = $method;
     }
 
-    /**
-     * @return bool
-     */
     public function hasMethodWithName(string $name) : bool
     {
         return isset($this->method_map[\strtolower($name)]);
     }
 
-    /**
-     * @return Method
-     */
     public function getMethodByName(string $name) : Method
     {
         return $this->method_map[\strtolower($name)];

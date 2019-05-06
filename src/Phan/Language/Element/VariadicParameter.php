@@ -26,10 +26,7 @@ class VariadicParameter extends Parameter
         return $result;
     }
 
-    /**
-     * @return void
-     */
-    private function convertToNonVariadic()
+    private function convertToNonVariadic() : void
     {
         // Avoid a redundant clone of toGenericArray()
         $this->type = $this->getUnionType();

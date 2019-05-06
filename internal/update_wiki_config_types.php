@@ -81,6 +81,7 @@ class ConfigEntry
         'unused_variable_detection' => self::CATEGORY_DEAD_CODE_DETECTION,
         'unused_variable_detection_assume_override_exists' => self::CATEGORY_DEAD_CODE_DETECTION,
         'force_tracking_references' => self::CATEGORY_DEAD_CODE_DETECTION,
+        'constant_variable_detection' => self::CATEGORY_DEAD_CODE_DETECTION,
         'dead_code_detection_prefer_false_negative' => self::CATEGORY_DEAD_CODE_DETECTION,
         'warn_about_redundant_use_namespaced_class' => self::CATEGORY_DEAD_CODE_DETECTION,
         'simplify_ast' => self::CATEGORY_ANALYSIS,
@@ -142,6 +143,7 @@ class ConfigEntry
         'max_literal_string_type_length' => self::CATEGORY_ANALYSIS,
         'plugins' => self::CATEGORY_ANALYSIS,
         'plugin_config' => self::CATEGORY_ANALYSIS,
+        'maximum_recursion_depth' => self::CATEGORY_ANALYSIS,
     ];
 
     /** @var string the configuration setting name (e.g. 'null_casts_as_any_type') */
@@ -258,7 +260,7 @@ class WikiConfigUpdater
      */
     private static $verbose = false;
 
-    private static function printUsageAndExit(int $exit_code = 1)
+    private static function printUsageAndExit(int $exit_code = 1) : void
     {
         global $argv;
         $program = $argv[0];
@@ -332,7 +334,7 @@ EOT;
      * @return void
      * @throws InvalidArgumentException (uncaught) if the documented issue types can't be found.
      */
-    public static function main()
+    public static function main() : void
     {
         global $argv;
         if (count($argv) !== 1) {
@@ -377,7 +379,7 @@ EOT;
      * @param array<string,string> $old_text_for_section
      * @throws InvalidArgumentException
      */
-    private static function documentConfigCategorySection(WikiWriter $writer, ConfigEntry $config_entry, array $old_text_for_section)
+    private static function documentConfigCategorySection(WikiWriter $writer, ConfigEntry $config_entry, array $old_text_for_section) : void
     {
         $category = $config_entry->getCategory();
         if (!$category) {
@@ -397,7 +399,7 @@ EOT;
         }
     }
 
-    private static function documentConfig(WikiWriter $writer, ConfigEntry $config_entry)
+    private static function documentConfig(WikiWriter $writer, ConfigEntry $config_entry) : void
     {
         $header = '## ' . $config_entry->getConfigName();
 
@@ -416,7 +418,7 @@ EOT;
         $writer->append($placeholder);
     }
 
-    private static function debugLog(string $message)
+    private static function debugLog(string $message) : void
     {
         // Uncomment the below line to enable debugging
         if (self::$verbose) {

@@ -169,7 +169,7 @@ class ContextNode
      * @return ?FullyQualifiedClassName (If this returns null, the caller is responsible for emitting an issue or falling back)
      * @throws FQSENException hopefully impossible
      */
-    public function getTraitFQSEN(array $adaptations_map)
+    public function getTraitFQSEN(array $adaptations_map) : ?FullyQualifiedClassName
     {
         // TODO: In a subsequent PR, try to make trait analysis work when $adaptations_map has multiple possible traits.
         $trait_fqsen_string = $this->getQualifiedName();
@@ -232,7 +232,7 @@ class ContextNode
      * @param Node $adaptation_node
      * @return void
      */
-    private function handleTraitAlias(array $adaptations_map, Node $adaptation_node)
+    private function handleTraitAlias(array $adaptations_map, Node $adaptation_node) : void
     {
         $trait_method_node = $adaptation_node->children['method'];
         $trait_original_class_name_node = $trait_method_node->children['class'];
@@ -313,7 +313,7 @@ class ContextNode
         string $issue_type,
         int $lineno,
         ...$parameters
-    ) {
+    ) : void {
         Issue::maybeEmit(
             $this->code_base,
             $this->context,
@@ -330,7 +330,7 @@ class ContextNode
      * @return void
      * @throws UnanalyzableException (should be caught and emitted as an issue)
      */
-    private function handleTraitPrecedence(array $adaptations_map, Node $adaptation_node)
+    private function handleTraitPrecedence(array $adaptations_map, Node $adaptation_node) : void
     {
         // TODO: Should also verify that the original method exists, in a future PR?
         $trait_method_node = $adaptation_node->children['method'];
@@ -496,7 +496,7 @@ class ContextNode
      * @return array{0:UnionType,1:Clazz[]}
      * @throws CodeBaseException if $ignore_missing_classes == false
      */
-    public function getClassListInner(bool $ignore_missing_classes)
+    public function getClassListInner(bool $ignore_missing_classes) : array
     {
         $node = $this->node;
         if (!($node instanceof Node)) {
@@ -836,7 +836,7 @@ class ContextNode
      * Yields a list of FunctionInterface objects for the 'expr' of an AST_CALL.
      * @return iterable<void, FunctionInterface, void, void>
      */
-    public function getFunctionFromNode()
+    public function getFunctionFromNode() : iterable
     {
         $expression = $this->node;
         if (!($expression instanceof Node)) {
@@ -885,7 +885,7 @@ class ContextNode
      *
      * @return \Generator<void, FunctionInterface, void, void>
      */
-    private function getFunctionLikeFromDynamicExpression()
+    private function getFunctionLikeFromDynamicExpression() : \Generator
     {
         $code_base = $this->code_base;
         $context = $this->context;
@@ -929,7 +929,7 @@ class ContextNode
     /**
      * @throws IssueException for PhanUndeclaredFunction to be caught and reported by the caller
      */
-    private function throwUndeclaredFunctionIssueException(FullyQualifiedFunctionName $function_fqsen, bool $suggest_in_global_namespace, FullyQualifiedFunctionName $namespaced_function_fqsen = null)
+    private function throwUndeclaredFunctionIssueException(FullyQualifiedFunctionName $function_fqsen, bool $suggest_in_global_namespace, FullyQualifiedFunctionName $namespaced_function_fqsen = null) : void
     {
         throw new IssueException(
             Issue::fromType(Issue::UndeclaredFunction)(
@@ -1206,7 +1206,7 @@ class ContextNode
      * @throws NodeException
      * An exception is thrown if we can't understand the node
      */
-    public function getOrCreateVariableForReferenceParameter(Parameter $parameter, $real_parameter) : Variable
+    public function getOrCreateVariableForReferenceParameter(Parameter $parameter, ?Parameter $real_parameter) : Variable
     {
         try {
             return $this->getVariable();
@@ -1402,7 +1402,7 @@ class ContextNode
         if (!$is_static) {
             foreach ($class_list as $class) {
                 if (Config::getValue('allow_missing_properties')
-                    || $class->getHasDynamicProperties($this->code_base)
+                    || $class->hasDynamicProperties($this->code_base)
                 ) {
                     return $class->getPropertyByNameInContext(
                         $this->code_base,
@@ -1699,7 +1699,7 @@ class ContextNode
     /**
      * @throws IssueException
      */
-    private function throwUndeclaredGlobalConstantIssueException(CodeBase $code_base, Context $context, FullyQualifiedGlobalConstantName $fqsen)
+    private function throwUndeclaredGlobalConstantIssueException(CodeBase $code_base, Context $context, FullyQualifiedGlobalConstantName $fqsen) : void
     {
         throw new IssueException(
             Issue::fromType(Issue::UndeclaredConstant)(
@@ -1880,7 +1880,7 @@ class ContextNode
      *
      * @return void
      */
-    public function analyzeBackwardCompatibility()
+    public function analyzeBackwardCompatibility() : void
     {
         if (!Config::get_backward_compatibility_checks()) {
             return;
@@ -2012,7 +2012,7 @@ class ContextNode
      * @return ?FullyQualifiedClassName
      * @throws IssueException if the list of possible classes couldn't be determined.
      */
-    public function resolveClassNameInContext()
+    public function resolveClassNameInContext() : ?FullyQualifiedClassName
     {
         // A function argument to resolve into an FQSEN
         $arg = $this->node;
@@ -2023,9 +2023,7 @@ class ContextNode
                 return FullyQualifiedClassName::fromFullyQualifiedString($arg);
             }
             if ($arg instanceof Node
-                && $arg->kind === ast\AST_CLASS_CONST
-                && \strcasecmp($arg->children['const'], 'class') === 0
-            ) {
+                && $arg->kind === ast\AST_CLASS_NAME) {
                 $class_type = UnionTypeVisitor::unionTypeFromClassNode(
                     $this->code_base,
                     $this->context,
@@ -2087,7 +2085,7 @@ class ContextNode
      * @param int $flags - See self::RESOLVE_*
      * @return ?array<mixed,mixed> - returns an array if elements could be resolved.
      */
-    private function getEquivalentPHPArrayElements(Node $node, int $flags)
+    private function getEquivalentPHPArrayElements(Node $node, int $flags) : ?array
     {
         $elements = [];
         foreach ($node->children as $child_node) {
@@ -2127,7 +2125,7 @@ class ContextNode
      * @suppress PhanUndeclaredProperty this adds a dynamic property
      * @return void
      */
-    public static function warnAboutEmptyArrayElements(CodeBase $code_base, Context $context, Node $node)
+    public static function warnAboutEmptyArrayElements(CodeBase $code_base, Context $context, Node $node) : void
     {
         if (isset($node->didWarnAboutEmptyArrayElements)) {
             return;

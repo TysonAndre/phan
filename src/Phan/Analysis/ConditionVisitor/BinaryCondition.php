@@ -36,5 +36,5 @@ interface BinaryCondition
      * @param Node|string|int|float $expr
      * @return ?Context
      */
-    public function analyzeCall(ConditionVisitorInterface $visitor, $call_node, $expr);
+    public function analyzeCall(ConditionVisitorInterface $visitor, Node $call_node, $expr) : ?Context;
 }

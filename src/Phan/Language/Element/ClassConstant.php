@@ -4,6 +4,7 @@ namespace Phan\Language\Element;
 
 use Phan\AST\ASTReverter;
 use Phan\Language\Context;
+use Phan\Language\FQSEN;
 use Phan\Language\FQSEN\FullyQualifiedClassConstantName;
 use Phan\Language\UnionType;
 
@@ -76,7 +77,7 @@ class ClassConstant extends ClassElement implements ConstantInterface
      * The fully-qualified structural element name of this
      * structural element
      */
-    public function getFQSEN() : FullyQualifiedClassConstantName
+    public function getFQSEN() : FQSEN
     {
         return $this->fqsen;
     }
@@ -112,7 +113,7 @@ class ClassConstant extends ClassElement implements ConstantInterface
 
      * @return void
      */
-    public function setIsOverrideIntended(bool $is_override_intended)
+    public function setIsOverrideIntended(bool $is_override_intended) : void
     {
         $this->setPhanFlags(
             Flags::bitVectorWithState(

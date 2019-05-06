@@ -39,7 +39,7 @@ trait Analyzable
      * The AST Node defining this object.
      * @return void
      */
-    public function setNode(Node $node)
+    public function setNode(Node $node) : void
     {
         // Don't waste the memory if we're in quick mode
         if (Config::get_quick_mode()) {
@@ -61,8 +61,10 @@ trait Analyzable
     /**
      * @return Node
      * The AST node associated with this object
+     * NOTE: This is non-null if hasNode is true
+     * @suppress PhanTypeMismatchDeclaredReturnNullable
      */
-    public function getNode()
+    public function getNode() : ?Node
     {
         return $this->node;
     }
@@ -73,7 +75,7 @@ trait Analyzable
      * @return void
      * @suppress PhanUndeclaredProperty deliberately using dynamic properties
      */
-    public static function ensureDidAnnotate(Node $node)
+    public static function ensureDidAnnotate(Node $node) : void
     {
         if (!isset($node->did_annotate_node)) {
             // Set this to true to indicate that this node has already

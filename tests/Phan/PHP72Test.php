@@ -14,7 +14,7 @@ class PHP72Test extends AbstractPhanFileTest
         'target_php_version' => '7.2',
     ];
 
-    public function setUp()
+    public function setUp() : void
     {
         parent::setUp();
         foreach (self::OVERRIDES as $key => $value) {
@@ -35,7 +35,7 @@ class PHP72Test extends AbstractPhanFileTest
      * @dataProvider getTestFiles
      * @override
      */
-    public function testFiles($test_file_list, $expected_file_path, $config_file_path = null)
+    public function testFiles(array $test_file_list, string $expected_file_path, ?string $config_file_path = null) : void
     {
         $skip_reason = null;
         // @phan-suppress-next-line PhanPossiblyFalseTypeArgumentInternal
@@ -49,9 +49,6 @@ class PHP72Test extends AbstractPhanFileTest
                     $skip_reason = 'Skip isIterateable not added in php < 7.2, no stub exists';
                     break;
             }
-        }
-        if (PHP_VERSION_ID < 70100 && $main_path === '0007_deprecated_class_constant.php') {
-            $skip_reason = 'Skip comments on class constants not supported in php < 7.1';
         }
         if (\PHP_VERSION_ID >= 80000) {
             switch ($main_path) {
@@ -70,7 +67,7 @@ class PHP72Test extends AbstractPhanFileTest
     /**
      * @suppress PhanUndeclaredConstant
      */
-    public function getTestFiles()
+    public function getTestFiles() : array
     {
         return $this->scanSourceFilesDir(PHP72_TEST_FILE_DIR, PHP72_EXPECTED_DIR);
     }

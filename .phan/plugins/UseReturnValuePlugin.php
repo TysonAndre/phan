@@ -8,10 +8,10 @@ use Phan\Exception\CodeBaseException;
 use Phan\Language\Context;
 use Phan\Language\Element\Func;
 use Phan\Language\Element\FunctionInterface;
-use Phan\PluginV2;
-use Phan\PluginV2\FinalizeProcessCapability;
-use Phan\PluginV2\PluginAwarePostAnalysisVisitor;
-use Phan\PluginV2\PostAnalyzeNodeCapability;
+use Phan\PluginV3;
+use Phan\PluginV3\FinalizeProcessCapability;
+use Phan\PluginV3\PluginAwarePostAnalysisVisitor;
+use Phan\PluginV3\PostAnalyzeNodeCapability;
 
 /**
  * A plugin that checks for invocations of functions/methods where the return value should be used.
@@ -33,7 +33,7 @@ use Phan\PluginV2\PostAnalyzeNodeCapability;
  *
  *   For dynamic checks, use this value instead of the default of 98 (should be between 0.01 and 100)
  */
-class UseReturnValuePlugin extends PluginV2 implements PostAnalyzeNodeCapability, FinalizeProcessCapability
+class UseReturnValuePlugin extends PluginV3 implements PostAnalyzeNodeCapability, FinalizeProcessCapability
 {
     // phpcs:disable Generic.NamingConventions.UpperCaseConstantName.ClassConstantNotUpperCase
     // this is deliberate for issue names
@@ -81,7 +81,7 @@ class UseReturnValuePlugin extends PluginV2 implements PostAnalyzeNodeCapability
      * @return void
      * @override
      */
-    public function finalizeProcess(CodeBase $code_base)
+    public function finalizeProcess(CodeBase $code_base) : void
     {
         if (!self::$use_dynamic) {
             return;
@@ -870,7 +870,7 @@ class UseReturnValueVisitor extends PluginAwarePostAnalysisVisitor
      * For `$x = +foo();` the parent node is AST_ASSIGN.
      * @return ?Node
      */
-    private function findNonUnaryParentNodeNode()
+    private function findNonUnaryParentNodeNode() : ?Node
     {
         $parent = end($this->parent_node_list);
         if (!$parent) {
@@ -894,7 +894,7 @@ class UseReturnValueVisitor extends PluginAwarePostAnalysisVisitor
      * @return void
      * @override
      */
-    public function visitCall(Node $node)
+    public function visitCall(Node $node) : void
     {
         $parent = $this->findNonUnaryParentNodeNode();
         if (!$parent) {
@@ -944,7 +944,7 @@ class UseReturnValueVisitor extends PluginAwarePostAnalysisVisitor
      * @return void
      * @override
      */
-    public function visitMethodCall(Node $node)
+    public function visitMethodCall(Node $node) : void
     {
         $parent = $this->findNonUnaryParentNodeNode();
         if (!$parent) {
@@ -993,7 +993,7 @@ class UseReturnValueVisitor extends PluginAwarePostAnalysisVisitor
      * @return void
      * @override
      */
-    public function visitStaticCall(Node $node)
+    public function visitStaticCall(Node $node) : void
     {
         $parent = $this->findNonUnaryParentNodeNode();
         if (!$parent) {
@@ -1051,7 +1051,7 @@ class UseReturnValueVisitor extends PluginAwarePostAnalysisVisitor
         return is_string($name) && strcasecmp($name, 'true') === 0;
     }
 
-    private function quickWarn(string $fqsen, Node $node)
+    private function quickWarn(string $fqsen, Node $node) : void
     {
         $fqsen_key = strtolower(ltrim($fqsen, "\\"));
         $result = UseReturnValuePlugin::HARDCODED_FQSENS[$fqsen_key] ?? false;

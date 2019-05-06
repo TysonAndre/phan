@@ -55,7 +55,7 @@ final class EmptyUnionType extends UnionType
      * @return UnionType
      * @override
      */
-    public function withType(Type $type)
+    public function withType(Type $type) : UnionType
     {
         return $type->asUnionType();
     }
@@ -70,7 +70,7 @@ final class EmptyUnionType extends UnionType
      * @return UnionType
      * @override
      */
-    public function withoutType(Type $type)
+    public function withoutType(Type $type) : UnionType
     {
         return $this;
     }
@@ -92,7 +92,7 @@ final class EmptyUnionType extends UnionType
      * @return UnionType
      * @override
      */
-    public function withUnionType(UnionType $union_type)
+    public function withUnionType(UnionType $union_type) : UnionType
     {
         return $union_type;
     }
@@ -634,7 +634,7 @@ final class EmptyUnionType extends UnionType
      */
     public function asClassFQSENList(
         Context $context
-    ) {
+    ) : Generator {
         if (false) {
             yield;
         }
@@ -664,7 +664,7 @@ final class EmptyUnionType extends UnionType
     public function asClassList(
         CodeBase $code_base,
         Context $context
-    ) {
+    ) : Generator {
         yield from [];
     }
 
@@ -1277,12 +1277,17 @@ final class EmptyUnionType extends UnionType
         return $this;
     }
 
-    public function getTemplateTypeExtractorClosure(CodeBase $code_base, TemplateType $template_type)
+    public function getTemplateTypeExtractorClosure(CodeBase $code_base, TemplateType $template_type) : ?Closure
     {
         return null;
     }
 
     public function usesTemplateType(TemplateType $template_type) : bool
+    {
+        return false;
+    }
+
+    public function isVoidType() : bool
     {
         return false;
     }

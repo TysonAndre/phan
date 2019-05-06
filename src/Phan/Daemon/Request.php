@@ -147,9 +147,6 @@ class Request
         return false;
     }
 
-    /**
-     * @return int
-     */
     public function getTargetByteOffset(string $file_contents) : int
     {
         if ($this->most_recent_node_info_request) {
@@ -163,7 +160,7 @@ class Request
      * @return void (unreachable)
      * @throws ExitException to imitate an exit without actually exiting
      */
-    public function exit(int $exit_code)
+    public function exit(int $exit_code) : void
     {
         if ($this->should_exit) {
             Daemon::debugf("Exiting");
@@ -187,7 +184,7 @@ class Request
         CodeBase $code_base,
         Closure $file_path_lister,
         FileMapping $file_mapping,
-        $most_recent_node_info_request,
+        ?NodeInfoRequest $most_recent_node_info_request,
         bool $should_exit
     ) : Request {
         FileCache::clear();
@@ -224,7 +221,7 @@ class Request
     private static function adjustFileMappingContentsForCompletionRequest(
         array $file_mapping_contents,
         CompletionRequest $completion_request
-    ) {
+    ) : array {
         $file = FileRef::getProjectRelativePathForPath($completion_request->getPath());
         // fwrite(STDERR, "\nSaw $file in " . json_encode(array_keys($file_mapping_contents)) . "\n");
         $contents = $file_mapping_contents[$file] ?? null;
@@ -282,7 +279,7 @@ class Request
     /**
      * Handle a request created by the client with `phan_client --color`
      */
-    private function handleClientColorOutput()
+    private function handleClientColorOutput() : void
     {
         // Back up the original state: If pcntl isn't used, we don't want subsequent requests to be accidentally colorized.
         static $original_color = null;
@@ -298,7 +295,7 @@ class Request
      * @return void
      * @see LanguageServer::handleJSONResponseFromWorker() for one possible usage of this
      */
-    public function respondWithIssues(int $issue_count)
+    public function respondWithIssues(int $issue_count) : void
     {
         $raw_issues = $this->buffered_output->fetch();
         if (($this->request_config[self::PARAM_FORMAT] ?? null) === 'json') {
@@ -324,10 +321,7 @@ class Request
         $this->sendJSONResponse($response);
     }
 
-    /**
-     * @return void
-     */
-    public function respondWithNoFilesToAnalyze()
+    public function respondWithNoFilesToAnalyze() : void
     {
         // The mentioned file wasn't in .phan/config.php's list of files to analyze.
         $this->sendJSONResponse([
@@ -378,18 +372,12 @@ class Request
         return $mapping;
     }
 
-    /**
-     * @return ?NodeInfoRequest
-     */
-    public function getMostRecentNodeInfoRequest()
+    public function getMostRecentNodeInfoRequest() : ?NodeInfoRequest
     {
         return $this->most_recent_node_info_request;
     }
 
-    /**
-     * @return void
-     */
-    public function rejectLanguageServerRequestsRequiringAnalysis()
+    public function rejectLanguageServerRequestsRequiringAnalysis() : void
     {
         if ($this->most_recent_node_info_request) {
             $this->most_recent_node_info_request->finalize();
@@ -405,7 +393,7 @@ class Request
      * @param array<string,mixed> $response
      * @return void
      */
-    public function sendJSONResponse(array $response)
+    public function sendJSONResponse(array $response) : void
     {
         if (!$this->responder) {
             Daemon::debugf("Already sent response");
@@ -427,12 +415,9 @@ class Request
     }
 
     /**
-     * @param int $signo
-     * @param int|null $status
-     * @param int|null $pid
-     * @return void
+     * @param ?(int|array) $status
      */
-    public static function childSignalHandler($signo, $status = null, $pid = null)
+    public static function childSignalHandler(int $signo, $status = null, ?int $pid = null) : void
     {
         // test
         if ($signo !== SIGCHLD) {
@@ -443,9 +428,10 @@ class Request
         }
         Daemon::debugf("Got signal pid=%s", StringUtil::jsonEncode($pid));
 
-        // Add additional check for Phan - pid > 0 implies status is non-null
+        // Add additional check for Phan - pid > 0 implies status is non-null and an integer
         while ($pid > 0 && $status !== null) {
             if (\array_key_exists($pid, self::$child_pids)) {
+                // @phan-suppress-next-line PhanPartialTypeMismatchArgumentInternal
                 $exit_code = \pcntl_wexitstatus($status);
                 if ($exit_code != 0) {
                     \error_log(\sprintf("child process %d exited with status %d\n", $pid, $exit_code));
@@ -454,6 +440,7 @@ class Request
                 }
                 unset(self::$child_pids[$pid]);
             } elseif ($pid > 0) {
+                // @phan-suppress-next-line PhanPartialTypeMismatchProperty
                 self::$exited_pid_status[$pid] = $status;
             }
             $pid = \pcntl_waitpid(-1, $status, WNOHANG);
@@ -465,13 +452,9 @@ class Request
      * @param ?string &$error_message @phan-output-reference
      * @return array<string,string>
      */
-    public static function normalizeFileMappingContents($file_mapping_contents, &$error_message) : array
+    public static function normalizeFileMappingContents(array $file_mapping_contents, ?string &$error_message) : array
     {
         $error_message = null;
-        if (!\is_array($file_mapping_contents)) {
-            $error_message = 'Invalid value of temporary_file_mapping_contents';
-            return [];
-        }
         $new_file_mapping_contents = [];
         foreach ($file_mapping_contents ?? [] as $file => $contents) {
             if (!\is_string($file)) {
@@ -491,7 +474,7 @@ class Request
      * @param Responder $responder
      * @return ?Request - non-null if this is a worker process with work to do. null if request failed or this is the master.
      */
-    public static function accept(CodeBase $code_base, \Closure $file_path_lister, Responder $responder, bool $fork)
+    public static function accept(CodeBase $code_base, Closure $file_path_lister, Responder $responder, bool $fork) : ?Request
     {
         FileCache::clear();
 
@@ -605,7 +588,7 @@ class Request
      * @param int $pid the child PID of this process that is performing analysis
      * @return void
      */
-    public static function handleBecomingParentOfChildAnalysisProcess(int $pid)
+    public static function handleBecomingParentOfChildAnalysisProcess(int $pid) : void
     {
         $status = self::$exited_pid_status[$pid] ?? null;
         if (isset($status)) {
@@ -621,10 +604,7 @@ class Request
         Daemon::debugf("Created a child pid %d", $pid);
     }
 
-    /**
-     * @return void
-     */
-    public static function handleBecomingChildAnalysisProcess()
+    public static function handleBecomingChildAnalysisProcess() : void
     {
         self::$child_pids = [];
     }
@@ -635,7 +615,7 @@ class Request
      * @param ?array<int,string> $file_names
      * @return void
      */
-    public static function reloadFilePathListForDaemon(CodeBase $code_base, \Closure $file_path_lister, array $file_mapping_contents, array $file_names = null)
+    public static function reloadFilePathListForDaemon(CodeBase $code_base, Closure $file_path_lister, array $file_mapping_contents, array $file_names = null) : void
     {
         $old_count = $code_base->getParsedFilePathCount();
 
@@ -692,7 +672,7 @@ class Request
      * @param array<string,string> $temporary_file_mapping_contents
      * @return void
      */
-    private static function applyTemporaryFileMappingForParsePhase(CodeBase $code_base, array $temporary_file_mapping_contents)
+    private static function applyTemporaryFileMappingForParsePhase(CodeBase $code_base, array $temporary_file_mapping_contents) : void
     {
         if (count($temporary_file_mapping_contents) === 0) {
             return;

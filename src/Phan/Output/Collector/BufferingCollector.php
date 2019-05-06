@@ -32,7 +32,7 @@ final class BufferingCollector implements IssueCollectorInterface
      * Collect issue
      * @param IssueInstance $issue
      */
-    public function collectIssue(IssueInstance $issue)
+    public function collectIssue(IssueInstance $issue) : void
     {
         if (!$this->filter->supports($issue)) {
             return;
@@ -41,10 +41,6 @@ final class BufferingCollector implements IssueCollectorInterface
         $this->issues[$this->formatSortableKey($issue)] = $issue;
     }
 
-    /**
-     * @param IssueInstance $issue
-     * @return string
-     */
     private function formatSortableKey(IssueInstance $issue) : string
     {
         // This needs to be a sortable key so that output
@@ -73,7 +69,7 @@ final class BufferingCollector implements IssueCollectorInterface
      *
      * @return void
      */
-    public function flush()
+    public function flush() : void
     {
         $this->issues = [];
     }
@@ -85,7 +81,7 @@ final class BufferingCollector implements IssueCollectorInterface
      * @param array<int,string> $files - the relative paths to those files
      * @return void
      */
-    public function removeIssuesForFiles(array $files)
+    public function removeIssuesForFiles(array $files) : void
     {
         $file_set = \array_flip($files);
         foreach ($this->issues as $key => $issue) {
@@ -98,7 +94,7 @@ final class BufferingCollector implements IssueCollectorInterface
     /**
      * Removes all collected issues.
      */
-    public function reset()
+    public function reset() : void
     {
         $this->issues = [];
     }

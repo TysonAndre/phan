@@ -15,7 +15,7 @@ final class ForkPoolTest extends BaseTest
      * Test that workers are able to send their data back
      * to the parent process.
      */
-    public function testBasicForkJoin()
+    public function testBasicForkJoin() : void
     {
         $data = [
             [1, 2, 3, 4],
@@ -27,15 +27,15 @@ final class ForkPoolTest extends BaseTest
         $worker_data = [];
         $pool = new ForkPool(
             $data,
-            /** @return void */
-            static function () {
+            static function () : void {
             },
             /**
+             * This is called on every value of the arrays passed to workers
              * @param int $unused_i
-             * @param array<int,mixed> $data
+             * @param int $data
              * @return void
              */
-            static function ($unused_i, $data) use (&$worker_data) {
+            static function (int $unused_i, int $data) use (&$worker_data) : void {
                 $worker_data[] = $data;
             },
             /**
@@ -52,15 +52,12 @@ final class ForkPoolTest extends BaseTest
     /**
      * Test that the startup function works.
      */
-    public function testStartupFunction()
+    public function testStartupFunction() : void
     {
         $did_startup = false;
         $pool = new ForkPool(
             [[1], [2], [3], [4]],
-            /**
-             * @return void
-             */
-            static function () use (&$did_startup) {
+            static function () use (&$did_startup) : void {
                 $did_startup = true;
             },
             /**
@@ -68,7 +65,7 @@ final class ForkPoolTest extends BaseTest
              * @param mixed $unused_data
              * @return void
              */
-            static function ($unused_i, $unused_data) {
+            static function (int $unused_i, $unused_data) : void {
             },
             /**
              * @return array{0:bool}

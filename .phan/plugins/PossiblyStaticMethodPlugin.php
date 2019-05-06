@@ -6,9 +6,9 @@ use Phan\CodeBase;
 use Phan\Config;
 use Phan\Language\Element\Method;
 use Phan\Language\ElementContext;
-use Phan\PluginV2;
-use Phan\PluginV2\AnalyzeMethodCapability;
-use Phan\PluginV2\FinalizeProcessCapability;
+use Phan\PluginV3;
+use Phan\PluginV3\AnalyzeMethodCapability;
+use Phan\PluginV3\FinalizeProcessCapability;
 
 /**
  * This file checks if a method can be made static without causing any errors.
@@ -24,7 +24,7 @@ use Phan\PluginV2\FinalizeProcessCapability;
  *
  * A plugin file must
  *
- * - Contain a class that inherits from \Phan\PluginV2
+ * - Contain a class that inherits from \Phan\PluginV3
  *
  * - End by returning an instance of that class.
  *
@@ -34,7 +34,7 @@ use Phan\PluginV2\FinalizeProcessCapability;
  * Note: When adding new plugins,
  * add them to the corresponding section of README.md
  */
-final class PossiblyStaticMethodPlugin extends PluginV2 implements
+final class PossiblyStaticMethodPlugin extends PluginV3 implements
     AnalyzeMethodCapability,
     FinalizeProcessCapability
 {
@@ -56,12 +56,12 @@ final class PossiblyStaticMethodPlugin extends PluginV2 implements
     private static function analyzePostponedMethod(
         CodeBase $code_base,
         Method $method
-    ) {
-        if ($method->getIsOverride()) {
+    ) : void {
+        if ($method->isOverride()) {
             // This method can't be static unless its parent is also static.
             return;
         }
-        if ($method->getIsOverriddenByAnother()) {
+        if ($method->isOverriddenByAnother()) {
             // Changing this method causes a fatal error.
             return;
         }
@@ -87,7 +87,7 @@ final class PossiblyStaticMethodPlugin extends PluginV2 implements
      * @param Method $method
      * @return ?Node - returns null if there's no statement list to analyze
      */
-    private static function getStatementListToAnalyze(Method $method)
+    private static function getStatementListToAnalyze(Method $method) : ?Node
     {
         if (!$method->hasNode()) {
             return null;
@@ -106,7 +106,7 @@ final class PossiblyStaticMethodPlugin extends PluginV2 implements
      * @param Node|int|string|float|null $node
      * @return bool - returns true if the node allows its method to be static
      */
-    private static function nodeCanBeStatic(CodeBase $code_base, Method $method, $node)
+    private static function nodeCanBeStatic(CodeBase $code_base, Method $method, $node) : bool
     {
         if (!($node instanceof Node)) {
             if (is_array($node)) {
@@ -198,14 +198,14 @@ final class PossiblyStaticMethodPlugin extends PluginV2 implements
     public function analyzeMethod(
         CodeBase $unused_code_base,
         Method $method
-    ) {
+    ) : void {
         // 1. Perform any checks that can be done immediately to rule out being able
         //    to convert this to a static method
         if ($method->isStatic()) {
             // This is what we want.
             return;
         }
-        if ($method->getIsMagic()) {
+        if ($method->isMagic()) {
             // Magic methods can't be static.
             return;
         }
@@ -238,7 +238,7 @@ final class PossiblyStaticMethodPlugin extends PluginV2 implements
      *
      * @override
      */
-    public function finalizeProcess(CodeBase $code_base)
+    public function finalizeProcess(CodeBase $code_base) : void
     {
         foreach ($this->methods_for_postponed_analysis as $method) {
             self::analyzePostponedMethod($code_base, $method);

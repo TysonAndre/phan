@@ -4,10 +4,10 @@ use ast\Node;
 use Phan\CodeBase;
 use Phan\Config;
 use Phan\Language\Context;
-use Phan\PluginV2;
-use Phan\PluginV2\AfterAnalyzeFileCapability;
-use Phan\PluginV2\BeforeAnalyzeFileCapability;
-use Phan\PluginV2\FinalizeProcessCapability;
+use Phan\PluginV3;
+use Phan\PluginV3\AfterAnalyzeFileCapability;
+use Phan\PluginV3\BeforeAnalyzeFileCapability;
+use Phan\PluginV3\FinalizeProcessCapability;
 
 /**
  * This plugin invokes the equivalent of `php --no-php-ini --syntax-check $analyzed_file_path`.
@@ -24,7 +24,7 @@ use Phan\PluginV2\FinalizeProcessCapability;
  *
  * @phan-file-suppress PhanPluginDescriptionlessCommentOnPublicMethod
  */
-class InvokePHPNativeSyntaxCheckPlugin extends PluginV2 implements
+class InvokePHPNativeSyntaxCheckPlugin extends PluginV3 implements
     AfterAnalyzeFileCapability,
     BeforeAnalyzeFileCapability,
     FinalizeProcessCapability
@@ -57,7 +57,7 @@ class InvokePHPNativeSyntaxCheckPlugin extends PluginV2 implements
         Context $context,
         string $file_contents,
         Node $node
-    ) {
+    ) : void {
         $php_binaries = (Config::getValue('plugin_config')['php_native_syntax_check_binaries'] ?? null) ?: [PHP_BINARY];
 
         foreach ($php_binaries as $binary) {
@@ -83,7 +83,7 @@ class InvokePHPNativeSyntaxCheckPlugin extends PluginV2 implements
         Context $context,
         string $file_contents,
         Node $node
-    ) {
+    ) : void {
         $configured_max_incomplete_processes = (int)(Config::getValue('plugin_config')['php_native_syntax_check_max_processes'] ?? 1) - 1;
         $max_incomplete_processes = max(0, $configured_max_incomplete_processes);
         $this->awaitIncompleteProcesses($code_base, $max_incomplete_processes);
@@ -92,7 +92,7 @@ class InvokePHPNativeSyntaxCheckPlugin extends PluginV2 implements
     /**
      * @throws Error if a syntax check process fails to shut down
      */
-    private function awaitIncompleteProcesses(CodeBase $code_base, int $max_incomplete_processes)
+    private function awaitIncompleteProcesses(CodeBase $code_base, int $max_incomplete_processes) : void
     {
         foreach ($this->processes as $i => $process) {
             if (!$process->read()) {
@@ -116,15 +116,12 @@ class InvokePHPNativeSyntaxCheckPlugin extends PluginV2 implements
      * @override
      * @throws Error if a syntax check process fails to shut down.
      */
-    public function finalizeProcess(CodeBase $code_base)
+    public function finalizeProcess(CodeBase $code_base) : void
     {
         $this->awaitIncompleteProcesses($code_base, 0);
     }
 
-    /**
-     * @return void
-     */
-    private static function handleError(CodeBase $code_base, InvokeExecutionPromise $process)
+    private static function handleError(CodeBase $code_base, InvokeExecutionPromise $process) : void
     {
         $check_error_message = $process->getError();
         if (!is_string($check_error_message)) {
@@ -244,7 +241,7 @@ class InvokeExecutionPromise
      * @return void
      * See https://bugs.php.net/bug.php?id=39598
      */
-    private static function streamPutContents($stream, string $file_contents)
+    private static function streamPutContents($stream, string $file_contents) : void
     {
         try {
             while (strlen($file_contents) > 0) {
@@ -320,7 +317,7 @@ class InvokeExecutionPromise
      * @return void
      * @throws Error if reading failed
      */
-    public function blockingRead()
+    public function blockingRead() : void
     {
         if ($this->done) {
             return;
@@ -337,7 +334,7 @@ class InvokeExecutionPromise
      * @return ?string
      * @throws RangeException if this was called before the process finished
      */
-    public function getError()
+    public function getError() : ?string
     {
         if (!$this->done) {
             throw new RangeException("Called " . __METHOD__ . " too early");

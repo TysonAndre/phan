@@ -111,18 +111,13 @@ abstract class UnaddressableTypedElement
     /**
      * @param UnionType $type
      * Set the type of this element
-     *
-     * @return void
      */
-    public function setUnionType(UnionType $type)
+    public function setUnionType(UnionType $type) : void
     {
         $this->type = $type;
     }
 
-    /**
-     * @return void
-     */
-    protected function convertToNullable()
+    protected function convertToNullable() : void
     {
         // Avoid a redundant clone of nonNullableClone()
         $type = $this->type;
@@ -132,9 +127,6 @@ abstract class UnaddressableTypedElement
         $this->type = $type->nullableClone();
     }
 
-    /**
-     * @return int
-     */
     public function getFlags() : int
     {
         return $this->flags;
@@ -157,17 +149,13 @@ abstract class UnaddressableTypedElement
     /**
      * @param int $flags
      *
-     * @return void
      * @suppress PhanUnreferencedPublicMethod unused, other modifiers are used by Phan right now
      */
-    public function setFlags(int $flags)
+    public function setFlags(int $flags) : void
     {
         $this->flags = $flags;
     }
 
-    /**
-     * @return int
-     */
     public function getPhanFlags() : int
     {
         return $this->phan_flags;
@@ -189,26 +177,25 @@ abstract class UnaddressableTypedElement
     /**
      * @param int $phan_flags
      *
-     * @return void
      * @suppress PhanUnreferencedPublicMethod potentially used in the future
      */
-    public function setPhanFlags(int $phan_flags)
+    public function setPhanFlags(int $phan_flags) : void
     {
         $this->phan_flags = $phan_flags;
     }
 
     /**
-     * @return void
+     * Enable an individual bit of phan flags.
      */
-    public function enablePhanFlagBits(int $new_bits)
+    public function enablePhanFlagBits(int $new_bits) : void
     {
         $this->phan_flags |= $new_bits;
     }
 
     /**
-     * @return void
+     * Disable an individual bit of phan flags.
      */
-    public function disablePhanFlagBits(int $new_bits)
+    public function disablePhanFlagBits(int $new_bits) : void
     {
         $this->phan_flags &= (~$new_bits);
     }

@@ -5,15 +5,15 @@ use Phan\AST\ContextNode;
 use Phan\AST\UnionTypeVisitor;
 use Phan\Exception\CodeBaseException;
 use Phan\Language\Element\FunctionInterface;
-use Phan\PluginV2;
-use Phan\PluginV2\PluginAwarePostAnalysisVisitor;
-use Phan\PluginV2\PostAnalyzeNodeCapability;
+use Phan\PluginV3;
+use Phan\PluginV3\PluginAwarePostAnalysisVisitor;
+use Phan\PluginV3\PostAnalyzeNodeCapability;
 
 /**
  * A plugin that checks if calls to a function or method pass in arguments in a suspicious order.
  * E.g. calling `function example($offset, $count)` as `example($count, $offset)`
  */
-class SuspiciousParamOrderPlugin extends PluginV2 implements PostAnalyzeNodeCapability
+class SuspiciousParamOrderPlugin extends PluginV3 implements PostAnalyzeNodeCapability
 {
     /**
      * @return string - name of PluginAwarePostAnalysisVisitor subclass
@@ -41,7 +41,7 @@ class SuspiciousParamOrderVisitor extends PluginAwarePostAnalysisVisitor
      * @return void
      * @override
      */
-    public function visitCall(Node $node)
+    public function visitCall(Node $node) : void
     {
         $args = $node->children['args']->children;
         if (count($args) < 2) {
@@ -68,7 +68,7 @@ class SuspiciousParamOrderVisitor extends PluginAwarePostAnalysisVisitor
      * @param Node|string|int|float|null $arg_node
      * @return ?string
      */
-    private static function extractName($arg_node)
+    private static function extractName($arg_node) : ?string
     {
         if (!$arg_node instanceof Node) {
             return null;
@@ -116,7 +116,7 @@ class SuspiciousParamOrderVisitor extends PluginAwarePostAnalysisVisitor
      * @param array<int,Node|string|int|float|null> $args
      * @return void
      */
-    private function checkCall(FunctionInterface $function, array $args, Node $node)
+    private function checkCall(FunctionInterface $function, array $args, Node $node) : void
     {
         $arg_names = [];
         foreach ($args as $i => $arg_node) {
@@ -220,7 +220,7 @@ class SuspiciousParamOrderVisitor extends PluginAwarePostAnalysisVisitor
      * @param array<int,int> $values
      * @return array<int,int>
      */
-    private static function normalizeCycle(array $values, int $next)
+    private static function normalizeCycle(array $values, int $next) : array
     {
         $pos = array_search($next, $values);
         $values = array_slice($values, $pos ?: 0);
@@ -271,7 +271,7 @@ class SuspiciousParamOrderVisitor extends PluginAwarePostAnalysisVisitor
      * @return void
      * @override
      */
-    public function visitMethodCall(Node $node)
+    public function visitMethodCall(Node $node) : void
     {
         $args = $node->children['args']->children;
         if (count($args) < 2) {
@@ -302,7 +302,7 @@ class SuspiciousParamOrderVisitor extends PluginAwarePostAnalysisVisitor
      * @return void
      * @override
      */
-    public function visitStaticCall(Node $node)
+    public function visitStaticCall(Node $node) : void
     {
         $args = $node->children['args']->children;
         if (count($args) < 2) {
