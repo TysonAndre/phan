@@ -273,7 +273,7 @@ final class VariableTrackerElementVisitor extends PluginAwarePostAnalysisVisitor
                 );
             }
             // Check for variables that could be replaced with constants or literals
-            if (count($def_uses_for_variable) === 1) {
+            if (Config::getValue('constant_variable_detection') && count($def_uses_for_variable) === 1) {
                 foreach ($def_uses_for_variable as $definition_id => $use_list) {
                     if (!$use_list) {
                         // We already warned that this was unused

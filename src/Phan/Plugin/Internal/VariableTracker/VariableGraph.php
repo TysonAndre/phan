@@ -123,7 +123,10 @@ final class VariableGraph
     public function recordLoopSelfUsage(string $name, int $def_id, array $loop_uses_of_own_variable)
     {
         foreach ($loop_uses_of_own_variable as $node_id => $_) {
-            $this->def_uses[$name][$def_id][$node_id] = true;
+            // For expressions such as `;$var++;` or `$var += 1;`, don't count the modifying declaration in a loop as a usage - it's unused if nothing else uses that.
+            if ($def_id !== $node_id) {
+                $this->def_uses[$name][$def_id][$node_id] = true;
+            }
         }
     }
 

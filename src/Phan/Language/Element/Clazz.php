@@ -1485,6 +1485,7 @@ class Clazz extends AddressableElement
         }
 
         if ($method->getFQSEN() !== $method_fqsen) {
+            $original_method = $method;
             $method = clone($method);
             $method->setFQSEN($method_fqsen);
             // When we inherit it from the ancestor class, it may be an override in the ancestor class,
@@ -1493,6 +1494,7 @@ class Clazz extends AddressableElement
 
             // Clone the parameter list, so that modifying the parameters on the first call won't modify the others.
             $method->cloneParameterList();
+            $method->ensureClonesReturnType($original_method);
 
             // If we have a parent type defined, map the method's
             // return type and parameter types through it
