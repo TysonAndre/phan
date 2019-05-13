@@ -9,7 +9,6 @@ class Shim
 {
     /**
      * Loads the AST shim and any constants that are missing from older php-ast versions.
-     * @return void
      */
     public static function load() : void
     {
@@ -22,6 +21,9 @@ class Shim
         }
         if (!\defined('ast\AST_CLASS_NAME')) {
             \define('ast\AST_CLASS_NAME', 287);
+        }
+        if (!\defined('ast\AST_ARROW_FUNC')) {
+            \define('ast\AST_ARROW_FUNC', 71);
         }
     }
 }

@@ -111,7 +111,6 @@ class Method extends ClassElement implements FunctionInterface
 
     /**
      * Sets hasTemplateType to true if it finds any template types in the parameters or methods
-     * @return void
      */
     public function checkForTemplateTypes() : void
     {
@@ -139,7 +138,6 @@ class Method extends ClassElement implements FunctionInterface
     /**
      * Sets whether this is a magic phpdoc method (declared via (at)method on class declaration phpdoc)
      * @param bool $from_phpdoc - True if this is a magic phpdoc method
-     * @return void
      */
     public function setIsFromPHPDoc(bool $from_phpdoc) : void
     {
@@ -165,7 +163,6 @@ class Method extends ClassElement implements FunctionInterface
      * Sets whether this method is intended to be an override of another method (contains (at)override)
      * @param bool $is_override_intended
 
-     * @return void
      */
     public function setIsOverrideIntended(bool $is_override_intended) : void
     {
@@ -201,8 +198,6 @@ class Method extends ClassElement implements FunctionInterface
      *
      * @param bool $is_overridden_by_another
      * True if this method is overridden by another method
-     *
-     * @return void
      */
     public function setIsOverriddenByAnother(bool $is_overridden_by_another) : void
     {
@@ -261,6 +256,15 @@ class Method extends ClassElement implements FunctionInterface
     public function isMagic() : bool
     {
         return \array_key_exists($this->getName(), FullyQualifiedMethodName::MAGIC_METHOD_NAME_SET);
+    }
+
+    /**
+     * Returns the return union type of this magic method, if known.
+     */
+    public function getUnionTypeOfMagicIfKnown() : ?UnionType
+    {
+        $type_string = FullyQualifiedMethodName::MAGIC_METHOD_TYPE_MAP[$this->getName()] ?? null;
+        return $type_string ? UnionType::fromFullyQualifiedString($type_string) : null;
     }
 
     /**
@@ -575,7 +579,6 @@ class Method extends ClassElement implements FunctionInterface
 
     /**
      * Ensure that this clone will use the return type of the ancestor method
-     * @return void
      */
     public function ensureClonesReturnType(Method $original_method) : void
     {
@@ -735,8 +738,6 @@ class Method extends ClassElement implements FunctionInterface
     /**
      * @return FullyQualifiedMethodName the FQSEN with the original definition (Even if this is private/protected and inherited from a trait). Used for dead code detection.
      *                                  Inheritance tests use getDefiningFQSEN() so that access checks won't break.
-     *
-     * @suppress PhanPartialTypeMismatchReturn TODO: Allow subclasses to make property types more specific
      */
     public function getRealDefiningFQSEN() : FullyQualifiedMethodName
     {

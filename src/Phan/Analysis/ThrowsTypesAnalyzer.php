@@ -24,8 +24,6 @@ class ThrowsTypesAnalyzer
 
     /**
      * Check phpdoc (at)throws types of function-likes to make sure they're valid
-     *
-     * @return void
      */
     public static function analyzeThrowsTypes(
         CodeBase $code_base,
@@ -137,7 +135,6 @@ class ThrowsTypesAnalyzer
                 if ($class->isTrait()) {
                     return false;
                 }
-                // @phan-suppress-next-line PhanThrowTypeAbsentForCall
                 return $class->getFQSEN()->asType()->asExpandedTypes($code_base)->hasType(Type::throwableInstance());
             })
         );

@@ -7,6 +7,7 @@ use ast;
 use ast\Node;
 use Phan\Analysis\BlockExitStatusChecker;
 use Phan\AST\AnalysisVisitor;
+use Phan\AST\ArrowFunc;
 use Phan\AST\Visitor\Element;
 use Phan\Parse\ParseVisitor;
 use function is_string;
@@ -135,7 +136,6 @@ final class VariableTrackerVisitor extends AnalysisVisitor
     /**
      * Analyze X++
      * @override
-     * @return VariableTrackingScope
      */
     public function visitPostInc(Node $node) : VariableTrackingScope
     {
@@ -145,7 +145,6 @@ final class VariableTrackerVisitor extends AnalysisVisitor
     /**
      * Analyze X--
      * @override
-     * @return VariableTrackingScope
      */
     public function visitPostDec(Node $node) : VariableTrackingScope
     {
@@ -155,7 +154,6 @@ final class VariableTrackerVisitor extends AnalysisVisitor
     /**
      * Analyze ++X
      * @override
-     * @return VariableTrackingScope
      */
     public function visitPreInc(Node $node) : VariableTrackingScope
     {
@@ -165,7 +163,6 @@ final class VariableTrackerVisitor extends AnalysisVisitor
     /**
      * Analyze --X
      * @override
-     * @return VariableTrackingScope
      */
     public function visitPreDec(Node $node) : VariableTrackingScope
     {
@@ -364,7 +361,6 @@ final class VariableTrackerVisitor extends AnalysisVisitor
 
     /**
      * @param Node|string|int|float|null $child_node
-     * @return VariableTrackingScope
      */
     private function analyzeWhenValidNode(VariableTrackingScope $scope, $child_node) : VariableTrackingScope
     {
@@ -378,7 +374,6 @@ final class VariableTrackerVisitor extends AnalysisVisitor
      * This is an abstraction for getting a new, updated context for a child node.
      *
      * @param Node $child_node - The node which will be analyzed to create the updated context.
-     * @return VariableTrackingScope
      */
     private function analyze(VariableTrackingScope $scope, Node $child_node) : VariableTrackingScope
     {
@@ -416,7 +411,6 @@ final class VariableTrackerVisitor extends AnalysisVisitor
     /**
      * Do not recurse into closure declarations within a scope.
      *
-     * FIXME: Check closure use variables without checking statements
      * @return VariableTrackingScope
      * @override
      */
@@ -438,6 +432,22 @@ final class VariableTrackerVisitor extends AnalysisVisitor
             } else {
                 self::$variable_graph->recordVariableUsage($name, $closure_use, $this->scope);
             }
+        }
+        return $this->scope;
+    }
+
+    /**
+     * Do not recurse into short arrow (`fn() => ...`) closure declarations within a scope.
+     *
+     * TODO: This could be improved by checking if the short arrow redefines the variable and ignores the original value.
+     *
+     * @return VariableTrackingScope
+     * @override
+     */
+    public function visitArrowFunc(Node $node) : VariableTrackingScope
+    {
+        foreach (ArrowFunc::getUses($node) as $name => $var_node) {
+            self::$variable_graph->recordVariableUsage((string)$name, $var_node, $this->scope);
         }
         return $this->scope;
     }
@@ -482,6 +492,8 @@ final class VariableTrackerVisitor extends AnalysisVisitor
         $name = $node->children['var']->children['name'] ?? null;
         if (\is_string($name)) {
             self::$variable_graph->markAsStaticVariable($name);
+            self::$variable_graph->recordVariableDefinition($name, $node, $this->scope, null);
+            $this->scope->recordDefinition($name, $node);
         }
         return $this->scope;
     }
@@ -502,7 +514,6 @@ final class VariableTrackerVisitor extends AnalysisVisitor
 
     /**
      * Analyzes `foreach ($expr as $key => $value) { stmts }
-     * @return VariableTrackingScope
      */
     public function visitForeach(Node $node) : VariableTrackingScope
     {
@@ -728,6 +739,36 @@ final class VariableTrackerVisitor extends AnalysisVisitor
 
         // Merge inner scope into outer scope
         return $outer_scope->mergeBranchScopeList($inner_scope_list, $merge_parent_scope, $inner_exiting_scope_list);
+    }
+
+    /**
+     * Implements analysis of `cond_node ? true_node : false_node` and `cond_node ?: false_node`
+     * @return VariableTrackingScope
+     * @override
+     */
+    public function visitConditional(Node $node) : VariableTrackingScope
+    {
+        $outer_scope = $this->scope;
+        $cond_node = $node->children['cond'];
+        if ($cond_node instanceof Node) {
+            // Could handle non-nodes, optionally
+            $outer_scope = $this->analyze($outer_scope, $cond_node);
+        }
+        $inner_scope_list = [];
+
+        $merge_parent_scope = false;
+        foreach ([$node->children['true'], $node->children['false']] as $child_node) {
+            if ($child_node instanceof Node) {
+                $inner_scope = new VariableTrackingBranchScope($outer_scope);
+                $inner_scope = $this->analyze($inner_scope, $child_node);
+                '@phan-var VariableTrackingBranchScope $inner_scope';
+                $inner_scope_list[] = $inner_scope;
+            } else {
+                $merge_parent_scope = true;
+            }
+        }
+        // Merge inner scope into outer scope
+        return $outer_scope->mergeBranchScopeList($inner_scope_list, $merge_parent_scope, []);
     }
 
     /**

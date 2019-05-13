@@ -328,11 +328,15 @@ class Issue
     const UnusedPrivateMethodParameter          = 'PhanUnusedPrivateMethodParameter';
     const UnusedPrivateFinalMethodParameter     = 'PhanUnusedPrivateFinalMethodParameter';
     const UnusedClosureUseVariable              = 'PhanUnusedClosureUseVariable';
+    const ShadowedVariableInArrowFunc           = 'PhanShadowedVariableInArrowFunc';
     const UnusedClosureParameter                = 'PhanUnusedClosureParameter';
     const UnusedGlobalFunctionParameter         = 'PhanUnusedGlobalFunctionParameter';
     const UnusedVariableValueOfForeachWithKey   = 'PhanUnusedVariableValueOfForeachWithKey';  // has higher false positive rates than UnusedVariable
     const UnusedVariableCaughtException         = 'PhanUnusedVariableCaughtException';  // has higher false positive rates than UnusedVariable
     const UnusedGotoLabel                       = 'PhanUnusedGotoLabel';
+    const UnusedVariableReference               = 'PhanUnusedVariableReference';
+    const UnusedVariableStatic                  = 'PhanUnusedVariableStatic';
+    const UnusedVariableGlobal                  = 'PhanUnusedVariableGlobal';
     const VariableDefinitionCouldBeConstant     = 'PhanVariableDefinitionCouldBeConstant';
     const VariableDefinitionCouldBeConstantEmptyArray = 'PhanVariableDefinitionCouldBeConstantEmptyArray';
     const VariableDefinitionCouldBeConstantString = 'PhanVariableDefinitionCouldBeConstantString';
@@ -2901,6 +2905,14 @@ class Issue
                 6042
             ),
             new Issue(
+                self::ShadowedVariableInArrowFunc,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_LOW,
+                'Short arrow function shadows variable ${VARIABLE} from the outer scope',
+                self::REMEDIATION_B,
+                6072
+            ),
+            new Issue(
                 self::UnusedClosureParameter,
                 self::CATEGORY_NOOP,
                 self::SEVERITY_NORMAL,
@@ -2931,6 +2943,30 @@ class Issue
                 'Unused definition of variable ${VARIABLE} as a caught exception',
                 self::REMEDIATION_B,
                 6046
+            ),
+            new Issue(
+                self::UnusedVariableReference,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_NORMAL,
+                'Unused definition of variable ${VARIABLE} as a reference',
+                self::REMEDIATION_B,
+                6069
+            ),
+            new Issue(
+                self::UnusedVariableStatic,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_NORMAL,
+                'Unreferenced definition of variable ${VARIABLE} as a static variable',
+                self::REMEDIATION_B,
+                6070
+            ),
+            new Issue(
+                self::UnusedVariableGlobal,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_NORMAL,
+                'Unreferenced definition of variable ${VARIABLE} as a global variable',
+                self::REMEDIATION_B,
+                6071
             ),
             new Issue(
                 self::UseNormalNamespacedNoEffect,
@@ -3810,7 +3846,6 @@ class Issue
 
     /**
      * @param array<int,Issue> $error_list
-     * @return void
      */
     private static function sanityCheckErrorList(array $error_list) : void
     {
@@ -4019,8 +4054,6 @@ class Issue
      * message
      *
      * @param ?Suggestion $suggestion (optional details on fixing this)
-     *
-     * @return void
      */
     public static function emitWithParameters(
         string $type,
@@ -4039,8 +4072,6 @@ class Issue
     /**
      * @param IssueInstance $issue_instance
      * An issue instance to emit
-     *
-     * @return void
      */
     public static function emitInstance(
         IssueInstance $issue_instance
@@ -4057,8 +4088,6 @@ class Issue
      *
      * @param IssueInstance $issue_instance
      * An issue instance to emit
-     *
-     * @return void
      */
     public static function maybeEmitInstance(
         CodeBase $code_base,
@@ -4100,8 +4129,6 @@ class Issue
      * @param string|int|float|bool|Type|UnionType|FQSEN|TypedElement|UnaddressableTypedElement ...$parameters
      * Template parameters for the issue's error message.
      * If these are objects, they should define __toString()
-     *
-     * @return void
      */
     public static function maybeEmit(
         CodeBase $code_base,
@@ -4137,8 +4164,6 @@ class Issue
      * @param ?Suggestion $suggestion (optional)
      *
      * Template parameters for the issue's error message
-     *
-     * @return void
      */
     public static function maybeEmitWithParameters(
         CodeBase $code_base,

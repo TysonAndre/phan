@@ -106,7 +106,6 @@ class ParseVisitor extends ScopeVisitor
             return $this->context;
         }
 
-        // @phan-suppress-next-line PhanThrowTypeAbsentForCall hopefully impossible
         $class_fqsen = FullyQualifiedClassName::fromStringInContext(
             $class_name,
             $this->context
@@ -224,7 +223,6 @@ class ParseVisitor extends ScopeVisitor
                 // $extends_node->flags is 0 when it is fully qualified?
 
                 // The name is fully qualified.
-                // @phan-suppress-next-line PhanThrowTypeAbsentForCall should be impossible
                 $parent_fqsen = FullyQualifiedClassName::fromFullyQualifiedString(
                     $parent_class_name
                 );
@@ -245,7 +243,6 @@ class ParseVisitor extends ScopeVisitor
                 foreach ($node->children['implements']->children as $name_node) {
                     $name = (string)UnionTypeVisitor::unionTypeFromClassNode($this->code_base, $this->context, $name_node);
                     $class->addInterfaceClassFQSEN(
-                        // @phan-suppress-next-line PhanThrowTypeAbsentForCall should be impossible
                         FullyQualifiedClassName::fromFullyQualifiedString(
                             $name
                         ),
@@ -436,6 +433,7 @@ class ParseVisitor extends ScopeVisitor
                     $union_type = UnionType::empty();
                 }
             } else {
+                $this->checkNodeIsConstExpr($default_node);
                 $future_union_type = new FutureUnionType(
                     $this->code_base,
                     $context_for_property,
@@ -701,6 +699,30 @@ class ParseVisitor extends ScopeVisitor
     }
 
     /**
+     * Visit a node with kind `\ast\AST_STATIC` (a static variable)
+     */
+    public function visitStatic(Node $node) : Context
+    {
+        $default = $node->children['default'];
+        if ($default instanceof Node) {
+            $this->checkNodeIsConstExpr($default);
+        }
+        return $this->context;
+    }
+
+    private function checkNodeIsConstExpr(Node $node) : void
+    {
+        try {
+            self::checkIsAllowedInConstExpr($node);
+        } catch (InvalidArgumentException $_) {
+            $this->emitIssue(
+                Issue::InvalidConstantExpression,
+                $node->lineno
+            );
+        }
+    }
+
+    /**
      * Visit a node with kind `\ast\AST_CONST`
      *
      * @param Node $node
@@ -835,6 +857,26 @@ class ParseVisitor extends ScopeVisitor
     }
 
     /**
+     * Visit a node with kind `\ast\AST_ARROW_FUNC`
+     *
+     * @param Node $node
+     * A node to parse
+     *
+     * @return Context
+     * A new or an unchanged context resulting from
+     * parsing the node
+     */
+    public function visitArrowFunc(Node $node) : Context
+    {
+        if (!isset($node->children['params'])) {
+            $msg = "php-ast 1.0.2dev or newer is required to correctly parse short arrow functions, but 1.0.1 is installed. A short arrow function was seen at $this->context";
+            \fwrite(\STDERR, $msg . \PHP_EOL);
+            throw new AssertionError($msg);
+        }
+        return $this->visitClosure($node);
+    }
+
+    /**
      * Visit a node with kind `\ast\AST_CALL`
      *
      * @param Node $node
@@ -948,7 +990,6 @@ class ParseVisitor extends ScopeVisitor
 
     /**
      * Analyze a node for syntax backward compatibility, if that option is enabled
-     * @return void
      */
     private function analyzeBackwardCompatibility(Node $node) : void
     {
@@ -1221,8 +1262,6 @@ class ParseVisitor extends ScopeVisitor
      *
      * @param bool $is_fully_qualified
      * Is the provided $name already fully qualified?
-     *
-     * @return void
      */
     public static function addConstant(
         CodeBase $code_base,
@@ -1359,7 +1398,6 @@ class ParseVisitor extends ScopeVisitor
      * Supports 'MyClass' and MyClass::class
      *
      * @param Node $node - An AST_CALL node with name 'class_alias' to attempt to resolve
-     * @return void
      */
     private function recordClassAlias(Node $node) : void
     {

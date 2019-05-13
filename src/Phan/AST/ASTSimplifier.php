@@ -99,7 +99,7 @@ class ASTSimplifier
                 $new_children[] = $child_node;
             }
         }
-        list($new_children, $modified) = self::normalizeStatementList($new_children);
+        [$new_children, $modified] = self::normalizeStatementList($new_children);
         if (!$modified && $new_children === $statement_list->children) {
             return $statement_list;
         }
@@ -150,7 +150,6 @@ class ASTSimplifier
      * Replaces the last node in a list with a list of 0 or more nodes
      * @param array<int,Node> $nodes
      * @param Node ...$new_statements
-     * @return void
      */
     private static function replaceLastNodeWithNodeList(array &$nodes, Node... $new_statements) : void
     {

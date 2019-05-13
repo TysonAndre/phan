@@ -65,7 +65,6 @@ class SleepCheckerVisitor extends PluginAwarePostAnalysisVisitor
      * and don't have (at)transient or (at)phan-transient
      *
      * @param array<string,true> $sleep_properties
-     * @return void
      */
     private function warnAboutTransientSleepProperties(array $sleep_properties) : void
     {
@@ -73,7 +72,6 @@ class SleepCheckerVisitor extends PluginAwarePostAnalysisVisitor
             // Give up, failed to extract property names
             return;
         }
-        // @phan-suppress-next-line PhanThrowTypeAbsentForCall we're in class scope
         $class = $this->context->getClassInScope($this->code_base);
         $class_fqsen = $class->getFQSEN();
         foreach ($class->getPropertyMap($this->code_base) as $property_name => $property) {
@@ -113,7 +111,6 @@ class SleepCheckerVisitor extends PluginAwarePostAnalysisVisitor
     /**
      * @param Node|int|string|float|null $node
      * @param array<string,true> $sleep_properties
-     * @return void
      */
     private function analyzeStatementsOfSleep($node, array &$sleep_properties = []) : void
     {
@@ -188,7 +185,6 @@ class SleepCheckerVisitor extends PluginAwarePostAnalysisVisitor
         if (!is_array($value)) {
             return;
         }
-        // @phan-suppress-next-line PhanThrowTypeAbsentForCall we're in class scope
         $class = $context->getClassInScope($code_base);
 
         foreach ($value as $prop_name) {

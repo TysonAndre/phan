@@ -2,8 +2,6 @@
 <?php
 declare(strict_types=1);
 
-// @phan-file-suppress PhanNativePHPSyntaxCheckPlugin, UnusedPluginFileSuppression caused by inline HTML before declare
-
 require_once dirname(__DIR__) . '/vendor/autoload.php';
 require_once __DIR__ . '/lib/WikiWriter.php';
 
@@ -186,7 +184,7 @@ class ConfigEntry
             '@(?<!\[)`([A-Za-z_0-9]+)`@',
             /** @param array{0:string,1:string} $matches */
             function (array $matches) : string {
-                list($markdown, $name) = $matches;
+                [$markdown, $name] = $matches;
                 if ($name !== $this->config_name && isset(Config::DEFAULT_CONFIGURATION[$name])) {
                     return sprintf('[%s](#%s)', $markdown, $name);
                 }

@@ -2,8 +2,6 @@
 <?php
 declare(strict_types=1);
 
-// @phan-file-suppress PhanNativePHPSyntaxCheckPlugin, UnusedPluginFileSuppression
-
 require_once dirname(__DIR__) . '/vendor/autoload.php';
 require_once __DIR__ . '/lib/WikiWriter.php';
 
@@ -222,7 +220,7 @@ EOT;
      */
     private static function textForExample(array $example) : string
     {
-        list($record, $src_file_lineno, $expected_file_lineno) = $example;
+        [$record, $src_file_lineno, $expected_file_lineno] = $example;
         $src_url = preg_replace('@.*/tests/@', 'https://github.com/phan/phan/tree/master/tests/', $record->src_filename);
         $expected_url = preg_replace('@.*/tests/@', 'https://github.com/phan/phan/tree/master/tests/', $record->expected_filename);
 
@@ -252,6 +250,7 @@ EOT;
             glob($base . '/tests/files/expected/*.php.expected') ?: [],
             glob($base . '/tests/misc/fallback_test/expected/*.php.expected') ?: [],
             glob($base . '/tests/plugin_test/expected/*.php.expected') ?: [],
+            glob($base . '/tests/php74_files/expected/*.php.expected') ?: [],
             glob($base . '/tests/php73_files/expected/*.php.expected') ?: [],
             glob($base . '/tests/php72_files/expected/*.php.expected') ?: [],
             glob($base . '/tests/php70_files/expected/*.php.expected') ?: [],
@@ -283,7 +282,7 @@ EOT;
             // Process these backwards so we use the first issue occurrence in a file as the finally chosen example.
             $issues = $record->getIssues();
             krsort($issues);
-            foreach ($issues as $expected_file_lineno => list($ref, $issue_name, $unused_description)) {
+            foreach ($issues as $expected_file_lineno => [$ref, $issue_name, $unused_description]) {
                 if (preg_match('/[0-9]+$/', $ref, $matches)) {
                     $src_file_lineno = (int)$matches[0];
                     $examples[$issue_name] = [$record, $src_file_lineno, $expected_file_lineno];

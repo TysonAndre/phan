@@ -6,6 +6,7 @@ use AssertionError;
 use ast;
 use ast\Node;
 use Exception;
+use Phan\AST\ArrowFunc;
 use Phan\Config;
 use Phan\Exception\CodeBaseException;
 use Phan\Issue;
@@ -65,6 +66,14 @@ final class VariableTrackerElementVisitor extends PluginAwarePostAnalysisVisitor
      * @override
      */
     public function visitClosure(Node $node) : void
+    {
+        $this->analyzeMethodLike($node);
+    }
+
+    /**
+     * @override
+     */
+    public function visitArrowFunc(Node $node) : void
     {
         $this->analyzeMethodLike($node);
     }
@@ -131,6 +140,17 @@ final class VariableTrackerElementVisitor extends PluginAwarePostAnalysisVisitor
             $graph->recordVariableDefinition($name, $closure_use, $scope, null);
             if ($closure_use->flags & ast\flags\PARAM_REF) {
                 $graph->markAsReference($name);
+            }
+        }
+        if ($node->kind === ast\AST_ARROW_FUNC) {
+            foreach (ArrowFunc::getUses($node) as $name => $_) {
+                // @phan-suppress-next-line PhanUndeclaredProperty
+                if (isset($node->phan_arrow_inherited_vars[$name])) {
+                    $result[\spl_object_id($node)] = Issue::ShadowedVariableInArrowFunc;
+
+                    // $node is recorded as the definition so that warnings go on the correct line.
+                    $graph->recordVariableDefinition((string)$name, $node, $scope, null);
+                }
             }
         }
         return $result;
@@ -204,7 +224,6 @@ final class VariableTrackerElementVisitor extends PluginAwarePostAnalysisVisitor
 
     /**
      * @param array<int,string> $issue_overrides_for_definition_ids maps definition ids to issue types
-     * @return void
      */
     private function warnAboutVariableGraph(
         Node $method_node,
@@ -224,6 +243,10 @@ final class VariableTrackerElementVisitor extends PluginAwarePostAnalysisVisitor
             }
             $type_bitmask = $graph->variable_types[$variable_name] ?? 0;
             if ($type_bitmask & VariableGraph::IS_REFERENCE_OR_GLOBAL_OR_STATIC) {
+                // @phan-suppress-next-line PhanPossiblyFalseTypeArgumentInternal
+                if (count($def_uses_for_variable) === 1 && count(\reset($def_uses_for_variable)) === 0) {
+                    $this->checkSingleDefinitionReferenceOrGlobalOrStatic($graph, $variable_name, $issue_overrides_for_definition_ids);
+                }
                 // don't warn about static/global/references
                 continue;
             }
@@ -246,7 +269,6 @@ final class VariableTrackerElementVisitor extends PluginAwarePostAnalysisVisitor
                     $issue_type = $this->getParameterCategory($method_node);
                     if (\strpos($issue_type, 'NoOverride') === false && \strpos($issue_type, 'MethodParameter') !== false) {
                         $alternate_issue_type = \str_replace('MethodParameter', 'NoOverrideMethodParameter', $issue_type);
-                        // @phan-suppress-next-line PhanAccessMethodInternal
                         if (Issue::shouldSuppressIssue($this->code_base, $this->context, $alternate_issue_type, $line, [$variable_name], null)) {
                             continue;
                         }
@@ -288,6 +310,50 @@ final class VariableTrackerElementVisitor extends PluginAwarePostAnalysisVisitor
     }
 
     /**
+     * @param array<int,string> $issue_overrides_for_definition_ids maps definition ids to issue types
+     */
+    private function checkSingleDefinitionReferenceOrGlobalOrStatic(
+        VariableGraph $graph,
+        string $variable_name,
+        array $issue_overrides_for_definition_ids
+    ) : void {
+        $uses = $graph->def_uses[$variable_name];
+        \reset($uses);
+        $definition_id = \key($uses);
+        $issue_type = $issue_overrides_for_definition_ids[$definition_id] ?? Issue::UnusedVariable;
+        if ($issue_type === Issue::UnusedPublicMethodParameter) {
+            return;
+        }
+        $type_bitmask = $graph->variable_types[$variable_name] ?? 0;
+        $line = $graph->def_lines[$variable_name][$definition_id] ?? 1;
+        if ($type_bitmask === VariableGraph::IS_REFERENCE) {
+            Issue::maybeEmitWithParameters(
+                $this->code_base,
+                $this->context,
+                Issue::UnusedVariableReference,
+                $line,
+                [$variable_name]
+            );
+        } elseif ($type_bitmask === VariableGraph::IS_STATIC) {
+            Issue::maybeEmitWithParameters(
+                $this->code_base,
+                $this->context,
+                Issue::UnusedVariableStatic,
+                $line,
+                [$variable_name]
+            );
+        } elseif ($type_bitmask === VariableGraph::IS_GLOBAL) {
+            Issue::maybeEmitWithParameters(
+                $this->code_base,
+                $this->context,
+                Issue::UnusedVariableGlobal,
+                $line,
+                [$variable_name]
+            );
+        }
+    }
+
+    /**
      * @param Node|string|int|float $value_node
      */
     private function warnAboutCouldBeConstant(VariableGraph $graph, string $variable_name, int $definition_id, $value_node) : void
@@ -299,7 +365,7 @@ final class VariableTrackerElementVisitor extends PluginAwarePostAnalysisVisitor
                     $issue_type = Issue::VariableDefinitionCouldBeConstantEmptyArray;
                 }
             } elseif ($value_node->kind === ast\AST_CONST) {
-                $name = strtolower((string)$value_node->children['name']->children['name'] ?? '');
+                $name = \strtolower((string)$value_node->children['name']->children['name'] ?? '');
                 switch ($name) {
                     case 'false':
                         $issue_type = Issue::VariableDefinitionCouldBeConstantFalse;
@@ -314,9 +380,9 @@ final class VariableTrackerElementVisitor extends PluginAwarePostAnalysisVisitor
             }
         } elseif (is_string($value_node)) {
             $issue_type = Issue::VariableDefinitionCouldBeConstantString;
-        } elseif (is_int($value_node)) {
+        } elseif (\is_int($value_node)) {
             $issue_type = Issue::VariableDefinitionCouldBeConstantInt;
-        } elseif (is_float($value_node)) {
+        } elseif (\is_float($value_node)) {
             $issue_type = Issue::VariableDefinitionCouldBeConstantFloat;
         }
         $line = $graph->def_lines[$variable_name][$definition_id] ?? 1;

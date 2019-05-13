@@ -7,8 +7,8 @@ use ast\Node;
 use function spl_object_id;
 
 /**
- * This will represent a variable scope, similar to \Phan\Language\Scope.
- * Instead of tracking the union types for variable names, this will instead track definitions and uses of variable names.
+ * This represents a variable scope, similar to \Phan\Language\Scope.
+ * Instead of tracking the union types for variable names, this instead tracks definitions and uses of variable names.
  *
  * @see ContextMergeVisitor for something similar for union types.
  * @phan-file-suppress PhanPluginDescriptionlessCommentOnPublicMethod
@@ -34,21 +34,25 @@ class VariableTrackingScope
     protected $uses = [];
 
     /**
+     * @var array<string,true>
+     * Maps variable names to whether they were redefined in the scope.
+     */
+    private $defs_shadowing_set = [];
+
+    /**
      * Record that $variable_name had a definition that was created by the Node $node
-     *
-     * @return void
      */
     public function recordDefinition(string $variable_name, Node $node) : void
     {
         // Create a new definition for variable_name.
         // Replace the definitions for $variable_name.
         $this->defs[$variable_name] = [spl_object_id($node) => true];
+        // TODO: handle merging branch scopes. If all branches (e.g. if/else, conditional) shadow the variable, then this scope shadows that variable.
+        $this->defs_shadowing_set[$variable_name] = true;
     }
 
     /**
      * Record that $variable_name had a definition that was created by the Node $node where spl_object_id($node) is $node_id
-     *
-     * @return void
      */
     public function recordDefinitionById(string $variable_name, int $node_id) : void
     {
@@ -63,14 +67,14 @@ class VariableTrackingScope
      * If it is already a definition of $variable_name, then don't record that.
      *
      * @suppress PhanUnreferencedPublicMethod used by reference
-     * @return void
      */
     public function recordUsage(string $variable_name, Node $node) : void
     {
         $node_id = spl_object_id($node);
         // Create a new usage for variable_name.
 
-        if (($this->defs[$variable_name][$node_id] ?? false) !== true) {
+        if (!isset($this->defs_shadowing_set[$variable_name]) &&
+                ($this->defs[$variable_name][$node_id] ?? false) !== true) {
             $this->uses[$variable_name][$node_id] = true;
         }
     }
@@ -79,13 +83,12 @@ class VariableTrackingScope
      * Record the fact that a node is a usage of $variable_name.
      *
      * Equivalent to $this->recordUsage($variable_name, spl_object_id($node))
-     *
-     * @return void
      */
     public function recordUsageById(string $variable_name, int $node_id) : void
     {
         // Create a new usage for variable_name.
-        if (($this->defs[$variable_name][$node_id] ?? false) !== true) {
+        if (!isset($this->defs_shadowing_set[$variable_name]) &&
+                ($this->defs[$variable_name][$node_id] ?? false) !== true) {
             $this->uses[$variable_name][$node_id] = true;
         }
     }
@@ -292,7 +295,6 @@ class VariableTrackingScope
      * @param VariableTrackingBranchScope $inner_scope @phan-unused-param
      * @param bool $exits true if the branch of $inner_scope will exit. @phan-unused-param
      *             This would mean that the branch uses variables, but does not define them outside of that scope.
-     * @return void
      */
     public function recordSkippedScope(VariableTrackingBranchScope $inner_scope, bool $exits) : void
     {

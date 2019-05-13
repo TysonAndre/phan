@@ -5,6 +5,7 @@ namespace Phan\Analysis;
 use AssertionError;
 use ast;
 use ast\Node;
+use Phan\AST\ArrowFunc;
 use Phan\AST\ContextNode;
 use Phan\AST\UnionTypeVisitor;
 use Phan\CodeBase;
@@ -24,6 +25,7 @@ use Phan\Language\FQSEN\FullyQualifiedClassName;
 use Phan\Language\FQSEN\FullyQualifiedFunctionName;
 use Phan\Language\Scope\ClosureScope;
 use Phan\Language\Type;
+use Phan\Language\Type\NullType;
 use Phan\Language\Type\VoidType;
 use Phan\Language\UnionType;
 
@@ -341,7 +343,6 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
     /**
      * If a Closure overrides the scope(class) it will be executed in (via doc comment)
      * then return a context with the new scope instead.
-     * @return void
      */
     private static function addThisVariableToInternalScope(
         CodeBase $code_base,
@@ -376,7 +377,6 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
             $func->getInternalScope()->addVariable($this_var_from_scope);
         }
     }
-
 
     /**
      * Visit a node with kind `ast\AST_CLOSURE`
@@ -429,8 +429,6 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
                     continue;
                 }
 
-                $variable = null;
-
                 // Check to see if the variable exists in this scope
                 if (!$context->getScope()->hasVariableWithName(
                     $variable_name
@@ -440,13 +438,13 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
                     if (!($use->flags & ast\flags\PARAM_REF)) {
                         Issue::maybeEmitWithParameters(
                             $this->code_base,
-                            clone($context)->withLineNumberStart($use->lineno),
+                            $context,
                             Issue::UndeclaredVariable,
-                            $node->lineno,
+                            $use->lineno,
                             [$variable_name],
                             IssueFixSuggester::suggestVariableTypoFix($this->code_base, $context, $variable_name)
                         );
-                        continue;
+                        $variable = new Variable($context, $variable_name, NullType::instance(false)->asUnionType(), 0);
                     } else {
                         // If the variable doesn't exist, but it's
                         // a pass-by-reference variable, we can
@@ -457,9 +455,9 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
                             $this->code_base,
                             false
                         );
-                        // And add it to the scope of the parent (For https://github.com/phan/phan/issues/367)
-                        $context->addScopeVariable($variable);
                     }
+                    // And add it to the scope of the parent (For https://github.com/phan/phan/issues/367)
+                    $context->addScopeVariable($variable);
                 } else {
                     $variable = $context->getScope()->getVariableByName(
                         $variable_name
@@ -514,9 +512,96 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
     }
 
     /**
+     * Visit a node with kind `ast\AST_ARROW_FUNC`
+     *
+     * @param Node $node
+     * A node to parse
+     *
+     * @return Context
+     * A new or an unchanged context resulting from
+     * parsing the node
+     * @override
+     */
+    public function visitArrowFunc(Node $node) : Context
+    {
+        $code_base = $this->code_base;
+        $context = $this->context;
+        $closure_fqsen = FullyQualifiedFunctionName::fromClosureInContext(
+            $context->withLineNumberStart($node->lineno),
+            $node
+        );
+        $func = $code_base->getFunctionByFQSEN($closure_fqsen);
+        $func->ensureScopeInitialized($code_base);
+        // Fix #2504 - add flags to ensure that DimOffset warnings aren't emitted inside closures
+        Analyzable::ensureDidAnnotate($node);
+
+        // If we have a 'this' variable in our current scope,
+        // pass it down into the closure
+        self::addThisVariableToInternalScope($code_base, $context, $func);
+
+        // Make the closure reachable by FQSEN from anywhere
+        $code_base->addFunction($func);
+
+        foreach (ArrowFunc::getUses($node) as $variable_name => $use) {
+            $variable_name = (string)$variable_name;
+            // Check to see if the variable exists in this scope
+            // (If it doesn't, then don't add it - Phan will check later if it properly declares the variable in the scope.)
+            if ($context->getScope()->hasVariableWithName($variable_name)) {
+                ArrowFunc::recordVariableExistsInOuterScope($node, $variable_name);
+                $variable = $context->getScope()->getVariableByName(
+                    $variable_name
+                );
+
+                // If this isn't a pass-by-reference variable, we
+                // clone the variable so state within this scope
+                // doesn't update the outer scope
+                if (!($use->flags & ast\flags\PARAM_REF)) {
+                    $variable = clone($variable);
+                }
+                // Pass the variable into a new scope
+                $func->getInternalScope()->addVariable($variable);
+            }
+        }
+        if (!$func->hasReturn() && $func->getUnionType()->isEmpty()) {
+            $func->setUnionType(VoidType::instance(false)->asUnionType());
+        }
+
+        // Add parameters to the context.
+        $context = $context->withScope($func->getInternalScope());
+
+        $comment = $func->getComment();
+
+        // For any @var references in the method declaration,
+        // add them as variables to the method's scope
+        if ($comment !== null) {
+            foreach ($comment->getVariableList() as $parameter) {
+                $context->addScopeVariable(
+                    $parameter->asVariable($this->context)
+                );
+            }
+        }
+        if ($func->getRecursionDepth() === 0) {
+            // Add each closure parameter to the scope. We clone it
+            // so that changes to the variable don't alter the
+            // parameter definition
+            foreach ($func->getParameterList() as $parameter) {
+                $context->addScopeVariable(
+                    $parameter->cloneAsNonVariadic()
+                );
+            }
+        }
+
+        if ($func->hasYield()) {
+            $this->setReturnTypeOfGenerator($func, $node);
+        }
+
+        return $context;
+    }
+
+
+    /**
      * The return type of the given FunctionInterface to a Generator.
      * Emit an Issue if the documented return type is incompatible with that.
-     * @return void
      */
     private function setReturnTypeOfGenerator(FunctionInterface $func, Node $node) : void
     {

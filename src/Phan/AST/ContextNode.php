@@ -230,7 +230,6 @@ class ContextNode
      * Handles a node of kind ast\AST_TRAIT_ALIAS, modifying the corresponding TraitAdaptations instance
      * @param array<string,TraitAdaptations> $adaptations_map
      * @param Node $adaptation_node
-     * @return void
      */
     private function handleTraitAlias(array $adaptations_map, Node $adaptation_node) : void
     {
@@ -592,7 +591,7 @@ class ContextNode
      */
     public function getClassList(bool $ignore_missing_classes = false, int $expected_type_categories = self::CLASS_LIST_ACCEPT_ANY, string $custom_issue_type = null) : array
     {
-        list($union_type, $class_list) = $this->getClassListInner($ignore_missing_classes);
+        [$union_type, $class_list] = $this->getClassListInner($ignore_missing_classes);
         if ($union_type->isEmpty()) {
             return [];
         }
@@ -834,7 +833,7 @@ class ContextNode
 
     /**
      * Yields a list of FunctionInterface objects for the 'expr' of an AST_CALL.
-     * @return iterable<void, FunctionInterface, void, void>
+     * @return iterable<mixed, FunctionInterface>
      */
     public function getFunctionFromNode() : iterable
     {
@@ -1877,8 +1876,6 @@ class ContextNode
      * (It often should, because outside quick mode, it may be run multiple times per node)
      *
      * TODO: This is repetitive, move these checks into ParseVisitor?
-     *
-     * @return void
      */
     public function analyzeBackwardCompatibility() : void
     {
@@ -2123,7 +2120,6 @@ class ContextNode
     /**
      * @param Node $node a node of kind AST_ARRAY
      * @suppress PhanUndeclaredProperty this adds a dynamic property
-     * @return void
      */
     public static function warnAboutEmptyArrayElements(CodeBase $code_base, Context $context, Node $node) : void
     {
@@ -2220,6 +2216,15 @@ class ContextNode
                 $new_node = (new ContextNode($this->code_base, $constant->getContext(), $new_node))->getEquivalentPHPValueForNode($new_node, $flags & ~self::RESOLVE_CONSTANTS);
             }
             return $new_node;
+        } elseif ($kind === ast\AST_CLASS_NAME) {
+            if (($flags & self::RESOLVE_CONSTANTS) === 0) {
+                return $node;
+            }
+            try {
+                return UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $node, false)->asSingleScalarValueOrNull() ?? $node;
+            } catch (\Exception $_) {
+                return $node;
+            }
         } elseif ($kind === ast\AST_MAGIC_CONST) {
             // TODO: Look into eliminating this
             return $this->getValueForMagicConstByNode($node);

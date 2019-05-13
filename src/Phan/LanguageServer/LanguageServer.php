@@ -272,8 +272,7 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
                 /**
                  * @param ?(int|array) $status
                  */
-                static function (int $signo, $status = null, ?int $pid = null) use (&$got_signal) : void {
-                    $got_signal = true;
+                static function (int $signo, $status = null, ?int $pid = null) : void {
                     Request::childSignalHandler($signo, $status, $pid);
                 }
             );
@@ -438,7 +437,6 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
 
     /**
      * Asynchronously analyze the given URI.
-     * @return void
      */
     public function analyzeURIAsync(string $uri) : void
     {
@@ -577,7 +575,7 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
 
     private function finalizeAnalyzingURIs() : void
     {
-        list($uris_to_analyze, $file_path_list) = $this->getFilteredURIsToAnalyze();
+        [$uris_to_analyze, $file_path_list] = $this->getFilteredURIsToAnalyze();
         // TODO: Add a better abstraction of
         if (\count($uris_to_analyze) === 0) {
             // Discard any node info requests, we haven't created a request yet.
@@ -751,7 +749,7 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
         $most_recent_node_info_request = $this->most_recent_node_info_request;
         if ($most_recent_node_info_request) {
             if ($most_recent_node_info_request instanceof GoToDefinitionRequest) {
-                // @phan-suppress-next-line PhanPossiblyNullTypeArgument, PhanPartialTypeMismatchArgument
+                // @phan-suppress-next-line PhanPartialTypeMismatchArgument
                 $most_recent_node_info_request->recordDefinitionLocationList($response_data['definitions'] ?? null);
                 $most_recent_node_info_request->setHoverResponse($response_data['hover_response'] ?? null);
             } elseif ($most_recent_node_info_request instanceof CompletionRequest) {
@@ -779,7 +777,7 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
             return;
         }
         foreach ($issues as $issue) {
-            list($issue_uri, $diagnostic) = self::generateDiagnostic($issue);
+            [$issue_uri, $diagnostic] = self::generateDiagnostic($issue);
             if ($diagnostic instanceof Diagnostic) {
                 $diagnostics[$issue_uri][] = $diagnostic;
             }
@@ -850,7 +848,7 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
      */
     private static function streamForParent(array $sockets)
     {
-        list($for_read, $for_write) = $sockets;
+        [$for_read, $for_write] = $sockets;
 
         // The parent will not use the write channel, so it
         // must be closed to prevent deadlock.
@@ -875,7 +873,7 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
      */
     private static function streamForChild(array $sockets)
     {
-        list($for_read, $for_write) = $sockets;
+        [$for_read, $for_write] = $sockets;
 
         // The while will not use the read channel, so it must
         // be closed to prevent deadlock.
@@ -969,7 +967,6 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
      * but before the client is sending any other request or notification to the server.
      *
      * @suppress PhanUnreferencedPublicMethod
-     * @return void
      */
     public function initialized() : void
     {
@@ -980,8 +977,6 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
      * The shutdown request is sent from the client to the server. It asks the server to shut down, but to not exit
      * (otherwise the response might not be delivered correctly to the client). There is a separate exit notification that
      * asks the server to exit.
-     *
-     * @return void
      */
     public function shutdown() : void
     {
@@ -991,8 +986,6 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
 
     /**
      * A notification to ask the server to exit its process.
-     *
-     * @return void
      */
     public function exit() : void
     {

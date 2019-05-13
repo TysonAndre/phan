@@ -48,8 +48,6 @@ final class ArgumentType
      *
      * @param CodeBase $code_base
      * The global code base
-     *
-     * @return void
      */
     public static function analyze(
         FunctionInterface $method,
@@ -349,8 +347,6 @@ final class ArgumentType
      * The context in which we see the call
      *
      * @param Closure $get_argument_type (Node|string|int $node, int $i) -> UnionType
-     *
-     * @return void
      */
     private static function analyzeParameterListForCallback(
         CodeBase $code_base,
@@ -379,7 +375,12 @@ final class ArgumentType
 
             // Get the type of the argument. We'll check it against
             // the parameter in a moment
-            $argument_type = $get_argument_type($argument, $i);
+            try {
+                $argument_type = $get_argument_type($argument, $i);
+            } catch (IssueException $e) {
+                Issue::maybeEmitInstance($code_base, $context, $e->getIssueInstance());
+                continue;
+            }
             self::analyzeParameter($code_base, $context, $method, $argument_type, $argument->lineno ?? $context->getLineNumberStart(), $i);
             if ($parameter->isPassByReference()) {
                 if ($argument instanceof Node) {
@@ -413,8 +414,6 @@ final class ArgumentType
      *
      * @param Context $context
      * The context in which we see the call
-     *
-     * @return void
      */
     private static function analyzeParameterList(
         CodeBase $code_base,
@@ -675,7 +674,6 @@ final class ArgumentType
             Issue::maybeEmit(
                 $code_base,
                 $context,
-                // @phan-suppress-next-line PhanAccessMethodInternal
                 $issue_type,
                 $lineno,
                 ($i + 1),

@@ -25,7 +25,6 @@
  * SOFTWARE.
  */
 
-// @phan-file-suppress PhanNativePHPSyntaxCheckPlugin this does not expect "env php" header when the script is provided on stdin
 // @phan-file-suppress PhanMissingRequireFile this depends on where Phan is installed
 if (file_exists(__DIR__ . "/../../../../vendor/autoload.php")) {
     require __DIR__ . "/../../../../vendor/autoload.php";
@@ -102,7 +101,6 @@ EOB;
 
 /**
  * Parses $expr and echoes the compact AST representation to stdout.
- * @return void
  */
 function dump_expr_as_ast(string $expr, bool $with_placeholders, bool $native) : void
 {

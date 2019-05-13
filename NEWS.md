@@ -3,9 +3,32 @@ Phan NEWS
 ?? ??? 2019, Phan 2.0.0 (dev)
 -----------------------
 
+New features(Analysis):
++ Support analysis of PHP 7.4's short arrow function syntax (`fn ($arg) => expr`) (#2714)
+  (requires php-ast 1.0.2dev or newer)
+
+  Note that the polyfill does not yet support this syntax.
++ Infer the return types of PHP 7.4's magic methods `__serialize()` and `__unserialize()`. (#2755)
+  Improve analysis of return types of other magic methods such as `__sleep()`.
++ Support more of PHP 7.4's function signatures (e.g. `WeakReference`) (#2756)
++ Improve detection of unused variables inside of loops/branches.
+
+Plugins:
++ Detect some new php 7.3 functions (`array_key_first`, etc.) in `UseReturnValuePlugin`.
++ Don't emit a `PhanNativePHPSyntaxCheckPlugin` error in `InvokePHPNativeSyntaxCheckPlugin` due to a shebang before `declare(strict_types=1)`
++ Fix edge cases running `PhanNativePHPSyntaxCheckPlugin` on Windows (in language server/daemon mode)
+
+Bug fixes:
++ Analyze the remaining expressions in a statement after emitting `PhanTraitParentReference` (#2750)
++ Don't emit `PhanUndeclaredVariable` within a closure if a `use` variable was undefined outside of it. (#2716)
+
+09 May 2019, Phan 2.0.0-RC1
+-----------------------
+
 New features(CLI, Configs):
 + Enable language server features by default. (#2358)
-  New CLI flags to disable features: `--language-server-disable-hover`, `--language-server-disable-go-to-definition`, `--language-server-disable-completion`
+  `--language-server-disable-go-to-definition`, `--language-server-disable-hover`, and `--language-server-disable-completion`
+  can be used to disable those features.
 
 Backwards Incompatible Changes:
 + Drop support for running Phan with PHP 7.0. (PHP 7.0 reached its end of life in December 2018)
@@ -24,6 +47,7 @@ Plugins:
 
   `--automatic-fix` can be used to automate making these changes for issues that are not suppressed.
 + Add `PHPDocRedundantPlugin` to detect functions/methods/closures where the doc comment just repeats the types in the signature.
+  (or when other parts don't just repeat information, but the `@return void` at the end is redundant)
 + Add a `BeforeAnalyzePhaseCapability`. Unlike `BeforeAnalyzeCapability`, this will run after methods are analyzed, not before.
 
 ?? ??? 2019, Phan 1.3.3 (dev)
@@ -37,6 +61,8 @@ New features(CLI, Configs):
   Default is 2.
 + Add `--constant-variable-detection` - This checks for variables that can be replaced with literals or constants. (#2704)
   This is almost entirely false positives in most coding styles, but may catch some dead code.
++ Add `--language-server-disable-go-to-definition`, `--language-server-disable-hover`, and `--language-server-disable-completion`
+  (These are already disabled by default, but will be enabled by default in Phan 2.0)
 
 New features(Analysis):
 + Emit `PhanDeprecatedClassConstant` for code using a constant marked with `@deprecated`.
@@ -45,6 +71,10 @@ New features(Analysis):
   This change is limited to methods with no return type in the phpdoc or real signature.
 + Improve unused variable detection: Detect more unused variables for expressions such as `$x++` and `$x -= 2` (#2715)
 + Fix false positive `PhanUnusedVariable` after assignment by reference (#2730)
++ Warn about references, static variables, and uses of global variables that are probably unnecessary (never used/assigned to afterwards) (#2733)
+  New issue types: `PhanUnusedVariableReference`, `PhanUnusedVariableGlobal`,  `PhanUnusedVariableGlobal`
++ Warn about invalid AST nodes for defaults of properties and static variables. (#2732)
++ Warn about union types on properties that might have an incomplete suffix. (e.g. `/** @var array<int, */`) (#2708)
 
 Plugins:
 + Add more forms of checks such as `$x !== null ? $x : null` to `PhanPluginDuplicateConditionalNullCoalescing` (#2691)

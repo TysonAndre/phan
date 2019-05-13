@@ -237,7 +237,6 @@ class BlockAnalysisVisitor extends AnalysisVisitor
      * @param Node $node
      * @param Context $context
      * @param int|float|string|null $child_node (probably not null)
-     * @return void
      */
     private function handleScalarStmt(Node $node, Context $context, $child_node) : void
     {
@@ -287,7 +286,6 @@ class BlockAnalysisVisitor extends AnalysisVisitor
      * (php-ast isn't able to parse inline doc comments, so string literals are used for rare edge cases where assert/if statements don't work)
      *
      * Modifies the type of the variable (in the scope of $context) to be identical to the annotated union type.
-     * @return void
      */
     private function analyzeSubstituteVarAssert(CodeBase $code_base, Context $context, string $text) : void
     {
@@ -430,8 +428,6 @@ class BlockAnalysisVisitor extends AnalysisVisitor
      * Effectively the same as (new BlockAnalysisVisitor(..., $context, $node, ...)child_node))
      * but is much less repetitive and verbose, and slightly more efficient.
      *
-     * NOTE: This is called extremely frequently, so the real signature types were omitted for performance.
-     *
      * @param Context $context - The original context for $node, before analyzing $child_node
      *
      * @param Node $node - The parent node of $child_node
@@ -439,8 +435,11 @@ class BlockAnalysisVisitor extends AnalysisVisitor
      * @param Node $child_node - The node which will be analyzed to create the updated context.
      *
      * @return Context (The unmodified $context, or a different Context instance with modifications)
+     *
+     * @suppress PhanPluginCanUseReturnType
+     * NOTE: This is called extremely frequently, so the real signature types were omitted for performance.
      */
-    private function analyzeAndGetUpdatedContext(Context $context, Node $node, Node $child_node) : Context
+    private function analyzeAndGetUpdatedContext(Context $context, Node $node, Node $child_node)
     {
         // Modify the original object instead of creating a new BlockAnalysisVisitor.
         // this is slightly more efficient, especially if a large number of unchanged parameters would exist.
@@ -814,7 +813,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         // TODO: Improve inferences in switch statements?
         // TODO: Behave differently if switch lists don't cover every case (e.g. if there is no default)
         $has_default = false;
-        list($switch_variable_node, $switch_variable_condition) = $this->createSwitchConditionAnalyzer(
+        [$switch_variable_node, $switch_variable_condition] = $this->createSwitchConditionAnalyzer(
             end($this->parent_node_list)->children['cond']
         );
         $previous_child_context = null;
@@ -1171,7 +1170,6 @@ class BlockAnalysisVisitor extends AnalysisVisitor
     /**
      * @param array<int,Node> $catch_nodes
      * @param Context $context
-     * @return void
      */
     private function checkUnreachableCatch(array $catch_nodes, Context $context) : void
     {
@@ -1498,7 +1496,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor
 
     /**
      * @param Node $node
-     * An AST node we'd like to analyze the statements for
+     * An AST node of kind ast\AST_FUNC_DECL we'd like to analyze the statements for
      *
      * @return Context
      * The updated context after visiting the node
@@ -1513,7 +1511,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor
 
     /**
      * @param Node $node
-     * An AST node we'd like to analyze the statements for
+     * An AST node of kind ast\AST_CLOSURE we'd like to analyze the statements for
      *
      * @return Context
      * The updated context after visiting the node
@@ -1521,6 +1519,20 @@ class BlockAnalysisVisitor extends AnalysisVisitor
      * @see self::visitClosedContext()
      */
     public function visitClosure(Node $node) : Context
+    {
+        return $this->visitClosedContext($node);
+    }
+
+    /**
+     * @param Node $node
+     * An AST node of kind ast\AST_ARROW_FUNC we'd like to analyze the statements for
+     *
+     * @return Context
+     * The updated context after visiting the node
+     *
+     * @see self::visitClosedContext()
+     */
+    public function visitArrowFunc(Node $node) : Context
     {
         return $this->visitClosedContext($node);
     }

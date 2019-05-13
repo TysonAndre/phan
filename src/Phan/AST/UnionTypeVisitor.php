@@ -554,7 +554,6 @@ class UnionTypeVisitor extends AnalysisVisitor
             }
             // Sometimes 0 for a fully qualified name?
 
-            // @phan-suppress-next-line PhanThrowTypeAbsentForCall hopefully impossible
             return Type::fromFullyQualifiedString(
                 '\\' . $name
             )->asUnionType();
@@ -635,7 +634,6 @@ class UnionTypeVisitor extends AnalysisVisitor
 
     /**
      * @param int|float|string|Node $node
-     * @return ?UnionType
      */
     public static function unionTypeFromLiteralOrConstant(CodeBase $code_base, Context $context, $node) : ?UnionType
     {
@@ -697,7 +695,6 @@ class UnionTypeVisitor extends AnalysisVisitor
 
     /**
      * @param int|float|string|Node $cond
-     * @return ?bool
      */
     public static function checkCondUnconditionalTruthiness($cond) : ?bool
     {
@@ -790,6 +787,8 @@ class UnionTypeVisitor extends AnalysisVisitor
             if ($base_context_scope instanceof GlobalScope) {
                 $base_context = $base_context->withScope(new BranchScope($base_context_scope));
             }
+            // Doesn't seem to be necessary to run BlockAnalysisVisitor
+            // $base_context = (new BlockAnalysisVisitor($this->code_base, $base_context))->__invoke($cond_node);
             $true_context = (new ConditionVisitor(
                 $this->code_base,
                 isset($node->children['true']) ? $base_context : $this->context  // special case: $c = (($d = foo()) ?: 'fallback')
@@ -1607,6 +1606,22 @@ class UnionTypeVisitor extends AnalysisVisitor
     }
 
     /**
+     * Visit a node with kind `\ast\AST_ARROW_FUNC`
+     *
+     * @param Node $node
+     * A node of the type indicated by the method name that we'd
+     * like to figure out the type that it produces.
+     *
+     * @return UnionType
+     * The set of types that are possibly produced by the
+     * given node
+     */
+    public function visitArrowFunc(Node $node) : UnionType
+    {
+        return $this->visitClosure($node);
+    }
+
+    /**
      * Visit a node with kind `\ast\AST_VAR`
      *
      * @param Node $node
@@ -1806,18 +1821,32 @@ class UnionTypeVisitor extends AnalysisVisitor
                 $this->context,
                 $node->children['class']
             ))->getClassList(false, ContextNode::CLASS_LIST_ACCEPT_OBJECT_OR_CLASS_NAME);
+        } catch (IssueException $exception) {
+            if ($this->should_catch_issue_exception) {
+                Issue::maybeEmitInstance($this->code_base, $this->context, $exception->getIssueInstance());
+                return StringType::instance(false)->asUnionType();
+            }
+            throw $exception;
         } catch (CodeBaseException $exception) {
             $exception_fqsen = $exception->getFQSEN();
-            $this->emitIssueWithSuggestion(
-                Issue::UndeclaredClassConstant,
-                $node->lineno,
-                ['class', (string)$exception_fqsen],
-                IssueFixSuggester::suggestSimilarClassForGenericFQSEN($this->code_base, $this->context, $exception_fqsen)
+            // We might still be in the parse phase.
+            // Throw the same IssueException that would be thrown in Phan 1 and let the caller decide how to handle this.
+            $new_exception = new IssueException(
+                Issue::fromType(Issue::UndeclaredClassConstant)(
+                    $this->context->getFile(),
+                    $node->lineno,
+                    ['class', (string)$exception_fqsen],
+                    IssueFixSuggester::suggestSimilarClassForGenericFQSEN($this->code_base, $this->context, $exception_fqsen)
+                )
             );
-            return LiteralStringType::instanceForValue(
-                \ltrim($exception_fqsen->__toString(), '\\'),
-                false
-            )->asUnionType();
+            if ($this->should_catch_issue_exception) {
+                Issue::maybeEmitInstance($this->code_base, $this->context, $new_exception->getIssueInstance());
+                return LiteralStringType::instanceForValue(
+                    \ltrim($exception_fqsen->__toString(), '\\'),
+                    false
+                )->asUnionType();
+            }
+            throw $new_exception;
         }
         // Return the first class FQSEN
         foreach ($class_list as $class) {
@@ -2224,7 +2253,6 @@ class UnionTypeVisitor extends AnalysisVisitor
     /**
      * @param Node $node with type AST_BINARY_OP
      * @param Closure(Type):bool $is_valid_type
-     * @return void
      */
     private function warnAboutInvalidUnaryOp(
         Node $node,
@@ -3024,7 +3052,7 @@ class UnionTypeVisitor extends AnalysisVisitor
         }
         if (is_string($node)) {
             if (\stripos($node, '::') !== false) {
-                list($class_name, $method_name) = \explode('::', $node, 2);
+                [$class_name, $method_name] = \explode('::', $node, 2);
                 return $this->methodFQSENListFromParts($class_name, $method_name);
             }
             return $this->functionFQSENListFromFunctionName($node);

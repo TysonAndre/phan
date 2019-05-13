@@ -23,7 +23,6 @@ class Debug
      * see if a thing is called
      *
      * @suppress PhanUnreferencedPublicMethod
-     * @return void
      */
     public static function mark() : void
     {
@@ -51,7 +50,6 @@ class Debug
      * @suppress PhanUnreferencedPublicMethod
      * @param Node|string|null $node
      * @param int $indent
-     * @return void
      */
     public static function printNodeName($node, int $indent = 0) : void
     {
@@ -131,7 +129,7 @@ class Debug
         }
 
         if (!\is_object($node)) {
-            return $string . $node . "\n";
+            return $string . (\is_array($node) ? \json_encode($node) : $node) . "\n";
         }
         $kind = $node->kind;
 
@@ -177,7 +175,7 @@ class Debug
      */
     public static function astFlagDescription(int $flags, int $kind) : string
     {
-        list($exclusive, $combinable) = self::getFlagInfo();
+        [$exclusive, $combinable] = self::getFlagInfo();
         $flag_names = [];
         if (isset($exclusive[$kind])) {
             $flag_info = $exclusive[$kind];
@@ -204,7 +202,7 @@ class Debug
      */
     public static function formatFlags(int $kind, int $flags) : string
     {
-        list($exclusive, $combinable) = self::getFlagInfo();
+        [$exclusive, $combinable] = self::getFlagInfo();
         if (isset($exclusive[$kind])) {
             $flag_info = $exclusive[$kind];
             if (isset($flag_info[$flags])) {

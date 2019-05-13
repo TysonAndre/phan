@@ -567,8 +567,7 @@ class Type
             case 'double':
                 return FloatType::instance(false);
             case 'object':
-                // TODO: Figure out why this is a false positive
-                // @phan-suppress-next-line PhanTypeMismatchArgumentInternal, PhanThrowTypeMismatchForCall
+                // @phan-suppress-next-line PhanThrowTypeMismatchForCall
                 return Type::fromFullyQualifiedString('\\' . \get_class($object));
             case 'boolean':
                 return $object ? TrueType::instance(false) : FalseType::instance(false);
@@ -606,7 +605,6 @@ class Type
             \array_map(
                 /**
                  * @param mixed $value
-                 * @return UnionType
                  */
                 static function ($value) : UnionType {
                     return self::fromObjectExtended($value)->asUnionType();
@@ -797,7 +795,6 @@ class Type
                 $fully_qualified_substring = \substr($fully_qualified_string, 0, -2);
             }
             return GenericArrayType::fromElementType(
-                // @phan-suppress-next-line PhanThrowTypeMismatchForCall
                 Type::fromFullyQualifiedString($fully_qualified_substring),
                 $is_nullable,
                 GenericArrayType::KEY_MIXED
@@ -983,6 +980,7 @@ class Type
     ) : Type {
         $template_count = count($template_parameter_type_list);
         if ($template_count <= 2) {  // iterable<T> or iterable<key, T>
+            // TODO: Warn about unparseable type or throw if more arguments are seen?
             $key_union_type = ($template_count === 2)
                 ? $template_parameter_type_list[0]
                 : UnionType::empty();
@@ -3278,7 +3276,6 @@ class Type
      *
      * @param CodeBase $code_base the code base in which the function interface is found
      * @param Context $context the context where the function interface is referenced (for emitting issues) @phan-unused-param
-     * @return ?FunctionInterface
      */
     public function asFunctionInterfaceOrNull(CodeBase $code_base, Context $context) : ?FunctionInterface
     {

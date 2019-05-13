@@ -168,7 +168,6 @@ class Analysis
      * returned context is the new context from within the
      * given node.
      *
-     * NOTE: This is called extremely frequently, so the real signature types were omitted for performance.
      *
      * @param CodeBase $code_base
      * The global code base in which we store all
@@ -182,8 +181,10 @@ class Analysis
      *
      * @return Context
      * The context from within the node is returned
+     * @suppress PhanPluginCanUseReturnType
+     * NOTE: This is called extremely frequently, so the real signature types were omitted for performance.
      */
-    public static function parseNodeInContext(CodeBase $code_base, Context $context, Node $node) : Context
+    public static function parseNodeInContext(CodeBase $code_base, Context $context, Node $node)
     {
         $kind = $node->kind;
         $context->setLineNumberStart($node->lineno);
@@ -254,7 +255,6 @@ class Analysis
      * Take a pass over all functions verifying various states.
      *
      * @param ?array<string,mixed> $file_filter if non-null, limit analysis to functions and methods declared in this array
-     * @return void
      */
     public static function analyzeFunctions(CodeBase $code_base, array $file_filter = null) : void
     {
@@ -352,8 +352,6 @@ class Analysis
 
     /**
      * Loads extra logic for analyzing function and method calls.
-     *
-     * @return void
      */
     public static function loadMethodPlugins(CodeBase $code_base) : void
     {
@@ -391,7 +389,7 @@ class Analysis
             try {
                 if (\stripos($fqsen_string, '::') !== false) {
                     // This is an override of a method.
-                    list($class, $method_name) = \explode('::', $fqsen_string, 2);
+                    [$class, $method_name] = \explode('::', $fqsen_string, 2);
                     $class_fqsen = FullyQualifiedClassName::fromFullyQualifiedString($class);
                     if (!$code_base->hasClassWithFQSEN($class_fqsen)) {
                         continue;
@@ -421,7 +419,6 @@ class Analysis
      * verifying various states.
      *
      * @param ?array<string,mixed> $path_filter if non-null, limit analysis to classes in this array
-     * @return void
      */
     public static function analyzeClasses(CodeBase $code_base, array $path_filter = null) : void
     {
@@ -448,8 +445,6 @@ class Analysis
     /**
      * Take a look at all globally accessible elements and see if
      * we can find any dead code that is never referenced
-     *
-     * @return void
      */
     public static function analyzeDeadCode(CodeBase $code_base) : void
     {
@@ -477,8 +472,6 @@ class Analysis
      * @param ?string $override_contents
      * If this is not null, this function will act as if $file_path's contents
      * were $override_contents
-     *
-     * @return Context
      */
     public static function analyzeFile(
         CodeBase $code_base,

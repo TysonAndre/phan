@@ -8,6 +8,7 @@ use Phan\Config;
 use Phan\Issue;
 use Phan\IssueFixSuggester;
 use Phan\Language\Context;
+use Phan\Language\Element\AddressableElementInterface;
 use Phan\Language\Element\Comment;
 use Phan\Language\Element\Flags;
 use Phan\Language\FQSEN;
@@ -150,6 +151,18 @@ final class Builder
                 $variable_name = '';  // "@var int ...$x" is nonsense and invalid phpdoc.
             } else {
                 $variable_name = $match[17] ?? '';
+                if ($is_var && $variable_name === '' && $this->comment_type === Comment::ON_PROPERTY) {
+                    $char_at_end_offset = $line[\strpos($line, $match[0]) + \strlen($match[0])] ?? ' ';
+                    if (\ord($char_at_end_offset) > 32) {  // Not a control character or space
+                        $this->emitIssue(
+                            Issue::UnextractableAnnotationSuffix,
+                            $this->guessActualLineLocation($i),
+                            \trim($line),
+                            $original_type,
+                            $char_at_end_offset
+                        );
+                    }
+                }
             }
             // Fix typos or non-standard phpdoc tags, according to the user's configuration.
             // Does nothing by default.
@@ -769,13 +782,14 @@ final class Builder
         $lines_array = $entry->getLines();
 
         $line = $this->lines[$i];
+        $trimmed_line = \trim($line);
         for ($check_lineno = $lineno_search; $check_lineno >= $lineno_stop; $check_lineno--) {
             $cur_line = $lines_array[$check_lineno];
             if (\stripos($cur_line, $line) !== false) {
                 // Better heuristic: Lines in the middle of phpdoc are guaranteed to be complete, including a few newlines at the end.
                 $j = $i - ($lineno_search - $check_lineno);
                 if ($j > 0 && $j < $this->comment_lines_count - 1) {
-                    if (\trim($line) !== \trim($cur_line)) {
+                    if ($trimmed_line !== \trim($cur_line)) {
                         continue;
                     }
                 }
@@ -786,6 +800,42 @@ final class Builder
         return $declaration_lineno;
     }
 
+    /**
+     * Find the line number of line $i of the doc comment with lines $lines
+     *
+     * @param array<int,string> $lines
+     * @suppress PhanUnreferencedPublicMethod
+     */
+    public static function findLineNumberOfCommentForElement(AddressableElementInterface $element, array $lines, int $i) : int
+    {
+        $context = $element->getContext();
+
+        $entry = FileCache::getOrReadEntry(Config::projectPath($context->getFile()));
+        $declaration_lineno = $context->getLineNumberStart();
+        if (!$entry) {
+            return $declaration_lineno;
+        }
+        $lines_array = $entry->getLines();
+        $count = \count($lines);
+        $lineno_search = $declaration_lineno - ($count - $i - 1);
+        $lineno_stop = \max(1, $lineno_search - 9);
+        $line = $lines[$i];
+        $trimmed_line = \trim($lines[$i]);
+        for ($check_lineno = $lineno_search; $check_lineno >= $lineno_stop; $check_lineno--) {
+            $cur_line = $lines_array[$check_lineno];
+            if (\stripos($cur_line, $line) !== false) {
+                // Better heuristic: Lines in the middle of phpdoc are guaranteed to be complete, including a few newlines at the end.
+                $j = $i - ($lineno_search - $check_lineno);
+                if ($j > 0 && $j < $count - 1) {
+                    if ($trimmed_line !== \trim($cur_line)) {
+                        continue;
+                    }
+                }
+                return $check_lineno;
+            }
+        }
+        return $declaration_lineno;
+    }
 
     /**
      * @param array<int,int> $valid_types
@@ -1201,8 +1251,6 @@ final class Builder
      *
      * @param int|string|FQSEN|UnionType|Type ...$parameters
      * Template parameters for the issue's error message
-     *
-     * @return void
      */
     protected function emitIssue(
         string $issue_type,
@@ -1228,8 +1276,6 @@ final class Builder
      * Template parameters for the issue's error message
      *
      * @param ?Suggestion $suggestion
-     *
-     * @return void
      */
     protected function emitIssueWithSuggestion(
         string $issue_type,
@@ -1247,7 +1293,7 @@ final class Builder
 
     protected function emitDeferredIssues() : void
     {
-        foreach ($this->issues as list($issue_type, $issue_lineno, $parameters, $suggestion)) {
+        foreach ($this->issues as [$issue_type, $issue_lineno, $parameters, $suggestion]) {
             if (\array_key_exists($issue_type, $this->suppress_issue_set)) {
                 // Record that this suppression has been used.
                 $this->suppress_issue_set[$issue_type] = 1;
