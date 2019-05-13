@@ -16,8 +16,7 @@ final class PHPLikePrinter implements IssuePrinterInterface
     /** @var OutputInterface */
     private $output;
 
-    /** @param IssueInstance $instance */
-    public function print(IssueInstance $instance)
+    public function print(IssueInstance $instance) : void
     {
         // Same format as `php -l`: "Parse error: %s in %s on line %d
         $line = \sprintf(
@@ -32,10 +31,7 @@ final class PHPLikePrinter implements IssuePrinterInterface
         $this->output->writeln($line);
     }
 
-    /**
-     * @param OutputInterface $output
-     */
-    public function configureOutput(OutputInterface $output)
+    public function configureOutput(OutputInterface $output) : void
     {
         $this->output = $output;
     }
