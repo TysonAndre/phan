@@ -1084,7 +1084,7 @@ class ContextNode
                 );
             }
             throw new IssueException(
-                Issue::fromType(Issue::UndeclaredVariable)(
+                Issue::fromType($variable_name === 'this' ? Issue::UndeclaredThis : Issue::UndeclaredVariable)(
                     $this->context->getFile(),
                     $node->lineno,
                     [ $variable_name ],
@@ -1141,7 +1141,7 @@ class ContextNode
                     );
                 }
                 throw new IssueException(
-                    Issue::fromType(Issue::UndeclaredVariable)(
+                    Issue::fromType($variable_name === 'this' ? Issue::UndeclaredThis : Issue::UndeclaredVariable)(
                         $this->context->getFile(),
                         $node->lineno,
                         [ $variable_name ],
@@ -1583,7 +1583,8 @@ class ContextNode
             $property_name,
             UnionType::empty(),
             $flags,
-            $property_fqsen
+            $property_fqsen,
+            UnionType::empty()
         );
 
         $class->addProperty($this->code_base, $property, new None());

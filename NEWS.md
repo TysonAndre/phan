@@ -4,6 +4,13 @@ Phan NEWS
 -----------------------
 
 New features(Analysis):
++ Add early support for PHP 7.4's typed properties. (#2314)
+  (This is incomplete, and does not support inheritance, assignment, impossible conditions, etc.)
+
+13 May 2019, Phan 2.0.0-RC2
+-----------------------
+
+New features(Analysis):
 + Support analysis of PHP 7.4's short arrow function syntax (`fn ($arg) => expr`) (#2714)
   (requires php-ast 1.0.2dev or newer)
 
@@ -12,6 +19,7 @@ New features(Analysis):
   Improve analysis of return types of other magic methods such as `__sleep()`.
 + Support more of PHP 7.4's function signatures (e.g. `WeakReference`) (#2756)
 + Improve detection of unused variables inside of loops/branches.
++ Change warnings about undeclared `$this` into a critical `PhanUndeclaredThis` issue. (#2751)
 
 Plugins:
 + Detect some new php 7.3 functions (`array_key_first`, etc.) in `UseReturnValuePlugin`.
