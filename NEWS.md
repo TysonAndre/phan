@@ -1,6 +1,23 @@
 Phan NEWS
 
-?? ??? 2019, Phan 2.0.0 (dev)
+?? ??? 2019, Phan 2.0.1 (dev)
+-----------------------
+
+New features(CLI, Configs):
++ Enable colorized output by default for the default output mode (`text`) when the terminal supports it.
+  This can be disabled by setting `PHAN_DISABLE_COLOR_OUTPUT=1` or by passing the flag `--no-color`.
+
+New features(Analysis):
++ Infer that static variables with no default are `null`.
++ Improve control flow analysis of unconditionally true/false branches.
++ Improve analysis of some ways to initialize groups of static variables.
+  e.g. `static $a = null; static $b = null; if ($a === null) { $a = $b = rand(0,10); } use($a, $b)`
+  will now also infer that $b is non-null.
+
+Language Server/Daemon mode:
++ Add `--language-server-min-diagnostics-delay-ms <ms>`, to work around race conditions in some language clients.
+
+20 May 2019, Phan 2.0.0
 -----------------------
 
 New features(Analysis):
@@ -8,6 +25,16 @@ New features(Analysis):
   (This is incomplete, and does not support inheritance, assignment, impossible conditions, etc.)
 + Change warnings about undeclared `$this` into a critical `PhanUndeclaredThis` issue. (#2751)
 + Fix the check for `PhanUnusedVariableGlobal` (#2768)
++ Start work on supporting analyzing PHP 7.4's unpacking inside arrays. (e.g. `[1, 2, ...$arr1, 5]`) (#2779)
+  NOTE: This does not yet check all types of errors, some code is unmigrated, and the polyfill does not yet support this.
++ Improve the check for invalid array unpacking in function calls with iterable/Traversable parameters. (#2779)
+
+Plugins:
++ Improve help messages for `internal/dump_fallback_ast.php` (this tool may be of use when developing plugins)
+
+Bug fixes:
++ Work around issues parsing binary operators in PHP 7.4-dev.
+  Note that the latest version of php-ast (currently 1.0.2-dev) should be installed if you are testing Phan with PHP 7.4-dev.
 
 13 May 2019, Phan 2.0.0-RC2
 -----------------------
@@ -59,7 +86,13 @@ Plugins:
   (or when other parts don't just repeat information, but the `@return void` at the end is redundant)
 + Add a `BeforeAnalyzePhaseCapability`. Unlike `BeforeAnalyzeCapability`, this will run after methods are analyzed, not before.
 
-?? ??? 2019, Phan 1.3.3 (dev)
+09 May 2019, Phan 1.3.4
+-----------------------
+
+Bug fixes:
++ Fix bug in Phan 1.3.3 causing polyfill parser to be used if the installed version of php-ast was older than 1.0.1.
+
+08 May 2019, Phan 1.3.3
 -----------------------
 
 New features(CLI, Configs):

@@ -76,6 +76,11 @@ use function is_string;
 class UnionTypeVisitor extends AnalysisVisitor
 {
     /**
+     * If an dynamic unpacked array has more elements than this, then give up on building up the union type
+     */
+    private const ARRAY_UNPACK_COUNT_THRESHOLD = 20;
+
+    /**
      * @var bool
      * Set to true to cause loggable issues to be thrown
      * instead of emitted as issues to the log.
@@ -898,6 +903,11 @@ class UnionTypeVisitor extends AnalysisVisitor
                     // Skip this, we already emitted a syntax error.
                     continue;
                 }
+                if ($child->kind === ast\AST_UNPACK) {
+                    // Analyze PHP 7.4's array spread operator, e.g. `[$a, ...$array, $b]`
+                    $value_types_builder->addUnionType($this->analyzeUnpack($child, true));
+                    continue;
+                }
                 $value = $child->children['value'];
                 if ($value instanceof Node) {
                     $element_value_type = UnionTypeVisitor::unionTypeFromNode(
@@ -969,6 +979,16 @@ class UnionTypeVisitor extends AnalysisVisitor
                 ContextNode::warnAboutEmptyArrayElements($this->code_base, $this->context, $node);
                 continue;
             }
+            if ($child_node->kind === ast\AST_UNPACK) {
+                if ($this->getPackedArrayFieldTypes($child_node->children['expr']) !== null) {
+                    // This is a placeholder of a deliberately - the caller checks that the count of elements matches the count of AST child nodes.
+                    // TODO: Refactor to handle edge cases such as `[...[1], 0 => 2]`
+                    $elements[] = true;
+                    continue;
+                }
+                return null;
+            }
+
             $key_node = $child_node->children['key'];
             // NOTE: this has some overlap with DuplicateKeyPlugin
             if ($key_node === null) {
@@ -991,6 +1011,44 @@ class UnionTypeVisitor extends AnalysisVisitor
     }
 
     /**
+     * @param Node|mixed $expr
+     * @return ?array<int,UnionType> the type of $x in ...$x, provided that it's a packed array (with keys 0, 1, ...)
+     */
+    private function getPackedArrayFieldTypes($expr) : ?array
+    {
+        if (!$expr instanceof Node) {
+            // TODO: Warn if non-array
+            return null;
+        }
+        // e.g. `[$x, ...$array]` in PHP 7.4
+        // TODO: Support array expressions when their value is constant
+        $union_type = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $expr);
+        // TODO: Warn if non-array
+
+        if ($union_type->typeCount() === 1 && $union_type->hasTopLevelArrayShapeTypeInstances() && !$union_type->hasTopLevelNonArrayShapeTypeInstances()) {
+            $type_set = $union_type->getTypeSet();
+            $type = \reset($type_set);
+            // TODO: Warn if the keys aren't consecutive 0-based integers
+            $expected = 0;
+            if (!$type instanceof ArrayShapeType) {
+                return null;
+            }
+            $field_types = $type->getFieldTypes();
+            if ($expr->kind !== ast\AST_ARRAY && \count($field_types) >= self::ARRAY_UNPACK_COUNT_THRESHOLD) {
+                return null;
+            }
+            foreach ($field_types as $i => $type) {
+                if ($i !== $expected || $type->isPossiblyUndefined()) {
+                    return null;
+                }
+                $expected++;
+            }
+            return $field_types;
+        }
+        return null;
+    }
+
+    /**
      * @param array<int,Node> $children
      * @param array<int|string,true> $key_set
      */
@@ -1000,9 +1058,23 @@ class UnionTypeVisitor extends AnalysisVisitor
         $field_types = [];
 
         foreach ($children as $child) {
-            $value = $child->children['value'];
+            // Keep iteration over $children and key_set in sync
             $key = \key($key_set);
             \next($key_set);
+
+            if ($child->kind === ast\AST_UNPACK) {
+                // handle [other_expr, ...expr, other_exprs]
+                $element_value_type = $this->getPackedArrayFieldTypes($child->children['expr']);
+                if (!\is_array($element_value_type)) {
+                    // impossible
+                    continue;
+                }
+                foreach ($element_value_type as $type) {
+                    $field_types[] = $type;
+                }
+                continue;
+            }
+            $value = $child->children['value'];
 
             if ($value instanceof Node) {
                 $element_value_type = UnionTypeVisitor::unionTypeFromNode(
@@ -1011,9 +1083,16 @@ class UnionTypeVisitor extends AnalysisVisitor
                     $value,
                     $this->should_catch_issue_exception
                 );
-                $field_types[$key] = $element_value_type->isEmpty() ? MixedType::instance(false)->asUnionType() : $element_value_type;
+                if ($element_value_type->isEmpty()) {
+                    $element_value_type = MixedType::instance(false)->asUnionType();
+                }
             } else {
-                $field_types[$key] = Type::fromObject($value)->asUnionType();
+                $element_value_type = Type::fromObject($value)->asUnionType();
+            }
+            if ($child->children['key'] === null) {
+                $field_types[] = $element_value_type;
+            } else {
+                $field_types[$key] = $element_value_type;
             }
         }
         return ArrayShapeType::fromFieldTypes($field_types, false);
@@ -1529,6 +1608,29 @@ class UnionTypeVisitor extends AnalysisVisitor
      */
     public function visitUnpack(Node $node) : UnionType
     {
+        return $this->analyzeUnpack($node, false);
+    }
+
+    /**
+     * Visit a node with kind `\ast\AST_UNPACK`
+     *
+     * @param Node $node
+     * A node of the type indicated by the method name that we'd
+     * like to figure out the type that it produces.
+     *
+     * @param bool $is_array_spread
+     * If true, this is the array spread operator,
+     * which tolerates integers that aren't consecutive.
+     *
+     * @return UnionType
+     * The set of types that are possibly produced by the
+     * given node
+     *
+     * @throws IssueException
+     * if the unpack is on an invalid expression
+     */
+    private function analyzeUnpack(Node $node, bool $is_array_spread) : UnionType
+    {
         $union_type = self::unionTypeFromNode(
             $this->code_base,
             $this->context,
@@ -1543,31 +1645,38 @@ class UnionTypeVisitor extends AnalysisVisitor
         // Figure out what the types of accessed array
         // elements would be
         // TODO: Account for Traversable once there are generics for Traversable
-        $generic_types =
-            $union_type->genericArrayElementTypes();
+        $generic_types = $union_type->iterableValueUnionType($this->code_base);
 
         // If we have generics, we're all set
-        if ($generic_types->isEmpty()) {
-            if (!$union_type->asExpandedTypes($this->code_base)->hasIterable() && !$union_type->hasType(MixedType::instance(false))) {
+        try {
+            if ($generic_types->isEmpty()) {
+                if (!$union_type->asExpandedTypes($this->code_base)->hasIterable() && !$union_type->hasType(MixedType::instance(false))) {
+                    throw new IssueException(
+                        Issue::fromType(Issue::TypeMismatchUnpackValue)(
+                            $this->context->getFile(),
+                            $node->lineno,
+                            [(string)$union_type]
+                        )
+                    );
+                }
+                return $generic_types;
+            }
+            $key_type = $union_type->iterableKeyUnionType($this->code_base);
+            // Check that this is possibly valid, e.g. array<int, mixed>, Generator<int, mixed>, or iterable<int, mixed>
+            // TODO: Could add stricter type checks (e.g. nullable checks)
+            if (!$key_type->isEmpty() && !$key_type->containsNullable() && !$key_type->hasTypeMatchingCallback(static function (Type $type) : bool {
+                return $type instanceof IntType || $type instanceof MixedType;
+            })) {
                 throw new IssueException(
-                    Issue::fromType(Issue::TypeMismatchUnpackValue)(
+                    Issue::fromType($is_array_spread ? Issue::TypeMismatchUnpackKeyArraySpread : Issue::TypeMismatchUnpackKey)(
                         $this->context->getFile(),
                         $node->lineno,
-                        [(string)$union_type]
+                        [(string)$union_type, $key_type]
                     )
                 );
             }
-            return $generic_types;
-        }
-        // TODO: Once we have generic template types for Traversable and subclasses, rewrite this check to account for `new ArrayObject([2])`, etc.
-        if (GenericArrayType::KEY_STRING === GenericArrayType::keyTypeFromUnionTypeKeys($union_type)) {
-            throw new IssueException(
-                Issue::fromType(Issue::TypeMismatchUnpackKey)(
-                    $this->context->getFile(),
-                    $node->lineno,
-                    [(string)$union_type, 'string']
-                )
-            );
+        } catch (IssueException $exception) {
+            Issue::maybeEmitInstance($this->code_base, $this->context, $exception->getIssueInstance());
         }
         return $generic_types;
     }

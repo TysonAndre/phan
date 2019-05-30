@@ -1883,6 +1883,11 @@ class UnionType implements Serializable
         });
     }
 
+    /**
+     * Returns the types of this union type that are arrays or are types implementing ArrayAccess.
+     *
+     * This is useful for code inferring the types of dimensions of a union type.
+     */
     public function asArrayOrArrayAccessSubTypes(CodeBase $code_base) : UnionType
     {
         $result = UnionType::empty();
@@ -2434,9 +2439,6 @@ class UnionType implements Serializable
      * Takes `array{field:int,other:string}` and returns `int|string`
      *
      * @param CodeBase $code_base (for detecting the iterable value types of `class MyIterator extends Iterator`)
-     *
-     * @return UnionType
-     * @suppress PhanTypeMismatchArgumentNullable false positive in static init
      */
     public function iterableValueUnionType(CodeBase $code_base) : UnionType
     {
@@ -2480,9 +2482,6 @@ class UnionType implements Serializable
     /**
      * Takes `a|b[]|c|d[]|e` and returns `b|d`
      * Takes `array{field:int,other:string}` and returns `int|string`
-     *
-     * @return UnionType
-     * @suppress PhanTypeMismatchArgumentNullable false positive in static init
      */
     public function genericArrayElementTypes() : UnionType
     {
@@ -3089,7 +3088,6 @@ class UnionType implements Serializable
      * Removes false|true types and adds bool
      *
      * @param UnionTypeBuilder $builder (Containing only non-nullable values)
-     * @suppress PhanTypeMismatchArgumentNullable false positive in static init
      */
     private static function convertToTypeSetWithNormalizedNonNullableBools(UnionTypeBuilder $builder) : void
     {
@@ -3114,7 +3112,6 @@ class UnionType implements Serializable
      * Removes ?false|?true types and adds ?bool
      *
      * @param UnionTypeBuilder $builder (Containing only non-nullable values)
-     * @suppress PhanTypeMismatchArgumentNullable false positive in static init
      */
     private static function convertToTypeSetWithNormalizedNullableBools(UnionTypeBuilder $builder) : void
     {

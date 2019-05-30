@@ -3,6 +3,7 @@
 namespace Phan\Analysis;
 
 use AssertionError;
+use ast;
 use ast\Node;
 use Phan\AST\AnalysisVisitor;
 use Phan\AST\ContextNode;
@@ -261,6 +262,14 @@ class AssignmentVisitor extends AnalysisVisitor
                 continue;
             }
 
+            if ($child_node->kind !== ast\AST_ARRAY_ELEM) {
+                $this->emitIssue(
+                    Issue::InvalidNode,
+                    $child_node->lineno,
+                    "Spread operator is not supported in assignments"
+                );
+                continue;
+            }
             // Get the key and value nodes for each
             // array element we're assigning to
             // TODO: Check key types are valid?
@@ -423,6 +432,14 @@ class AssignmentVisitor extends AnalysisVisitor
             // a list to throw the element away. I'm not
             // here to judge.
             if (!($child_node instanceof Node)) {
+                continue;
+            }
+            if ($child_node->kind !== ast\AST_ARRAY_ELEM) {
+                $this->emitIssue(
+                    Issue::InvalidNode,
+                    $child_node->lineno,
+                    "Spread operator is not supported in assignments"
+                );
                 continue;
             }
 
@@ -1280,14 +1297,12 @@ class AssignmentVisitor extends AnalysisVisitor
                         'int'
                     );
                 } else {
-                    // @phan-suppress-next-line PhanTypeMismatchArgumentNullable false positive for static
                     if ($right_type->canCastToUnionType($string_array_type)) {
                         // e.g. $a = 'aaa'; $a[0] = 'x';
                         // (Currently special casing this, not handling deeper dimensions)
                         return StringType::instance(false)->asUnionType();
                     }
                 }
-            // @phan-suppress-next-line PhanTypeMismatchArgumentNullable false positive for static
             } elseif (!$assign_type->hasType($mixed_type) && !$assign_type->hasType($simple_xml_element_type)) {
                 // Imitate the check in UnionTypeVisitor, don't warn for mixed, etc.
                 $this->emitIssue(

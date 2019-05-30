@@ -136,12 +136,14 @@ class ConfigEntry
         'language_server_enable_hover' => self::CATEGORY_HIDDEN_CLI_ONLY,
         'language_server_enable_completion' => self::CATEGORY_HIDDEN_CLI_ONLY,
         'language_server_hide_category_of_issues' => self::CATEGORY_HIDDEN_CLI_ONLY,
+        'language_server_min_diagnostics_delay_ms' => self::CATEGORY_HIDDEN_CLI_ONLY,
         'enable_internal_return_type_plugins' => self::CATEGORY_ANALYSIS,
         'enable_extended_internal_return_type_plugins' => self::CATEGORY_ANALYSIS,
         'max_literal_string_type_length' => self::CATEGORY_ANALYSIS,
         'plugins' => self::CATEGORY_ANALYSIS,
         'plugin_config' => self::CATEGORY_ANALYSIS,
         'maximum_recursion_depth' => self::CATEGORY_ANALYSIS,
+        'record_variable_context_and_scope' => self::CATEGORY_HIDDEN_CLI_ONLY,
     ];
 
     /** @var string the configuration setting name (e.g. 'null_casts_as_any_type') */

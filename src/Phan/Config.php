@@ -644,10 +644,12 @@ class Config
         // Enable this to emit issue messages with markdown formatting.
         'markdown_issue_messages' => false,
 
-        // Emit colorized issue messages.
+        // Emit colorized issue messages (true by default with the 'text' output mode to supported terminals).
         // NOTE: it is strongly recommended to enable this via the `--color` CLI flag instead,
         // since this is incompatible with most output formatters.
-        'color_issue_messages' => false,
+        //
+        // This can be disabled by setting PHAN_DISABLE_COLOR_OUTPUT=1 or passing `--no-color`
+        'color_issue_messages' => null,
 
         // Allow overriding color scheme in `.phan/config.php` for printing issues, for individual types.
         //
@@ -782,6 +784,11 @@ class Config
         // Use `--language-server-hide-category` if you want to enable this.
         'language_server_hide_category_of_issues' => false,
 
+        // Should be configured by --language-server-min-diagnostic-delay-ms.
+        // Use this for language clients that have race conditions processing diagnostics.
+        // Max value is 1000 ms.
+        'language_server_min_diagnostics_delay_ms' => 0,
+
         // Set this to false to disable the plugins that Phan uses to infer more accurate return types of `array_map`, `array_filter`, and many other functions.
         //
         // Phan is slightly faster when these are disabled.
@@ -791,6 +798,10 @@ class Config
         //
         // Phan is slightly faster when these are disabled.
         'enable_extended_internal_return_type_plugins' => false,
+
+        // Set this to true to make Phan store a full Context inside variables, instead of a FileRef. This could provide more useful info to plugins,
+        // but will increase the memory usage by roughly 2.5%.
+        'record_variable_context_and_scope' => false,
 
         // If a literal string type exceeds this length,
         // then Phan converts it to a regular string type.
@@ -849,6 +860,11 @@ class Config
         self::$project_root_directory = $project_root_directory;
     }
 
+    /**
+     * Initializes the configuration used for analysis.
+     *
+     * This is automatically called with the defaults, to set any derived configuration and static properties as side effects.
+     */
     public static function init() : void
     {
         static $did_init = false;
@@ -1139,6 +1155,15 @@ class Config
         /**
          * @param mixed $value
          */
+        $is_bool_or_null = static function ($value) : ?string {
+            if (is_bool($value) || is_null($value)) {
+                return null;
+            }
+            return 'Expected a boolean' . self::errSuffixGotType($value);
+        };
+        /**
+         * @param mixed $value
+         */
         $is_string_or_null = static function ($value) : ?string {
             if (is_null($value) || is_string($value)) {
                 return null;
@@ -1211,7 +1236,7 @@ class Config
             'cache_polyfill_asts' => $is_bool,
             'check_docblock_signature_param_type_match' => $is_bool,
             'check_docblock_signature_return_type_match' => $is_bool,
-            'color_issue_messages' => $is_bool,
+            'color_issue_messages' => $is_bool_or_null,
             'color_scheme' => $is_associative_string_array,
             'consistent_hashing_file_order' => $is_bool,
             'daemonize_socket' => $is_scalar,
@@ -1331,6 +1356,18 @@ class Config
     public static function isIssueFixingPluginEnabled() : bool
     {
         return \in_array(__DIR__ . '/Plugin/Internal/IssueFixingPlugin.php', Config::getValue('plugins'));
+    }
+
+    /**
+     * Fetches the value of language_server_min_diagnostics_delay_ms, constrained to 0..1000ms
+     */
+    public static function getMinDiagnosticsDelayMs() : float
+    {
+        $delay = Config::getValue('language_server_min_diagnostics_delay_ms');
+        if (\is_numeric($delay) && $delay > 0) {
+            return \min((float)$delay, 1000);
+        }
+        return 0;
     }
 }
 

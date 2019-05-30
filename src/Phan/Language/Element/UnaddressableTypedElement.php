@@ -2,6 +2,8 @@
 
 namespace Phan\Language\Element;
 
+use Phan\Config;
+use Phan\Language\Context;
 use Phan\Language\FileRef;
 use Phan\Language\UnionType;
 
@@ -14,7 +16,8 @@ abstract class UnaddressableTypedElement
 {
     /**
      * @var FileRef
-     * Reference to the file and line number in which the structural element lives
+     * The FileRef where this element lives. Will be instance of Context if
+     * `record_variable_context_and_scope` is true.
      */
     private $file_ref;
 
@@ -49,10 +52,8 @@ abstract class UnaddressableTypedElement
     private $phan_flags = 0;
 
     /**
-     * @param FileRef $file_ref
-     * The Context or FileRef in which the structural element lives
-     * (Will be converted to FileRef, to avoid creating a reference
-     * cycle that can't be garbage collected)
+     * @param Context $context
+     * The Context in which the structural element lives.
      *
      * @param string $name
      * The name of the typed structural element
@@ -68,12 +69,21 @@ abstract class UnaddressableTypedElement
      * a certain kind has a meaningful flags value.
      */
     public function __construct(
-        FileRef $file_ref,
+        FileRef $context,
         string $name,
         UnionType $type,
         int $flags
     ) {
-        $this->file_ref = FileRef::copyFileRef($file_ref);
+        if (Config::getValue('record_variable_context_and_scope')) {
+            // The full Context is being recorded for plugins such as the taint check plugin for wikimedia. Note that
+            // 1. Fetching record_variable_context_and_scope is inlined for performance
+            // 2. Phan allows phpdoc parameter types to be more specific than (e.g. subclasses of) real types.
+            $this->file_ref = $context;
+        } else {
+            // Convert the Context to a FileRef, to avoid creating a reference
+            // cycle that can't be garbage collected)
+            $this->file_ref = FileRef::copyFileRef($context);
+        }
         $this->name = $name;
         $this->type = $type;
         $this->flags = $flags;
@@ -127,6 +137,9 @@ abstract class UnaddressableTypedElement
         $this->type = $type->nullableClone();
     }
 
+    /**
+     * Returns the flags of the node declaring/defining this element.
+     */
     public function getFlags() : int
     {
         return $this->flags;
@@ -156,6 +169,10 @@ abstract class UnaddressableTypedElement
         $this->flags = $flags;
     }
 
+    /**
+     * Records the Phan flags for this element
+     * @see \Phan\Flags
+     */
     public function getPhanFlags() : int
     {
         return $this->phan_flags;
@@ -202,11 +219,21 @@ abstract class UnaddressableTypedElement
 
     /**
      * @return FileRef
-     * A reference to where this element was found
+     * A reference to where this element was found. This will return a Context object if
+     * `record_variable_context_and_scope` is true, and a FileRef otherwise.
      */
     public function getFileRef() : FileRef
     {
         return $this->file_ref;
+    }
+
+    /**
+     * Returns whether this element stores Context and Scope.
+     * @suppress PhanUnreferencedPublicMethod
+     */
+    public function storesContext() : bool
+    {
+        return Config::getValue('record_variable_context_and_scope');
     }
 
     abstract public function __toString() : string;

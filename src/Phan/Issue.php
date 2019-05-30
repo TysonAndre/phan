@@ -137,6 +137,7 @@ class Issue
     const TypeMismatchDimFetch      = 'PhanTypeMismatchDimFetch';
     const TypeMismatchDimFetchNullable = 'PhanTypeMismatchDimFetchNullable';
     const TypeMismatchUnpackKey     = 'PhanTypeMismatchUnpackKey';
+    const TypeMismatchUnpackKeyArraySpread = 'PhanTypeMismatchUnpackKeyArraySpread';
     const TypeMismatchUnpackValue   = 'PhanTypeMismatchUnpackValue';
     const TypeMismatchArrayDestructuringKey = 'PhanTypeMismatchArrayDestructuringKey';
     const TypeMismatchVariadicComment = 'PhanMismatchVariadicComment';
@@ -192,6 +193,7 @@ class Issue
     const TypeInvalidPropertyName = 'PhanTypeInvalidPropertyName';
     const TypeInvalidStaticPropertyName = 'PhanTypeInvalidStaticPropertyName';
     const TypeErrorInInternalCall = 'PhanTypeErrorInInternalCall';
+    const TypeErrorInOperation = 'PhanTypeErrorInOperation';
     const TypeInvalidPropertyDefaultReal = 'PhanTypeInvalidPropertyDefaultReal';
 
     // Issue::CATEGORY_ANALYSIS
@@ -644,11 +646,14 @@ class Issue
     public static function issueMap() : array
     {
         static $error_map;
+        return $error_map ?? ($error_map = self::generateIssueMap());
+    }
 
-        if (\is_array($error_map)) {
-            return $error_map;
-        }
-
+    /**
+     * @return array<string,Issue>
+     */
+    private static function generateIssueMap() : array
+    {
         // phpcs:disable Generic.Files.LineLength
         /**
          * @var array<int,Issue>
@@ -1706,6 +1711,14 @@ class Issue
                 10041
             ),
             new Issue(
+                self::TypeMismatchUnpackKeyArraySpread,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                'When unpacking a value of type {TYPE}, the value\'s keys were of type {TYPE}, but the keys should be integers',
+                self::REMEDIATION_B,
+                10109
+            ),
+            new Issue(
                 self::TypeMismatchUnpackValue,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
@@ -2001,6 +2014,14 @@ class Issue
                 "Saw a call to an internal function {FUNCTION}() with what would be invalid arguments in strict mode, when trying to infer the return value literal type: {DETAILS}",
                 self::REMEDIATION_B,
                 10104
+            ),
+            new Issue(
+                self::TypeErrorInOperation,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Saw an error when attempting to infer the type of expression {CODE}: {DETAILS}",
+                self::REMEDIATION_B,
+                10110
             ),
             new Issue(
                 self::TypeInvalidPropertyDefaultReal,
@@ -3839,6 +3860,7 @@ class Issue
 
         self::sanityCheckErrorList($error_list);
         // Verified the error meets preconditions, now add it.
+        $error_map = [];
         foreach ($error_list as $error) {
             $error_type = $error->getType();
             $error_map[$error_type] = $error;
@@ -3902,7 +3924,9 @@ class Issue
         }
     }
 
-
+    /**
+     * Returns the type name of this issue (e.g. Issue::UndeclaredVariable)
+     */
     public function getType() : string
     {
         return $this->type;
@@ -3916,6 +3940,9 @@ class Issue
         return $this->type_id;
     }
 
+    /**
+     * Returns the category of this issue (e.g. Issue::CATEGORY_UNDEFINED)
+     */
     public function getCategory() : int
     {
         return $this->category;
@@ -3939,6 +3966,9 @@ class Issue
         return self::CATEGORY_NAME[$category] ?? '';
     }
 
+    /**
+     * Returns the severity of this issue (Issue::SEVERITY_LOW, Issue::SEVERITY_NORMAL, or Issue::SEVERITY_CRITICAL)
+     */
     public function getSeverity() : int
     {
         return $this->severity;
@@ -3971,6 +4001,9 @@ class Issue
         return $this->remediation_difficulty;
     }
 
+    /**
+     * Returns the template text of this issue (e.g. `'Variable ${VARIABLE} is undeclared'`)
+     */
     public function getTemplate() : string
     {
         return $this->template;

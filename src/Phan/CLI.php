@@ -56,7 +56,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    const PHAN_VERSION = '2.0.0-dev';
+    const PHAN_VERSION = '2.0.1-dev';
 
     /**
      * List of short flags passed to getopt
@@ -104,27 +104,29 @@ class CLI
         'init-analyze-file:',
         'init-no-composer',
         'init-overwrite',
+        'language-server-allow-missing-pcntl',
         'language-server-analyze-only-on-save',
+        'language-server-completion-vscode',
+        'language-server-disable-completion',
+        'language-server-disable-go-to-definition',
+        'language-server-disable-hover',
+        'language-server-disable-output-filter',
+        'language-server-enable',
+        'language-server-enable-completion',
+        'language-server-enable-go-to-definition',
+        'language-server-enable-hover',
+        'language-server-force-missing-pcntl',
+        'language-server-hide-category',
+        'language-server-min-diagnostics-delay-ms:',
         'language-server-on-stdin',
+        'language-server-require-pcntl',
         'language-server-tcp-connect:',
         'language-server-tcp-server:',
         'language-server-verbose',
-        'language-server-disable-output-filter',
-        'language-server-hide-category',
-        'language-server-allow-missing-pcntl',
-        'language-server-force-missing-pcntl',
-        'language-server-require-pcntl',
-        'language-server-disable-go-to-definition',
-        'language-server-disable-hover',
-        'language-server-disable-completion',
-        'language-server-enable',
-        'language-server-enable-go-to-definition',
-        'language-server-enable-hover',
-        'language-server-enable-completion',
-        'language-server-completion-vscode',
         'markdown-issue-messages',
         'memory-limit:',
         'minimum-severity:',
+        'no-color',
         'output:',
         'output-mode:',
         'parent-constructor-required:',
@@ -559,6 +561,9 @@ class CLI
                 case 'language-server-hide-category':
                     Config::setValue('language_server_hide_category_of_issues', true);
                     break;
+                case 'language-server-min-diagnostics-delay-ms':
+                    Config::setValue('language_server_min_diagnostics_delay_ms', (float)$value);
+                    break;
                 case 'disable-cache':
                     Config::setValue('cache_polyfill_asts', false);
                     break;
@@ -721,12 +726,20 @@ class CLI
                 case 'color':
                     Config::setValue('color_issue_messages', true);
                     break;
+                case 'no-color':
+                    Config::setValue('color_issue_messages', false);
+                    break;
                 default:
                     throw new UsageException("Unknown option '-$key'" . self::getFlagSuggestionString($key), EXIT_FAILURE);
             }
         }
         if (isset($opts['language-server-completion-vscode']) && Config::getValue('language_server_enable_completion')) {
             Config::setValue('language_server_enable_completion', Config::COMPLETION_VSCODE);
+        }
+        if (Config::getValue('color_issue_messages') === null && $printer_type === 'text') {
+            if (!\getenv('PHAN_DISABLE_COLOR_OUTPUT') && self::supportsColor(\STDOUT)) {
+                Config::setValue('color_issue_messages', true);
+            }
         }
 
         self::checkPluginsExist();
@@ -764,6 +777,42 @@ class CLI
             && Config::getValue('dead_code_detection')) {
             throw new AssertionError("We cannot run dead code detection on more than one core.");
         }
+    }
+
+    /**
+     * Returns true if the output stream supports colors
+     *
+     * This is tricky on Windows, because Cygwin, Msys2 etc emulate pseudo
+     * terminals via named pipes, so we can only check the environment.
+     *
+     * Reference: Composer\XdebugHandler\Process::supportsColor
+     * https://github.com/composer/xdebug-handler
+     * (This is internal, so it was duplicated in case their API changed)
+     *
+     * @param mixed $output A valid CLI output stream
+     *
+     * @return bool
+     * @suppress PhanUndeclaredFunction
+     */
+    public static function supportsColor($output) : bool
+    {
+        if (\defined('PHP_WINDOWS_VERSION_BUILD')) {
+            return (\function_exists('sapi_windows_vt100_support')
+                && sapi_windows_vt100_support($output))
+                || false !== \getenv('ANSICON')
+                || 'ON' === \getenv('ConEmuANSI')
+                || 'xterm' === \getenv('TERM');
+        }
+
+        if (\function_exists('stream_isatty')) {
+            return \stream_isatty($output);
+        } elseif (\function_exists('posix_isatty')) {
+            return \posix_isatty($output);
+        }
+
+        $stat = \fstat($output);
+        // Check if formatted mode is S_IFCHR
+        return $stat ? 0020000 === ($stat['mode'] & 0170000) : false;
     }
 
     private static function checkPluginsExist() : void
@@ -815,6 +864,9 @@ class CLI
         return ' (Did you mean ' . \implode(' or ', $suggestions) . '?)';
     }
 
+    /**
+     * Recompute the list of files (used in daemon mode or language server mode)
+     */
     public function recomputeFileList() : void
     {
         $this->file_list = $this->file_list_in_config;
@@ -988,8 +1040,8 @@ Usage: {$argv[0]} [options] [files...]
   Output filename
 
 $init_help
- -C, --color
-  Add colors to the outputted issues. Tested in Unix.
+ -C, --color, --no-color
+  Add colors to the outputted issues.
   This is recommended for only the default --output-mode ('text')
 
  -p, --progress-bar
@@ -1222,6 +1274,11 @@ Extended help:
 
  --language-server-require-pcntl
   Don't start the language server if PCNTL isn't installed (don't use the fallback). Useful for debugging.
+
+ --language-server-min-diagnostics-delay-ms <0..1000>
+  Sets a minimum delay between publishing diagnostics (i.e. Phan issues) to the language client.
+  This can be increased to work around race conditions in clients processing Phan issues (e.g. if your editor/IDE shows outdated diagnostics)
+  Defaults to 0 (no delay)
 
  --require-config-exists
   Exit immediately with an error code if `.phan/config.php` does not exist.
@@ -1583,9 +1640,14 @@ EOB;
         self::debugOutput($line);
     }
 
+    /**
+     * Write a line of output for debugging.
+     */
     public static function debugOutput(string $line) : void
     {
-        \fwrite(STDERR, $line . "\n");
+        if (self::shouldShowDebugOutput()) {
+            \fwrite(STDERR, $line . \PHP_EOL);
+        }
     }
 
     /**

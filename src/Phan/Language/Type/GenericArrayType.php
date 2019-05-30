@@ -486,7 +486,6 @@ class GenericArrayType extends ArrayType implements GenericArrayInterface
 
     /**
      * @return UnionType a union type corresponding to $key_type
-     * @suppress PhanTypeMismatchReturnNullable false positive with static init
      */
     public static function unionTypeForKeyType(int $key_type, int $behavior = self::CONVERT_KEY_MIXED_TO_INT_OR_STRING_UNION_TYPE) : UnionType
     {
@@ -562,6 +561,11 @@ class GenericArrayType extends ArrayType implements GenericArrayInterface
             // Check the all elements for key types.
             foreach ($children as $child) {
                 if (!($child instanceof Node)) {
+                    continue;
+                }
+                if ($child->kind === \ast\AST_UNPACK) {
+                    // PHP 7.4's array spread operator adds integer keys, e.g. `[...$array, 'other' => 'value']`
+                    $key_type_enum |= GenericArrayType::KEY_INT;
                     continue;
                 }
                 // Don't bother recursing more than one level to iterate over possible types.
