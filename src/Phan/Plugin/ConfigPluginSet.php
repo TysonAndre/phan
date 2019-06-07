@@ -839,8 +839,6 @@ final class ConfigPluginSet extends PluginV3 implements
                 \array_unshift($internal_return_type_plugins, new ExtendedDependentReturnTypeOverridePlugin());
             }
             $plugin_set = \array_merge($internal_return_type_plugins, $plugin_set);
-            // TODO: Add config option (on by default)
-            $plugin_set[] = new RedundantConditionCallPlugin();
         }
         if (Config::getValue('redundant_condition_detection')) {
             $plugin_set[] = new RedundantConditionCallPlugin();
