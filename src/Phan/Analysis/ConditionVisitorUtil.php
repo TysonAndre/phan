@@ -10,6 +10,7 @@ use Phan\Analysis\ConditionVisitor\ComparisonCondition;
 use Phan\Analysis\ConditionVisitor\IdenticalCondition;
 use Phan\Analysis\ConditionVisitor\NotEqualsCondition;
 use Phan\Analysis\ConditionVisitor\NotIdenticalCondition;
+use Phan\AST\ContextNode;
 use Phan\AST\UnionTypeVisitor;
 use Phan\BlockAnalysisVisitor;
 use Phan\CodeBase;
@@ -23,13 +24,11 @@ use Phan\Language\Element\Variable;
 use Phan\Language\FQSEN\FullyQualifiedClassName;
 use Phan\Language\Type;
 use Phan\Language\Type\FalseType;
-use Phan\Language\Type\IntType;
 use Phan\Language\Type\LiteralIntType;
 use Phan\Language\Type\LiteralStringType;
 use Phan\Language\Type\LiteralTypeInterface;
 use Phan\Language\Type\MixedType;
 use Phan\Language\Type\NullType;
-use Phan\Language\Type\StringType;
 use Phan\Language\Type\TrueType;
 use Phan\Language\UnionType;
 use Phan\Library\StringUtil;
@@ -155,7 +154,7 @@ trait ConditionVisitorUtil
                 }
                 if ($has_nullable) {
                     if ($union_type->isEmpty()) {
-                        return NullType::instance(false)->asUnionType();
+                        return NullType::instance(false)->asPHPDocUnionType();
                     }
                     return $union_type->nullableClone();
                 }
@@ -480,20 +479,19 @@ trait ConditionVisitorUtil
         $context = $context ?? $this->context;
         try {
             if ($expr instanceof Node) {
-                if ($expr->kind === ast\AST_CONST) {
-                    $expr_name_node = $expr->children['name'];
-                    if ($expr_name_node->kind === ast\AST_NAME) {
-                        // Currently, only add this inference when we're absolutely sure this is a check rejecting null/false/true
-                        $expr_name = $expr_name_node->children['name'];
-                        switch (\strtolower($expr_name)) {
-                            case 'null':
-                                return $this->removeNullFromVariable($var_node, $context, false);
-                            case 'false':
-                                return $this->removeFalseFromVariable($var_node, $context);
-                            case 'true':
-                                return $this->removeTrueFromVariable($var_node, $context);
-                        }
-                    }
+                $value = (new ContextNode($this->code_base, $context, $expr))->getEquivalentPHPValueForControlFlowAnalysis();
+                if ($value instanceof Node) {
+                    return $context;
+                }
+                if (\is_int($value) || \is_string($value)) {
+                    return $this->removeLiteralScalarFromVariable($var_node, $context, $value, true);
+                }
+                if ($value === false) {
+                    return $this->removeFalseFromVariable($var_node, $context);
+                } elseif ($value === true) {
+                    return $this->removeTrueFromVariable($var_node, $context);
+                } elseif ($value === null) {
+                    return $this->removeNullFromVariable($var_node, $context, false);
                 }
             } else {
                 return $this->removeLiteralScalarFromVariable($var_node, $context, $expr, true);
@@ -522,21 +520,15 @@ trait ConditionVisitorUtil
         if (\is_string($var_name)) {
             try {
                 if ($expr instanceof Node) {
-                    if ($expr->kind === ast\AST_CONST) {
-                        $expr_name_node = $expr->children['name'];
-                        if ($expr_name_node->kind === ast\AST_NAME) {
-                            // Currently, only add this inference when we're absolutely sure this is a check rejecting null/false/true
-                            $expr_name = $expr_name_node->children['name'];
-                            switch (\strtolower($expr_name)) {
-                                case 'null':
-                                case 'false':
-                                    return $this->removeFalseyFromVariable($var_node, $context, false);
-                                case 'true':
-                                    return $this->removeTrueFromVariable($var_node, $context);
-                            }
-                        }
+                    $expr = (new ContextNode($this->code_base, $context, $expr))->getEquivalentPHPValueForControlFlowAnalysis();
+                    if ($expr instanceof Node) {
+                        return $context;
                     }
-                    return $context;
+                    if ($expr === false || $expr === null) {
+                        return $this->removeFalseyFromVariable($var_node, $context, false);
+                    } elseif ($expr === true) {
+                        return $this->removeTrueFromVariable($var_node, $context);
+                    }
                 }
                 // Remove all of the types which are loosely equal
                 if (is_int($expr) || is_string($expr)) {
@@ -678,7 +670,7 @@ trait ConditionVisitorUtil
         }
         if (!is_string($expr_value)) {
             $expr_type = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $expr_node);
-            if (!$expr_type->canCastToUnionType(UnionType::fromFullyQualifiedString('string|false'))) {
+            if (!$expr_type->canCastToUnionType(UnionType::fromFullyQualifiedPHPDocString('string|false'))) {
                 Issue::maybeEmit(
                     $this->code_base,
                     $this->context,
@@ -705,7 +697,7 @@ trait ConditionVisitorUtil
 
             return null;
         }
-        $expr_type = $fqsen->asType()->asUnionType();
+        $expr_type = \is_string($expr_node) ? $fqsen->asType()->asRealUnionType() : $fqsen->asType()->asPHPDocUnionType();
 
         $var_name = $object_node->children['name'] ?? null;
         // Don't analyze variables such as $$a
@@ -784,11 +776,7 @@ trait ConditionVisitorUtil
             $name_node_type = UnionTypeVisitor::unionTypeFromNode($this->code_base, $context, $var_name_node, true);
             static $int_or_string_type;
             if ($int_or_string_type === null) {
-                $int_or_string_type = new UnionType([
-                    StringType::instance(false),
-                    IntType::instance(false),
-                    NullType::instance(false),
-                ]);
+                $int_or_string_type = UnionType::fromFullyQualifiedPHPDocString('?int|?string');
             }
             if (!$name_node_type->canCastToUnionType($int_or_string_type)) {
                 Issue::maybeEmit($this->code_base, $context, Issue::TypeSuspiciousIndirectVariable, $var_name_node->lineno ?? 0, (string)$name_node_type);

@@ -1,20 +1,40 @@
 Phan NEWS
 
-?? ??? 2019, Phan 2.0.1 (dev)
+?? ??? 2019, Phan 2.1.1 (dev)
 -----------------------
 
 New features(CLI, Configs):
-+ Enable colorized output by default for the default output mode (`text`) when the terminal supports it.
++ Add `--color-scheme <scheme>` for alternative colors of outputted issues (also configurable via environment variable as `PHAN_COLOR_SCHEME=<scheme>`)
+  Supported values: `default`, `vim`, `eclipse_dark`
++ Be consistent about starting parameter/variable names with `$` in issue messages.
++ Fix false positives in more edge cases when analyzing variables with type `static` (e.g. `yield from $this;`)
+
+Maintenance:
++ Add updates to the function/method signature map from Psalm and PHPStan.
+
+01 Jun 2019, Phan 2.1.0
+-----------------------
+
+New features(CLI, Configs):
++ Add more options to configure colorized output. (#2799)
+
+  The environment variable `PHAN_ENABLE_COLOR_OUTPUT=1` and the config setting `color_issue_messages_if_supported` can be used to enable colorized output by default
+  for the default output mode (`text`) when the terminal supports it.
+
+  This can be disabled by setting `PHAN_DISABLE_COLOR_OUTPUT=1` or by passing the flag `--no-color`.
++ Colorize output of `--help` and `--extended-help` when `--color` is used or the terminal supports it.
   This can be disabled by setting `PHAN_DISABLE_COLOR_OUTPUT=1` or by passing the flag `--no-color`.
 
 New features(Analysis):
++ Support unary and binary expressions on literals/constants in conditions. (#2812)
+  (e.g. `assert($x === -(1))` and `assert($x === 2+2)` now infer that $x is -1 and 4, respectively)
 + Infer that static variables with no default are `null`.
 + Improve control flow analysis of unconditionally true/false branches.
 + Improve analysis of some ways to initialize groups of static variables.
   e.g. `static $a = null; static $b = null; if ($a === null) { $a = $b = rand(0,10); } use($a, $b)`
   will now also infer that $b is non-null.
 + Infer from `return new static();` and `return $this;` that the return type of a method is `@return static`, not `@return self` (#2797)
-  (and propogate that to inherited methods)
+  (and propagate that to inherited methods)
 + Fix some false positives when casting array types containing `static` to types containing the class or its ancestors. (#2797)
 + Add `PhanTypeInstantiateAbstractStatic` and `PhanTypeInstantiateTraitStaticOrSelf` as lower-severity warnings about `return new self()` and `return new static()` (#2797)
   (emitted in static methods of abstract classes)

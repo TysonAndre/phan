@@ -6,10 +6,10 @@ use Closure;
 use Generator;
 use Phan\CodeBase;
 use Phan\Language\Context;
-use Phan\Language\EmptyUnionType;
 use Phan\Language\Element\Func;
 use Phan\Language\Element\FunctionInterface;
 use Phan\Language\Element\Method;
+use Phan\Language\EmptyUnionType;
 use Phan\Language\FQSEN\FullyQualifiedFunctionName;
 use Phan\Language\FQSEN\FullyQualifiedMethodName;
 use Phan\Language\Type;
@@ -75,7 +75,7 @@ final class EmptyUnionTypeTest extends BaseTest
             return '';
         }
 
-        $empty_regular = new UnionType([]);
+        $empty_regular = new UnionType([], true, null);
 
         $candidate_arg_lists = $this->generateArgLists($method);
         if (count($candidate_arg_lists) === 0) {
@@ -89,11 +89,26 @@ final class EmptyUnionTypeTest extends BaseTest
                 $expected_result = \iterator_to_array($expected_result);
                 $actual_result = \iterator_to_array($actual_result);
             }
-            if ($expected_result !== $actual_result) {
-                $failures .= "Expected $method_name implementation to be the same for " . \serialize($arg_list) . "\n";
+            if (!self::isSameResult($expected_result, $actual_result)) {
+                $failures .= "Expected $method_name implementation to be the same for " . \serialize($arg_list) . ": " . serialize($expected_result) . ' !== ' . serialize($actual_result) . "\n";
             }
         }
         return $failures;
+    }
+
+    /**
+     * @param mixed $expected_result
+     * @param mixed $actual_result
+     */
+    private static function isSameResult($expected_result, $actual_result) : bool
+    {
+        if ($expected_result === $actual_result) {
+            return true;
+        }
+        if ($expected_result instanceof UnionType && $actual_result instanceof UnionType) {
+            return (string)$expected_result === (string)$actual_result;
+        }
+        return false;
     }
 
     /**
@@ -161,15 +176,19 @@ final class EmptyUnionTypeTest extends BaseTest
                     Type::fromFullyQualifiedString('\stdClass'),
                 ];
             case UnionType::class:
+                // TODO: Add tests of real union types
                 return [
-                    IntType::instance(false)->asUnionType(),
+                    IntType::instance(false)->asPHPDocUnionType(),
+                    IntType::instance(false)->asRealUnionType(),
                     UnionType::empty(),
-                    new UnionType([FalseType::instance(false), ArrayType::instance(false)]),
-                    ArrayType::instance(false)->asUnionType(),
-                    FalseType::instance(true)->asUnionType(),
-                    ObjectType::instance(false)->asUnionType(),
-                    MixedType::instance(false)->asUnionType(),
-                    Type::fromFullyQualifiedString('\stdClass')->asUnionType(),
+                    new UnionType([FalseType::instance(false), ArrayType::instance(false)], true, null),
+                    new UnionType([FalseType::instance(false), ArrayType::instance(false)], true, [FalseType::instance(false), ArrayType::instance(false)]),
+                    ArrayType::instance(false)->asPHPDocUnionType(),
+                    FalseType::instance(true)->asPHPDocUnionType(),
+                    ObjectType::instance(false)->asPHPDocUnionType(),
+                    ObjectType::instance(false)->asRealUnionType(),
+                    MixedType::instance(false)->asPHPDocUnionType(),
+                    Type::fromFullyQualifiedString('\stdClass')->asPHPDocUnionType(),
                 ];
             case Closure::class:
                 return [

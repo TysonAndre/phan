@@ -37,6 +37,7 @@ use Phan\Plugin\Internal\IssueFixingPlugin\IssueFixer;
 use Phan\Plugin\Internal\MiscParamPlugin;
 use Phan\Plugin\Internal\NodeSelectionPlugin;
 use Phan\Plugin\Internal\NodeSelectionVisitor;
+use Phan\Plugin\Internal\RedundantConditionCallPlugin;
 use Phan\Plugin\Internal\RequireExistsPlugin;
 use Phan\Plugin\Internal\StringFunctionPlugin;
 use Phan\Plugin\Internal\ThrowAnalyzerPlugin;
@@ -685,7 +686,7 @@ final class ConfigPluginSet extends PluginV3 implements
 
     /**
      * Adds a plugin that will stay around until the language client's request has been fulfilled
-     * (E.g. a plugin that will analyze the node targetted by "go to definition")
+     * (E.g. a plugin that will analyze the node targeted by "go to definition")
      */
     public function addTemporaryAnalysisPlugin(CodeBase $code_base, ?\Phan\Daemon\Request $request) : ?RAII
     {
@@ -838,6 +839,8 @@ final class ConfigPluginSet extends PluginV3 implements
                 \array_unshift($internal_return_type_plugins, new ExtendedDependentReturnTypeOverridePlugin());
             }
             $plugin_set = \array_merge($internal_return_type_plugins, $plugin_set);
+            // TODO: Add config option (on by default)
+            $plugin_set[] = new RedundantConditionCallPlugin();
         }
         if (Config::getValue('enable_include_path_checks')) {
             $plugin_set[] = new RequireExistsPlugin();
