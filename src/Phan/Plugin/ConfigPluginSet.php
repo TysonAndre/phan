@@ -842,6 +842,9 @@ final class ConfigPluginSet extends PluginV3 implements
             // TODO: Add config option (on by default)
             $plugin_set[] = new RedundantConditionCallPlugin();
         }
+        if (Config::getValue('redundant_condition_detection')) {
+            $plugin_set[] = new RedundantConditionCallPlugin();
+        }
         if (Config::getValue('enable_include_path_checks')) {
             $plugin_set[] = new RequireExistsPlugin();
         }
