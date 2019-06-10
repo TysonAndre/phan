@@ -19,17 +19,14 @@ use Phan\Issue;
 use Phan\Language\Context;
 use Phan\Language\Element\Variable;
 use Phan\Language\FQSEN\FullyQualifiedClassName;
-use Phan\Language\Type;
 use Phan\Language\Type\ArrayType;
 use Phan\Language\Type\BoolType;
 use Phan\Language\Type\CallableType;
 use Phan\Language\Type\IntType;
-use Phan\Language\Type\IterableType;
 use Phan\Language\Type\MixedType;
 use Phan\Language\Type\ObjectType;
 use Phan\Language\Type\StringType;
 use Phan\Language\UnionType;
-use Phan\Language\UnionTypeBuilder;
 use Phan\Library\StringUtil;
 use ReflectionMethod;
 
@@ -567,7 +564,7 @@ class ConditionVisitor extends KindVisitorImplementation implements ConditionVis
             $this->context,
             $class_node
         );
-        $object_types = $type->objectTypes();
+        $object_types = $type->objectTypesStrict();
         if (!$object_types->isEmpty()) {
             // We know that the variable is the provided object type (or a subclass)
             // See https://secure.php.net/instanceof -
@@ -628,20 +625,7 @@ class ConditionVisitor extends KindVisitorImplementation implements ConditionVis
         // Change the type to match is_object relationship
         // If we already have the `object` type or generic object types, then keep those
         // (E.g. T|false becomes T, T[]|iterable|null becomes Traversable, object|bool becomes object)
-        $new_type_builder = new UnionTypeBuilder();
-        foreach ($variable->getUnionType()->getTypeSet() as $type) {
-            if ($type->isObject()) {
-                $new_type_builder->addType($type->withIsNullable(false));
-                continue;
-            }
-            if (\get_class($type) === IterableType::class) {
-                // An iterable is either an array or a Traversable.
-                $new_type_builder->addType(Type::traversableInstance());
-            }
-        }
-        $variable->setUnionType(
-            $new_type_builder->isEmpty() ? ObjectType::instance(false)->asRealUnionType()
-                                         : UnionType::of($new_type_builder->getTypeSet(), [ObjectType::instance(false)]));
+        $variable->setUnionType($variable->getUnionType()->objectTypesStrict());
     }
 
     /**
@@ -692,27 +676,14 @@ class ConditionVisitor extends KindVisitorImplementation implements ConditionVis
             };
         };
 
-        $array_type = ArrayType::instance(false);
         /**
          * @param array<int,Node|mixed> $args
          */
-        $array_callback = static function (CodeBase $code_base, Context $context, Variable $variable, array $args) use ($array_type) : void {
-            // Change the type to match the is_a relationship
+        $array_callback = static function (CodeBase $code_base, Context $context, Variable $variable, array $args) : void {
+            // Change the type to match the is_array relationship
             // If we already have generic array types, then keep those
-            // (E.g. T[]|false becomes T[], ?array|null becomes array)
-            $new_type_builder = new UnionTypeBuilder();
-            foreach ($variable->getUnionType()->getTypeSet() as $type) {
-                if ($type instanceof ArrayType) {
-                    $new_type_builder->addType($type->withIsNullable(false));
-                    continue;
-                }
-                if (\get_class($type) === IterableType::class) {
-                    // An iterable is either an array or a Traversable.
-                    $new_type_builder->addType($array_type);
-                }
-            }
-            // TODO: Apply the array filter to the real type set if possible
-            $variable->setUnionType($new_type_builder->isEmpty() ? $array_type->asRealUnionType() : $new_type_builder->getPHPDocUnionType());
+            // (E.g. T[]|false becomes T[], ?array|null becomes array, callable becomes callable_array)
+            $variable->setUnionType($variable->getUnionType()->arrayTypesStrictCast());
         };
 
         /**
@@ -751,25 +722,6 @@ class ConditionVisitor extends KindVisitorImplementation implements ConditionVis
         };
 
         /**
-         * @param array<int,Node|mixed> $args
-         */
-        $scalar_callback = static function (CodeBase $unused_code_base, Context $unused_context, Variable $variable, array $args) : void {
-            // Change the type to match the is_a relationship
-            // If we already have possible scalar types, then keep those
-            // (E.g. T|false becomes bool, T becomes int|float|bool|string|null)
-            $new_type = $variable->getUnionType()->scalarTypes();
-            if ($new_type->containsNullable()) {
-                $new_type = $new_type->nonNullableClone();
-            }
-            if ($new_type->isEmpty()) {
-                // If there are no inferred types, or the only type we saw was 'null',
-                // assume there this can be any possible scalar.
-                // (Excludes `resource`, which is technically a scalar)
-                $new_type = UnionType::fromFullyQualifiedRealString('int|float|bool|string');
-            }
-            $variable->setUnionType($new_type);
-        };
-        /**
          * @param string $extract_types
          * @param UnionType $default_if_empty
          * @return Closure(CodeBase,Context,Variable,array):void
@@ -800,10 +752,11 @@ class ConditionVisitor extends KindVisitorImplementation implements ConditionVis
         };
         /** @return void */
         $callable_callback = $make_callback('callableTypes', CallableType::instance(false)->asRealUnionType());
-        $bool_callback = $make_callback('getTypesInBoolFamily', BoolType::instance(false)->asRealUnionType());
+        $bool_callback = $make_callback('boolTypes', BoolType::instance(false)->asRealUnionType());
         $int_callback = $make_callback('intTypes', IntType::instance(false)->asRealUnionType());
         $string_callback = $make_callback('stringTypes', StringType::instance(false)->asRealUnionType());
         $numeric_callback = $make_callback('numericTypes', UnionType::fromFullyQualifiedRealString('string|int|float'));
+        $scalar_callback = $make_callback('scalarTypesStrict', UnionType::fromFullyQualifiedRealString('string|int|float|bool'));
 
         // Note: LiteralIntType exists, but LiteralFloatType doesn't, which is why these are different.
         $float_callback = $make_direct_assertion_callback('float');

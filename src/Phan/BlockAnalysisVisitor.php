@@ -17,6 +17,7 @@ use Phan\AST\ContextNode;
 use Phan\AST\UnionTypeVisitor;
 use Phan\AST\Visitor\Element;
 use Phan\Exception\IssueException;
+use Phan\Exception\NodeException;
 use Phan\Language\Context;
 use Phan\Language\Element\Comment\Builder;
 use Phan\Language\Element\Variable;
@@ -28,7 +29,6 @@ use Phan\Language\Type;
 use Phan\Language\UnionType;
 use Phan\Library\StringUtil;
 use Phan\Plugin\ConfigPluginSet;
-
 use function array_map;
 use function count;
 use function end;
@@ -494,6 +494,9 @@ class BlockAnalysisVisitor extends AnalysisVisitor
      *
      * @return Context
      * The updated context after visiting the node
+     *
+     * @suppress PhanUndeclaredProperty
+     * TODO: Add similar handling (e.g. of possibility of 0 iterations) for foreach
      */
     public function visitFor(Node $node) : Context
     {
@@ -509,6 +512,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor
                 $init_node
             );
         }
+        $context = $context->withEnterLoop($node);
 
         $condition_node = $node->children['cond'];
         if ($condition_node instanceof Node) {
@@ -559,6 +563,14 @@ class BlockAnalysisVisitor extends AnalysisVisitor
             );
         }
 
+        if (isset($node->phan_loop_contexts)) {
+            // Combine contexts from continue/break statements within this for loop
+            $context = (new ContextMergeVisitor($context, \array_merge([$context], $node->phan_loop_contexts)))->combineChildContextList();
+            unset($node->phan_loop_contexts);
+        }
+
+        $context = $context->withExitLoop($node);
+
         // Now that we know all about our context (like what
         // 'self' means), we can analyze statements like
         // assignments and method calls.
@@ -602,12 +614,14 @@ class BlockAnalysisVisitor extends AnalysisVisitor
      *
      * @return Context
      * The updated context after visiting the node
+     *
+     * @suppress PhanUndeclaredProperty
      */
     public function visitWhile(Node $node) : Context
     {
         $context = $this->context->withLineNumberStart(
             $node->lineno
-        );
+        )->withEnterLoop($node);
 
         // Let any configured plugins do a pre-order
         // analysis of the node.
@@ -637,7 +651,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor
             if ($condition_node instanceof Node) {
                 $context = (new ConditionVisitor(
                     $this->code_base,
-                    $this->context
+                    $context  // XXX why was this using $this->context
                 ))->__invoke($condition_node);
             }
 
@@ -652,6 +666,14 @@ class BlockAnalysisVisitor extends AnalysisVisitor
             }
         }
 
+        if (isset($node->phan_loop_contexts)) {
+            // Combine contexts from continue/break statements within this while loop
+            $context = (new ContextMergeVisitor($context, \array_merge([$context], $node->phan_loop_contexts)))->combineChildContextList();
+            unset($node->phan_loop_contexts);
+        }
+
+        $context = $context->withExitLoop($node);
+
         // Now that we know all about our context (like what
         // 'self' means), we can analyze statements like
         // assignments and method calls.
@@ -661,6 +683,149 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         // context to be the incoming context. Otherwise,
         // we pass our new context up to our parent
         return $context;
+    }
+
+    /**
+     * For "foreach loop" nodes, we analyze the loop variables in PreOrderAnalysisVisitor, then analyze the statements.
+     * (right now, the statements are just analyzed without creating a BranchScope)
+     *
+     * @param Node $node a node of type ast\AST_FOREACH
+     * @throws NodeException
+     * @suppress PhanUndeclaredProperty
+     */
+    public function visitForeach(Node $node) : Context
+    {
+        $context = $this->context;
+        $context->setLineNumberStart($node->lineno);
+
+        $context = $context->withEnterLoop($node);
+
+        // Visit the given node populating the code base
+        // with anything we learn and get a new context
+        // indicating the state of the world within the
+        // given node
+        $context = (new PreOrderAnalysisVisitor(
+            $this->code_base,
+            $context
+        ))->visitForeach($node);
+
+        // Let any configured plugins do a pre-order
+        // analysis of the node.
+        ConfigPluginSet::instance()->preAnalyzeNode(
+            $this->code_base,
+            $context,
+            $node
+        );
+
+        $expr_node = $node->children['expr'];
+        $has_at_least_one_iteration = false;
+        if ($expr_node instanceof Node) {
+            if ($expr_node->kind === ast\AST_ARRAY) {
+                // e.g. foreach ([1, 2] as $value) has at least one
+                $has_at_least_one_iteration = \count($expr_node->children) > 0;
+            } else {
+                // e.g. look up global constants and class constants.
+                $expr_value = (new ContextNode($this->code_base, $this->context, $expr_node))->getEquivalentPHPScalarValue();
+
+                $has_at_least_one_iteration = \is_array($expr_value) && count($expr_value) > 0;
+            }
+        }
+        // Analyze the context inside the loop. The keys/values would not get created in the outer scope if the iterable expression was empty.
+        if ($has_at_least_one_iteration) {
+            $inner_context = $context;
+        } else {
+            $inner_context = $context->withScope(new BranchScope($context->getScope()));
+        }
+
+        $expr_node = $node->children['expr'];
+        if ($expr_node instanceof Node) {
+            $inner_context = $this->analyzeAndGetUpdatedContext($inner_context, $node, $expr_node);
+        }
+        $value_node = $node->children['value'];
+        if ($value_node instanceof Node) {
+            $inner_context = $this->analyzeAndGetUpdatedContext($inner_context, $node, $value_node);
+        }
+        $key_node = $node->children['key'];
+        if ($key_node instanceof Node) {
+            $inner_context = $this->analyzeAndGetUpdatedContext($inner_context, $node, $key_node);
+        }
+        $stmts_node = $node->children['stmts'];
+        if ($stmts_node instanceof Node) {
+            $inner_context = $this->analyzeAndGetUpdatedContext($inner_context, $node, $stmts_node);
+        }
+
+        if ($has_at_least_one_iteration) {
+            $context = $inner_context;
+            $context_list = [$inner_context];
+        } else {
+            $context_list = [$context, $inner_context];
+        }
+        if (isset($node->phan_loop_contexts)) {
+            $context_list = \array_merge($context_list, $node->phan_loop_contexts);
+            // Combine contexts from continue/break statements within this foreach loop
+            unset($node->phan_loop_contexts);
+        }
+        if (\count($context_list) >= 2) {
+            $context = (new ContextMergeVisitor($context, $context_list))->combineChildContextList();
+        }
+
+        $context = $context->withExitLoop($node);
+
+        return $this->postOrderAnalyze($context, $node);
+    }
+
+    /**
+     * For "do-while loop" nodes, we analyze the 'init', 'stmts', 'cond' in order.
+     * (right now, the statements are just analyzed without creating a BranchScope)
+     *
+     * @suppress PhanUndeclaredProperty
+     */
+    public function visitDoWhile(Node $node) : Context
+    {
+        $context = $this->context;
+        $context->setLineNumberStart($node->lineno);
+        $context = $context->withEnterLoop($node);
+
+
+        // Visit the given node populating the code base
+        // with anything we learn and get a new context
+        // indicating the state of the world within the
+        // given node
+        $context = (new PreOrderAnalysisVisitor(
+            $this->code_base,
+            $context
+        ))->visitDoWhile($node);
+
+        // Let any configured plugins do a pre-order
+        // analysis of the node.
+        ConfigPluginSet::instance()->preAnalyzeNode(
+            $this->code_base,
+            $context,
+            $node
+        );
+
+        // With a context that is inside of the node passed
+        // to this method, we analyze all children of the
+        // node.
+        // (copied from visit(), this ensures plugins and other code get called)
+        foreach ($node->children as $child_node) {
+            // Skip any non Node children.
+            if (!($child_node instanceof Node)) {
+                continue;
+            }
+
+            // Step into each child node and get an
+            // updated context for the node
+            $context = $this->analyzeAndGetUpdatedContext($context, $node, $child_node);
+        }
+        if (isset($node->phan_loop_contexts)) {
+            // Combine contexts from continue/break statements within this do-while loop
+            $context = (new ContextMergeVisitor($context, \array_merge([$context], $node->phan_loop_contexts)))->combineChildContextList();
+            unset($node->phan_loop_contexts);
+        }
+        $context = $context->withExitLoop($node);
+
+        return $this->postOrderAnalyze($context, $node);
     }
 
     /**
@@ -1019,11 +1184,20 @@ class BlockAnalysisVisitor extends AnalysisVisitor
                 // Treat `else` as equivalent to `elseif (true)`
                 $inferred_cond_value = $cond_node ?? true;
             }
-            // @phan-suppress-next-line PhanTypeMismatchArgumentNullable this is never null
-            if (!$inferred_cond_value || BlockExitStatusChecker::willUnconditionallySkipRemainingStatements($child_node->children['stmts'])) {
+            $stmts_node = $child_node->children['stmts'];
+            if (!$stmts_node instanceof Node) {
+                throw new AssertionError('Did not expect null/empty statements list node');
+            }
+            if (!$inferred_cond_value) {
                 // Don't merge this scope into the outer scope
-                // e.g. "if (!is_string($x)) { return; }" or "if (false) { anything }"
+                // e.g. "if (false) { anything }"
                 $excluded_elem_count++;
+            } elseif (BlockExitStatusChecker::willUnconditionallySkipRemainingStatements($stmts_node)) {
+                // e.g. "if (!is_string($x)) { return; }" or break
+                $excluded_elem_count++;
+                if (!BlockExitStatusChecker::willUnconditionallyThrowOrReturn($stmts_node)) {
+                    $this->recordLoopContextForBreakOrContinue($child_context);
+                }
             } else {
                 $child_context_list[] = $child_context;
             }
@@ -1033,10 +1207,12 @@ class BlockAnalysisVisitor extends AnalysisVisitor
                 // TODO: Could add a check for conditions that are unconditionally falsey and warn
                 if (!$inferred_cond_value instanceof Node && $inferred_cond_value) {
                     // TODO: Could warn if this is not a condition on a static variable
+                    // @phan-suppress-next-line PhanCoalescingAlwaysNullInLoop false positive in loop
                     $first_unconditionally_true_index = $first_unconditionally_true_index ?? \count($child_context_list);
                 }
                 $fallthrough_context = (new NegatedConditionVisitor($this->code_base, $fallthrough_context))->__invoke($cond_node);
             } elseif ($cond_node) {
+                // @phan-suppress-next-line PhanCoalescingAlwaysNullInLoop false positive in loop
                 $first_unconditionally_true_index = $first_unconditionally_true_index ?? \count($child_context_list);
             }
             // If cond_node was null, it would be an else statement.
@@ -1071,6 +1247,41 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         // context to be the incoming context. Otherwise,
         // we pass our new context up to our parent
         return $context;
+    }
+
+    /**
+     * Handle break/continue statements in conditionals within a loop.
+     * Record scope with the inferred variable types so it can be merged later outside of the loop.
+     *
+     * TODO: This is a heuristic that could be improved (differentiate break/continue, check if all branches are already handled, etc.)
+     * @suppress PhanUndeclaredProperty
+     */
+    private function recordLoopContextForBreakOrContinue(Context $child_context) : void
+    {
+        for ($i = \count($this->parent_node_list) - 1; $i >= 0; $i--) {
+            $node = $this->parent_node_list[$i];
+            switch ($node->kind) {
+                // switch handles continue/break the same way as regular loops. (in PostOrderAnalysisVisitor::visitSwitch)
+                case ast\AST_SWITCH:
+                case ast\AST_FOR:
+                case ast\AST_WHILE:
+                case ast\AST_DO_WHILE:
+                case ast\AST_FOREACH:
+                    if (isset($node->phan_loop_contexts)) {
+                        $node->phan_loop_contexts[] = $child_context;
+                    } else {
+                        $node->phan_loop_contexts = [$child_context];
+                    }
+                    break;
+                case ast\AST_FUNC_DECL:
+                case ast\AST_CLOSURE:
+                case ast\AST_ARROW_FUNC:
+                case ast\AST_METHOD:
+                case ast\AST_CLASS:
+                    // We didn't find it.
+                    return;
+            }
+        }
     }
 
     /**

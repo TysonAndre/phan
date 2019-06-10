@@ -1,16 +1,17 @@
 Phan NEWS
 
-?? ??? 2019, Phan 2.1.1 (dev)
+?? ??? 2019, Phan 2.2.0 (dev)
 -----------------------
 
 New features(CLI, Configs):
 + Add `--color-scheme <scheme>` for alternative colors of outputted issues (also configurable via environment variable as `PHAN_COLOR_SCHEME=<scheme>`)
   Supported values: `default`, `vim`, `eclipse_dark`
 + Be consistent about starting parameter/variable names with `$` in issue messages.
-+ Fix false positives in more edge cases when analyzing variables with type `static` (e.g. `yield from $this;`) (#2825)
-+ Properly emit `NonStaticCallToStatic` in more edge cases (#2826)
 + Add `--redundant-condition-detection` to attempt to detect redundant conditions/casts and impossible conditions based on the inferred real expression types.
-  New issue types: `PhanRedundantCondition`, `PhanImpossibleCondition` (e.g. `is_int(2)` and `boolval(true)` is redundant, `empty(2)` is impossible).
+
+New features(Analysis):
++ New issue types: `PhanRedundantCondition[InLoop]`, `PhanImpossibleCondition[InLoop]` (when `--redundant-condition-detection` is enabled)
+  (e.g. `is_int(2)` and `boolval(true)` is redundant, `empty(2)` is impossible).
 
   Note: This has many false positives involving loops, variables set in loops, and global variables.
   This will be split into more granular issue types later on.
@@ -18,13 +19,25 @@ New features(CLI, Configs):
   The real types are inferred separately (and more conservatively) from regular (phpdoc+real) expression types.
 
   (these checks can also be enabled with the config setting `redundant_condition_detection`)
-
-New features(Analysis):
++ New issue types: `PhanImpossibleTypeComparison[InLoop]` (when `--redundant-condition-detection` is enabled) (#1807)
+  (e.g. warns about `$x = new stdClass(); assert($x !== null)`)
++ New issue types: `PhanCoalescingAlwaysNull[InLoop]`, `PhanCoalescingNeverNull[InLoop]` (when `--redundant-condition-detection` is enabled)
+  (e.g. warns about `(null ?? 'other')`, `($a >= $b) ?? 'default'`)
++ Infer real return types from Reflection of php and the enabled extensions (affects `--redundant-condition-detection`)
++ Make Phan more accurately check if a loop may be executed 0 times.
++ Make Phan more accurately check if a loop may be executed 0 times.
++ Support the type `callable-object` in phpdoc and infer it from checks such as `is_callable($var) && is_object($var)` (#1336)
++ Support the type `callable-array` in phpdoc and infer it from checks such as `is_callable($var) && is_array($var)` (#2833)
++ Fix false positives in more edge cases when analyzing variables with type `static` (e.g. `yield from $this;`) (#2825)
++ Properly emit `NonStaticCallToStatic` in more edge cases (#2826)
 + Infer that `<=>` is `-1|0|1` instead of `int`
 + Infer that eval with backticks is `?string` instead of `string`
 
 Maintenance:
 + Add updates to the function/method signature map from Psalm and PHPStan.
+
+Bug fixes:
++ Fix a crash when an expression containing `class-string<T>` became nullable.
 
 01 Jun 2019, Phan 2.1.0
 -----------------------

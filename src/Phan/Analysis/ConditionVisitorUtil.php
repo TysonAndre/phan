@@ -10,6 +10,7 @@ use Phan\Analysis\ConditionVisitor\ComparisonCondition;
 use Phan\Analysis\ConditionVisitor\IdenticalCondition;
 use Phan\Analysis\ConditionVisitor\NotEqualsCondition;
 use Phan\Analysis\ConditionVisitor\NotIdenticalCondition;
+use Phan\AST\ASTReverter;
 use Phan\AST\ContextNode;
 use Phan\AST\UnionTypeVisitor;
 use Phan\BlockAnalysisVisitor;
@@ -43,8 +44,6 @@ use function is_string;
  * @see ConditionVisitor
  * @see NegatedConditionVisitor
  * @see ConditionVisitorInterface
- *
- * @phan-file-suppress PhanPartialTypeMismatchArgumentInternal
  */
 trait ConditionVisitorUtil
 {
@@ -69,8 +68,46 @@ trait ConditionVisitorUtil
         return $this->updateVariableWithConditionalFilter(
             $var_node,
             $context,
-            static function (UnionType $type) : bool {
-                return $type->containsTruthy();
+            /**
+             * @suppress PhanUndeclaredProperty did_check_redundant_condition
+             */
+            function (UnionType $type) use ($var_node, $context) : bool {
+                $contains_truthy = $type->containsTruthy();
+                if (Config::getValue('redundant_condition_detection') && $type->hasRealTypeSet()) {
+                    // Here, we only perform the redundant condition checks on whichever ran first, to avoid warning about both impossible and redundant conditions
+                    if (isset($var_node->did_check_redundant_condition)) {
+                        return $contains_truthy;
+                    }
+                    $var_node->did_check_redundant_condition = true;
+                    // Here, we only perform the redundant condition checks on the ConditionVisitor to avoid warning about both impossible and redundant conditions
+                    // for the same expression
+                    if ($contains_truthy) {
+                        if (!$type->getRealUnionType()->containsFalsey()) {
+                            Issue::maybeEmit(
+                                $this->code_base,
+                                $context,
+                                RedundantCondition::chooseSpecificImpossibleOrRedundantIssueKind($var_node, $context, Issue::ImpossibleCondition),
+                                $var_node->lineno,
+                                ASTReverter::toShortString($var_node),
+                                $type->getRealUnionType(),
+                                'falsey'
+                            );
+                        }
+                    } else {
+                        if (!$type->getRealUnionType()->containsTruthy()) {
+                            Issue::maybeEmit(
+                                $this->code_base,
+                                $context,
+                                RedundantCondition::chooseSpecificImpossibleOrRedundantIssueKind($var_node, $context, Issue::RedundantCondition),
+                                $var_node->lineno,
+                                ASTReverter::toShortString($var_node),
+                                $type->getRealUnionType(),
+                                'falsey'
+                            );
+                        }
+                    }
+                }
+                return $contains_truthy;
             },
             static function (UnionType $type) : UnionType {
                 return $type->nonTruthyClone();
@@ -85,8 +122,45 @@ trait ConditionVisitorUtil
         return $this->updateVariableWithConditionalFilter(
             $var_node,
             $context,
-            static function (UnionType $type) : bool {
-                return $type->containsFalsey();
+            /**
+             * @suppress PhanUndeclaredProperty did_check_redundant_condition
+             */
+            function (UnionType $type) use ($context, $var_node) : bool {
+                $contains_falsey = $type->containsFalsey();
+                if (Config::getValue('redundant_condition_detection') && $type->hasRealTypeSet()) {
+                    // Here, we only perform the redundant condition checks on whichever ran first, to avoid warning about both impossible and redundant conditions
+                    if (isset($var_node->did_check_redundant_condition)) {
+                        return $contains_falsey;
+                    }
+                    $var_node->did_check_redundant_condition = true;
+                    // for the same expression
+                    if ($contains_falsey) {
+                        if (!$type->getRealUnionType()->containsTruthy()) {
+                            Issue::maybeEmit(
+                                $this->code_base,
+                                $context,
+                                RedundantCondition::chooseSpecificImpossibleOrRedundantIssueKind($var_node, $context, Issue::ImpossibleCondition),
+                                $var_node->lineno,
+                                ASTReverter::toShortString($var_node),
+                                $type->getRealUnionType(),
+                                'truthy'
+                            );
+                        }
+                    } else {
+                        if (!$type->getRealUnionType()->containsFalsey()) {
+                            Issue::maybeEmit(
+                                $this->code_base,
+                                $context,
+                                RedundantCondition::chooseSpecificImpossibleOrRedundantIssueKind($var_node, $context, Issue::RedundantCondition),
+                                $var_node->lineno,
+                                ASTReverter::toShortString($var_node),
+                                $type->getRealUnionType(),
+                                'truthy'
+                            );
+                        }
+                    }
+                }
+                return $contains_falsey;
             },
             static function (UnionType $type) : UnionType {
                 return $type->nonFalseyClone();
@@ -149,6 +223,7 @@ trait ConditionVisitorUtil
                 foreach ($union_type->getTypeSet() as $type) {
                     if ($cb($type)) {
                         $union_type = $union_type->withoutType($type);
+                        // @phan-suppress-next-line PhanRedundantConditionInLoop known false positive in loop.
                         $has_nullable = $has_nullable || $type->isNullable();
                     }
                 }
@@ -536,6 +611,7 @@ trait ConditionVisitorUtil
                 }
 
                 if ($expr == false) {
+                    // @phan-suppress-next-line PhanImpossibleCondition FIXME should not set real type for loose equality checks
                     if ($expr == null) {
                         return $this->removeFalseyFromVariable($var_node, $context, false);
                     }

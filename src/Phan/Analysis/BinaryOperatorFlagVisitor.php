@@ -158,7 +158,7 @@ final class BinaryOperatorFlagVisitor extends FlagVisitorImplementation
         // TODO: Any sanity checks should go here.
 
         // <=> returns -1, 0, or 1
-        return UnionType::fromFullyQualifiedPHPDocString('-1|0|1');
+        return UnionType::fromFullyQualifiedRealString('-1|0|1');
     }
 
     /**
@@ -247,7 +247,7 @@ final class BinaryOperatorFlagVisitor extends FlagVisitorImplementation
             }
         } elseif ($left->hasNonNullStringType()) {
             if ($right->hasNonNullStringType()) {
-                return StringType::instance(false)->asPHPDocUnionType();
+                return UnionType::fromFullyQualifiedPHPDocAndRealString('string', 'int|string');
             }
             if ($right->hasNonNullIntType()) {
                 $this->emitIssue(
@@ -269,7 +269,7 @@ final class BinaryOperatorFlagVisitor extends FlagVisitorImplementation
             );
         }
 
-        return IntType::instance(false)->asPHPDocUnionType();
+        return UnionType::fromFullyQualifiedPHPDocAndRealString('int', 'int|string');
     }
 
     // TODO: Switch to asRealUnionType when both operands are real
@@ -278,38 +278,69 @@ final class BinaryOperatorFlagVisitor extends FlagVisitorImplementation
         UnionType $left,
         UnionType $right
     ) : UnionType {
+        static $real_int_or_string;
+        static $real_int;
+        static $real_float;
+        if ($real_int_or_string === null) {
+            $real_int_or_string = [IntType::instance(false), StringType::instance(false)];
+            $real_int = [IntType::instance(false)];
+            $real_float = [FloatType::instance(false)];
+        }
         $left_value = $left->asSingleScalarValueOrNull();
         if (is_int($left_value)) {
             $right_value = $right->asSingleScalarValueOrNull();
             if (is_int($right_value)) {
+                /**
+                 * This will aggressively infer the real type for expressions where both values have known real literal types (e.g. 2+2*3),
+                 * but fall back if the real type was less specific.
+                 *
+                 * @param array<int,Type> $default_types
+                 */
+                $make_literal_union_type = static function (Type $result, array $default_types) use ($left, $right) : UnionType {
+                    if ($left->isExclusivelyRealTypes() && $right->isExclusivelyRealTypes()) {
+                        return $result->asRealUnionType();
+                    }
+                    return UnionType::of([$result], $default_types);
+                };
                 switch ($node->flags) {
                     case ast\flags\BINARY_BITWISE_OR:
-                        return LiteralIntType::instanceForValue($left_value | $right_value, false)->asPHPDocUnionType();
+                        return $make_literal_union_type(
+                            LiteralIntType::instanceForValue($left_value | $right_value, false),
+                            $real_int_or_string
+                        );
                     case ast\flags\BINARY_BITWISE_AND:
-                        return LiteralIntType::instanceForValue($left_value & $right_value, false)->asPHPDocUnionType();
+                        return $make_literal_union_type(
+                            LiteralIntType::instanceForValue($left_value & $right_value, false),
+                            $real_int_or_string
+                        );
                     case ast\flags\BINARY_BITWISE_XOR:
-                        return LiteralIntType::instanceForValue($left_value ^ $right_value, false)->asPHPDocUnionType();
+                        return $make_literal_union_type(
+                            LiteralIntType::instanceForValue($left_value ^ $right_value, false),
+                            $real_int_or_string
+                        );
                     case ast\flags\BINARY_MUL:
                         $value = $left_value * $right_value;
-                        return is_int($value) ? LiteralIntType::instanceForValue($value, false)->asPHPDocUnionType()
-                                              : FloatType::instance(false)->asPHPDocUnionType();
+                        return is_int($value) ? $make_literal_union_type(LiteralIntType::instanceForValue($value, false), $real_float)
+                                              : FloatType::instance(false)->asRealUnionType();
                     case ast\flags\BINARY_SUB:
                         $value = $left_value - $right_value;
-                        return is_int($value) ? LiteralIntType::instanceForValue($value, false)->asPHPDocUnionType()
-                                              : FloatType::instance(false)->asPHPDocUnionType();
+                        return is_int($value) ? $make_literal_union_type(LiteralIntType::instanceForValue($value, false), $real_float)
+                                              : FloatType::instance(false)->asRealUnionType();
                     case ast\flags\BINARY_ADD:
                         $value = $left_value + $right_value;
-                        return is_int($value) ? LiteralIntType::instanceForValue($value, false)->asPHPDocUnionType()
-                                              : FloatType::instance(false)->asPHPDocUnionType();
+                        return is_int($value) ? $make_literal_union_type(LiteralIntType::instanceForValue($value, false), $real_float)
+                                              : FloatType::instance(false)->asRealUnionType();
                     case ast\flags\BINARY_POW:
                         $value = $left_value ** $right_value;
-                        return is_int($value) ? LiteralIntType::instanceForValue($value, false)->asPHPDocUnionType()
-                                              : FloatType::instance(false)->asPHPDocUnionType();
+                        return is_int($value) ? $make_literal_union_type(LiteralIntType::instanceForValue($value, false), $real_float)
+                                              : FloatType::instance(false)->asRealUnionType();
                 }
             }
         }
 
-        return IntType::instance(false)->asPHPDocUnionType();
+        $is_binary_op = \in_array($node->flags, [ast\flags\BINARY_BITWISE_XOR, ast\flags\BINARY_BITWISE_AND, ast\flags\BINARY_BITWISE_OR], true);
+
+        return UnionType::fromFullyQualifiedPHPDocAndRealString('int', $is_binary_op ? 'int|string' : 'int|float');
     }
 
     /**
@@ -624,6 +655,21 @@ final class BinaryOperatorFlagVisitor extends FlagVisitorImplementation
             $this->should_catch_issue_exception
         );
 
+        static $probably_float_type = null;
+        static $probably_int_or_float_type = null;
+        static $probably_array_type = null;
+        static $probably_unknown_type = null;
+        static $array_type = null;
+        if ($probably_float_type === null) {
+            $probably_float_type = UnionType::fromFullyQualifiedPHPDocAndRealString('float', 'int|float|array');
+            $probably_int_or_float_type = UnionType::fromFullyQualifiedPHPDocAndRealString('int|float', 'int|float|array');
+            $probably_array_type = UnionType::fromFullyQualifiedPHPDocAndRealString('array', 'int|float|array');
+            $probably_unknown_type = UnionType::fromFullyQualifiedPHPDocAndRealString('', 'int|float|array');
+            // TODO: More precise check for array
+            $array_type = ArrayType::instance(false);
+        }
+
+
         // fast-track common cases
         if ($left->isNonNullIntType() && $right->isNonNullIntType()) {
             return self::computeIntegerOperationResult($node, $left, $right);
@@ -649,21 +695,12 @@ final class BinaryOperatorFlagVisitor extends FlagVisitorImplementation
             Issue::TypeInvalidRightOperandOfAdd
         );
 
-        static $float_type = null;
-        static $array_type = null;
-        static $int_or_float_union_type = null;
-        if ($int_or_float_union_type === null) {
-            $float_type = FloatType::instance(false);
-            $array_type = ArrayType::instance(false);
-            $int_or_float_union_type = UnionType::fromFullyQualifiedPHPDocString('int|float');
-        }
-
         if ($left->isNonNullNumberType() && $right->isNonNullNumberType()) {
             if (!$left->hasNonNullIntType() || !$right->hasNonNullIntType()) {
                 // Heuristic: If one or more of the sides is a float, the result is always a float.
-                return $float_type->asPHPDocUnionType();
+                return $probably_float_type;
             }
-            return $int_or_float_union_type;
+            return $probably_int_or_float_type;
         }
 
         $left_is_array = (
@@ -679,7 +716,10 @@ final class BinaryOperatorFlagVisitor extends FlagVisitorImplementation
         if ($left_is_array || $right_is_array) {
             if ($left_is_array && $right_is_array) {
                 // TODO: Make the right types for array offsets completely override the left types?
-                return ArrayType::combineArrayTypesOverriding($left, $right);
+                return UnionType::of(
+                    ArrayType::combineArrayTypesOverriding($left, $right)->getTypeSet(),
+                    $probably_unknown_type->getRealTypeSet()
+                );
             }
 
             if ($left_is_array
@@ -691,20 +731,20 @@ final class BinaryOperatorFlagVisitor extends FlagVisitorImplementation
                     Issue::TypeInvalidRightOperand,
                     $node->lineno ?? 0
                 );
-                return UnionType::empty();
+                return $probably_unknown_type;
             } elseif ($right_is_array && !$left->canCastToUnionType($array_type->asPHPDocUnionType())) {
                 $this->emitIssue(
                     Issue::TypeInvalidLeftOperand,
                     $node->lineno ?? 0
                 );
-                return UnionType::empty();
+                return $probably_unknown_type;
             }
             // If it is a '+' and we know one side is an array
             // and the other is unknown, assume array
-            return $array_type->asPHPDocUnionType();
+            return $probably_array_type;
         }
 
-        return $int_or_float_union_type;
+        return $probably_int_or_float_type;
     }
 
     /**
@@ -756,13 +796,13 @@ final class BinaryOperatorFlagVisitor extends FlagVisitorImplementation
         static $int_or_float_union_type = null;
         if ($int_or_float_union_type === null) {
             $float_type = FloatType::instance(false);
-            $int_or_float_union_type = UnionType::fromFullyQualifiedPHPDocString('int|float');
+            $int_or_float_union_type = UnionType::fromFullyQualifiedRealString('int|float');
         }
 
         if ($left->isNonNullNumberType() && $right->isNonNullNumberType()) {
             if (!$left->hasNonNullIntType() || !$right->hasNonNullIntType()) {
                 // Heuristic: If one or more of the sides is a float, the result is always a float.
-                return $float_type->asPHPDocUnionType();
+                return $float_type->asRealUnionType();
             }
             return $int_or_float_union_type;
         }

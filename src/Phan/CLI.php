@@ -59,7 +59,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    const PHAN_VERSION = '2.1.1-dev';
+    const PHAN_VERSION = '2.2.0-dev';
 
     /**
      * List of short flags passed to getopt
@@ -318,7 +318,7 @@ class CLI
             }
             throw new ExitException($result, EXIT_SUCCESS);
         }
-        if (\array_key_exists('v', $opts ?? []) || \array_key_exists('version', $opts ?? [])) {
+        if (\array_key_exists('v', $opts) || \array_key_exists('version', $opts)) {
             \printf("Phan %s\n", self::PHAN_VERSION);
             throw new ExitException('', EXIT_SUCCESS);
         }

@@ -56,6 +56,31 @@ class StringType extends ScalarType
         }
         return \in_array('int', $string_casts, true) || \in_array('float', $string_casts, true);
     }
+
+    public function isPossiblyFalsey() : bool
+    {
+        return true;
+    }
+
+    public function isPossiblyTruthy() : bool
+    {
+        return true;
+    }
+
+    public function isAlwaysFalsey() : bool
+    {
+        return false;
+    }
+
+    public function isAlwaysTruthy() : bool
+    {
+        return false;
+    }
+
+    public function asCallableType() : ?Type
+    {
+        return CallableStringType::instance(false);
+    }
 }
 \class_exists(ClassStringType::class);
 \class_exists(CallableStringType::class);

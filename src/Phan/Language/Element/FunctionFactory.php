@@ -63,6 +63,7 @@ class FunctionFactory
         array $signature
     ) : array {
 
+        // TODO: Look into adding helper method in UnionType caching this to speed up loading.
         $context = new Context();
 
         $return_type = UnionType::fromStringInContext(
@@ -172,8 +173,13 @@ class FunctionFactory
             );
 
             // Set the return type if one is defined
-            if (isset($map['return_type'])) {
-                $alternate_function->setUnionType($map['return_type']);
+            $return_type = $map['return_type'] ?? null;
+            if ($return_type) {
+                $real_return_type = $function->getRealReturnType();
+                if (!$real_return_type->isEmpty()) {
+                    $return_type = UnionType::of($return_type->getTypeSet(), $real_return_type->getTypeSet());
+                }
+                $alternate_function->setUnionType($return_type);
             }
             $alternate_function->clearParameterList();
 

@@ -2,9 +2,11 @@
 
 namespace Phan\Plugin\Internal;
 
+use ast\flags;
 use ast\Node;
 use Closure;
 use Exception;
+use Phan\Analysis\RedundantCondition;
 use Phan\AST\ASTReverter;
 use Phan\AST\UnionTypeVisitor;
 use Phan\CodeBase;
@@ -12,14 +14,15 @@ use Phan\Issue;
 use Phan\Language\Context;
 use Phan\Language\Element\FunctionInterface;
 use Phan\Language\Type;
+use Phan\Language\Type\ArrayShapeType;
 use Phan\Language\Type\FloatType;
 use Phan\Language\Type\IntType;
 use Phan\Language\Type\ResourceType;
 use Phan\Language\UnionType;
 use Phan\PluginV3;
 use Phan\PluginV3\AnalyzeFunctionCallCapability;
-use Phan\PluginV3\PostAnalyzeNodeCapability;
 use Phan\PluginV3\PluginAwarePostAnalysisVisitor;
+use Phan\PluginV3\PostAnalyzeNodeCapability;
 use ReflectionMethod;
 use function count;
 
@@ -29,8 +32,6 @@ use function count;
  * TODO: Refactor this.
  *
  * TODO: Support real types (e.g. array_values() if the passed in real union type is an array, otherwise real type is ?array
- *
- * @phan-file-suppress PhanUnusedClosureParameter
  */
 final class RedundantConditionCallPlugin extends PluginV3 implements
     AnalyzeFunctionCallCapability,
@@ -74,17 +75,17 @@ final class RedundantConditionCallPlugin extends PluginV3 implements
                     Issue::maybeEmit(
                         $code_base,
                         $context,
-                        Issue::RedundantCondition,
+                        RedundantCondition::chooseSpecificImpossibleOrRedundantIssueKind($args[0], $context, Issue::RedundantCondition),
                         $args[0]->lineno ?? $context->getLineNumberStart(),
                         ASTReverter::toShortString($args[0]),
                         $union_type->getRealUnionType(),
                         $expected_type
                     );
-                } elseif ($result === self::_IS_IMPOSSIBLE)  {
+                } elseif ($result === self::_IS_IMPOSSIBLE) {
                     Issue::maybeEmit(
                         $code_base,
                         $context,
-                        Issue::ImpossibleCondition,
+                        RedundantCondition::chooseSpecificImpossibleOrRedundantIssueKind($args[0], $context, Issue::ImpossibleCondition),
                         $args[0]->lineno ?? $context->getLineNumberStart(),
                         ASTReverter::toShortString($args[0]),
                         $union_type->getRealUnionType(),
@@ -163,6 +164,36 @@ final class RedundantConditionCallPlugin extends PluginV3 implements
                 return self::_IS_REASONABLE_CONDITION;
             }, $expected_type);
         };
+        $callable_callback = $make_first_arg_checker(static function (UnionType $type) : int {
+            $new_real_type = $type->callableTypes()->nonNullableClone();
+            if ($new_real_type->isEmpty()) {
+                return self::_IS_IMPOSSIBLE;
+            }
+            if ($new_real_type->isEqualTo($type)) {
+                if (!$new_real_type->hasTypeMatchingCallback(static function (Type $type) : bool {
+                    return $type instanceof ArrayShapeType;
+                })) {
+                    return self::_IS_REDUNDANT;
+                }
+                // is_callable([$obj, 'someFn') is a reasonable condition, fall through.
+            }
+            return self::_IS_REASONABLE_CONDITION;
+        }, 'callable');
+        $scalar_callback = $make_first_arg_checker(static function (UnionType $type) : int {
+            $new_real_type = $type->scalarTypesStrict(true);
+            if ($new_real_type->isEmpty()) {
+                return self::_IS_IMPOSSIBLE;
+            }
+            if ($new_real_type->isEqualTo($type)) {
+                if (!$new_real_type->hasTypeMatchingCallback(static function (Type $type) : bool {
+                    return $type instanceof ArrayShapeType;
+                })) {
+                    return self::_IS_REDUNDANT;
+                }
+                // is_callable([$obj, 'someFn') is a reasonable condition, fall through.
+            }
+            return self::_IS_REASONABLE_CONDITION;
+        }, 'scalar');
 
         $intval_callback = $make_cast_callback(static function (UnionType $union_type) : bool {
             return $union_type->intTypes()->isEqualTo($union_type);
@@ -174,13 +205,13 @@ final class RedundantConditionCallPlugin extends PluginV3 implements
             return $union_type->floatTypes()->isEqualTo($union_type);
         }, 'float');
         $strval_callback = $make_cast_callback(static function (UnionType $union_type) : bool {
-            return $union_type->stringTypes()->isEqualTo($union_type);
+            return $union_type->isExclusivelyStringTypes();
         }, 'string');
 
         $int_callback = $make_simple_first_arg_checker('intTypes', 'int');
-        // $callable_callback = $make_simple_first_arg_checker('callableTypes', 'callable');
         $bool_callback = $make_simple_first_arg_checker('getTypesInBoolFamily', 'bool');
         $float_callback = $make_simple_first_arg_checker('floatTypes', 'float');
+        $object_callback = $make_simple_first_arg_checker('objectTypesStrict', 'object');
         $string_callback = $make_simple_first_arg_checker('stringTypes', 'string');
 
         // TODO: Implement checks for the commented out conditions.
@@ -189,8 +220,7 @@ final class RedundantConditionCallPlugin extends PluginV3 implements
             // 'is_a' => $is_a_callback,
             // 'is_array' => $array_callback,
             'is_bool' => $bool_callback,
-            // TODO: Don't emit false positives for arrays/strings
-            // 'is_callable' => $callable_callback,
+            'is_callable' => $callable_callback,
             'is_double' => $float_callback,
             'is_float' => $float_callback,
             'is_int' => $int_callback,
@@ -199,11 +229,10 @@ final class RedundantConditionCallPlugin extends PluginV3 implements
             'is_long' => $int_callback,
             'is_null' => $null_callback,
             'is_numeric' => $numeric_callback,
-            // 'is_object' => $object_callback,
+            'is_object' => $object_callback,
             'is_real' => $float_callback,
             'is_resource' => $resource_callback,
-            // TODO: Don't warn about CallableType, which can be string/scalar
-            // 'is_scalar' => $scalar_callback,
+            'is_scalar' => $scalar_callback,
             'is_string' => $string_callback,
 
             'intval' => $intval_callback,
@@ -241,7 +270,8 @@ final class RedundantConditionCallPlugin extends PluginV3 implements
 /**
  * Checks builtin expressions such as empty() for redundant/impossible conditions.
  */
-class RedundantConditionVisitor extends PluginAwarePostAnalysisVisitor {
+class RedundantConditionVisitor extends PluginAwarePostAnalysisVisitor
+{
     /**
      * @override
      */
@@ -259,7 +289,7 @@ class RedundantConditionVisitor extends PluginAwarePostAnalysisVisitor {
         $real_type = $type->getRealUnionType();
         if (!$real_type->containsTruthy()) {
             $this->emitIssue(
-                Issue::RedundantCondition,
+                $this->chooseIssue($var_node, Issue::RedundantCondition),
                 $node->lineno ?? $var_node->lineno,
                 ASTReverter::toShortString($var_node),
                 $real_type,
@@ -267,11 +297,87 @@ class RedundantConditionVisitor extends PluginAwarePostAnalysisVisitor {
             );
         } elseif (!$real_type->containsFalsey()) {
             $this->emitIssue(
-                Issue::ImpossibleCondition,
+                $this->chooseIssue($var_node, Issue::ImpossibleCondition),
                 $node->lineno ?? $var_node->lineno,
                 ASTReverter::toShortString($var_node),
                 $real_type,
                 'empty'
+            );
+        }
+    }
+
+    /**
+     * Choose a more specific issue name based on where the issue was emitted from.
+     * @param Node|int|string|float $node
+     */
+    private function chooseIssue($node, string $issue_name) : string
+    {
+        return RedundantCondition::chooseSpecificImpossibleOrRedundantIssueKind($node, $this->context, $issue_name);
+    }
+
+    public function visitBinaryOp(Node $node) : void
+    {
+        switch ($node->flags) {
+            case flags\BINARY_IS_IDENTICAL:
+            case flags\BINARY_IS_NOT_IDENTICAL:
+                $this->checkImpossibleComparison($node);
+                break;
+            case flags\BINARY_COALESCE:
+                $this->analyzeBinaryCoalesce($node);
+                break;
+            default:
+                return;
+        }
+    }
+
+    private function checkImpossibleComparison(Node $node) : void
+    {
+        $left = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $node->children['left']);
+        if (!$left->hasRealTypeSet()) {
+            return;
+        }
+        $right = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $node->children['right']);
+        if (!$right->hasRealTypeSet()) {
+            return;
+        }
+        $left = $left->getRealUnionType()->withStaticResolvedInContext($this->context);
+        $right = $right->getRealUnionType()->withStaticResolvedInContext($this->context);
+        if (!$left->hasAnyTypeOverlap($this->code_base, $right)) {
+            $this->emitIssue(
+                $this->chooseIssue($node, Issue::ImpossibleTypeComparison),
+                $node->lineno,
+                ASTReverter::toShortString($node->children['left']),
+                $left,
+                ASTReverter::toShortString($node->children['right']),
+                $right
+            );
+        }
+    }
+
+    /**
+     * Checks if the left hand side of a null coalescing operator is never null or always null
+     */
+    public function analyzeBinaryCoalesce(Node $node) : void
+    {
+        $left_node = $node->children['left'];
+        $left = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $left_node);
+        if (!$left->hasRealTypeSet()) {
+            return;
+        }
+        $left = $left->getRealUnionType();
+        if (!$left->containsNullableOrUndefined()) {
+            $this->emitIssue(
+                $this->chooseIssue($node, Issue::CoalescingNeverNull),
+                $node->lineno,
+                ASTReverter::toShortString($left_node),
+                $left
+            );
+        } elseif ($left->isNull()) {
+            $this->emitIssue(
+                $this->chooseIssue($node, Issue::CoalescingAlwaysNull),
+                $node->lineno,
+                ASTReverter::toShortString($left_node),
+                $left
             );
         }
     }
@@ -293,7 +399,7 @@ class RedundantConditionVisitor extends PluginAwarePostAnalysisVisitor {
         $real_type = $type->getRealUnionType();
         if (!$type->containsNullableOrUndefined()) {
             $this->emitIssue(
-                Issue::RedundantCondition,
+                $this->chooseIssue($var_node, Issue::RedundantCondition),
                 $node->lineno ?? $var_node->lineno,
                 ASTReverter::toShortString($var_node),
                 $real_type,
@@ -301,12 +407,73 @@ class RedundantConditionVisitor extends PluginAwarePostAnalysisVisitor {
             );
         } elseif ($type->isNull()) {
             $this->emitIssue(
-                Issue::ImpossibleCondition,
+                $this->chooseIssue($var_node, Issue::ImpossibleCondition),
                 $node->lineno ?? $var_node->lineno,
                 ASTReverter::toShortString($var_node),
                 $real_type,
                 'isset'
             );
+        }
+    }
+
+    private function warnForCast(Node $node, UnionType $real_expr_type, string $expected_type) : void
+    {
+        $expr_node = $node->children['expr'];
+        $this->emitIssue(
+            $this->chooseIssue($expr_node, Issue::RedundantCondition),
+            $expr_node->lineno ?? $node->lineno,
+            ASTReverter::toShortString($expr_node),
+            $real_expr_type,
+            $expected_type
+        );
+    }
+
+    /**
+     * @override
+     */
+    public function visitCast(Node $node) : void
+    {
+        // TODO: Check if the cast would throw an error at runtime, based on the type (e.g. casting object to string/int)
+        $expr_type = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $node->children['expr']);
+        if (!$expr_type->hasRealTypeSet()) {
+            return;
+        }
+        $real_expr_type = $expr_type->getRealUnionType();
+        if ($real_expr_type->containsNullableOrUndefined()) {
+            return;
+        }
+        switch ($node->flags) {
+            case \ast\flags\TYPE_BOOL:
+                if ($real_expr_type->isExclusivelyBoolTypes()) {
+                    $this->warnForCast($node, $real_expr_type, 'bool');
+                }
+                break;
+            case \ast\flags\TYPE_LONG:
+                if ($real_expr_type->intTypes()->isEqualTo($real_expr_type)) {
+                    $this->warnForCast($node, $real_expr_type, 'int');
+                }
+                break;
+            case \ast\flags\TYPE_DOUBLE:
+                if ($real_expr_type->floatTypes()->isEqualTo($real_expr_type)) {
+                    $this->warnForCast($node, $real_expr_type, 'float');
+                }
+                break;
+            case \ast\flags\TYPE_STRING:
+                if ($real_expr_type->stringTypes()->isEqualTo($real_expr_type)) {
+                    $this->warnForCast($node, $real_expr_type, 'string');
+                }
+                break;
+            case \ast\flags\TYPE_ARRAY:
+                if ($real_expr_type->isExclusivelyArray()) {
+                    $this->warnForCast($node, $real_expr_type, 'array');
+                }
+                break;
+            case \ast\flags\TYPE_OBJECT:
+                if ($real_expr_type->objectTypesStrict()->isEqualTo($real_expr_type)) {
+                    $this->warnForCast($node, $real_expr_type, 'object');
+                }
+                break;
+            // ignore other casts such as TYPE_NULL
         }
     }
 }

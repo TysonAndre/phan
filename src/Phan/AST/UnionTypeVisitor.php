@@ -438,7 +438,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                         break;
                     }
                 }
-                return self::literalStringUnionType((string)\ltrim($this->context->getClassFQSEN()->__toString(), '\\'));
+                return self::literalStringUnionType(\ltrim($this->context->getClassFQSEN()->__toString(), '\\'));
             default:
                 return StringType::instance(false)->asPHPDocUnionType();
         }
@@ -1160,8 +1160,10 @@ class UnionTypeVisitor extends AnalysisVisitor
      */
     public function visitCast(Node $node) : UnionType
     {
-        // TODO: Check if the cast is allowed based on the right side type
-        $expr_type = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $node->children['expr']);
+        // This calls unionTypeFromNode to trigger any warnings
+        // TODO: Check if the cast would throw an error at runtime, based on the type (e.g. casting object to string/int)
+
+        // RedundantConditionCallPlugin contains unrelated checks of whether this is redundant.
         switch ($node->flags) {
             case \ast\flags\TYPE_NULL:
                 return NullType::instance(false)->asRealUnionType();
@@ -1176,6 +1178,7 @@ class UnionTypeVisitor extends AnalysisVisitor
             case \ast\flags\TYPE_ARRAY:
                 return ArrayType::instance(false)->asRealUnionType();
             case \ast\flags\TYPE_OBJECT:
+                $expr_type = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $node->children['expr']);
                 if ($expr_type->isExclusivelyArray()) {
                     // @phan-suppress-next-line PhanThrowTypeMismatchForCall
                     return Type::fromFullyQualifiedString('\stdClass')->asRealUnionType();
@@ -2139,7 +2142,7 @@ class UnionTypeVisitor extends AnalysisVisitor
             $expression
         ))->getFunctionFromNode();
 
-        $possible_types = UnionType::empty();
+        $possible_types = null;
         foreach ($function_list_generator as $function) {
             $function->analyzeReturnTypes($this->code_base);  // For daemon/server mode, call this to consistently ensure accurate return types.
 
@@ -2148,10 +2151,15 @@ class UnionTypeVisitor extends AnalysisVisitor
             } else {
                 $function_types = $function->getUnionType();
             }
-            $possible_types = $possible_types->withUnionType($function_types);
+            // @phan-suppress-next-line PhanImpossibleConditionInLoop known false positive in loops
+            if ($possible_types) {
+                $possible_types = $possible_types->withUnionType($function_types);
+            } else {
+                $possible_types = $function_types;
+            }
         }
 
-        return $possible_types;
+        return $possible_types ?? UnionType::empty();
     }
 
     /**
@@ -2540,7 +2548,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                 $result = $result->withType($fqsen->asType());
             } elseif (\get_class($sub_type) === Type::class || $sub_type instanceof ClosureType || $sub_type instanceof StaticType) {
                 $result = $result->withType($sub_type);
-            } elseif ($is_valid) {
+            } elseif ($is_valid) {  // @phan-suppress-current-line PhanRedundantConditionInLoop
                 if ($sub_type instanceof StringType) {
                     if ($sub_type instanceof ClassStringType) {
                         $result = $result->withUnionType($sub_type->getClassUnionType());

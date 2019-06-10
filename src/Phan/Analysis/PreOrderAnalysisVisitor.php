@@ -124,7 +124,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
 
         return $clazz->getContext()->withScope(
             $clazz->getInternalScope()
-        );
+        )->withoutLoops();
     }
 
     /**
@@ -274,7 +274,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
 
         $context = $original_context->withScope(
             $function->getInternalScope()
-        );
+        )->withoutLoops();
 
         // Parse the comment above the function to get
         // extra meta information about the function.
@@ -394,7 +394,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
     public function visitClosure(Node $node) : Context
     {
         $code_base = $this->code_base;
-        $context = $this->context;
+        $context = $this->context->withoutLoops();
         $closure_fqsen = FullyQualifiedFunctionName::fromClosureInContext(
             $context->withLineNumberStart($node->lineno),
             $node
@@ -533,7 +533,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
     public function visitArrowFunc(Node $node) : Context
     {
         $code_base = $this->code_base;
-        $context = $this->context;
+        $context = $this->context->withoutLoops();
         $closure_fqsen = FullyQualifiedFunctionName::fromClosureInContext(
             $context->withLineNumberStart($node->lineno),
             $node
@@ -740,7 +740,10 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
      */
     private function checkCanIterate(UnionType $union_type, Node $node) : void
     {
-        if ($union_type->isScalar()) {
+        if ($union_type->isEmpty()) {
+            return;
+        }
+        if (!$union_type->hasPossiblyObjectTypes() && !$union_type->hasIterable()) {
             $this->emitIssue(
                 Issue::TypeMismatchForeach,
                 $node->children['expr']->lineno ?? $node->lineno,
