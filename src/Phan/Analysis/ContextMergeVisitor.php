@@ -114,7 +114,6 @@ class ContextMergeVisitor extends KindVisitorImplementation
         foreach ($node->children['catches']->children ?? [] as $catch_node) {
             // @phan-suppress-next-line PhanTypeMismatchArgumentNullable this is never null
             if (BlockExitStatusChecker::willUnconditionallySkipRemainingStatements($catch_node->children['stmts'])) {
-                echo "Saw finally node\n";
                 return false;
             }
         }
