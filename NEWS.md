@@ -1,6 +1,43 @@
 Phan NEWS
 
-?? ??? 2019, Phan 2.2.0 (dev)
+??? ?? 2019, Phan 2.2.3 (dev)
+-----------------------
+
+Jun 17 2019, Phan 2.2.2
+-----------------------
+
+New features(Analysis):
++ Support inferring literal float types. Warn about redundant conditions with union types of floats that are always truthy/falsey.
+
+Maintenance:
++ Support parsing PHP 7.4's numeric literal separator (e.g. `1_000_000`, `0xCAFE_F00d`, `0b0101_1111`) in the polyfill (#2829)
+
+Bug fixes:
++ Fix a crash in the Phan daemon on Mac/Linux (#2881)
+
+Jun 16 2019, Phan 2.2.1
+-----------------------
+
+New features(CLI, Configs):
++ When printing help messages for errors in `phan --init`, print only the related options.
++ Make `phan --init` enable `redundant_condition_detection` when the strictest init level is requested. (#2849)
++ Add `--assume-real-types-for-internal-functions` to make stricter assumptions about the real types of internal functions (for use with `--redundant-condition-detection`).
+  Note that in PHP 7 and earlier, internal functions would return null/false for incorrect argument types/argument counts, so enabling this option may cause false positives.
+
+New features(Analysis):
++ Reduce the number of false positives of `--redundant-condition-detection` for variables in loops
++ Warn about more types of expressions causing redundant conditions (#2534, #822).
++ Emit `PhanRedundantCondition` and `PhanImpossibleCondition` for `$x instanceof SomeClass` expressions.
++ Emit `PhanImpossibleCondition` for `is_array` and `is_object` checks.
+
+Bug fixes:
++ Fix issue that would make Phan infer that a redundant/impossible condition outside a loop was in a loop.
++ Avoid false positives analyzing expressions within `assert()`.
++ Fix method signatures for php 7.4's `WeakReference`.
++ Fix false positives analyzing uses of `__call` and `__callStatic` (#702)
++ Fix false positive redundant conditions for casting `callable` to object types.
+
+Jun 14 2019, Phan 2.2.0
 -----------------------
 
 New features(CLI, Configs):
@@ -27,7 +64,7 @@ New features(Analysis):
 + Make Phan more accurately infer types for reference parameters set in conditionals.
 + Make Phan more accurately infer types after try-catch blocks.
 + Make Phan more accurately check if a loop may be executed 0 times.
-+ Make Phan more accurately check if a loop may be executed 0 times.
++ Fix issue causing results of previous method analysis to affect subsequent analysis in some edge cases (#2857)
 + Support the type `callable-object` in phpdoc and infer it from checks such as `is_callable($var) && is_object($var)` (#1336)
 + Support the type `callable-array` in phpdoc and infer it from checks such as `is_callable($var) && is_array($var)` (#2833)
 + Fix false positives in more edge cases when analyzing variables with type `static` (e.g. `yield from $this;`) (#2825)
@@ -39,7 +76,7 @@ Maintenance:
 + Add updates to the function/method signature map from Psalm and PHPStan.
 
 Bug fixes:
-+ Fix a crash when an expression containing `class-string<T>` became nullable.
++ Fix a crash that occurred when an expression containing `class-string<T>` became nullable.
 
 01 Jun 2019, Phan 2.1.0
 -----------------------

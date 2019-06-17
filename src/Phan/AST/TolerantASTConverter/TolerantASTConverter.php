@@ -1041,7 +1041,8 @@ class TolerantASTConverter
             },
             /** @return int|float */
             'Microsoft\PhpParser\Node\NumericLiteral' => static function (PhpParser\Node\NumericLiteral $n, int $_) {
-                $text = static::tokenToString($n->children);
+                // Support php 7.4 numeric literal separators. Ignore `_`.
+                $text = \str_replace('_', '', static::tokenToString($n->children));
                 $as_int = \filter_var($text, FILTER_VALIDATE_INT, FILTER_FLAG_ALLOW_OCTAL | FILTER_FLAG_ALLOW_HEX);
                 if ($as_int !== false) {
                     return $as_int;
@@ -2037,7 +2038,7 @@ class TolerantASTConverter
         }
     }
 
-    private static function interfaceBaseClauseToNode(?\Microsoft\PhpParser\node\interfacebaseclause $node) : ?\ast\Node
+    private static function interfaceBaseClauseToNode(?\Microsoft\PhpParser\Node\InterfaceBaseClause $node) : ?\ast\Node
     {
         if (!$node instanceof PhpParser\Node\InterfaceBaseClause) {
             // TODO: real placeholder?
@@ -2634,7 +2635,6 @@ class TolerantASTConverter
         $prev_was_element = false;
         foreach ($n->listElements->children ?? [] as $item) {
             if ($item instanceof Token) {
-                // @phan-suppress-next-line PhanRedundantConditionInLoop this is a known false positive in loops
                 if (!$prev_was_element) {
                     $ast_items[] = null;
                     continue;
@@ -2665,7 +2665,6 @@ class TolerantASTConverter
         $prev_was_element = false;
         foreach ($n->arrayElements->children ?? [] as $item) {
             if ($item instanceof Token) {
-                // @phan-suppress-next-line PhanRedundantConditionInLoop this is a known false positive in loops
                 if (!$prev_was_element) {
                     $ast_items[] = null;
                     continue;

@@ -60,7 +60,8 @@ class Daemon
             if (\function_exists('pcntl_signal')) {
                 \pcntl_signal(
                     \SIGCHLD,
-                    static function (int $signo, ?int $status = null, ?int $pid = null) use (&$got_signal) : void {
+                    /** @param ?(int|array) $status */
+                    static function (int $signo, $status = null, ?int $pid = null) use (&$got_signal) : void {
                         $got_signal = true;
                         Request::childSignalHandler($signo, $status, $pid);
                     }
@@ -91,7 +92,6 @@ class Daemon
                     self::debugf("Got signal");
                     \pcntl_signal_dispatch();
                     self::debugf("done processing signals");
-                    // @phan-suppress-next-line PhanImpossibleConditionInLoop this is a known false positive with references. TODO fix analysis
                     if ($got_signal) {
                         continue;  // Ignore notices from stream_socket_accept if it's due to being interrupted by a child process terminating.
                     }

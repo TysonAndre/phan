@@ -1881,12 +1881,30 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                     $function,
                     $node
                 );
+                if ($function instanceof Func && \strcasecmp($function->getName(), 'assert') === 0 && $function->getFQSEN()->getNamespace() === '\\') {
+                    $this->context = $this->analyzeAssert($this->context, $node);
+                }
             }
         } catch (CodeBaseException $_) {
             // ignore it.
         }
 
         return $this->context;
+    }
+
+    private function analyzeAssert(Context $context, Node $node) : Context
+    {
+        $args_first_child = $node->children['args']->children[0] ?? null;
+        if (!($args_first_child instanceof Node)) {
+            return $this->context;
+        }
+
+        // Look to see if the asserted expression says anything about
+        // the types of any variables.
+        return (new ConditionVisitor(
+            $this->code_base,
+            $context
+        ))->__invoke($args_first_child);
     }
 
     /**
@@ -3469,7 +3487,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                     $this->context,
                     $argument,
                     true
-                )->withStaticResolvedInContext($this->context);
+                )->withStaticResolvedInContext($this->context)->eraseRealTypeSet();
             }
 
             foreach ($parameter_list as $i => $parameter_clone) {
@@ -3592,12 +3610,13 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         array &$parameter_list,
         int $parameter_offset
     ) : void {
-        $argument_type = $argument_types[$parameter_offset]->eraseRealTypeSet();
+        $argument_type = $argument_types[$parameter_offset];
         if ($parameter->isVariadic()) {
             for ($i = $parameter_offset + 1; $i < \count($argument_types); $i++) {
                 $argument_type = $argument_type->withUnionType($argument_types[$i]);
             }
         }
+        $argument_type = $argument_type->eraseRealTypeSet();
         // Then set the new type on that parameter based
         // on the argument's type. We'll use this to
         // retest the method with the passed in types

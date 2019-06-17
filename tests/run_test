@@ -32,8 +32,8 @@ case "$TEST_SUITE" in
 		./phan --plugin PHPUnitNotDeadCodePlugin \
 			--plugin InvokePHPNativeSyntaxCheckPlugin \
 			--dead-code-detection \
-			--redundant-condition-detection \
 			--polyfill-parse-all-element-doc-comments \
+			--assume-real-types-for-internal-functions \
 			--force-polyfill-parser \
 			--disable-cache \
 			--memory-limit 2G
@@ -51,6 +51,11 @@ case "$TEST_SUITE" in
 		;;
 	__FakePluginTest)
 		cd tests/plugin_test
+		./test.sh
+		exit $?
+		;;
+	__FakeRealTypesTest)
+		cd tests/real_types_test
 		./test.sh
 		exit $?
 		;;

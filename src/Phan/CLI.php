@@ -59,7 +59,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    const PHAN_VERSION = '2.2.0-dev';
+    const PHAN_VERSION = '2.2.3-dev';
 
     /**
      * List of short flags passed to getopt
@@ -74,6 +74,7 @@ class CLI
      */
     const GETOPT_LONG_OPTIONS = [
         'allow-polyfill-parser',
+        'assume-real-types-for-internal-functions',
         'automatic-fix',
         'backward-compatibility-checks',
         'color',
@@ -255,12 +256,12 @@ class CLI
 
         // Parse command line args
         $opts = \getopt(self::GETOPT_SHORT_OPTIONS, self::GETOPT_LONG_OPTIONS);
-        $opts = $opts ?? [];
+        $opts = \is_array($opts) ? $opts : [];
 
         try {
             return new self($opts, $argv);
         } catch (UsageException $e) {
-            self::usage($e->getMessage(), (int)$e->getCode(), $e->print_extended_help, $e->forbid_color);
+            self::usage($e->getMessage(), (int)$e->getCode(), $e->print_type, $e->forbid_color);
             exit((int)$e->getCode());  // unreachable
         } catch (ExitException $e) {
             $message = $e->getMessage();
@@ -302,7 +303,7 @@ class CLI
         self::detectAndConfigureColorSupport($opts);
 
         if (\array_key_exists('extended-help', $opts)) {
-            throw new UsageException('', EXIT_SUCCESS, true);  // --extended-help prints help and calls exit(0)
+            throw new UsageException('', EXIT_SUCCESS, UsageException::PRINT_EXTENDED);  // --extended-help prints help and calls exit(0)
         }
 
         if (\array_key_exists('h', $opts) || \array_key_exists('help', $opts)) {
@@ -328,7 +329,7 @@ class CLI
         $overridden_project_root_directory = $opts['d'] ?? $opts['project-root-directory'] ?? null;
         if (\is_string($overridden_project_root_directory)) {
             if (!\is_dir($overridden_project_root_directory)) {
-                throw new UsageException(StringUtil::jsonEncode($overridden_project_root_directory) . ' is not a directory', EXIT_FAILURE, false, true);
+                throw new UsageException(StringUtil::jsonEncode($overridden_project_root_directory) . ' is not a directory', EXIT_FAILURE, null, true);
             }
             // Set the current working directory so that relative paths within the project will work.
             // TODO: Add an option to allow searching ancestor directories?
@@ -446,7 +447,7 @@ class CLI
                                 \implode(',', $factory->getTypes())
                             ),
                             EXIT_FAILURE,
-                            false,
+                            null,
                             true
                         );
                     }
@@ -511,7 +512,7 @@ class CLI
                     }
                     $output_file = \fopen($value, 'w');
                     if (!is_resource($output_file)) {
-                        throw new UsageException("Failed to open output file '$value'\n", EXIT_FAILURE, false, true);
+                        throw new UsageException("Failed to open output file '$value'\n", EXIT_FAILURE, null, true);
                     }
                     $this->output = new StreamOutput($output_file);
                     break;
@@ -623,7 +624,7 @@ class CLI
                             StringUtil::jsonEncode($value),
                             StringUtil::jsonEncode($socket_dirname)
                         );
-                        throw new UsageException($msg, 1, false, true);
+                        throw new UsageException($msg, 1, null, true);
                     } else {
                         Config::setValue('daemonize_socket', $value);  // Daemonize. Assumes the file list won't change. Accepts requests over a Unix socket, or some other IPC mechanism.
                     }
@@ -702,6 +703,9 @@ class CLI
                     break;
                 case 'redundant-condition-detection':
                     Config::setValue('redundant_condition_detection', true);
+                    break;
+                case 'assume-real-types-for-internal-functions':
+                    Config::setValue('assume_real_types_for_internal_functions', true);
                     break;
                 case 'allow-polyfill-parser':
                     // Just check if it's installed and of a new enough version.
@@ -1002,7 +1006,7 @@ EOT;
     // FIXME: If I stop using defined() in UnionTypeVisitor,
     // this will warn about the undefined constant EXIT_SUCCESS when a
     // user-defined constant is used in parse phase in a function declaration
-    private static function usage(string $msg = '', int $exit_code = EXIT_SUCCESS, bool $print_extended_help = false, bool $forbid_color_in_error = true) : void
+    private static function usage(string $msg = '', int $exit_code = EXIT_SUCCESS, int $usage_type = UsageException::PRINT_NORMAL, bool $forbid_color_in_error = true) : void
     {
         global $argv;
 
@@ -1012,6 +1016,10 @@ EOT;
 
         $init_help = self::INIT_HELP;
         echo "Usage: {$argv[0]} [options] [files...]\n";
+        if ($usage_type === UsageException::PRINT_INIT_ONLY) {
+            self::printHelpSection($init_help . "\n");
+            exit($exit_code);
+        }
         self::printHelpSection(<<<EOB
  -f, --file-list <filename>
   A file containing a list of PHP files to be analyzed
@@ -1115,6 +1123,12 @@ $init_help
   that are probably never referenced.
   This has a few known false positives, e.g. for loops or branches.
 
+ --redundant-condition-detection
+  Emit issues for conditions such as `is_int(expr)` that are redundant or impossible.
+
+  This has some known false positives for loops, variables set in loops,
+  and global variables.
+
  -j, --processes <int>
   The number of parallel processes to run during the analysis
   phase. Defaults to 1.
@@ -1205,7 +1219,7 @@ $init_help
 
 EOB
         );
-        if ($print_extended_help) {
+        if ($usage_type === UsageException::PRINT_EXTENDED) {
             self::printHelpSection(<<<EOB
 
 Extended help:
@@ -1251,12 +1265,6 @@ Extended help:
   (i.e. they are declared once (as a constant expression) and never modified).
   This is almost entirely false positives for most coding styles.
   Implies --unused-variable-detection
-
- --redundant-condition-detection
-  Emit issues for conditions such as is_int(expr) that are redundant or impossible.
-
-  This has many known false positives for loops, variables set in loops,
-  and global variables.
 
  --language-server-on-stdin
   Start the language server (For the Language Server protocol).
@@ -1807,13 +1815,13 @@ EOB
                 // But if the CLI option --require-config-exists is provided, exit immediately.
                 // (Include extended help documenting that option)
                 if ($config_file_name !== false) {
-                    throw new UsageException("Could not find a config file at '$config_file_name', but --require-config-exists was set", EXIT_FAILURE, true);
+                    throw new UsageException("Could not find a config file at '$config_file_name', but --require-config-exists was set", EXIT_FAILURE, UsageException::PRINT_EXTENDED);
                 } else {
                     $msg = \sprintf(
                         "Could not figure out the path for config file %s, but --require-config-exists was set",
                         StringUtil::encodeValue($this->config_file)
                     );
-                    throw new UsageException($msg, EXIT_FAILURE, true);
+                    throw new UsageException($msg, EXIT_FAILURE, UsageException::PRINT_EXTENDED);
                 }
             }
             return;

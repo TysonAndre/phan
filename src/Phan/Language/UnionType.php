@@ -28,6 +28,7 @@ use Phan\Language\Type\FloatType;
 use Phan\Language\Type\GenericArrayInterface;
 use Phan\Language\Type\GenericArrayType;
 use Phan\Language\Type\IntType;
+use Phan\Language\Type\LiteralFloatType;
 use Phan\Language\Type\LiteralIntType;
 use Phan\Language\Type\LiteralStringType;
 use Phan\Language\Type\LiteralTypeInterface;
@@ -1360,6 +1361,22 @@ class UnionType implements Serializable
     }
 
     /**
+     * Returns true if this is exclusively non-null IntType or LiteralIntType or FloatType or LiteralFloatType
+     */
+    public function isNonNullIntOrFloatType() : bool
+    {
+        if (\count($this->type_set) === 0) {
+            return false;
+        }
+        foreach ($this->type_set as $type) {
+            if (!($type instanceof IntType || $type instanceof FloatType) || $type->isNullable()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
      * Returns true if this is exclusively non-null IntType or FloatType or subclasses
      */
     public function isNonNullNumberType() : bool
@@ -2419,7 +2436,26 @@ class UnionType implements Serializable
      */
     public function objectTypesStrict() : UnionType
     {
-        return UnionType::of(self::castToObjectTypesStrict($this->type_set), self::castToObjectTypesStrict($this->real_type_set));
+        return UnionType::of(
+            self::castToObjectTypesStrict($this->type_set) ?: [ObjectType::instance(false)],
+            self::castToObjectTypesStrict($this->real_type_set) ?: [ObjectType::instance(false)]
+        );
+    }
+
+    /**
+     * Takes `MyClass|int|array|?object` and returns `MyClass|object`
+     *
+     * Takes `` and returns ``
+     *
+     * Takes `callable|iterable` and returns `callable-object|Traversable`
+     * @suppress PhanUnreferencedPublicMethod called dynamically
+     */
+    public function objectTypesStrictAllowEmpty() : UnionType
+    {
+        return UnionType::of(
+            self::castToObjectTypesStrict($this->type_set),
+            self::castToObjectTypesStrict($this->real_type_set)
+        );
     }
 
     /**
@@ -2435,7 +2471,7 @@ class UnionType implements Serializable
                 $result[] = $type;
             }
         }
-        return $result ?: [ObjectType::instance(false)];
+        return $result;
     }
 
     /**
@@ -2475,6 +2511,31 @@ class UnionType implements Serializable
         }));
     }
 
+    /**
+     * Returns true if this union type is empty, or if it's possible for any type (or sub-type) of this union type to be able to cast to $class_type
+     */
+    public function canPossiblyCastToClass(CodeBase $code_base, Type $class_type) : bool
+    {
+        foreach ($this->type_set as $type) {
+            if ($type->withIsNullable(false)->canPossiblyCastToClass($code_base, $class_type)) {
+                return true;
+            }
+        }
+        return \count($this->type_set) === 0;
+    }
+
+    /**
+     * Returns true if this union type is non-empty and all types inherit this class/trait/interface.
+     */
+    public function isExclusivelySubclassesOf(CodeBase $code_base, Type $class_type) : bool
+    {
+        foreach ($this->type_set as $type) {
+            if ($type->isNullable() || !$type->asExpandedTypes($code_base)->hasType($class_type)) {
+                return false;
+            }
+        }
+        return \count($this->type_set) > 0;
+    }
     /**
      * Returns the types for which is_scalar($x) would be true.
      * This means null/nullable is removed.
@@ -2581,13 +2642,13 @@ class UnionType implements Serializable
     public function intTypes() : UnionType
     {
         return $this->makeFromFilter(static function (Type $type) : bool {
-            // IntType and LiteralType
+            // IntType and LiteralIntType
             return $type instanceof IntType;
         });
     }
 
     /**
-     * Returns the types for which is_float($x) would be true.
+     * Returns the types for which is_int($x) || is_float($x) would be true.
      *
      * @return UnionType
      * A UnionType with known int types kept, other types filtered out.
@@ -2761,8 +2822,25 @@ class UnionType implements Serializable
      * Converts iterable<key,value> to array<key, value>
      * Takes `A[]|ArrayAccess` and returns `A[]`
      * Takes `callable` and returns `callable-array`
+     * Takes `` and returns `array`
      */
     public function arrayTypesStrictCast() : UnionType
+    {
+        return UnionType::of(
+            self::castToArrayTypesStrict($this->type_set) ?: [ArrayType::instance(false)],
+            self::castToArrayTypesStrict($this->real_type_set) ?: [ArrayType::instance(false)]
+        );
+    }
+
+    /**
+     * This is the union type Phan infers from assert(is_array($x))
+     * Converts iterable<key,value> to array<key, value>
+     * Takes `A[]|ArrayAccess` and returns `A[]`
+     * Takes `callable` and returns `callable-array`
+     * Takes `` and returns `array`
+     * @suppress PhanUnreferencedPublicMethod called dynamically
+     */
+    public function arrayTypesStrictCastAllowEmpty() : UnionType
     {
         return UnionType::of(
             self::castToArrayTypesStrict($this->type_set),
@@ -2783,7 +2861,7 @@ class UnionType implements Serializable
                 $result[] = $type;
             }
         }
-        return $result ?: [ArrayType::instance(false)];
+        return $result;
     }
 
     /**
@@ -2878,6 +2956,7 @@ class UnionType implements Serializable
     public function iterableValueUnionType(CodeBase $code_base) : UnionType
     {
         // This is frequently called, and has been optimized
+        // TODO: Support real types if the type set is exclusively real iterable types
         $builder = new UnionTypeBuilder();
         $type_set = $this->type_set;
         foreach ($type_set as $type) {
@@ -2885,6 +2964,10 @@ class UnionType implements Serializable
             if ($element_type === null) {
                 // Does not have iterable values
                 continue;
+            }
+            if (\count($type_set) === 1) {
+                // This will also return the corresponding real type
+                return $element_type;
             }
             $builder->addUnionType($element_type);
         }
@@ -3343,6 +3426,29 @@ class UnionType implements Serializable
     {
         $map = [];
         $map_raw = require(__DIR__ . '/Internal/FunctionSignatureMap.php');
+        foreach ($map_raw as $key => $value) {
+            $map[\strtolower($key)] = $value;
+        }
+        return $map;
+    }
+
+    /**
+     * @return array<string,string> maps the lowercase function name to the return type
+     * @internal the data format will change
+     */
+    public static function getLatestRealFunctionSignatureMap() : array
+    {
+        static $map;
+        return $map ?? ($map = self::computeLatestRealFunctionSignatureMap());
+    }
+
+    /**
+     * @return array<string,string>
+     */
+    private static function computeLatestRealFunctionSignatureMap() : array
+    {
+        $map = [];
+        $map_raw = require(__DIR__ . '/Internal/FunctionSignatureMapReal.php');
         foreach ($map_raw as $key => $value) {
             $map[\strtolower($key)] = $value;
         }
@@ -3928,7 +4034,7 @@ class UnionType implements Serializable
                 return LiteralIntType::instanceForValue($result, false);
             }
             // -INT_MIN is a float.
-            return FloatType::instance(false);
+            return LiteralFloatType::instanceForValue($result, false);
         }, true);
     }
 
@@ -3953,7 +4059,6 @@ class UnionType implements Serializable
                 // Not going to bother being more specific (this applies bitwise not to each character for LiteralStringType)
                 $type_set = $type_set->withType(StringType::instance(false));
             } else {
-                // @phan-suppress-next-line PhanImpossibleConditionInLoop this is a known false positive in loops
                 if ($added_fallbacks) {
                     continue;
                 }
@@ -3975,7 +4080,7 @@ class UnionType implements Serializable
             if (\is_int($result)) {
                 return LiteralIntType::instanceForValue($result, false);
             }
-            return FloatType::instance(false);
+            return LiteralFloatType::instanceForValue($result, false);
         }, true);
     }
 
@@ -3987,7 +4092,7 @@ class UnionType implements Serializable
         $added_fallbacks = false;
         $type_set = UnionType::empty();
         foreach ($this->type_set as $type) {
-            if ($type instanceof LiteralIntType) {
+            if ($type instanceof LiteralIntType || $type instanceof LiteralFloatType) {
                 $type_set = $type_set->withType($operation($type->getValue()));
                 if ($type->isNullable()) {
                     $type_set = $type_set->withType(LiteralIntType::instanceForValue(0, false));
@@ -4005,7 +4110,6 @@ class UnionType implements Serializable
                         return $type_set->withType(LiteralIntType::instanceForValue(0, false));
                     }
                 }
-                // @phan-suppress-next-line PhanImpossibleConditionInLoop this is a known false positive in loops
                 if ($added_fallbacks) {
                     continue;
                 }
@@ -4046,6 +4150,8 @@ class UnionType implements Serializable
         // @phan-suppress-next-line PhanPossiblyFalseTypeArgumentInternal
         switch (\get_class($type)) {
             case LiteralIntType::class:
+                return $type->isNullable() ? null : $type->getValue();
+            case LiteralFloatType::class:
                 return $type->isNullable() ? null : $type->getValue();
             case LiteralStringType::class:
                 return $type->isNullable() ? null : $type->getValue();
@@ -4382,6 +4488,35 @@ class UnionType implements Serializable
     public function isExclusivelyRealTypes() : bool
     {
         return \count($this->real_type_set) > 0 && $this->type_set === $this->real_type_set;
+    }
+
+    /**
+     * Returns a detailed representation of this union type that can be used to debug issues when developing.
+     * The representation may change - this should not be used for issue messages, etc.
+     *
+     * @suppress PhanUnreferencedPublicMethod
+     */
+    public function getDebugRepresentation() : string
+    {
+        $representation = $this->__toString();
+        if ($this->real_type_set) {
+            $representation .= "(real=" . $this->getRealUnionType()->__toString() . ")";
+        }
+        return $representation;
+    }
+
+    /**
+     * Returns true if this type has types for which `+expr` isn't an integer.
+     */
+    public function hasTypesCoercingToNonInt() : bool
+    {
+        foreach ($this->type_set as $type) {
+            if ($type instanceof FloatType || $type instanceof StringType) {
+                // TODO Could check for LiteralStringType
+                return true;
+            }
+        }
+        return \count($this->type_set) === 0;
     }
 }
 

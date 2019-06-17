@@ -1622,7 +1622,21 @@ class Clazz extends AddressableElement
      */
     public function getCallMethod(CodeBase $code_base) : Method
     {
-        return $this->getMethodByName($code_base, '__call');
+        return self::makeCallMethodCloneForCaller($this->getMethodByName($code_base, '__call'));
+    }
+
+    private static function makeCallMethodCloneForCaller(Method $method) : Method
+    {
+        return new Method(
+            $method->getContext(),
+            $method->getName(),
+            $method->getUnionType(),
+            $method->getFlags(),
+            $method->getFQSEN(),
+            [
+                new VariadicParameter($method->getContext(), 'args', UnionType::empty(), 0)
+            ]
+        );
     }
 
     /**
@@ -1663,7 +1677,7 @@ class Clazz extends AddressableElement
      */
     public function getCallStaticMethod(CodeBase $code_base) : Method
     {
-        return $this->getMethodByName($code_base, '__callStatic');
+        return self::makeCallMethodCloneForCaller($this->getMethodByName($code_base, '__callStatic'));
     }
 
     /**
@@ -1875,6 +1889,15 @@ class Clazz extends AddressableElement
     public function isInterface() : bool
     {
         return $this->getFlagsHasState(\ast\flags\CLASS_INTERFACE);
+    }
+
+    /**
+     * @return bool
+     * True if this is a class (i.e. neither a trait nor an interface)
+     */
+    public function isClass() : bool
+    {
+        return ($this->getFlags() & (ast\flags\CLASS_INTERFACE | ast\flags\CLASS_TRAIT)) === 0;
     }
 
     /**
@@ -2135,7 +2158,7 @@ class Clazz extends AddressableElement
         // Get the parent class
         $parent = $this->getParentClass($code_base);
 
-        if ($parent->isTrait() || $parent->isInterface()) {
+        if (!$parent->isClass()) {
             $this->emitWrongInheritanceCategoryWarning($code_base, $parent, 'Class', $this->parent_type_lineno);
         }
         if ($parent->isFinal()) {

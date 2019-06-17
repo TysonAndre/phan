@@ -42,6 +42,7 @@ use Phan\Language\Type\GenericIterableType;
 use Phan\Language\Type\GenericMultiArrayType;
 use Phan\Language\Type\IntType;
 use Phan\Language\Type\IterableType;
+use Phan\Language\Type\LiteralFloatType;
 use Phan\Language\Type\LiteralIntType;
 use Phan\Language\Type\LiteralStringType;
 use Phan\Language\Type\MixedType;
@@ -110,7 +111,7 @@ class Type
      * NOTE: The / is escaped
      */
     const noncapturing_literal_regex =
-        '\??(?:-?(?:0|[1-9][0-9]*)|\'(?:[- ,.\/?:;"!#$%^&*_+=a-zA-Z0-9_\x80-\xff]|\\\\(?:[\'\\\\]|x[0-9a-fA-F]{2}))*\')';
+        '\??(?:-?(?:0|[1-9][0-9]*(?:\.[0-9]+)?)|\'(?:[- ,.\/?:;"!#$%^&*_+=a-zA-Z0-9_\x80-\xff]|\\\\(?:[\'\\\\]|x[0-9a-fA-F]{2}))*\')';
         // '\??(?:-?(?:0|[1-9][0-9]*)|\'(?:[a-zA-Z0-9_])*\')';
 
     /**
@@ -579,7 +580,7 @@ class Type
             case 'NULL':
                 return NullType::instance(false);
             case 'double':
-                return FloatType::instance(false);
+                return LiteralFloatType::instanceForValue($object, false);
             case 'object':
                 // @phan-suppress-next-line PhanThrowTypeMismatchForCall
                 return Type::fromFullyQualifiedString('\\' . \get_class($object));
@@ -780,7 +781,7 @@ class Type
         return self::fromStringInContext(
             self::stringFromReflectionType($reflection_type),
             new Context(),
-            Type::FROM_NODE
+            Type::FROM_TYPE
         );
     }
 
@@ -918,6 +919,10 @@ class Type
         $value = \filter_var($escaped_literal, \FILTER_VALIDATE_INT);
         if (\is_int($value)) {
             return LiteralIntType::instanceForValue($value, $is_nullable);
+        }
+        $value = \filter_var($escaped_literal, \FILTER_VALIDATE_FLOAT);
+        if (\is_float($value)) {
+            return LiteralFloatType::instanceForValue($value, $is_nullable);
         }
         return FloatType::instance($is_nullable);
     }
@@ -2021,6 +2026,52 @@ class Type
     public function isPossiblyObject() : bool
     {
         return true;  // Overridden in various subclasses
+    }
+
+    /**
+     * Check if there is any way this type or a subclass could cast to $other.
+     * (does not check for mixed)
+     */
+    public function canPossiblyCastToClass(CodeBase $code_base, Type $other) : bool
+    {
+        if (!$this->isPossiblyObject()) {
+            return false;
+        }
+        // Check if either side is something we don't know about, e.g. `object`, `iterable`, etc.
+        if (!$this->isObjectWithKnownFQSEN()) {
+            return true;
+        }
+        if (!$other->isObjectWithKnownFQSEN()) {
+            return true;
+        }
+
+        if ($other->asExpandedTypes($code_base)->hasType($this) || $this->asExpandedTypes($code_base)->hasType($other)) {
+            // This is a subtype of $other, or vice-versa
+            return true;
+        }
+        $this_fqsen = FullyQualifiedClassName::fromType($this);
+        if (!$code_base->hasClassWithFQSEN($this_fqsen)) {
+            return true;
+        }
+        $this_class = $code_base->getClassByFQSEN($this_fqsen);
+
+        $other_fqsen = FullyQualifiedClassName::fromType($other);
+        if (!$code_base->hasClassWithFQSEN($other_fqsen)) {
+            return true;
+        }
+        $other_class = $code_base->getClassByFQSEN($other_fqsen);
+
+        if ($this_class->isFinal() || $other_class->isFinal()) {
+            // If at least one class is final (and the other is a trait/interface), we already confirmed there's nothing in common.
+            return false;
+        }
+        if ($this_class->isClass() && $other_class->isClass()) {
+            // So now we have two classes.
+            // We already know that their expanded types don't overlap from checking asExpandedTypes, so there's no possible common subtype.
+            return false;
+        }
+
+        return true;
     }
 
     /**

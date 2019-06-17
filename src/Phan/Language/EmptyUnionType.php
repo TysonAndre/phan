@@ -651,6 +651,7 @@ final class EmptyUnionType extends UnionType
      * context
      *
      * TODO: Add a method to ContextNode to directly get FQSEN instead?
+     * @suppress PhanImpossibleCondition deliberately making a generator yielding nothing
      */
     public function asClassFQSENList(
         Context $context
@@ -730,6 +731,11 @@ final class EmptyUnionType extends UnionType
     public function objectTypesStrict() : UnionType
     {
         return ObjectType::instance(false)->asRealUnionType();
+    }
+
+    public function objectTypesStrictAllowEmpty() : UnionType
+    {
+        return $this;
     }
 
     /**
@@ -1205,6 +1211,7 @@ final class EmptyUnionType extends UnionType
      * @return Generator<Type,Type>
      * @suppress PhanTypeMismatchGeneratorYieldValue (deliberate empty stub code)
      * @suppress PhanTypeMismatchGeneratorYieldKey (deliberate empty stub code)
+     * @suppress PhanImpossibleCondition
      */
     public function getReferencedClasses() : Generator
     {
@@ -1219,6 +1226,11 @@ final class EmptyUnionType extends UnionType
     }
 
     public function isNonNullIntType() : bool
+    {
+        return false;
+    }
+
+    public function isNonNullIntOrFloatType() : bool
     {
         return false;
     }
@@ -1385,6 +1397,11 @@ final class EmptyUnionType extends UnionType
         return ArrayType::instance(false)->asRealUnionType();
     }
 
+    public function arrayTypesStrictCastAllowEmpty() : UnionType
+    {
+        return $this;
+    }
+
     public function boolTypes() : UnionType
     {
         return BoolType::instance(false)->asRealUnionType();
@@ -1401,5 +1418,28 @@ final class EmptyUnionType extends UnionType
     public function isExclusivelyRealTypes() : bool
     {
         return false;
+    }
+
+    public function getDebugRepresentation() : string
+    {
+        return '';
+    }
+
+    public function canPossiblyCastToClass(CodeBase $code_base, Type $class_type) : bool
+    {
+        return true;
+    }
+
+    public function isExclusivelySubclassesOf(CodeBase $code_base, Type $class_type) : bool
+    {
+        return false;
+    }
+
+    /**
+     * Returns true if this type has types for which `+expr` isn't an integer.
+     */
+    public function hasTypesCoercingToNonInt() : bool
+    {
+        return true;
     }
 }
