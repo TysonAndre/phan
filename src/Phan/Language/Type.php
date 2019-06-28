@@ -3496,4 +3496,14 @@ class Type
     {
         return null;
     }
+
+    /**
+     * callers should use UnionType->hasAnyTypeOverlap() and UnionType->hasAnyWeakTypeOverlap() instead.
+     * Overridden in subclasses
+     * @internal
+     */
+    public function weaklyOverlaps(Type $other) : bool
+    {
+        return $this->isPossiblyFalsey() && $other->isPossiblyFalsey();
+    }
 }
