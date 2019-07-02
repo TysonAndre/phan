@@ -450,7 +450,7 @@ class RedundantConditionVisitor extends PluginAwarePostAnalysisVisitor
         Issue::maybeEmit(
             $code_base,
             $context,
-            $issue_name,
+            RedundantCondition::chooseSpecificImpossibleOrRedundantIssueKind($node, $context, $issue_name),
             $node->lineno,
             ...$issue_args
         );
