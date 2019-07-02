@@ -1,6 +1,15 @@
 Phan NEWS
 
-??? ?? 2019, Phan 2.2.4 (dev)
+??? ?? 2019, Phan 2.2.5 (dev)
+-----------------------
+
+New features(CLI, Configs):
++ Add `-u` as an alias of `--unused-variable-detection`, and `-t` as an alias of `--redundant-condition-detection`
+
+New features(Analysis):
++ Fix false positive PhanSuspiciousValueComparisonInLoop when both sides change in a loop. (#2919)
+
+Jul 01 2019, Phan 2.2.4
 -----------------------
 
 New features(CLI, Configs):
