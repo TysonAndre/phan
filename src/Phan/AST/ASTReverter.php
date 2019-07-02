@@ -111,8 +111,23 @@ class ASTReverter
             return '(unknown)';
         };
         self::$closure_map = [
+            ast\AST_POST_INC => static function (Node $node) : string {
+                return self::formatIncDec('%s++', $node->children['var']);
+            },
+            ast\AST_PRE_INC => static function (Node $node) : string {
+                return self::formatIncDec('++%s', $node->children['var']);
+            },
+            ast\AST_POST_DEC => static function (Node $node) : string {
+                return self::formatIncDec('%s--', $node->children['var']);
+            },
+            ast\AST_PRE_DEC => static function (Node $node) : string {
+                return self::formatIncDec('--%s', $node->children['var']);
+            },
             ast\AST_ARG_LIST => static function (Node $node) : string {
                 return '(' . implode(', ', \array_map('self::toShortString', $node->children)) . ')';
+            },
+            ast\AST_EXPR_LIST => static function (Node $node) : string {
+                return implode(', ', \array_map('self::toShortString', $node->children));
             },
             ast\AST_CLASS_CONST => static function (Node $node) : string {
                 return self::toShortString($node->children['class']) . '::' . $node->children['const'];
@@ -180,6 +195,13 @@ class ASTReverter
                     self::toShortString($node->children['right'])
                 );
             },
+            ast\AST_ASSIGN => static function (Node $node) : string {
+                return \sprintf(
+                    "(%s = %s)",
+                    self::toShortString($node->children['var']),
+                    self::toShortString($node->children['expr'])
+                );
+            },
             /** @suppress PhanAccessClassConstantInternal */
             ast\AST_ASSIGN_OP => static function (Node $node) : string {
                 return \sprintf(
@@ -207,6 +229,15 @@ class ASTReverter
                     '%s->%s',
                     self::toShortString($node->children['expr']),
                     $prop_node instanceof Node ? '{' . self::toShortString($prop_node) . '}' : (string)$prop_node
+                );
+            },
+            ast\AST_STATIC_CALL => static function (Node $node) : string {
+                $method_node = $node->children['method'];
+                return \sprintf(
+                    '%s::%s%s',
+                    self::toShortString($node->children['class']),
+                    is_string($method_node) ? $method_node : self::toShortString($method_node),
+                    self::toShortString($node->children['args'])
                 );
             },
             ast\AST_STATIC_PROP => static function (Node $node) : string {
@@ -247,6 +278,19 @@ class ASTReverter
                 );
             },
         ];
+    }
+
+    /**
+     * @param Node|string|int|float $node
+     */
+    private static function formatIncDec(string $format, $node) : string
+    {
+        $str = self::toShortString($node);
+        if (!($node instanceof Node && $node->kind === ast\AST_VAR)) {
+            $str = '(' . $str . ')';
+        }
+        // @phan-suppress-next-line PhanPluginPrintfVariableFormatString
+        return sprintf($format, $str);
     }
 }
 ASTReverter::init();

@@ -791,6 +791,8 @@ class CLI
             && Config::getValue('dead_code_detection')) {
             throw new AssertionError("We cannot run dead code detection on more than one core.");
         }
+
+        self::ensureServerRunsSingleAnalysisProcess();
     }
 
     /**
@@ -813,21 +815,22 @@ class CLI
         }
     }
 
-    private static function checkValidFileConfig() : void {
+    private static function checkValidFileConfig() : void
+    {
         $include_analysis_file_list = Config::getValue('include_analysis_file_list');
         if ($include_analysis_file_list) {
             $valid_files = 0;
             foreach ($include_analysis_file_list as $file) {
                 $absolute_path = Config::projectPath($file);
-                if (file_exists($absolute_path)) {
+                if (\file_exists($absolute_path)) {
                     $valid_files++;
                 } else {
-                    fprintf(STDERR, "Warning: Could not find file '%s' passed in %s" . PHP_EOL, $absolute_path, self::colorizeHelpSectionIfSupported('--include-analysis-file-list'));
+                    \fprintf(STDERR, "Warning: Could not find file '%s' passed in %s" . \PHP_EOL, $absolute_path, self::colorizeHelpSectionIfSupported('--include-analysis-file-list'));
                 }
             }
             if ($valid_files === 0) {
                 // TODO convert this to an error in Phan 3.
-                fprintf(STDERR, "Warning: None of the files in %s exist - This will be an error in future Phan releases." . PHP_EOL, self::colorizeHelpSectionIfSupported('--include-analysis-file-list'));
+                \fprintf(STDERR, "Warning: None of the files in %s exist - This will be an error in future Phan releases." . \PHP_EOL, self::colorizeHelpSectionIfSupported('--include-analysis-file-list'));
             }
         }
     }
@@ -849,6 +852,9 @@ class CLI
      */
     public static function supportsColor($output) : bool
     {
+        if (self::isDaemonOrLanguageServer()) {
+            return false;
+        }
         if (\defined('PHP_WINDOWS_VERSION_BUILD')) {
             return (\function_exists('sapi_windows_vt100_support')
                 && \sapi_windows_vt100_support($output))
@@ -893,6 +899,23 @@ class CLI
         if (!$all_plugins_exist) {
             \fwrite(STDERR, "Exiting due to invalid plugin config.\n");
             exit(1);
+        }
+    }
+
+    private static function ensureServerRunsSingleAnalysisProcess() : void
+    {
+        if (!self::isDaemonOrLanguageServer()) {
+            return;
+        }
+        // If the client has multiple files open at once (and requests analysis of multiple files),
+        // then there there would be multiple processes doing analysis.
+        //
+        // This would not work with Phan's current design - the socket used by the daemon can only be used by one process.
+        // Also, the implementation of some requests such as "Go to Definition", "Find References" (planned), etc. assume Phan runs as a single process.
+        $processes = Config::getValue('processes');
+        if ($processes !== 1) {
+            fprintf(STDERR, "Notice: Running with processes=1 instead of processes=%s - the daemon/language server assumes it will run as a single process" . \PHP_EOL, (string)json_encode($processes));
+            Config::setValue('processes', 1);
         }
     }
 
@@ -1374,7 +1397,8 @@ EOB
      * Add ansi color codes to the CLI flags included in the --help or --extended-help message,
      * but only if the CLI/config flags and environment supports it.
      */
-    public static function colorizeHelpSectionIfSupported(string $section) : string {
+    public static function colorizeHelpSectionIfSupported(string $section) : string
+    {
         if (Config::getValue('color_issue_messages') ?? (!getenv('PHAN_DISABLE_COLOR_OUTPUT') && self::supportsColor(\STDOUT))) {
             $section = self::colorizeHelpSection($section);
         }

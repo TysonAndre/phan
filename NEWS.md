@@ -1,6 +1,6 @@
 Phan NEWS
 
-Jun 17 2019, Phan 2.2.4 (dev)
+??? ?? 2019, Phan 2.2.4 (dev)
 -----------------------
 
 New features(CLI, Configs):
@@ -12,6 +12,35 @@ New features(Analysis):
   (e.g. no longer emit `PhanRedundantCondition` analyzing `elseif ($offset = (int)$offset)`)
   (e.g. do a better job inferring variables set in complex `if` condition expressions)
 + Warn about suspicious comparisons (e.g. `new stdClass() <= new ArrayObject`, `2 >= $bool`, etc.) (#2892)
++ Infer real union types from function/method calls.
++ Don't emit the specialized `*InLoop` or `*InGlobalScope` issues for `--redundant-condition-detection`
+  in more cases where being in a global or loop scope doesn't matter (e.g. `if (new stdClass())`)
++ Be more accurate about inferring real union types from array destructuring assignments. (#2901)
++ Be more accurate about inferring real union types from assertions that expressions are non-null. (#2901)
++ Support dumping Phan's internal representation of a variable's union type (and real union type) with `'@phan-debug-var $varName'` (useful for debugging)
++ Fix false positive `PhanRedundantCondition` analyzing `if ([$a] = (expr))` (#2904)
++ Warn about suspicious comparisons that are always true or always false, e.g. the initial check for `for ($i = 100; $i < 20; $i++)` (#2888)
++ Emit `PhanSuspiciousLoopDirection` when a for loop increases a variable, but the variable is checked against a maximum (or the opposite) (#2888)
+  e.g. `for ($i = 0; $i <= 10; $i--)`
++ Emit critical errors for duplicate use for class/namespace, function, or constant (#2897)
+  New issue types: `PhanDuplicateUseNormal`, `PhanDuplicateUseFunction`, `PhanDuplicateUseConstant`
++ Emit `PhanCompatibleUnsetCast` for uses of the deprecated `(unset)(expr)` cast. (#2871)
++ Emit `PhanDeprecatedClass`, `PhanDeprecatedTrait`, and `PhanDeprecatedInterface` on the class directly inheriting from the deprecated class, trait, or interface. (#972)
+  Stop emitting that issue when constructing a non-deprecated class inheriting from a deprecated class.
++ Include the deprecation reason for user-defined classes that were deprecated (#2807)
++ Fix false positives seen when non-template class extends a template class (#2573)
+
+Language Server/Daemon mode:
++ Fix a crash - always run the language server or daemon with a single analysis process, regardless of CLI or config settings (#2898)
++ Properly locate the defining class for `MyClass::class` when the polyfill/fallback is used.
++ Don't emit color in responses from the daemon or language server unless the CLI flag `--color` is passed in.
+
+Maintenance:
++ Warn if running Phan with php 7.4+ when the installed php-ast version is older than 1.0.2.
++ Make the AST caches for dev php versions (e.g. 7.4.0-dev, 8.0.0-dev) depend on the date when that PHP version was compiled.
++ Make the polyfill support PHP 7.4's array spread operator (e.g. `[$a, ...$otherArray]`) (#2786)
++ Make the polyfill support PHP 7.4's short arrow functions (e.g. `fn($x) => $x*2`)
++ Fix parsing of `some_call(namespace\func_name())` in the polyfill
 
 Jun 17 2019, Phan 2.2.3
 -----------------------

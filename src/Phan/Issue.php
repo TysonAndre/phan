@@ -205,7 +205,11 @@ class Issue
     const RedundantConditionInGlobalScope   = 'PhanRedundantConditionInGlobalScope';
     const ImpossibleTypeComparison          = 'PhanImpossibleTypeComparison';
     const ImpossibleTypeComparisonInLoop    = 'PhanImpossibleTypeComparisonInLoop';
-    const ImpossibleTypeComparisonInGlobalScope    = 'PhanImpossibleTypeComparisonInGlobalScope';
+    const ImpossibleTypeComparisonInGlobalScope = 'PhanImpossibleTypeComparisonInGlobalScope';
+    const SuspiciousValueComparison             = 'PhanSuspiciousValueComparison';
+    const SuspiciousValueComparisonInLoop       = 'PhanSuspiciousValueComparisonInLoop';
+    const SuspiciousValueComparisonInGlobalScope = 'PhanSuspiciousValueComparisonInGlobalScope';
+    const SuspiciousLoopDirection               = 'PhanSuspiciousLoopDirection';
     const SuspiciousWeakTypeComparison          = 'PhanSuspiciousWeakTypeComparison';
     const SuspiciousWeakTypeComparisonInLoop    = 'PhanSuspiciousWeakTypeComparisonInLoop';
     const SuspiciousWeakTypeComparisonInGlobalScope    = 'PhanSuspiciousWeakTypeComparisonInGlobalScope';
@@ -337,6 +341,9 @@ class Issue
     const UnreferencedUseNormal         = 'PhanUnreferencedUseNormal';
     const UnreferencedUseFunction       = 'PhanUnreferencedUseFunction';
     const UnreferencedUseConstant       = 'PhanUnreferencedUseConstant';
+    const DuplicateUseNormal            = 'PhanDuplicateUseNormal';
+    const DuplicateUseFunction          = 'PhanDuplicateUseFunction';
+    const DuplicateUseConstant          = 'PhanDuplicateUseConstant';
     const UseNormalNoEffect             = 'PhanUseNormalNoEffect';
     const UseNormalNamespacedNoEffect   = 'PhanUseNormalNamespacedNoEffect';
     const UseFunctionNoEffect           = 'PhanUseFunctionNoEffect';
@@ -441,6 +448,7 @@ class Issue
     const CompatibleMultiExceptionCatchPHP70 = 'PhanCompatibleMultiExceptionCatchPHP70';
     const CompatibleNegativeStringOffset     = 'PhanCompatibleNegativeStringOffset';
     const CompatibleAutoload                 = 'PhanCompatibleAutoload';
+    const CompatibleUnsetCast                = 'PhanCompatibleUnsetCast';
 
     // Issue::CATEGORY_GENERIC
     const TemplateTypeConstant       = 'PhanTemplateTypeConstant';
@@ -452,6 +460,7 @@ class Issue
     const TemplateTypeNotDeclaredInFunctionParams = 'PhanTemplateTypeNotDeclaredInFunctionParams';
 
     // Issue::CATEGORY_COMMENT
+    const DebugAnnotation                  = 'PhanDebugAnnotation';
     const InvalidCommentForDeclarationType = 'PhanInvalidCommentForDeclarationType';
     const MisspelledAnnotation             = 'PhanMisspelledAnnotation';
     const UnextractableAnnotation          = 'PhanUnextractableAnnotation';
@@ -747,6 +756,30 @@ class Issue
                 'Cannot \'{OPERATOR}\' {INDEX} levels.',
                 self::REMEDIATION_A,
                 17007
+            ),
+            new Issue(
+                self::DuplicateUseNormal,
+                self::CATEGORY_SYNTAX,
+                self::SEVERITY_CRITICAL,
+                "Cannot use {CLASSLIKE} as {CLASSLIKE} because the name is already in use",
+                self::REMEDIATION_B,
+                17008
+            ),
+            new Issue(
+                self::DuplicateUseFunction,
+                self::CATEGORY_SYNTAX,
+                self::SEVERITY_CRITICAL,
+                "Cannot use function {FUNCTION} as {FUNCTION} because the name is already in use",
+                self::REMEDIATION_B,
+                17009
+            ),
+            new Issue(
+                self::DuplicateUseConstant,
+                self::CATEGORY_SYNTAX,
+                self::SEVERITY_CRITICAL,
+                "Cannot use constant {CONST} as {CONST} because the name is already in use",
+                self::REMEDIATION_B,
+                17010
             ),
 
             // Issue::CATEGORY_UNDEFINED
@@ -2140,6 +2173,38 @@ class Issue
                 10125
             ),
             new Issue(
+                self::SuspiciousValueComparison,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_LOW,
+                "Suspicious attempt to compare {CODE} of type {TYPE} to {CODE} of type {TYPE} with operator '{OPERATOR}'",
+                self::REMEDIATION_B,
+                10131
+            ),
+            new Issue(
+                self::SuspiciousValueComparisonInLoop,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_LOW,
+                "Suspicious attempt to compare {CODE} of type {TYPE} to {CODE} of type {TYPE} with operator '{OPERATOR}' in a loop (likely a false positive)",
+                self::REMEDIATION_B,
+                10132
+            ),
+            new Issue(
+                self::SuspiciousValueComparisonInGlobalScope,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_LOW,
+                "Suspicious attempt to compare {CODE} of type {TYPE} to {CODE} of type {TYPE} with operator '{OPERATOR}' in the global scope (likely a false positive)",
+                self::REMEDIATION_B,
+                10133
+            ),
+            new Issue(
+                self::SuspiciousLoopDirection,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_LOW,
+                "Suspicious loop appears to {DETAILS} after each iteration in {CODE}, but the loop condition is {CODE}",
+                self::REMEDIATION_B,
+                10134
+            ),
+            new Issue(
                 self::SuspiciousWeakTypeComparison,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_LOW,
@@ -2270,7 +2335,7 @@ class Issue
                 self::DeprecatedFunction,
                 self::CATEGORY_DEPRECATED,
                 self::SEVERITY_NORMAL,
-                "Call to deprecated function {FUNCTIONLIKE} defined at {FILE}:{LINE}",
+                "Call to deprecated function {FUNCTIONLIKE} defined at {FILE}:{LINE}{DETAILS}",
                 self::REMEDIATION_B,
                 5000
             ),
@@ -2286,7 +2351,7 @@ class Issue
                 self::DeprecatedClass,
                 self::CATEGORY_DEPRECATED,
                 self::SEVERITY_NORMAL,
-                "Call to deprecated class {CLASS} defined at {FILE}:{LINE}",
+                "Using a deprecated class {CLASS} defined at {FILE}:{LINE}{DETAILS}",
                 self::REMEDIATION_B,
                 5001
             ),
@@ -2294,7 +2359,7 @@ class Issue
                 self::DeprecatedProperty,
                 self::CATEGORY_DEPRECATED,
                 self::SEVERITY_NORMAL,
-                "Reference to deprecated property {PROPERTY} defined at {FILE}:{LINE}",
+                "Reference to deprecated property {PROPERTY} defined at {FILE}:{LINE}{DETAILS}",
                 self::REMEDIATION_B,
                 5002
             ),
@@ -2302,7 +2367,7 @@ class Issue
                 self::DeprecatedClassConstant,
                 self::CATEGORY_DEPRECATED,
                 self::SEVERITY_NORMAL,
-                "Reference to deprecated property {PROPERTY} defined at {FILE}:{LINE}",
+                "Reference to deprecated property {PROPERTY} defined at {FILE}:{LINE}{DETAILS}",
                 self::REMEDIATION_B,
                 5007
             ),
@@ -2310,7 +2375,7 @@ class Issue
                 self::DeprecatedInterface,
                 self::CATEGORY_DEPRECATED,
                 self::SEVERITY_NORMAL,
-                "Using a deprecated interface {INTERFACE} defined at {FILE}:{LINE}",
+                "Using a deprecated interface {INTERFACE} defined at {FILE}:{LINE}{DETAILS}",
                 self::REMEDIATION_B,
                 5003
             ),
@@ -2318,7 +2383,7 @@ class Issue
                 self::DeprecatedTrait,
                 self::CATEGORY_DEPRECATED,
                 self::SEVERITY_NORMAL,
-                "Using a deprecated trait {TRAIT} defined at {FILE}:{LINE}",
+                "Using a deprecated trait {TRAIT} defined at {FILE}:{LINE}{DETAILS}",
                 self::REMEDIATION_B,
                 5004
             ),
@@ -3771,6 +3836,14 @@ class Issue
                 self::REMEDIATION_B,
                 3013
             ),
+            new Issue(
+                self::CompatibleUnsetCast,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_NORMAL,
+                "The unset cast (in {CODE}) was deprecated in PHP 7.2 and will become a fatal error in PHP 8.0.",
+                self::REMEDIATION_B,
+                3014
+            ),
 
             // Issue::CATEGORY_GENERIC
             new Issue(
@@ -4034,6 +4107,14 @@ class Issue
                 'Comment declares @method {METHOD} multiple times',
                 self::REMEDIATION_A,
                 16018
+            ),
+            new Issue(
+                self::DebugAnnotation,
+                self::CATEGORY_COMMENT,
+                self::SEVERITY_LOW,
+                '@phan-debug-var requested for variable ${VARIABLE} - it has union type {TYPE}',
+                self::REMEDIATION_A,
+                16020
             ),
         ];
         // phpcs:enable Generic.Files.LineLength

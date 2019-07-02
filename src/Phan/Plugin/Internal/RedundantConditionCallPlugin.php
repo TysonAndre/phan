@@ -7,8 +7,10 @@ use ast\flags;
 use ast\Node;
 use Closure;
 use Exception;
+use Phan\Analysis\PostOrderAnalysisVisitor;
 use Phan\Analysis\RedundantCondition;
 use Phan\AST\ASTReverter;
+use Phan\AST\InferValue;
 use Phan\AST\UnionTypeVisitor;
 use Phan\CodeBase;
 use Phan\Issue;
@@ -359,9 +361,7 @@ class RedundantConditionVisitor extends PluginAwarePostAnalysisVisitor
             case flags\BINARY_SPACESHIP:
                 $this->checkImpossibleComparison($node, false);
                 break;
-            case flags\BINARY_COALESCE:
-                $this->analyzeBinaryCoalesce($node);
-                break;
+            // BINARY_COALESCE is checked for redundant conditions in BlockAnalysisVisitor
             default:
                 return;
         }
@@ -377,18 +377,164 @@ class RedundantConditionVisitor extends PluginAwarePostAnalysisVisitor
         if (!$right->hasRealTypeSet()) {
             return;
         }
+        $code_base = $this->code_base;
         $left = $left->getRealUnionType()->withStaticResolvedInContext($this->context);
         $right = $right->getRealUnionType()->withStaticResolvedInContext($this->context);
-        if (!$left->hasAnyTypeOverlap($this->code_base, $right) && ($strict || !$left->hasAnyWeakTypeOverlap($right))) {
-            $this->emitIssue(
-                $this->chooseIssue($node, $strict ? Issue::ImpossibleTypeComparison : Issue::SuspiciousWeakTypeComparison),
-                $node->lineno,
-                ASTReverter::toShortString($node->children['left']),
+        if (!$left->hasAnyTypeOverlap($code_base, $right) && ($strict || !$left->hasAnyWeakTypeOverlap($right))) {
+            $this->emitIssueForBinaryOp(
+                $node,
                 $left,
-                ASTReverter::toShortString($node->children['right']),
-                $right
+                $right,
+                $strict ? Issue::ImpossibleTypeComparison : Issue::SuspiciousWeakTypeComparison,
+                static function (UnionType $new_left_type, UnionType $new_right_type) use ($strict, $code_base) : bool {
+                    return !$new_left_type->hasAnyTypeOverlap($code_base, $new_right_type) && ($strict || !$new_left_type->hasAnyWeakTypeOverlap($new_right_type));
+                }
             );
+        } else {
+            $this->checkUselessScalarComparison($node, $left->getRealUnionType(), $right->getRealUnionType());
         }
+    }
+
+    /**
+     * @suppress PhanAccessMethodInternal
+     */
+    private function checkUselessScalarComparison(Node $node, UnionType $left, UnionType $right) : void
+    {
+        $left_value = $left->asSingleScalarValueOrNullOrSelf();
+        if ($left_value instanceof UnionType) {
+            return;
+        }
+        $right_value = $right->asSingleScalarValueOrNullOrSelf();
+        if ($right_value instanceof UnionType) {
+            return;
+        }
+        $issue_args = [
+            ASTReverter::toShortString($node->children['left']),
+            $left,
+            ASTReverter::toShortString($node->children['right']),
+            $right,
+            // @phan-suppress-next-line PhanAccessClassConstantInternal
+            PostOrderAnalysisVisitor::NAME_FOR_BINARY_OP[$node->flags],
+        ];
+
+        $issue_name = Issue::SuspiciousValueComparison;
+
+        $context = $this->context;
+        $code_base = $this->code_base;
+        if ($this->shouldCheckScalarAsIfInLoopScope($node, $left_value, $right_value)) {
+            ['left' => $left_node, 'right' => $right_node] = $node->children;
+            $left_type_fetcher = RedundantCondition::getLoopNodeTypeFetcher($left_node);
+            $right_type_fetcher = RedundantCondition::getLoopNodeTypeFetcher($right_node);
+            if ($left_type_fetcher || $right_type_fetcher) {
+                // @phan-suppress-next-line PhanAccessMethodInternal
+                $context->deferCheckToOutermostLoop(static function (Context $context_after_loop) use ($code_base, $node, $left_type_fetcher, $right_type_fetcher, $left, $right, $issue_name, $issue_args, $context) : void {
+                    $new_left_type = ($left_type_fetcher ? $left_type_fetcher($context_after_loop) : null);
+                    if (!$new_left_type || $left->isEqualTo($new_left_type)) {
+                        return;
+                    }
+                    $new_right_type = ($right_type_fetcher ? $right_type_fetcher($context_after_loop) : null);
+                    if (!$new_right_type || $right->isEqualTo($new_right_type)) {
+                        return;
+                    }
+                    Issue::maybeEmit(
+                        $code_base,
+                        $context,
+                        RedundantCondition::chooseSpecificImpossibleOrRedundantIssueKind($node, $context, $issue_name),
+                        $node->lineno,
+                        ...$issue_args
+                    );
+                });
+                return;
+            }
+        }
+        Issue::maybeEmit(
+            $code_base,
+            $context,
+            $issue_name,
+            $node->lineno,
+            ...$issue_args
+        );
+    }
+
+    /**
+     * @param mixed $left_value
+     * @param mixed $right_value
+     */
+    private function shouldCheckScalarAsIfInLoopScope(Node $node, $left_value, $right_value) : bool
+    {
+        if (!$this->context->isInLoop()) {
+            // This isn't even in a loop.
+            return false;
+        }
+        // while loops and for loops have a cond node, foreach loops don't.
+        $inner_loop_node_cond = $this->context->getInnermostLoopNode()->children['cond'] ?? null;
+        if ($inner_loop_node_cond instanceof Node) {
+            // For loops have a list of expressions, the last of which is a condition
+            if ($inner_loop_node_cond->kind === ast\AST_EXPR_LIST) {
+                $inner_loop_node_cond = \end($inner_loop_node_cond->children);
+            }
+            if ($inner_loop_node_cond === $node) {
+                try {
+                    $result = InferValue::computeBinaryOpResult($left_value, $right_value, $node->flags);
+                    // It's suspicious if a loop condition is initially false.
+                    // This heuristic isn't perfect, but catches bugs such as `for ($i = 0; $i > 10; $i++)`
+                    return (bool)$result;
+                } catch (\Error $_) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Emit an issue. If this is in a loop, defer the check until more is known about possible types of the variable in the loop.
+     *
+     * @param Node $node a node of kind AST_BINARY_OP
+     * @param Closure(UnionType,UnionType):bool $is_still_issue
+     * @suppress PhanAccessMethodInternal
+     */
+    private function emitIssueForBinaryOp(Node $node, UnionType $left, UnionType $right, string $issue_name, Closure $is_still_issue) : void
+    {
+        $issue_args = [
+            ASTReverter::toShortString($node->children['left']),
+            $left,
+            ASTReverter::toShortString($node->children['right']),
+            $right,
+        ];
+        $code_base = $this->code_base;
+        $context = $this->context;
+
+        if ($this->context->isInLoop()) {
+            ['left' => $left_node, 'right' => $right_node] = $node->children;
+            $left_type_fetcher = RedundantCondition::getLoopNodeTypeFetcher($left_node);
+            $right_type_fetcher = RedundantCondition::getLoopNodeTypeFetcher($right_node);
+            if ($left_type_fetcher || $right_type_fetcher) {
+                // @phan-suppress-next-line PhanAccessMethodInternal
+                $context->deferCheckToOutermostLoop(static function (Context $context_after_loop) use ($code_base, $node, $left_type_fetcher, $right_type_fetcher, $left, $right, $is_still_issue, $issue_name, $issue_args, $context) : void {
+                    $left = ($left_type_fetcher ? $left_type_fetcher($context_after_loop) : null) ?? $left;
+                    $right = ($right_type_fetcher ? $right_type_fetcher($context_after_loop) : null) ?? $right;
+                    if (!$is_still_issue($left, $right)) {
+                        return;
+                    }
+                    Issue::maybeEmit(
+                        $code_base,
+                        $context,
+                        RedundantCondition::chooseSpecificImpossibleOrRedundantIssueKind($node, $context, $issue_name),
+                        $node->lineno,
+                        ...$issue_args
+                    );
+                });
+                return;
+            }
+        }
+        Issue::maybeEmit(
+            $code_base,
+            $context,
+            RedundantCondition::chooseSpecificImpossibleOrRedundantIssueKind($node, $context, $issue_name),
+            $node->lineno,
+            ...$issue_args
+        );
     }
 
     /**
@@ -440,48 +586,6 @@ class RedundantConditionVisitor extends PluginAwarePostAnalysisVisitor
      */
 
     /**
-     * Checks if the left hand side of a null coalescing operator is never null or always null
-     */
-    public function analyzeBinaryCoalesce(Node $node) : void
-    {
-        $left_node = $node->children['left'];
-        $left = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $left_node);
-        if (!$left->hasRealTypeSet()) {
-            return;
-        }
-        $left = $left->getRealUnionType();
-        if (!$left->containsNullableOrUndefined()) {
-            RedundantCondition::emitInstance(
-                $left_node,
-                $this->code_base,
-                clone($this->context)->withLineNumberStart($node->lineno),
-                Issue::CoalescingNeverNull,
-                [
-                    ASTReverter::toShortString($left_node),
-                    $left
-                ],
-                static function (UnionType $type) : bool {
-                    return !$type->containsNullableOrUndefined();
-                }
-            );
-        } elseif ($left->isNull()) {
-            RedundantCondition::emitInstance(
-                $left_node,
-                $this->code_base,
-                clone($this->context)->withLineNumberStart($node->lineno),
-                Issue::CoalescingAlwaysNull,
-                [
-                    ASTReverter::toShortString($left_node),
-                    $left
-                ],
-                static function (UnionType $type) : bool {
-                    return $type->isNull();
-                }
-            );
-        }
-    }
-
-    /**
      * @override
      */
     public function visitIsset(Node $node) : void
@@ -525,6 +629,47 @@ class RedundantConditionVisitor extends PluginAwarePostAnalysisVisitor
                 static function (UnionType $type) : bool {
                     return $type->isNull();
                 }
+            );
+        }
+    }
+
+    /**
+     * Check if a loop is increasing or decreasing when it should be doing the opposite.
+     * @override
+     */
+    public function visitFor(Node $node) : void
+    {
+        $cond_list = $node->children['cond'];
+        if (!$cond_list instanceof Node) {
+            return;
+        }
+        $cond_node = end($cond_list->children);
+        if (!$cond_node instanceof Node) {
+            return;
+        }
+        $loop_node = $node->children['loop'];
+        if (!$loop_node instanceof Node) {
+            return;
+        }
+        $increment_directions = RedundantConditionLoopCheck::extractIncrementDirections($this->code_base, $this->context, $loop_node);
+        if (!$increment_directions) {
+            return;
+        }
+
+        $comparison_directions = RedundantConditionLoopCheck::extractComparisonDirections($cond_node);
+        if (!$comparison_directions) {
+            return;
+        }
+        foreach ($increment_directions as $key => $is_increasing) {
+            if (($comparison_directions[$key] ?? $is_increasing) === $is_increasing) {
+                continue;
+            }
+            $this->emitIssue(
+                Issue::SuspiciousLoopDirection,
+                $cond_node->lineno,
+                $is_increasing ? 'increase' : 'decrease',
+                ASTReverter::toShortString($loop_node),
+                ASTReverter::toShortString($cond_node)
             );
         }
     }
