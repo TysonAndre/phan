@@ -5,6 +5,8 @@ Phan NEWS
 
 New features(CLI, Configs):
 + Add `-u` as an alias of `--unused-variable-detection`, and `-t` as an alias of `--redundant-condition-detection`
++ Added a zsh completion script ([`plugins/zsh/_phan`](plugins/zsh/_phan) has installation instructions).
++ Added a bash completion script ([`plugins/bash/phan`](plugins/bash/phan) has installation instructions).
 
 New features(Analysis):
 + Fix false positive PhanSuspiciousValueComparisonInLoop when both sides change in a loop. (#2919)
@@ -13,6 +15,16 @@ New features(Analysis):
 + Track that the **real** type of an array variable is an array after adding fields to it (#2932)
   (affects redundant condition detection and unused variable detection)
 + Warn about adding fields to an unused array variable, if Phan infers the real variable type is an array. (#2933)
++ Check for `PhanInfiniteLoop` when the condition expression is omitted (e.g. `for (;;) {}`)
++ Avoid false positives in real condition checks from weak equality checks such as `if ($x == null) { if ($x !== null) {}}` (#2924)
+
+Plugins:
++ Add `InlineHTMLPlugin` to warn about inline HTML anywhere in an analyzed file's contents.
+  In the `plugin_config` config array, `inline_html_whitelist_regex` and `inline_html_blacklist_regex` can be used to limit the subset of analyzed files to check for inline HTML.
+
+Maintenance:
++ Made `--polyfill-parse-all-element-doc-comments` a no-op, it was only needed for compatibility with running Phan with php 7.0.
++ Minor updates to CLI help for Phan.
 
 Jul 01 2019, Phan 2.2.4
 -----------------------
