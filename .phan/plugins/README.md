@@ -36,8 +36,9 @@ or if the relevant parts of the codebase fixed the bug/added annotations)
 - **UnusedPluginSuppression**: `Plugin {STRING_LITERAL} suppresses issue {ISSUETYPE} on this line but this suppression is unused or suppressed elsewhere`
 - **UnusedPluginFileSuppression**: `Plugin {STRING_LITERAL} suppresses issue {ISSUETYPE} in this file but this suppression is unused or suppressed elsewhere`
 
-The setting `'plugin_config' => ['unused_suppression_ignore_list' => ['FlakyPluginIssueName']]` can be used in `.phan/config.php`
-to make this plugin avoid emitting `Unused*Suppression` for a list of issue names.
+The following settings can be used in `.phan/config.php`:
+ - `'plugin_config' => ['unused_suppression_ignore_list' => ['FlakyPluginIssueName']]` will make this plugin avoid emitting `Unused*Suppression` for a list of issue names.
+ - `'plugin_config' => ['unused_suppression_whitelisted_only' => true]` will make this plugin report unused suppressions only for issues in `whitelist_issue_types`.
 
 #### FFIAnalysisPlugin.php
 
@@ -292,6 +293,7 @@ that are likely to be a bug. (e.g. `expr1 == expr`)
 - **PhanPluginDuplicateConditionalTernaryDuplication**: `"X ? X : Y" can usually be simplified to "X ?: Y". The duplicated expression X was {CODE}`
 - **PhanPluginDuplicateConditionalNullCoalescing**: `"isset(X) ? X : Y" can usually be simplified to "X ?? Y" in PHP 7. The duplicated expression X was {CODE}`
 - **PhanPluginBothLiteralsBinaryOp**: `Suspicious usage of a binary operator where both operands are literals. Expression: {CODE} {OPERATOR} {CODE} (result is {CODE})` (e.g. warns about `null == 'a literal` in `$x ?? null == 'a literal'`)
+- **PhanPluginDuplicateConditionalUnnecessary**: `"X ? Y : Y" results in the same expression Y no matter what X evaluates to. Y was {CODE}`
 
 #### WhitespacePlugin.php
 

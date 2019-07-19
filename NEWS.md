@@ -1,6 +1,19 @@
 Phan NEWS
 
-??? ?? 2019, Phan 2.2.5 (dev)
+??? ?? 2019, Phan 2.2.7 (dev)
+-----------------------
+
+Jul 17 2019, Phan 2.2.6
+-----------------------
+
+New features(CLI, Configs):
++ Include files in completion suggestions for `-P`/`--plugin` in the [completion script for zsh](plugins/zsh/_phan).
+
+Bug fixes:
++ Fix crash analyzing `&&` and `||` conditions with literals on both sides (#2975)
++ Properly emit `PhanParamTooFew` when analyzing uses of functions/methods where a required parameter followed an optional parameter. (#2978)
+
+Jul 14 2019, Phan 2.2.5
 -----------------------
 
 New features(CLI, Configs):
@@ -9,7 +22,7 @@ New features(CLI, Configs):
 + Added a bash completion script ([`plugins/bash/phan`](plugins/bash/phan) has installation instructions).
 
 New features(Analysis):
-+ Fix false positive PhanSuspiciousValueComparisonInLoop when both sides change in a loop. (#2919)
++ Fix false positive `PhanSuspiciousValueComparisonInLoop` when both sides change in a loop. (#2919)
 + Detect potential infinite loops such as `while (true) { does_not_exit_loop(); }`. (Requires `--redundant-condition-detection`)
   New issue types: `PhanInfiniteRecursion`.
 + Track that the **real** type of an array variable is an array after adding fields to it (#2932)
@@ -17,14 +30,29 @@ New features(Analysis):
 + Warn about adding fields to an unused array variable, if Phan infers the real variable type is an array. (#2933)
 + Check for `PhanInfiniteLoop` when the condition expression is omitted (e.g. `for (;;) {}`)
 + Avoid false positives in real condition checks from weak equality checks such as `if ($x == null) { if ($x !== null) {}}` (#2924)
++ Warn about `X ? Y : Y` and `if (cond1) {...} elseif (cond1) {...}` in DuplicateExpressionPlugin (#2955)
++ Fix failure to infer type when there is an assignment (or `++$x`, or `$x OP= expr`) in a condition (#2964)
+  (e.g. `return ($obj = maybeObj()) instanceof stdClass ? $obj : new stdClass();`)
++ Warn about no-ops in for loops (e.g. `for ($x; $x < 10, $x < 20; $x + 1) {}`) (#2926)
++ Treat `compact('var1', ['var2'])` as a usage of $var1 and $var2 in `--unused-variable-detection` (#1812)
+
+Bug fixes:
++ Fix crash in StringUtil seen in php 7.4-dev due to notice in `hexdec()` (affects polyfill/fallback parser).
 
 Plugins:
 + Add `InlineHTMLPlugin` to warn about inline HTML anywhere in an analyzed file's contents.
   In the `plugin_config` config array, `inline_html_whitelist_regex` and `inline_html_blacklist_regex` can be used to limit the subset of analyzed files to check for inline HTML.
++ For `UnusedSuppressionPlugin`: `'plugin_config' => ['unused_suppression_whitelisted_only' => true]` will make this plugin report unused suppressions only for issues in `whitelist_issue_types`. (#2961)
++ For `UseReturnValuePlugin`: warn about unused results of function calls in loops (#2926)
++ Provide the `$node` causing the call as a 5th parameter to closures returned by `AnalyzeFunctionCallCapability->getAnalyzeFunctionCallClosuresStatic`
+  (this can be used to get the variable/expression for an instance method call, etc.)
 
 Maintenance:
 + Made `--polyfill-parse-all-element-doc-comments` a no-op, it was only needed for compatibility with running Phan with php 7.0.
 + Minor updates to CLI help for Phan.
++ Restart without problematic extensions unless the corresponding `PHAN_ALLOW_$extension` flag is set. (#2900)
+  These include uopz and grpc (when Phan would use `pcntl_fork`) - Phan already restarts without xdebug.
++ Fix `Debug::nodeToString()` - Make it use a polyfill for `ast\get_kind_name` if the php-ast version is missing or outdated.
 
 Jul 01 2019, Phan 2.2.4
 -----------------------

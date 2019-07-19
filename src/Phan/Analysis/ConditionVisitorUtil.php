@@ -431,7 +431,7 @@ trait ConditionVisitorUtil
     }
 
     /**
-     * @param Node|mixed $node
+     * @param Node|string|int|float $node
      */
     protected static function isThisVarNode($node) : bool
     {
@@ -1017,7 +1017,7 @@ trait ConditionVisitorUtil
     }
 
     /**
-     * @param array<mixed,Node|mixed> $args
+     * @param array<mixed,Node|string|int|float|null> $args
      */
     final protected static function isArgumentListWithVarAsFirstArgument(array $args) : bool
     {
@@ -1096,25 +1096,66 @@ trait ConditionVisitorUtil
     }
 
     /**
-     * @param Node|mixed $node
+     * @param Node|string|int|float $node
      * @param Closure(CodeBase,Context,Variable,array<int,mixed>):void $type_modification_callback
-     *        A closure acting on a Variable instance (not really a variable) to modify its type
+     *        A closure acting on a Variable instance (usually not really a variable) to modify its type
      * @param Context $context
      * @param array<int,mixed> $args
      */
     protected function modifyComplexExpression($node, Closure $type_modification_callback, Context $context, array $args) : Context
     {
-        if (!$node instanceof Node) {
-            return $context;
-        }
-        if ($node->kind === ast\AST_DIM) {
-            return $this->modifyComplexDimExpression($node, $type_modification_callback, $context, $args);
-        } elseif ($node->kind === ast\AST_PROP) {
-            if (self::isThisVarNode($node->children['expr'])) {
-                return $this->modifyPropertyOfThis($node, $type_modification_callback, $context, $args);
+        for (;;) {
+            if (!$node instanceof Node) {
+                return $context;
+            }
+            switch ($node->kind) {
+                case ast\AST_DIM:
+                    return $this->modifyComplexDimExpression($node, $type_modification_callback, $context, $args);
+                case ast\AST_PROP:
+                    if (self::isThisVarNode($node->children['expr'])) {
+                        return $this->modifyPropertyOfThis($node, $type_modification_callback, $context, $args);
+                    }
+                    return $context;
+                case ast\AST_ASSIGN:
+                case ast\AST_ASSIGN_REF:
+                    $var_node = $node->children['var'];
+                    if (!$var_node instanceof Node) {
+                        return $context;
+                    }
+                    // Act on the left (or right) hand side of the assignment instead. That side may be a regular variable.
+                    if ($var_node->kind === ast\AST_ARRAY) {
+                        $node = $node->children['expr'];
+                    } else {
+                        $node = $var_node;
+                    }
+                    continue 2;
+                case ast\AST_VAR:
+                    $variable = $this->getVariableFromScope($node, $context);
+                    if (\is_null($variable)) {
+                        return $context;
+                    }
+                    // Make a copy of the variable
+                    $variable = clone($variable);
+                    $type_modification_callback($this->code_base, $context, $variable, $args);
+                    // Overwrite the variable with its new type
+                    return $context->withScopeVariable(
+                        $variable
+                    );
+                case ast\AST_ASSIGN_OP:
+                // Be conservative - analyze `cond(++$x)` but not `cond($x++)
+                // case ast\AST_POST_INC:
+                // case ast\AST_POST_DEC:
+                case ast\AST_PRE_INC:
+                case ast\AST_PRE_DEC:
+                    $node = $node->children['var'];
+                    if (!$node instanceof Node) {
+                        return $context;
+                    }
+                    continue 2;
+                default:
+                    return $context;
             }
         }
-        return $context;
     }
 
     /**
@@ -1223,7 +1264,7 @@ trait ConditionVisitorUtil
     }
 
     /**
-     * @param Node|mixed $node
+     * @param Node|string|int|float $node
      * @return ?string the name of the variable in a chain of field accesses such as $varName['field'][$i]
      */
     private static function getVarNameOfDimNode($node) : ?string
