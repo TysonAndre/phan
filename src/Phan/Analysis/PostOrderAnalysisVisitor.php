@@ -493,7 +493,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             && !Variable::isHardcodedVariableInScopeWithName($variable_name, $this->context->isInGlobalScope())
         ) {
             $this->emitIssueWithSuggestion(
-                $variable_name === 'this' ? Issue::UndeclaredThis : Issue::UndeclaredVariable,
+                Variable::chooseIssueForUndeclaredVariable($this->context, $variable_name),
                 $node->lineno,
                 [$variable_name],
                 IssueFixSuggester::suggestVariableTypoFix($this->code_base, $this->context, $variable_name)
@@ -1169,11 +1169,13 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     public function visitClassName(Node $node) : Context
     {
         try {
-            (new ContextNode(
+            foreach ((new ContextNode(
                 $this->code_base,
                 $this->context,
                 $node->children['class']
-            ))->getClassList(false, ContextNode::CLASS_LIST_ACCEPT_OBJECT_OR_CLASS_NAME);
+            ))->getClassList(false, ContextNode::CLASS_LIST_ACCEPT_OBJECT_OR_CLASS_NAME) as $class) {
+                $class->addReference($this->context);
+            }
         } catch (CodeBaseException $exception) {
             $exception_fqsen = $exception->getFQSEN();
             $this->emitIssueWithSuggestion(
@@ -2674,7 +2676,15 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         );
         $this->analyzeNoOp($node, Issue::NoopArrayAccess);
 
-        if ($node->flags & PhanAnnotationAdder::FLAG_IGNORE_NULLABLE_AND_UNDEF) {
+        $flags = $node->flags;
+        if ($flags & ast\flags\DIM_ALTERNATIVE_SYNTAX) {
+            $this->emitIssue(
+                Issue::CompatibleDimAlternativeSyntax,
+                $node->children['dim']->lineno ?? $node->lineno,
+                ASTReverter::toShortString($node)
+            );
+        }
+        if ($flags & PhanAnnotationAdder::FLAG_IGNORE_NULLABLE_AND_UNDEF) {
             return $context;
         }
         // Check the array type to trigger TypeArraySuspicious
@@ -2692,6 +2702,81 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             // Detect this elsewhere, e.g. want to detect PhanUndeclaredVariableDim but not PhanUndeclaredVariable
         }
         return $context;
+    }
+
+    /**
+     * Visit a node with kind `ast\AST_CONDITIONAL`
+     *
+     * @param Node $node
+     * A node to parse
+     *
+     * @return Context
+     * A new or an unchanged context resulting from
+     * parsing the node
+     *
+     * @suppress PhanAccessMethodInternal
+     */
+    public function visitConditional(Node $node) : Context
+    {
+        if ($this->isInNoOpPosition($node)) {
+            if (ASTSimplifier::isExpressionWithoutSideEffects($node->children['true']) && ASTSimplifier::isExpressionWithoutSideEffects($node->children['false'])) {
+                $this->emitIssue(
+                    Issue::NoopTernary,
+                    $node->lineno
+                );
+            }
+        }
+        if (($node->children['cond']->kind ?? null) === ast\AST_CONDITIONAL) {
+            $this->checkDeprecatedUnparenthesizedConditional($node);
+        }
+        return $this->context;
+    }
+
+    /**
+     * @param Node $node a node of kind AST_CONDITIONAL with a condition that is also of kind AST_CONDITIONAL
+     */
+    private function checkDeprecatedUnparenthesizedConditional(Node $node) : void
+    {
+        $cond = $node->children['cond'];
+        if ($cond->flags & flags\PARENTHESIZED_CONDITIONAL) {
+            // The condition is unambiguously parenthesized.
+            return;
+        }
+        // @phan-suppress-next-line PhanUndeclaredProperty
+        if (PHP_VERSION_ID < 70400 && !isset($cond->is_not_parenthesized)) {
+            // This is from the native parser in php 7.3 or earlier.
+            // We don't know whether or not the AST is parenthesized.
+            return;
+        }
+        if (isset($cond->children['true'])) {
+            if (isset($node->children['true'])) {
+                $description = 'a ? b : c ? d : e';
+                $first_suggestion = '(a ? b : c) ? d : e';
+                $second_suggestion = 'a ? b : (c ? d : e)';
+            } else {
+                $description = 'a ? b : c ?: d';
+                $first_suggestion = '(a ? b : c) ?: d';
+                $second_suggestion = 'a ? b : (c ?: d)';
+            }
+        } else {
+            if (isset($node->children['true'])) {
+                $description = 'a ?: b ? c : d';
+                $first_suggestion = '(a ?: b) ? c : d';
+                $second_suggestion = 'a ?: (b ? c : d)';
+            } else {
+                // This is harmless - (a ?: b) ?: c always produces the same result and side
+                // effects as a ?: (b ?: c).
+                // Don't warn.
+                return;
+            }
+        }
+        $this->emitIssue(
+            Issue::CompatibleUnparenthesizedTernary,
+            $node->lineno,
+            $description,
+            $first_suggestion,
+            $second_suggestion
+        );
     }
 
     /**
@@ -3142,7 +3227,11 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             || $argument->kind == ast\AST_PROP
         ) {
             $property_name = $argument->children['prop'];
+            if ($property_name instanceof Node) {
+                $property_name = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $property_name)->asSingleScalarValueOrNullOrSelf();
+            }
 
+            // Only try to handle known literals or strings, ignore properties with names that couldn't be inferred.
             if (\is_string($property_name)) {
                 // We don't do anything with it; just create it
                 // if it doesn't exist
@@ -3163,9 +3252,6 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                     // If we can't figure out what kind of a call
                     // this is, don't worry about it
                 }
-            } else {
-                // This is stuff like `Class->$foo`. I'm ignoring
-                // it.
             }
         }
     }
@@ -3203,7 +3289,11 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             || $kind === ast\AST_PROP
         ) {
             $property_name = $argument->children['prop'];
+            if ($property_name instanceof Node) {
+                $property_name = UnionTypeVisitor::unionTypeFromNode($code_base, $context, $property_name)->asSingleScalarValueOrNullOrSelf();
+            }
 
+            // Only try to handle property names that could be inferred.
             if (\is_string($property_name)) {
                 // We don't do anything with it; just create it
                 // if it doesn't exist
@@ -3224,9 +3314,6 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                     // If we can't figure out what kind of a call
                     // this is, don't worry about it
                 }
-            } else {
-                // This is stuff like `Class->$foo`. I'm ignoring
-                // it.
             }
         }
 
@@ -3705,7 +3792,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             case ast\AST_STMT_LIST:
                 return true;
             case ast\AST_EXPR_LIST:
-                return $node !== end($parent_node->children) || $parent_node !== (\prev($this->parent_node_list)->children['cond'] ?? null);
+                return $node !== \end($parent_node->children) || $parent_node !== (\prev($this->parent_node_list)->children['cond'] ?? null);
         }
         return false;
     }

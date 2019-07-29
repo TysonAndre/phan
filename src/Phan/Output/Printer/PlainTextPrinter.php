@@ -22,12 +22,18 @@ final class PlainTextPrinter implements IssuePrinterInterface
 
     public function print(IssueInstance $instance) : void
     {
-        $file    = $instance->getFile();
+        $file    = $instance->getDisplayedFile();
         $line    = $instance->getLine();
         $issue   = $instance->getIssue();
         $type    = $issue->getType();
         $message = $instance->getMessage();
         $suggestion_message = $instance->getSuggestionMessage();
+        $column  = $instance->getColumn();
+        if ($column > 0 && !Config::getValue('hide_issue_column')) {
+            $column_message = "at column $column";
+        } else {
+            $column_message = null;
+        }
 
         if (Config::getValue('color_issue_messages')) {
             switch ($issue->getSeverity()) {
@@ -47,6 +53,9 @@ final class PlainTextPrinter implements IssuePrinterInterface
                 $type,
                 $message
             ]);
+            if ($column_message) {
+                $issue .= Colorizing::colorizeTemplate(" ({DETAILS})", [$column_message]);
+            }
             if ($suggestion_message) {
                 $issue .= Colorizing::colorizeTemplate(" ({SUGGESTION})", [$suggestion_message]);
             }
@@ -58,6 +67,9 @@ final class PlainTextPrinter implements IssuePrinterInterface
                 $type,
                 $message
             );
+            if ($column_message) {
+                $issue .= " ($column_message)";
+            }
             if ($suggestion_message) {
                 $issue .= " ($suggestion_message)";
             }

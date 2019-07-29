@@ -2,6 +2,7 @@
 
 namespace Phan\Output\Printer;
 
+use Phan\Config;
 use Phan\Issue;
 use Phan\IssueInstance;
 use Phan\Output\IssuePrinterInterface;
@@ -24,11 +25,15 @@ final class PylintPrinter implements IssuePrinterInterface
         );
         $line = \sprintf(
             "%s:%d: [%s] %s",
-            $instance->getFile(),
+            $instance->getDisplayedFile(),
             $instance->getLine(),
             self::getSeverityCode($instance),
             $message
         );
+        $column  = $instance->getColumn();
+        if ($column > 0 && !Config::getValue('hide_issue_column')) {
+            $line .= " (at column $column)";
+        }
         $suggestion = $instance->getSuggestionMessage();
         if ($suggestion) {
             $line .= " ($suggestion)";

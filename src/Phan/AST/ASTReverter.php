@@ -148,8 +148,16 @@ class ASTReverter
                     return  '(unknown)';
                 }
 
-                $dim_str = self::toShortString($node->children['dim']);
-                return "${expr_str}[${dim_str}]";
+                $dim = $node->children['dim'];
+                if ($dim !== null) {
+                    $dim_str = self::toShortString($dim);
+                } else {
+                    $dim_str = '';
+                }
+                if ($node->flags & ast\flags\DIM_ALTERNATIVE_SYNTAX) {
+                    return "${expr_str}{{$dim_str}}";
+                }
+                return "${expr_str}[$dim_str]";
             },
             ast\AST_NAME => static function (Node $node) : string {
                 $result = $node->children['name'];
@@ -236,6 +244,15 @@ class ASTReverter
                 return \sprintf(
                     '%s::%s%s',
                     self::toShortString($node->children['class']),
+                    is_string($method_node) ? $method_node : self::toShortString($method_node),
+                    self::toShortString($node->children['args'])
+                );
+            },
+            ast\AST_METHOD_CALL => static function (Node $node) : string {
+                $method_node = $node->children['method'];
+                return \sprintf(
+                    '%s->%s%s',
+                    self::toShortString($node->children['expr']),
                     is_string($method_node) ? $method_node : self::toShortString($method_node),
                     self::toShortString($node->children['args'])
                 );

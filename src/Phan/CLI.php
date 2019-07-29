@@ -7,6 +7,7 @@ use InvalidArgumentException;
 use Phan\Config\Initializer;
 use Phan\Daemon\ExitException;
 use Phan\Exception\UsageException;
+use Phan\ForkPool\Writer;
 use Phan\Language\Element\AddressableElement;
 use Phan\Language\Element\Comment\Builder;
 use Phan\Language\FQSEN;
@@ -61,7 +62,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    const PHAN_VERSION = '2.2.7-dev';
+    const PHAN_VERSION = '2.2.8-dev';
 
     /**
      * List of short flags passed to getopt
@@ -75,6 +76,7 @@ class CLI
      * @internal
      */
     const GETOPT_LONG_OPTIONS = [
+        'absolute-path-issue-messages',
         'allow-polyfill-parser',
         'assume-real-types-for-internal-functions',
         'automatic-fix',
@@ -739,6 +741,9 @@ class CLI
                 case 'markdown-issue-messages':
                     Config::setValue('markdown_issue_messages', true);
                     break;
+                case 'absolute-path-issue-messages':
+                    Config::setValue('absolute_path_issue_messages', true);
+                    break;
                 case 'color-scheme':
                 case 'C':
                 case 'color':
@@ -1116,7 +1121,7 @@ EOT;
   `.phan/config.php`).
 
  -m, --output-mode <mode>
-  Output mode from 'text', 'json', 'csv', 'codeclimate', 'checkstyle', or 'pylint'
+  Output mode from 'text', 'json', 'csv', 'codeclimate', 'checkstyle', 'pylint', or 'html'
 
  -o, --output <filename>
   Output filename
@@ -1126,7 +1131,7 @@ $init_help
   Add colors to the outputted issues.
   This is recommended for only the default --output-mode ('text')
 
-  [--color-scheme={default,code,eclipse_dark,vim}]
+  [--color-scheme={default,code,light,eclipse_dark,vim}]
     This (or the environment variable PHAN_COLOR_SCHEME) can be used to set the color scheme for emitted issues.
 
  -p, --progress-bar
@@ -1300,6 +1305,10 @@ Extended help:
 
  --markdown-issue-messages
   Emit issue messages with markdown formatting.
+
+ --absolute-path-issue-messages
+  Emit issues with their absolute paths instead of relative paths.
+  This does not affect files mentioned within the issue.
 
  --constant-variable-detection
   Emit issues for variables that could be replaced with literals or constants.
@@ -1681,7 +1690,6 @@ EOB
         static $previous_update_time = 0.0;
         $time = \microtime(true);
 
-
         // If not enough time has elapsed, then don't update the progress bar.
         // Making the update frequency based on time (instead of the number of files)
         // prevents the terminal from rapidly flickering while processing small files.
@@ -1693,14 +1701,26 @@ EOB
             }
         }
         $previous_update_time = $time;
-
+        if ($msg === 'analyze' && Writer::isForkPoolWorker()) {
+            // The original process of the fork pool is responsible for rendering the combined progress.
+            Writer::recordProgress($p);
+            return;
+        }
         $memory = \memory_get_usage() / 1024 / 1024;
         $peak = \memory_get_peak_usage() / 1024 / 1024;
 
+        self::outputProgressLine($msg, $p, $memory, $peak);
+    }
+
+    /**
+     * @internal
+     */
+    public static function outputProgressLine(string $msg, float $p, float $memory, float $peak) : void
+    {
         $left_side = \str_pad($msg, 10, ' ', STR_PAD_LEFT) .  ' ';
         $right_side =
                " " . \sprintf("%1$ 3d", (int)(100 * $p)) . "%" .
-               \sprintf(' %0.2dMB/%0.2dMB', $memory, $peak);
+               \sprintf(' %0.2dMB/%0.2dMB', (int)$memory, (int)$peak);
 
         static $columns = null;
         if ($columns === null) {

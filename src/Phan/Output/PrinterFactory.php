@@ -5,6 +5,7 @@ namespace Phan\Output;
 use Phan\Output\Printer\CheckstylePrinter;
 use Phan\Output\Printer\CodeClimatePrinter;
 use Phan\Output\Printer\CSVPrinter;
+use Phan\Output\Printer\HTMLPrinter;
 use Phan\Output\Printer\JSONPrinter;
 use Phan\Output\Printer\PHPLikePrinter;
 use Phan\Output\Printer\PlainTextPrinter;
@@ -23,7 +24,7 @@ class PrinterFactory
      */
     public function getTypes():array
     {
-        return ['text', 'json', 'csv', 'codeclimate', 'checkstyle', 'pylint', 'phplike'];
+        return ['text', 'json', 'csv', 'codeclimate', 'checkstyle', 'pylint', 'phplike', 'html'];
     }
 
     /**
@@ -50,6 +51,8 @@ class PrinterFactory
                 break;
             case 'phplike':
                 $printer = new PHPLikePrinter();
+            case 'html':
+                $printer = new HTMLPrinter();
                 break;
             case 'text':
             default:

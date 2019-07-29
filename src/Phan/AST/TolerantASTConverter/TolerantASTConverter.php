@@ -14,6 +14,7 @@ use Microsoft\PhpParser\Diagnostic;
 use Microsoft\PhpParser\DiagnosticsProvider;
 use Microsoft\PhpParser\FilePositionMap;
 use Microsoft\PhpParser\MissingToken;
+use Microsoft\PhpParser\Node\Expression\TernaryExpression;
 use Microsoft\PhpParser\Parser;
 use Microsoft\PhpParser\Token;
 use Microsoft\PhpParser\TokenKind;
@@ -58,7 +59,7 @@ Shim::load();
  * each time they are invoked,
  * so it's possible to have multiple callers use this without affecting each other.
  *
- * Compatibility: PHP 7.0-7.3
+ * Compatibility: PHP 7.0-7.4
  *
  * ----------------------------------------------------------------------------
  *
@@ -94,6 +95,9 @@ Shim::load();
  * @phan-file-suppress PhanPartialTypeMismatchReturn, PhanPossiblyNullTypeReturn
  * @phan-file-suppress PhanPartialTypeMismatchArgument,
  * @phan-file-suppress PhanPartialTypeMismatchArgumentInternal
+ *
+ * TODO: Add a way to report notices that aren't syntax errors?
+ * e.g. `The (real) cast is deprecated, use (float) instead`, ending a function call with a comma, etc.
  */
 class TolerantASTConverter
 {
@@ -512,10 +516,15 @@ class TolerantASTConverter
             'Microsoft\PhpParser\Node\Expression\SubscriptExpression' => static function (PhpParser\Node\Expression\SubscriptExpression $n, int $start_line) {
                 $expr = static::phpParserNodeToAstNode($n->postfixExpression);
                 try {
-                    return new ast\Node(ast\AST_DIM, 0, [
-                        'expr' => $expr,
-                        'dim' => $n->accessExpression !== null ? static::phpParserNodeToAstNode($n->accessExpression) : null,
-                    ], $start_line);
+                    return new ast\Node(
+                        ast\AST_DIM,
+                        ($n->openBracketOrBrace->kind ?? null) === TokenKind::OpenBraceToken ? ast\flags\DIM_ALTERNATIVE_SYNTAX : 0,
+                        [
+                            'expr' => $expr,
+                            'dim' => $n->accessExpression !== null ? static::phpParserNodeToAstNode($n->accessExpression) : null,
+                        ],
+                        $start_line
+                    );
                 } catch (InvalidNodeException $_) {
                     return $expr;
                 }
@@ -930,10 +939,12 @@ class TolerantASTConverter
             'Microsoft\PhpParser\Node\Expression\MemberAccessExpression' => static function (PhpParser\Node\Expression\MemberAccessExpression $n, int $start_line) : ?\ast\Node {
                 return static::phpParserMemberAccessExpressionToAstProp($n, $start_line);
             },
-            'Microsoft\PhpParser\Node\Expression\TernaryExpression' => static function (PhpParser\Node\Expression\TernaryExpression $n, int $start_line) : ast\Node {
-                return new ast\Node(
+            'Microsoft\PhpParser\Node\Expression\TernaryExpression' => static function (TernaryExpression $n, int $start_line) : ast\Node {
+                $n = self::normalizeTernaryExpression($n);
+                $is_parenthesized = $n->parent instanceof PhpParser\Node\Expression\ParenthesizedExpression;
+                $result = new ast\Node(
                     ast\AST_CONDITIONAL,
-                    0,
+                    $is_parenthesized ? ast\flags\PARENTHESIZED_CONDITIONAL : 0,
                     [
                         'cond' => static::phpParserNodeToAstNode($n->condition),
                         'true' => $n->ifExpression !== null ? static::phpParserNodeToAstNode($n->ifExpression) : null,
@@ -941,6 +952,12 @@ class TolerantASTConverter
                     ],
                     $start_line
                 );
+                if (PHP_VERSION_ID < 70400 && !$is_parenthesized) {
+                    // This is a way to indicate that this AST is definitely unparenthesized in cases where the native parser would not provide this information.
+                    // @phan-suppress-next-line PhanUndeclaredProperty
+                    $result->is_not_parenthesized = true;
+                }
+                return $result;
             },
             /**
              * @return ?ast\Node
@@ -3011,6 +3028,21 @@ class TolerantASTConverter
             $this->instance_should_add_placeholders,
         ], true);
         return \sha1($details);
+    }
+
+    private static function normalizeTernaryExpression(TernaryExpression $n) : TernaryExpression {
+        $else = $n->elseExpression;
+        if (!($else instanceof TernaryExpression)) {
+            return $n;
+        }
+        // The else expression is an unparenthesized ternary expression. Rearrange the parts.
+        // (Convert a ? b : (c ? d : e) to (a ? b : c) ? d : e)
+        $inner_left = clone($n);
+        // @phan-suppress-next-line PhanPartialTypeMismatchProperty pretty much all expressions can be tokens, type is incorrect
+        $inner_left->elseExpression = $else->condition;
+        $outer = clone($else);
+        $outer->condition = $inner_left;
+        return $outer;
     }
 }
 class_exists(TolerantASTConverterWithNodeMapping::class);

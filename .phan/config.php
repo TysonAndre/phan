@@ -314,6 +314,7 @@ return [
         'plugins/codeclimate/engine',
         'tool/make_stubs',
         'internal/dump_fallback_ast.php',
+        'internal/dump_html_styles.php',
         'internal/extract_arg_info.php',
         'internal/internalsignatures.php',
         'internal/package.php',
@@ -482,6 +483,7 @@ return [
         'PHPDocToRealTypesPlugin',  // suggests replacing (at)return void with `: void` in the declaration, etc.
         'PHPDocRedundantPlugin',
         'PreferNamespaceUsePlugin',
+        'EmptyStatementListPlugin',
 
         // This should only be enabled if the code being analyzed contains Phan plugins.
         'PhanSelfCheckPlugin',

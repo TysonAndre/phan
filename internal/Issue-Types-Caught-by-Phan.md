@@ -397,6 +397,16 @@ Declaring an autoloader with function __autoload() was deprecated in PHP 7.2 and
 
 e.g. [this issue](https://github.com/phan/phan/tree/2.0.0/tests/plugin_test/expected/000_plugins.php.expected#L20) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/2.0.0/tests/plugin_test/src/000_plugins.php#L64).
 
+## PhanCompatibleDimAlternativeSyntax
+
+This is emitted deliberately when using the polyfill and/or using php 7.4+.
+
+```
+Array and string offset access syntax with curly braces is deprecated in PHP 7.4. Use square brackets instead. Seen for {CODE}
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/misc/fallback_test/expected/062_test.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/misc/fallback_test/src/062_test.php#L2).
+
 ## PhanCompatibleExpressionPHP7
 
 This issue will be thrown if there is an expression that may be treated differently in PHP7 than it was in previous major versions of the PHP runtime. Take a look at the [PHP7 Migration Manual](http://php.net/manual/en/migration70.incompatible.php) to understand changes in behavior.
@@ -406,6 +416,14 @@ The config `backward_compatibility_checks` must be enabled for this to run such 
 ```
 {CLASS} expression may not be PHP 7 compatible
 ```
+
+## PhanCompatibleImplodeOrder
+
+```
+In php 7.4, passing glue string after the array is deprecated for {FUNCTION}. Should this swap the parameters of type {TYPE} and {TYPE}?
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/files/expected/0511_implode.php.expected#L3) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/files/src/0511_implode.php#L7).
 
 ## PhanCompatibleIterableTypePHP70
 
@@ -479,6 +497,25 @@ Square bracket syntax for an array destructuring assignment is not compatible wi
 
 e.g. [this issue](https://github.com/phan/phan/tree/2.0.0/tests/php70_files/expected/003_short_array.php.expected#L2) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/2.0.0/tests/php70_files/src/003_short_array.php#L8).
 
+## PhanCompatibleSyntaxNotice
+
+This is used for notices that are emitted while Phan is parsing with the native parser.
+Currently, this only catches the notice about the `(real)` cast from the native parser in php 7.4.
+
+```
+Saw a notice while parsing with the native parser: {DETAILS}
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/php74_files/expected/012_real_cast.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/php74_files/src/012_real_cast.php#L2).
+
+## PhanCompatibleUnparenthesizedTernary
+
+```
+Unparenthesized '{CODE}' is deprecated. Use either '{CODE}' or '{CODE}'
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/misc/fallback_test/expected/067_ambiguous_ternary.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/misc/fallback_test/src/067_ambiguous_ternary.php#L6).
+
 ## PhanCompatibleUnsetCast
 
 ```
@@ -518,6 +555,22 @@ Return type '{TYPE}' means the absence of a return value starting in PHP 7.1. In
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/2.0.0/tests/php70_files/expected/004_void.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/2.0.0/tests/php70_files/src/004_void.php#L4).
+
+## PhanThrowCommentInToString
+
+```
+{FUNCTIONLIKE} documents that it throws {TYPE}, but throwing in __toString() is a fatal error prior to PHP 7.4
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/plugin_test/expected/133_throw_in_to_string.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/plugin_test/src/133_throw_in_to_string.php#L6).
+
+## PhanThrowStatementInToString
+
+```
+{FUNCTIONLIKE} throws {TYPE} here, but throwing in __toString() is a fatal error prior to PHP 7.4
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/plugin_test/expected/133_throw_in_to_string.php.expected#L2) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/plugin_test/src/133_throw_in_to_string.php#L7).
 
 # Context
 
@@ -760,6 +813,14 @@ Unused result of a string literal {STRING_LITERAL} near this line
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/2.0.0/tests/misc/fallback_test/expected/051_invalid_function_node.php.expected#L5) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/2.0.0/tests/misc/fallback_test/src/051_invalid_function_node.php#L3).
+
+## PhanNoopTernary
+
+```
+Unused result of a ternary expression where the true/false results don't seen to have side effects
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/files/expected/0740_noop_ternary.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/files/src/0740_noop_ternary.php#L3).
 
 ## PhanNoopUnaryOperator
 
@@ -2232,6 +2293,14 @@ This issue will be emitted for the following code
 $a = false; if($a[1]) {}
 ```
 
+## PhanTypeArraySuspiciousNull
+
+```
+Suspicious array access to null
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/files/expected/0739_access_null.php.expected#L2) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/files/src/0739_access_null.php#L5).
+
 ## PhanTypeArraySuspiciousNullable
 
 ```
@@ -3344,6 +3413,14 @@ Call to undeclared function {FUNCTION} in callable
 
 e.g. [this issue](https://github.com/phan/phan/tree/2.0.0/tests/plugin_test/expected/094_shutdown_function.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/2.0.0/tests/plugin_test/src/094_shutdown_function.php#L3).
 
+## PhanUndeclaredGlobalVariable
+
+```
+Global variable ${VARIABLE} is undeclared
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/misc/rewriting_test/expected/004_crash_rewrite_if.php.expected#L3) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/misc/rewriting_test/src/004_crash_rewrite_if.php#L2).
+
 ## PhanUndeclaredInterface
 
 Implementing an interface that doesn't exist or otherwise can't be found will emit this issue.
@@ -3914,4 +3991,6 @@ e.g. [this issue](https://github.com/phan/phan/tree/2.0.0/tests/files/expected/0
 This emits warnings for unparsable PHP files (detected by `php-ast`).
 Note: This is not the same thing as running `php -l` on a file - PhanSyntaxError checks for syntax errors, but not semantics such as where certain expressions can occur (Which `php -l` would check for).
 
-e.g. [this issue](https://github.com/phan/phan/tree/2.0.0/tests/plugin_test/expected/028_parse_failure.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/2.0.0/tests/plugin_test/src/028_parse_failure.php#L2).
+Note: If the native parser is used, the reported column is a guess. Phan will use the column of the error reported by the **polyfill** if the errors are on the same line.
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/plugin_test/expected/136_unexpected_bracket.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/plugin_test/src/136_unexpected_bracket.php#L2).

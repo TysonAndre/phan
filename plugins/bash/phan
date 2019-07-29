@@ -93,6 +93,7 @@ _phan() {
 --find-signature
 --print-memory-usage-summary
 --markdown-issue-messages
+--absolute-path-issue-messages
 --constant-variable-detection
 --require-config-exists
 --help-annotaitons
@@ -129,7 +130,7 @@ _phan() {
             return 0
             ;;
         --output-mode | -m)
-            COMPREPLY=( $(compgen -W "text json csv codeclimate checkstyle pylint" -- "${cur}" ))
+            COMPREPLY=( $(compgen -W "text json csv codeclimate checkstyle pylint html" -- "${cur}" ))
             return 0
             ;;
         --init-level)
@@ -145,7 +146,7 @@ _phan() {
             return 0
             ;;
         --color-scheme)
-            COMPREPLY=( $(compgen -W "default code eclipse-dark vim" -- "${cur}" ))
+            COMPREPLY=( $(compgen -W "default code eclipse-dark light vim" -- "${cur}" ))
             return 0
             ;;
         --plugin | -P)

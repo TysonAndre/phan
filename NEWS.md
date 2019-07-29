@@ -1,13 +1,60 @@
 Phan NEWS
 
-??? ?? 2019, Phan 2.2.7 (dev)
+??? ?? 2019, Phan 2.2.8 (dev)
 -----------------------
+
+New features(CLI):
++ Add heuristics to `tool/phoogle` to better handle `object`, and to include functions with nullable params in the results of searches for all functions. (#3014)
+
+New features(Analysis):
++ Emit `PhanCompatibleImplodeOrder` when the glue string is passed as the second instead of the first argument (#2089)
++ Emit `PhanCompatibleDimAlternativeSyntax` when using array and string array access syntax with curly braces
+  when using the polyfill parser or php 7.4+. (#2989)
++ Emit `PhanCompatibleUnparenthesizedTernary` for expressions such as `a ? b : c ? d : e`. (#2989)
+
+Plugins:
++ Make `EmptyStatementListPlugin` check if statements with negated conditions (those were previously skipped because they were simplified).
+
+Jul 27 2019, Phan 2.2.7
+-----------------------
+
+New features(CLI, Configs):
++ Include columns with most (but not all) occurrences of `PhanSyntaxError`
+  (inferred using the polyfill - these may be incorrect a small fraction of the time)
+
+  When the error is from the native `php-ast` parser, this is a best guess at the column.
+
+  `hide_issue_column` can be used to remove the column from issue messages.
++ Add `--absolute-path-issue-messages` to emit absolute paths instead of relative paths for the file of an issue. (#1640)
+  Note that this does not affect files within the issue message.
++ Properly render the progress bar when Phan runs with multiple processes (#2928)
++ Add an HTML output mode to generate an unstyled HTML fragment.
+  Example CSS styles can be generated with `internal/dump_html_styles.php`
++ Add a `light` color scheme for white backgrounds.
 
 New features(Analysis):
 + Fix failure to infer real types when an invoked function or method had a phpdoc `@return` in addition to the real type.
++ Infer union type from all classes that an instance method could possibly be, not just the first type seen in the expression's union type. (#2988)
++ Preserve remaining real union types after negation of `instanceof` checks (e.g. to check for redundant conditions).
++ Warn about throwing from `__toString()` in php versions prior to php 7.4. (#2805)
++ Emit `PhanTypeArraySuspiciousNull` for code such as `null['foo']` (#2965)
++ If a property with no phpdoc type has a default of an empty array, assume that it's type can be any array (when reading it) until the first assignment is seen.
++ Attempt to analyze modifying dynamic properties by reference (e.g. `$var->$prop` when $prop is a variable with a known string)
++ For undeclared variables in the global scope, emit `PhanUndeclaredGlobalVariable` instead of `PhanUndeclaredVariable` to distinguish those from undeclared variables within functions/methods. (#1652)
++ Emit `PhanCompatibleSyntaxNotice` for notices such as the deprecated `(real)` cast in php 7.4, when the real parser is used (#3012)
+
+Language Server/Daemon mode:
++ When `PhanSyntaxError` is emitted, make the start of the error range
+  the column of the error instead of the start of the line.
 
 Plugins:
++ Add `EmptyStatementListPlugin` to warn about empty statement lists involving if/elseif statements, try statements, and loops.
 + Properly warn about redundant `@return` annotations followed by other annotation lines in `PHPDocRedundantPlugin`.
+
+Bug fixes:
++ Treat `Foo::class` as a reference to the class/interface/trait `Foo` (#2945)
++ Fix crash for `(real)` cast in php 7.4. (#3012)
++ Work around crash due to deprecation notices in composer dependencies in php 7.4
 
 Jul 17 2019, Phan 2.2.6
 -----------------------

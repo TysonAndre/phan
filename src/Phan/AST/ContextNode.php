@@ -1080,8 +1080,9 @@ class ContextNode
                     0
                 );
             }
+
             throw new IssueException(
-                Issue::fromType($variable_name === 'this' ? Issue::UndeclaredThis : Issue::UndeclaredVariable)(
+                Issue::fromType(Variable::chooseIssueForUndeclaredVariable($this->context, $variable_name))(
                     $this->context->getFile(),
                     $node->lineno,
                     [ $variable_name ],
@@ -1137,8 +1138,9 @@ class ContextNode
                         0
                     );
                 }
+
                 throw new IssueException(
-                    Issue::fromType($variable_name === 'this' ? Issue::UndeclaredThis : Issue::UndeclaredVariable)(
+                    Issue::fromType(Variable::chooseIssueForUndeclaredVariable($this->context, $variable_name))(
                         $this->context->getFile(),
                         $node->lineno,
                         [ $variable_name ],

@@ -68,6 +68,7 @@ class Issue
     const UndeclaredTypeProperty    = 'PhanUndeclaredTypeProperty';
     const UndeclaredTypeThrowsType  = 'PhanUndeclaredTypeThrowsType';
     const UndeclaredVariable        = 'PhanUndeclaredVariable';
+    const UndeclaredGlobalVariable  = 'PhanUndeclaredGlobalVariable';
     const UndeclaredThis            = 'PhanUndeclaredThis';
     const UndeclaredVariableDim     = 'PhanUndeclaredVariableDim';
     const UndeclaredVariableAssignOp = 'PhanUndeclaredVariableAssignOp';
@@ -82,16 +83,17 @@ class Issue
     const InvalidFQSENInClasslike     = 'PhanInvalidFQSENInClasslike';
 
     // Issue::CATEGORY_TYPE
-    const NonClassMethodCall        = 'PhanNonClassMethodCall';
-    const PossiblyNonClassMethodCall = 'PhanPossiblyNonClassMethodCall';
-    const TypeArrayOperator         = 'PhanTypeArrayOperator';
-    const TypeInvalidBitwiseBinaryOperator = 'PhanTypeInvalidBitwiseBinaryOperator';
+    const NonClassMethodCall                = 'PhanNonClassMethodCall';
+    const PossiblyNonClassMethodCall        = 'PhanPossiblyNonClassMethodCall';
+    const TypeArrayOperator                 = 'PhanTypeArrayOperator';
+    const TypeInvalidBitwiseBinaryOperator  = 'PhanTypeInvalidBitwiseBinaryOperator';
     const TypeMismatchBitwiseBinaryOperands = 'PhanTypeMismatchBitwiseBinaryOperands';
-    const TypeArraySuspicious       = 'PhanTypeArraySuspicious';
-    const TypeArrayUnsetSuspicious  = 'PhanTypeArrayUnsetSuspicious';
-    const TypeArraySuspiciousNullable = 'PhanTypeArraySuspiciousNullable';
-    const TypeSuspiciousIndirectVariable = 'PhanTypeSuspiciousIndirectVariable';
-    const TypeObjectUnsetDeclaredProperty  = 'PhanTypeObjectUnsetDeclaredProperty';
+    const TypeArraySuspicious               = 'PhanTypeArraySuspicious';
+    const TypeArrayUnsetSuspicious          = 'PhanTypeArrayUnsetSuspicious';
+    const TypeArraySuspiciousNullable       = 'PhanTypeArraySuspiciousNullable';
+    const TypeArraySuspiciousNull           = 'PhanTypeArraySuspiciousNull';
+    const TypeSuspiciousIndirectVariable    = 'PhanTypeSuspiciousIndirectVariable';
+    const TypeObjectUnsetDeclaredProperty   = 'PhanTypeObjectUnsetDeclaredProperty';
     const TypeComparisonFromArray   = 'PhanTypeComparisonFromArray';
     const TypeComparisonToArray     = 'PhanTypeComparisonToArray';
     const TypeConversionFromArray   = 'PhanTypeConversionFromArray';
@@ -316,6 +318,7 @@ class Issue
     const NoopEmpty                     = 'PhanNoopEmpty';
     const NoopIsset                     = 'PhanNoopIsset';
     const NoopCast                      = 'PhanNoopCast';
+    const NoopTernary                   = 'PhanNoopTernary';
     const UnreachableCatch              = 'PhanUnreachableCatch';
     const UnreferencedClass             = 'PhanUnreferencedClass';
     const UnreferencedFunction          = 'PhanUnreferencedFunction';
@@ -450,6 +453,10 @@ class Issue
     const CompatibleNegativeStringOffset     = 'PhanCompatibleNegativeStringOffset';
     const CompatibleAutoload                 = 'PhanCompatibleAutoload';
     const CompatibleUnsetCast                = 'PhanCompatibleUnsetCast';
+    const CompatibleSyntaxNotice             = 'PhanCompatibleSyntaxNotice';
+    const CompatibleDimAlternativeSyntax     = 'PhanCompatibleDimAlternativeSyntax';
+    const CompatibleImplodeOrder             = 'PhanCompatibleImplodeOrder';
+    const CompatibleUnparenthesizedTernary   = 'PhanCompatibleUnparenthesizedTernary';
 
     // Issue::CATEGORY_GENERIC
     const TemplateTypeConstant       = 'PhanTemplateTypeConstant';
@@ -478,6 +485,8 @@ class Issue
     const ThrowTypeAbsentForCall           = 'PhanThrowTypeAbsentForCall';
     const ThrowTypeMismatch                = 'PhanThrowTypeMismatch';
     const ThrowTypeMismatchForCall         = 'PhanThrowTypeMismatchForCall';
+    const ThrowStatementInToString         = 'PhanThrowStatementInToString';
+    const ThrowCommentInToString           = 'PhanThrowCommentInToString';
     const CommentAmbiguousClosure          = 'PhanCommentAmbiguousClosure';
     const CommentDuplicateParam            = 'PhanCommentDuplicateParam';
     const CommentDuplicateMagicMethod      = 'PhanCommentDuplicateMagicMethod';
@@ -975,6 +984,14 @@ class Issue
                 "Variable \${VARIABLE} is undeclared",
                 self::REMEDIATION_B,
                 11046
+            ),
+            new Issue(
+                self::UndeclaredGlobalVariable,
+                self::CATEGORY_UNDEFINED,
+                self::SEVERITY_NORMAL,
+                "Global variable \${VARIABLE} is undeclared",
+                self::REMEDIATION_B,
+                11047
             ),
             new Issue(
                 self::UndeclaredTypeParameter,
@@ -1811,6 +1828,14 @@ class Issue
                 "Suspicious array access to nullable {TYPE}",
                 self::REMEDIATION_B,
                 10045
+            ),
+            new Issue(
+                self::TypeArraySuspiciousNull,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Suspicious array access to null",
+                self::REMEDIATION_B,
+                10136
             ),
             new Issue(
                 self::TypeInvalidDimOffset,
@@ -3373,6 +3398,14 @@ class Issue
                 self::REMEDIATION_B,
                 6068
             ),
+            new Issue(
+                self::NoopTernary,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_LOW,
+                "Unused result of a ternary expression where the true/false results don't seen to have side effects",
+                self::REMEDIATION_B,
+                6073
+            ),
 
             // Issue::CATEGORY_REDEFINE
             new Issue(
@@ -3853,6 +3886,54 @@ class Issue
                 self::REMEDIATION_B,
                 3014
             ),
+            new Issue(
+                self::ThrowStatementInToString,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_NORMAL,
+                "{FUNCTIONLIKE} throws {TYPE} here, but throwing in __toString() is a fatal error prior to PHP 7.4",
+                self::REMEDIATION_A,
+                3015
+            ),
+            new Issue(
+                self::ThrowCommentInToString,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_NORMAL,
+                "{FUNCTIONLIKE} documents that it throws {TYPE}, but throwing in __toString() is a fatal error prior to PHP 7.4",
+                self::REMEDIATION_A,
+                3016
+            ),
+            new Issue(
+                self::CompatibleSyntaxNotice,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_NORMAL,
+                "Saw a notice while parsing with the native parser: {DETAILS}",
+                self::REMEDIATION_B,
+                3017
+            ),
+            new Issue(
+                self::CompatibleDimAlternativeSyntax,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_NORMAL,
+                "Array and string offset access syntax with curly braces is deprecated in PHP 7.4. Use square brackets instead. Seen for {CODE}",
+                self::REMEDIATION_B,
+                3018
+            ),
+            new Issue(
+                self::CompatibleImplodeOrder,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_NORMAL,
+                "In php 7.4, passing glue string after the array is deprecated for {FUNCTION}. Should this swap the parameters of type {TYPE} and {TYPE}?",
+                self::REMEDIATION_B,
+                3019
+            ),
+            new Issue(
+                self::CompatibleUnparenthesizedTernary,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_NORMAL,
+                "Unparenthesized '{CODE}' is deprecated. Use either '{CODE}' or '{CODE}'",
+                self::REMEDIATION_B,
+                3020
+            ),
 
             // Issue::CATEGORY_GENERIC
             new Issue(
@@ -4302,7 +4383,8 @@ class Issue
         string $file,
         int $line,
         array $template_parameters = [],
-        Suggestion $suggestion = null
+        Suggestion $suggestion = null,
+        int $column = 0
     ) : IssueInstance {
         // TODO: Add callable to expanded union types instead
         return new IssueInstance(
@@ -4310,7 +4392,8 @@ class Issue
             $file,
             $line,
             $template_parameters,
-            $suggestion
+            $suggestion,
+            $column
         );
     }
 
@@ -4378,12 +4461,13 @@ class Issue
         string $file,
         int $line,
         array $template_parameters,
-        Suggestion $suggestion = null
+        Suggestion $suggestion = null,
+        int $column = 0
     ) : void {
         $issue = self::fromType($type);
 
         self::emitInstance(
-            $issue($file, $line, $template_parameters, $suggestion)
+            $issue($file, $line, $template_parameters, $suggestion, $column)
         );
     }
 
@@ -4489,7 +4573,8 @@ class Issue
         string $issue_type,
         int $lineno,
         array $parameters,
-        Suggestion $suggestion = null
+        Suggestion $suggestion = null,
+        int $column = 0
     ) : void {
         if (self::shouldSuppressIssue(
             $code_base,
@@ -4507,7 +4592,8 @@ class Issue
             $context->getFile(),
             $lineno,
             $parameters,
-            $suggestion
+            $suggestion,
+            $column
         );
     }
 

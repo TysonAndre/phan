@@ -1452,7 +1452,14 @@ class UnionTypeVisitor extends AnalysisVisitor
         // If the only type is null, we don't know what
         // accessed items will be
         if ($union_type->isType($null_type)) {
-            return UnionType::empty();
+            $this->emitIssue(
+                Issue::TypeArraySuspiciousNull,
+                $node->lineno
+            );
+            if ($union_type->getRealUnionType()->isNull()) {
+                return NullType::instance(false)->asRealUnionType();
+            }
+            return NullType::instance(false)->asPHPDocUnionType();
         }
 
         $element_types = UnionType::empty();
@@ -1796,11 +1803,10 @@ class UnionTypeVisitor extends AnalysisVisitor
                 // @phan-suppress-next-line PhanTypeMismatchReturnNullable variable existence was checked
                 return Variable::getUnionTypeOfHardcodedGlobalVariableWithName($variable_name);
             }
-            if (!Config::getValue('ignore_undeclared_variables_in_global_scope')
-                || !$this->context->isInGlobalScope()
-            ) {
+
+            if (!($this->context->isInGlobalScope() && Config::getValue('ignore_undeclared_variables_in_global_scope'))) {
                 throw new IssueException(
-                    Issue::fromType($variable_name === 'this' ? Issue::UndeclaredThis : Issue::UndeclaredVariable)(
+                    Issue::fromType(Variable::chooseIssueForUndeclaredVariable($this->context, $variable_name))(
                         $this->context->getFile(),
                         $node->lineno,
                         [$variable_name],
@@ -2068,6 +2074,9 @@ class UnionTypeVisitor extends AnalysisVisitor
                 return $union_type;
             }
 
+            if ($union_type->isEmptyArrayShape() && $property->getPHPDocUnionType()->isEmpty()) {
+                return ArrayType::instance($union_type->containsNullable())->asPHPDocUnionType();
+            }
             return $union_type;
         } catch (IssueException $exception) {
             Issue::maybeEmitInstance(
@@ -2198,10 +2207,11 @@ class UnionTypeVisitor extends AnalysisVisitor
         // Give up on any complicated nonsense where the
         // method name is a variable such as in
         // `$variable->$function_name()`.
-        //
-        // TODO:
         if ($method_name instanceof Node) {
-            return UnionType::empty();
+            $method_name = $this->__invoke($method_name)->asSingleScalarValueOrNullOrSelf();
+            if (!is_string($method_name)) {
+                return UnionType::empty();
+            }
         }
 
         // Method names can some times turn up being
@@ -2223,6 +2233,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                 );
                 return UnionType::empty();
             }
+            $combined_union_type = null;
             foreach ($this->classListFromNode($class_node) as $class) {
                 if (!$class->hasMethodWithName(
                     $this->code_base,
@@ -2280,9 +2291,13 @@ class UnionTypeVisitor extends AnalysisVisitor
                         }
                     }
 
-                    return $union_type;
+                    if ($combined_union_type) {
+                        $combined_union_type = $combined_union_type->withUnionType($union_type);
+                    } else {
+                        $combined_union_type = $union_type;
+                    }
                 } catch (IssueException $_) {
-                    return UnionType::empty();
+                    continue;
                 }
             }
         } catch (IssueException $_) {
@@ -2299,7 +2314,7 @@ class UnionTypeVisitor extends AnalysisVisitor
             );
         }
 
-        return UnionType::empty();
+        return $combined_union_type ?? UnionType::empty();
     }
 
     /**

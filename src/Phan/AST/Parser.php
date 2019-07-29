@@ -5,6 +5,7 @@ namespace Phan\AST;
 use ast\Node;
 use CompileError;
 use Error;
+use Microsoft\PhpParser\Diagnostic;
 use ParseError;
 use Phan\AST\TolerantASTConverter\ParseException;
 use Phan\AST\TolerantASTConverter\ParseResult;
@@ -20,6 +21,7 @@ use Phan\Library\Cache;
 use Phan\Library\DiskCache;
 use Phan\Phan;
 use Phan\Plugin\ConfigPluginSet;
+use Throwable;
 use function error_reporting;
 
 /**
@@ -104,21 +106,7 @@ class Parser
                 // It may throw a ParseException, which is unintentionally not caught here.
                 return self::parseCodePolyfill($code_base, $context, $file_path, $file_contents, $suppress_parse_errors, $request);
             }
-            // Suppress "declare(encoding=...) ignored because Zend multibyte feature is turned off by settings" (#1076)
-            // E_COMPILE_WARNING can't be caught by a PHP error handler,
-            // the errors are printed to stderr by default (can't be captured),
-            // and those errors might mess up language servers, etc. if ever printed to stdout
-            $original_error_reporting = error_reporting();
-            error_reporting($original_error_reporting & ~\E_COMPILE_WARNING);
-            try {
-                return \ast\parse_code(
-                    $file_contents,
-                    Config::AST_VERSION,
-                    $file_path
-                );
-            } finally {
-                error_reporting($original_error_reporting);
-            }
+            return self::parseCodeHandlingDeprecation($code_base, $context, $file_contents, $file_path);
         } catch (ParseError $native_parse_error) {
             return self::handleParseError($code_base, $context, $file_path, $file_contents, $suppress_parse_errors, $native_parse_error);
         } catch (CompileError $native_parse_error) {
@@ -126,17 +114,52 @@ class Parser
         }
     }
 
+
+    private static function parseCodeHandlingDeprecation(CodeBase $code_base, Context $context, string $file_contents, string $file_path) : Node
+    {
+        global $__no_echo_phan_errors;
+        // Suppress errors such as "declare(encoding=...) ignored because Zend multibyte feature is turned off by settings" (#1076)
+        // E_COMPILE_WARNING can't be caught by a PHP error handler,
+        // the errors are printed to stderr by default (can't be captured),
+        // and those errors might mess up language servers, etc. if ever printed to stdout
+        $original_error_reporting = error_reporting();
+        error_reporting($original_error_reporting & ~\E_COMPILE_WARNING);
+        $__no_echo_phan_errors = static function (int $errno, string $errstr, string $unused_errfile, int $errline) use ($code_base, $context) : bool {
+            if ($errno == E_DEPRECATED && preg_match('/Version.*is deprecated/i', $errstr)) {
+                return false;
+            }
+            // Catch errors such as E_DEPRECATED in php 7.4 for the (real) cast.
+            Issue::maybeEmit(
+                $code_base,
+                $context,
+                Issue::CompatibleSyntaxNotice,
+                $errline,
+                $errstr
+            );
+            // Return true to prevent printing to stderr
+            return true;
+        };
+        try {
+            return \ast\parse_code(
+                $file_contents,
+                Config::AST_VERSION,
+                $file_path
+            );
+        } finally {
+            $__no_echo_phan_errors = false;
+            error_reporting($original_error_reporting);
+        }
+    }
+
     /**
-     * Handles ParseError|CompileError.
+     * Handles ParseError|CompileError from the native parser.
      * This will return a Node or re-throw an error, depending on the configuration and parameters.
-     *
-     * This method is written to be compatible with PHP 7.0-7.3.
      *
      * @param CodeBase $code_base
      * @param Context $context
      * @param string $file_path file path for error reporting
      * @param string $file_contents file contents to pass to parser. May be overridden to ignore what is currently on disk.
-     * @param ParseError|CompileError $native_parse_error (can be CompileError in 7.3, will be ParseError in most cases)
+     * @param ParseError|CompileError $native_parse_error (can be CompileError in 7.3+, will be ParseError in most cases)
      * @throws ParseError most of the time
      * @throws CompileError in PHP 7.3+
      */
@@ -149,13 +172,7 @@ class Parser
         Error $native_parse_error
     ) : ?Node {
         if (!$suppress_parse_errors) {
-            Issue::maybeEmit(
-                $code_base,
-                $context,
-                Issue::SyntaxError,
-                $native_parse_error->getLine(),
-                $native_parse_error->getMessage()
-            );
+            self::emitSyntaxErrorForNativeParseError($code_base, $context, $file_path, $file_contents, $native_parse_error);
         }
         if (!Config::getValue('use_fallback_parser')) {
             // By default, don't try to re-parse files with syntax errors.
@@ -185,6 +202,62 @@ class Parser
     }
 
     /**
+     * Emit PhanSyntaxError for ParseError|CompileError from the native parser.
+     *
+     * @param CodeBase $code_base
+     * @param Context $context
+     * @param string $file_path file path for error reporting
+     * @param string $file_contents file contents to pass to polyfill parser. May be overridden to ignore what is currently on disk.
+     * @param ParseError|CompileError $native_parse_error (can be CompileError in 7.3+, will be ParseError in most cases)
+     */
+    public static function emitSyntaxErrorForNativeParseError(
+        CodeBase $code_base,
+        Context $context,
+        string $file_path,
+        string $file_contents,
+        Error $native_parse_error
+    ) : void {
+        static $last_file_contents = null;
+        static $errors = [];
+
+        // Try to get the raw diagnostics by reference.
+        // For efficiency, reuse the last result if this was called multiple times in a row.
+        if ($last_file_contents !== $file_contents) {
+            unset($errors);
+            $errors = [];
+            try {
+                self::parseCodePolyfill($code_base, $context, $file_path, $file_contents, true, null, $errors);
+            } catch (Throwable $_) {
+                // ignore this exception
+            }
+        }
+        $line = $native_parse_error->getLine();
+        $message = $native_parse_error->getMessage();
+        // If the polyfill parser emits the first error on the same line as the native parser,
+        // mention the column that the polyfill parser found for the error.
+        $diagnostic = $errors[0] ?? null;
+        // $diagnostic_error_column is either 0 or the column of the error determined by the polyfill parser
+        $diagnostic_error_column = 0;
+        if ($diagnostic) {
+            $start = (int) $diagnostic->start;
+            $diagnostic_error_start_line = 1 + \substr_count($file_contents, "\n", 0, $start);
+            if ($diagnostic_error_start_line == $line) {
+                $diagnostic_error_column = $diagnostic->start - (\strrpos($file_contents, "\n", $start - \strlen($file_contents) - 1) ?: 0);
+            }
+        }
+
+        Issue::maybeEmitWithParameters(
+            $code_base,
+            $context,
+            Issue::SyntaxError,
+            $line,
+            [$message],
+            null,
+            $diagnostic_error_column
+        );
+    }
+
+    /**
      * Parses the code. If $suppress_parse_errors is false, this also emits SyntaxError.
      *
      * @param CodeBase $code_base
@@ -193,9 +266,10 @@ class Parser
      * @param string $file_contents file contents to pass to parser. May be overridden to ignore what is currently on disk.
      * @param bool $suppress_parse_errors (If true, don't emit SyntaxError)
      * @param ?Request $request - May affect the parser used for $file_path
+     * @param array<int,Diagnostic> &$errors @phan-output-reference
      * @throws ParseException
      */
-    public static function parseCodePolyfill(CodeBase $code_base, Context $context, string $file_path, string $file_contents, bool $suppress_parse_errors, ?Request $request) : ?Node
+    public static function parseCodePolyfill(CodeBase $code_base, Context $context, string $file_path, string $file_contents, bool $suppress_parse_errors, ?Request $request, array &$errors = []) : ?Node
     {
         $converter = self::createConverter($file_path, $file_contents, $request);
         $converter->setPHPVersionId(Config::get_closest_target_php_version_id());
@@ -208,15 +282,21 @@ class Parser
         }
         foreach ($errors as $diagnostic) {
             if ($diagnostic->kind === 0) {
-                $diagnostic_error_start_line = 1 + \substr_count($file_contents, "\n", 0, $diagnostic->start);
+                $start = (int)$diagnostic->start;
                 $diagnostic_error_message = 'Fallback parser diagnostic error: ' . $diagnostic->message;
+                $len = \strlen($file_contents);
+                $diagnostic_error_start_line = 1 + \substr_count($file_contents, "\n", 0, $start);
+                $diagnostic_error_column = $start - (\strrpos($file_contents, "\n", $start - $len - 1) ?: 0);
+
                 if (!$suppress_parse_errors) {
-                    Issue::maybeEmit(
+                    Issue::maybeEmitWithParameters(
                         $code_base,
                         $context,
                         Issue::SyntaxError,
                         $diagnostic_error_start_line,
-                        $diagnostic_error_message
+                        [$diagnostic_error_message],
+                        null,
+                        $diagnostic_error_column
                     );
                 }
                 if (!Config::getValue('use_fallback_parser')) {
