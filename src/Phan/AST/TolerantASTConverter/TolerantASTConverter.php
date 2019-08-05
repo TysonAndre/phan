@@ -184,7 +184,7 @@ class TolerantASTConverter
      */
     public function parseCodeAsPHPAST(string $file_contents, int $version, array &$errors = [], Cache $cache = null) : \ast\Node
     {
-        if (!\in_array($version, self::SUPPORTED_AST_VERSIONS)) {
+        if (!\in_array($version, self::SUPPORTED_AST_VERSIONS, true)) {
             throw new \InvalidArgumentException(sprintf("Unexpected version: want %s, got %d", \implode(', ', self::SUPPORTED_AST_VERSIONS), $version));
         }
         $errors = [];
@@ -238,7 +238,7 @@ class TolerantASTConverter
      */
     public function phpParserToPhpast(PhpParser\Node $parser_node, int $ast_version, string $file_contents) : \ast\Node
     {
-        if (!\in_array($ast_version, self::SUPPORTED_AST_VERSIONS)) {
+        if (!\in_array($ast_version, self::SUPPORTED_AST_VERSIONS, true)) {
             throw new \InvalidArgumentException(sprintf("Unexpected version: want %s, got %d", implode(', ', self::SUPPORTED_AST_VERSIONS), $ast_version));
         }
         $this->startParsing($file_contents);
@@ -2514,8 +2514,9 @@ class TolerantASTConverter
 
         $line = $prop_elems[0]->lineno ?? (self::getStartLine($n) ?: $start_line);
         $prop_decl = new ast\Node(ast\AST_PROP_DECL, 0, $prop_elems, $line);
+        $type_line = static::getEndLine($n->typeDeclaration) ?: $start_line;
         return new ast\Node(ast\AST_PROP_GROUP, $flags, [
-            'type' => null,  // TODO
+            'type' => static::phpParserTypeToAstNode($n->typeDeclaration, $type_line),
             'props' => $prop_decl,
         ], $line);
     }
@@ -3030,7 +3031,8 @@ class TolerantASTConverter
         return \sha1($details);
     }
 
-    private static function normalizeTernaryExpression(TernaryExpression $n) : TernaryExpression {
+    private static function normalizeTernaryExpression(TernaryExpression $n) : TernaryExpression
+    {
         $else = $n->elseExpression;
         if (!($else instanceof TernaryExpression)) {
             return $n;

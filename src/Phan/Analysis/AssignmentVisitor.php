@@ -730,10 +730,19 @@ class AssignmentVisitor extends AnalysisVisitor
         }
 
         $property_name = $node->children['prop'];
+        if ($property_name instanceof Node) {
+            $property_name = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $property_name)->asSingleScalarValueOrNull();
+        }
 
         // Things like $foo->$bar
         if (!\is_string($property_name)) {
             return $this->context;
+        }
+        if ($this->dim_depth === 0 &&
+                ($node->children['expr']->kind ?? null) === \ast\AST_VAR &&
+                $node->children['expr']->children['name'] === 'this') {
+            // TODO: Implement merging for arrays with $this->prop['field'] = 'offset' and handle ArrayAccess
+            $this->handleThisPropertyAssignmentInLocalScopeByName($property_name);
         }
 
         foreach ($class_list as $clazz) {
@@ -852,8 +861,8 @@ class AssignmentVisitor extends AnalysisVisitor
                 )) {
                     // TODO: Don't emit if array shape type is compatible with the original value of $property_union_type
                     $this->emitIssue(
-                        Issue::TypeMismatchProperty,
-                        $node->lineno ?? 0,
+                        self::isRealMismatch($this->code_base, $property->getRealUnionType(), $resolved_right_type) ? Issue::TypeMismatchPropertyReal : Issue::TypeMismatchProperty,
+                        $node->lineno,
                         (string)$new_types,
                         $property->getRepresentationForIssue(),
                         (string)$property_union_type
@@ -873,9 +882,6 @@ class AssignmentVisitor extends AnalysisVisitor
             // stdClass is an exception to this, for issues such as https://github.com/phan/phan/pull/700
             return $this->context;
         } else {
-            if (($node->children['expr']->kind ?? null) === \ast\AST_VAR && $node->children['expr']->children['name'] === 'this') {
-                $this->handleThisPropertyAssignmentInLocalScope($property);
-            }
             // This is a regular assignment, not an assignment to an offset
             if (!$resolved_right_type->canCastToExpandedUnionType(
                 $property_union_type,
@@ -898,9 +904,8 @@ class AssignmentVisitor extends AnalysisVisitor
                         'null'
                     );
                 } else {
-                    // TODO: optionally, change the message from "::" to "->"?
                     $this->emitIssue(
-                        Issue::TypeMismatchProperty,
+                        self::isRealMismatch($this->code_base, $property->getRealUnionType(), $resolved_right_type) ? Issue::TypeMismatchPropertyReal : Issue::TypeMismatchProperty,
                         $node->lineno,
                         (string)$this->right_type->withUnionType($resolved_right_type),
                         $property->getRepresentationForIssue(),
@@ -922,13 +927,32 @@ class AssignmentVisitor extends AnalysisVisitor
     }
 
     /**
+     * Returns true if Phan should emit a more severe issue type for real type mismatch
+     */
+    private static function isRealMismatch(CodeBase $code_base, UnionType $real_property_type, UnionType $real_actual_type) : bool
+    {
+        if ($real_property_type->isEmpty()) {
+            return false;
+        }
+        return !$real_actual_type->asExpandedTypes($code_base)->isStrictSubtypeOf($code_base, $real_property_type);
+    }
+
+    /**
      * Modifies $this->context (if needed) to track the assignment to a property of $this within a function-like.
      * This handles conditional branches.
+     * @param string|Node|int|float $prop_name
      */
-    private function handleThisPropertyAssignmentInLocalScope(Property $property) : void
+    private function handleThisPropertyAssignmentInLocalScopeByName($prop_name) : void
     {
-        $this->context = $this->context->withThisPropertySetToType($property, $this->right_type);
+        if ($prop_name instanceof Node) {
+            $prop_name = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $prop_name)->asSingleScalarValueOrNull();
+        }
+        if (!\is_string($prop_name)) {
+            return;
+        }
+        $this->context = $this->context->withThisPropertySetToTypeByName($prop_name, $this->right_type);
     }
+
 
     private function analyzeAssignmentToReadOnlyProperty(Property $property, Node $node) : void
     {
@@ -1072,7 +1096,7 @@ class AssignmentVisitor extends AnalysisVisitor
 
         // TODO: Add an option to check individual types, not just the whole union type?
         //       If that is implemented, verify that generic arrays will properly cast to regular arrays (public $x = [];)
-        $property->setUnionType($updated_property_types);
+        $property->setUnionType($updated_property_types->withRealTypeSet($property->getRealUnionType()->getTypeSet()));
     }
 
     /**

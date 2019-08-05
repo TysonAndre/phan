@@ -224,7 +224,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         } elseif ($kind === ast\AST_DIM) {
             $this->analyzeUnsetDim($var_node);
         } elseif ($kind === ast\AST_PROP) {
-            $this->analyzeUnsetProp($var_node);
+            return $this->analyzeUnsetProp($var_node);
         }
         return $context;
     }
@@ -289,19 +289,23 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * @see UnionTypeVisitor::resolveArrayShapeElementTypes()
      * @see UnionTypeVisitor::visitDim()
      */
-    private function analyzeUnsetProp(Node $node) : void
+    private function analyzeUnsetProp(Node $node) : Context
     {
         $expr_node = $node->children['expr'];
+        $context = $this->context;
         if (!($expr_node instanceof Node)) {
             // php -l would warn
-            return;
+            return $context;
         }
         $prop_name = $node->children['prop'];
         if (!\is_string($prop_name)) {
             $prop_name = (new ContextNode($this->code_base, $this->context, $prop_name))->getEquivalentPHPScalarValue();
             if (!\is_string($prop_name)) {
-                return;
+                return $context;
             }
+        }
+        if ($expr_node->kind === \ast\AST_VAR && $expr_node->children['name'] === 'this' && $context === $this->context) {
+            $context = $context->withThisPropertySetToTypeByName($prop_name, NullType::instance(false)->asPHPDocUnionType()->withIsDefinitelyUndefined());
         }
 
         $union_type = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $expr_node)->withStaticResolvedInContext($this->context);
@@ -316,7 +320,11 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 // NOTE: We deliberately emit this issue whether or not the access is to a public or private variable,
                 // because unsetting a private variable at runtime is also a (failed) attempt to unset a declared property.
                 $prop = $class->getPropertyByName($this->code_base, $prop_name);
-                if ($prop->isFromPHPDoc() || $prop->isDynamicProperty()) {
+                if ($prop->isFromPHPDoc()) {
+                    // TODO: Warn if __get is defined but __unset isn't defined?
+                    continue;
+                }
+                if ($prop->isDynamicProperty()) {
                     continue;
                 }
                 $this->emitIssue(
@@ -329,6 +337,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 );
             }
         }
+        return $context;
     }
 
     /**
@@ -931,6 +940,10 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         flags\TYPE_STRING => 'string',
         flags\TYPE_ARRAY => 'array',
         flags\TYPE_OBJECT => 'object',
+        // These aren't casts, but they are used in various places
+        flags\TYPE_CALLABLE => 'callable',
+        flags\TYPE_VOID => 'void',
+        flags\TYPE_ITERABLE => 'iterable',
     ];
 
     /**
@@ -2743,7 +2756,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             return;
         }
         // @phan-suppress-next-line PhanUndeclaredProperty
-        if (PHP_VERSION_ID < 70400 && !isset($cond->is_not_parenthesized)) {
+        if (\PHP_VERSION_ID < 70400 && !isset($cond->is_not_parenthesized)) {
             // This is from the native parser in php 7.3 or earlier.
             // We don't know whether or not the AST is parenthesized.
             return;
@@ -3240,7 +3253,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                         $this->code_base,
                         $this->context,
                         $argument
-                    ))->getOrCreateProperty($argument->children['prop'], $argument->kind == ast\AST_STATIC_PROP);
+                    ))->getOrCreateProperty($property_name, $argument->kind == ast\AST_STATIC_PROP);
                     $property->setHasWriteReference();
                 } catch (IssueException $exception) {
                     Issue::maybeEmitInstance(
@@ -3302,7 +3315,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                         $code_base,
                         $context,
                         $argument
-                    ))->getOrCreateProperty($argument->children['prop'], $argument->kind == ast\AST_STATIC_PROP);
+                    ))->getOrCreateProperty($property_name, $argument->kind == ast\AST_STATIC_PROP);
                     $variable->addReference($context);
                 } catch (IssueException $exception) {
                     Issue::maybeEmitInstance(

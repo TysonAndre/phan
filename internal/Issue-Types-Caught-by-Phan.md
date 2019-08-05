@@ -331,6 +331,14 @@ e.g. [this issue](https://github.com/phan/phan/tree/2.0.0/tests/files/expected/0
 Access level to {CONST} must be compatible with internal {CONST}
 ```
 
+## PhanConstructAccessSignatureMismatch
+
+```
+Access level to {METHOD} must be compatible with {METHOD} defined in {FILE}:{LINE} in PHP versions 7.1 and below
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/files/expected/0740_access_level_construct.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/files/src/0740_access_level_construct.php#L8).
+
 ## PhanPropertyAccessSignatureMismatch
 
 ```
@@ -507,6 +515,14 @@ Saw a notice while parsing with the native parser: {DETAILS}
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/master/tests/php74_files/expected/012_real_cast.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/php74_files/src/012_real_cast.php#L2).
+
+## PhanCompatibleTypedProperty
+
+```
+Cannot use typed properties before php 7.4. This property group has type {TYPE}
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/php70_files/expected/011_typed_properties.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/php70_files/src/011_typed_properties.php#L3).
 
 ## PhanCompatibleUnparenthesizedTernary
 
@@ -2953,6 +2969,14 @@ This issue is emitted from the following code
 function f(int $p = false) {}
 ```
 
+## PhanTypeMismatchPropertyReal
+
+```
+Assigning {TYPE} to property but {PROPERTY} is {TYPE}
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/php70_files/expected/012_typed_properties_errors.php.expected#L11) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/php70_files/src/012_typed_properties_errors.php#L20).
+
 ## PhanTypeMismatchReturn
 
 ```
@@ -3220,6 +3244,14 @@ This issue will be emitted from the following code
 ```php
 class F { function f() { $v = parent::f(); } }
 ```
+
+## PhanPossiblyUnsetPropertyOfThis
+
+```
+Attempting to read property {PROPERTY} which was unset in the current scope
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/files/expected/0742_dynamic_property_tracking.php.expected#L5) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/files/src/0742_dynamic_property_tracking.php#L10).
 
 ## PhanRequiredTraitNotAdded
 

@@ -1,6 +1,30 @@
 Phan NEWS
 
-??? ?? 2019, Phan 2.2.8 (dev)
+??? ?? 2019, Phan 2.2.9 (dev)
+-----------------------
+
+New features(Analysis):
++ Support php 7.4 typed property groups in the polyfill/fallback parser.
++ Detect redundant conditions such as `is_array($this->array_prop)` on typed properties.
+  Their values will either be a value of the correct type, or unset. (Reading from unset properties will throw an Error at runtime)
++ Emit `PhanCompatibleTypedProperty` if the target php version is less than 7.4 but typed properties are used.
++ Emit `PhanTypeMismatchPropertyReal` instead of `PhanTypeMismatchProperty` if the properties have real types that are incompatible with the inferred type of the assignment.
++ Stop warning about `(float) $int` being redundant - there are small differences in how ints and floats are treated by `serialize`, `var_export`, `is_int`, etc.
++ Treat all assignments to `$this->prop` in a scope the same way (for real, dynamic, and magic properties)
+  Previously, Phan would not track the effects of some assignments to dynamic properties.
++ Make `unset($this->prop)` make Phan infer that the property is unset in the current scope (and treat it like null) (only affects `$this`). (#3025)
+  Emit `PhanPossiblyUnsetPropertyOfThis` if the property is read from without setting it.
+
+Plugins:
++ Add `StrictComparisonPlugin`, which warns about the following issue types:
+
+  1. Using `in_array` or `array_search` without specifying `$strict`. (`PhanPluginComparisonNotStrictInCall`)
+  2. Using comparison or weak equality operators when both sides are possibly objects. (`PhanPluginComparisonObjectEqualityNotStrict`, `PhanPluginComparisonObjectOrdering`)
+
+Bug fixes:
++ When a typed property has an incompatible default, don't infer the union type from the default. (#3024)
+
+Jul 30 2019, Phan 2.2.8
 -----------------------
 
 New features(CLI):
@@ -11,9 +35,15 @@ New features(Analysis):
 + Emit `PhanCompatibleDimAlternativeSyntax` when using array and string array access syntax with curly braces
   when using the polyfill parser or php 7.4+. (#2989)
 + Emit `PhanCompatibleUnparenthesizedTernary` for expressions such as `a ? b : c ? d : e`. (#2989)
+  (when using the polyfill parser or php 7.4+)
++ Emit `PhanConstructAccessSignatureMismatch` when a constructor is less visible than the parent class's constructor
+  and the target php version is 7.1 or older. (#1405)
 
 Plugins:
-+ Make `EmptyStatementListPlugin` check if statements with negated conditions (those were previously skipped because they were simplified).
++ Make `EmptyStatementListPlugin` check `if` statements with negated conditions (those were previously skipped because they were simplified).
+
+Bug fixes:
++ Fix a crash analyzing a dynamic property by reference (introduced in 2.2.7) (#3020)
 
 Jul 27 2019, Phan 2.2.7
 -----------------------

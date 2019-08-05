@@ -80,7 +80,8 @@ class Issue
     const EmptyFQSENInCallable      = 'PhanEmptyFQSENInCallable';
     const InvalidFQSENInCallable    = 'PhanInvalidFQSENInCallable';
     const EmptyFQSENInClasslike     = 'PhanEmptyFQSENInClasslike';
-    const InvalidFQSENInClasslike     = 'PhanInvalidFQSENInClasslike';
+    const InvalidFQSENInClasslike   = 'PhanInvalidFQSENInClasslike';
+    const PossiblyUnsetPropertyOfThis = 'PhanPossiblyUnsetPropertyOfThis';
 
     // Issue::CATEGORY_TYPE
     const NonClassMethodCall                = 'PhanNonClassMethodCall';
@@ -198,7 +199,8 @@ class Issue
     const TypeInvalidStaticPropertyName = 'PhanTypeInvalidStaticPropertyName';
     const TypeErrorInInternalCall = 'PhanTypeErrorInInternalCall';
     const TypeErrorInOperation = 'PhanTypeErrorInOperation';
-    const TypeInvalidPropertyDefaultReal  = 'PhanTypeInvalidPropertyDefaultReal';
+    const TypeInvalidPropertyDefaultReal    = 'PhanTypeInvalidPropertyDefaultReal';
+    const TypeMismatchPropertyReal          = 'PhanTypeMismatchPropertyReal';
     const ImpossibleCondition               = 'PhanImpossibleCondition';
     const ImpossibleConditionInLoop         = 'PhanImpossibleConditionInLoop';
     const ImpossibleConditionInGlobalScope  = 'PhanImpossibleConditionInGlobalScope';
@@ -410,6 +412,7 @@ class Issue
     const AccessMethodProtectedWithCallMagicMethod = 'PhanAccessMethodProtectedWithCallMagicMethod';
     const AccessSignatureMismatch         = 'PhanAccessSignatureMismatch';
     const AccessSignatureMismatchInternal = 'PhanAccessSignatureMismatchInternal';
+    const ConstructAccessSignatureMismatch = 'PhanConstructAccessSignatureMismatch';
     const PropertyAccessSignatureMismatch = 'PhanPropertyAccessSignatureMismatch';
     const PropertyAccessSignatureMismatchInternal  = 'PhanPropertyAccessSignatureMismatchInternal';
     const ConstantAccessSignatureMismatch = 'PhanConstantAccessSignatureMismatch';
@@ -457,6 +460,7 @@ class Issue
     const CompatibleDimAlternativeSyntax     = 'PhanCompatibleDimAlternativeSyntax';
     const CompatibleImplodeOrder             = 'PhanCompatibleImplodeOrder';
     const CompatibleUnparenthesizedTernary   = 'PhanCompatibleUnparenthesizedTernary';
+    const CompatibleTypedProperty            = 'PhanCompatibleTypedProperty';
 
     // Issue::CATEGORY_GENERIC
     const TemplateTypeConstant       = 'PhanTemplateTypeConstant';
@@ -1176,6 +1180,14 @@ class Issue
                 "Possible attempt to access missing magic method {FUNCTIONLIKE} of '{CLASS}'",
                 self::REMEDIATION_B,
                 11045
+            ),
+            new Issue(
+                self::PossiblyUnsetPropertyOfThis,
+                self::CATEGORY_UNDEFINED,
+                self::SEVERITY_LOW,
+                'Attempting to read property {PROPERTY} which was unset in the current scope',
+                self::REMEDIATION_B,
+                11048
             ),
 
             // Issue::CATEGORY_ANALYSIS
@@ -2125,6 +2137,14 @@ class Issue
                 "Default value for {TYPE} \${PROPERTY} can't be {TYPE}",
                 self::REMEDIATION_B,
                 10108
+            ),
+            new Issue(
+                self::TypeMismatchPropertyReal,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_CRITICAL,
+                "Assigning {TYPE} to property but {PROPERTY} is {TYPE}",
+                self::REMEDIATION_B,
+                10137
             ),
             new Issue(
                 self::ImpossibleCondition,
@@ -3588,6 +3608,14 @@ class Issue
                 1005
             ),
             new Issue(
+                self::ConstructAccessSignatureMismatch,
+                self::CATEGORY_ACCESS,
+                self::SEVERITY_NORMAL,
+                "Access level to {METHOD} must be compatible with {METHOD} defined in {FILE}:{LINE} in PHP versions 7.1 and below",
+                self::REMEDIATION_B,
+                1032
+            ),
+            new Issue(
                 self::PropertyAccessSignatureMismatch,
                 self::CATEGORY_ACCESS,
                 self::SEVERITY_CRITICAL,
@@ -3933,6 +3961,14 @@ class Issue
                 "Unparenthesized '{CODE}' is deprecated. Use either '{CODE}' or '{CODE}'",
                 self::REMEDIATION_B,
                 3020
+            ),
+            new Issue(
+                self::CompatibleTypedProperty,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_NORMAL,
+                "Cannot use typed properties before php 7.4. This property group has type {TYPE}",
+                self::REMEDIATION_B,
+                3021
             ),
 
             // Issue::CATEGORY_GENERIC
@@ -4613,14 +4649,14 @@ class Issue
         }
         // If this issue type has been suppressed in
         // the config, ignore it
-        if (\in_array($issue_type, Config::getValue('suppress_issue_types') ?? [])) {
+        if (\in_array($issue_type, Config::getValue('suppress_issue_types') ?? [], true)) {
             return true;
         }
         // If a white-list of allowed issue types is defined,
         // only emit issues on the white-list
         $whitelist_issue_types = Config::getValue('whitelist_issue_types') ?? [];
         if (\count($whitelist_issue_types) > 0 &&
-            !\in_array($issue_type, $whitelist_issue_types)) {
+            !\in_array($issue_type, $whitelist_issue_types, true)) {
             return true;
         }
 
