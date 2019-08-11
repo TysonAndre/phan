@@ -96,7 +96,7 @@ class Parser
         string $file_path,
         string $file_contents,
         bool $suppress_parse_errors
-    ) : ?Node {
+    ) : Node {
         try {
             // This will choose the parser to use based on the config and $file_path
             // (For "Go To Definition", one of the files will have a slower parser which records the requested AST node)
@@ -170,7 +170,7 @@ class Parser
         string $file_contents,
         bool $suppress_parse_errors,
         Error $native_parse_error
-    ) : ?Node {
+    ) : Node {
         if (!$suppress_parse_errors) {
             self::emitSyntaxErrorForNativeParseError($code_base, $context, $file_path, $file_contents, $native_parse_error);
         }
@@ -269,7 +269,7 @@ class Parser
      * @param array<int,Diagnostic> &$errors @phan-output-reference
      * @throws ParseException
      */
-    public static function parseCodePolyfill(CodeBase $code_base, Context $context, string $file_path, string $file_contents, bool $suppress_parse_errors, ?Request $request, array &$errors = []) : ?Node
+    public static function parseCodePolyfill(CodeBase $code_base, Context $context, string $file_path, string $file_contents, bool $suppress_parse_errors, ?Request $request, array &$errors = []) : Node
     {
         $converter = self::createConverter($file_path, $file_contents, $request);
         $converter->setPHPVersionId(Config::get_closest_target_php_version_id());

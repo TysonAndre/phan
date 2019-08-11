@@ -126,8 +126,10 @@ class Issue
     const TypeInvalidThrowsIsInterface           = 'PhanTypeInvalidThrowsIsInterface';
     const TypeMagicVoidWithReturn                = 'PhanTypeMagicVoidWithReturn';
     const TypeMismatchArgument                   = 'PhanTypeMismatchArgument';
+    const TypeMismatchArgumentReal               = 'PhanTypeMismatchArgumentReal';
     const TypeMismatchArgumentNullable           = 'PhanTypeMismatchArgumentNullable';
     const TypeMismatchArgumentInternal           = 'PhanTypeMismatchArgumentInternal';
+    const TypeMismatchArgumentInternalReal       = 'PhanTypeMismatchArgumentInternalReal';
     const TypeMismatchArgumentNullableInternal   = 'PhanTypeMismatchArgumentNullableInternal';
     const PartialTypeMismatchArgument            = 'PhanPartialTypeMismatchArgument';
     const PartialTypeMismatchArgumentInternal    = 'PhanPartialTypeMismatchArgumentInternal';
@@ -157,6 +159,7 @@ class Issue
     const PartialTypeMismatchProperty = 'PhanPartialTypeMismatchProperty';
     const TypeMismatchReturn        = 'PhanTypeMismatchReturn';
     const TypeMismatchReturnNullable = 'PhanTypeMismatchReturnNullable';
+    const TypeMismatchReturnReal     = 'PhanTypeMismatchReturnReal';
     const PartialTypeMismatchReturn = 'PhanPartialTypeMismatchReturn';
     const PossiblyNullTypeReturn  = 'PhanPossiblyNullTypeReturn';
     const PossiblyFalseTypeReturn  = 'PhanPossiblyFalseTypeReturn';
@@ -224,6 +227,8 @@ class Issue
     const CoalescingAlwaysNull              = 'PhanCoalescingAlwaysNull';
     const CoalescingAlwaysNullInLoop        = 'PhanCoalescingAlwaysNullInLoop';
     const CoalescingAlwaysNullInGlobalScope = 'PhanCoalescingAlwaysNullInGlobalScope';
+    const TypeMismatchArgumentPropertyReference = 'PhanTypeMismatchArgumentPropertyReference';
+    const TypeMismatchArgumentPropertyReferenceReal = 'PhanTypeMismatchArgumentPropertyReferenceReal';
 
     // Issue::CATEGORY_ANALYSIS
     const Unanalyzable              = 'PhanUnanalyzable';
@@ -1284,10 +1289,18 @@ class Issue
             new Issue(
                 self::TypeMismatchArgument,
                 self::CATEGORY_TYPE,
-                self::SEVERITY_NORMAL,
+                self::SEVERITY_CRITICAL,
                 'Argument {INDEX} (${PARAMETER}) is {TYPE} but {FUNCTIONLIKE} takes {TYPE} defined at {FILE}:{LINE}',
                 self::REMEDIATION_B,
                 10003
+            ),
+            new Issue(
+                self::TypeMismatchArgumentReal,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                'Argument {INDEX} (${PARAMETER}) is {TYPE}{DETAILS} but {FUNCTIONLIKE} takes {TYPE}{DETAILS} defined at {FILE}:{LINE}',
+                self::REMEDIATION_B,
+                10140
             ),
             new Issue(
                 self::TypeMismatchArgumentNullable,
@@ -1306,12 +1319,36 @@ class Issue
                 10004
             ),
             new Issue(
+                self::TypeMismatchArgumentInternalReal,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_CRITICAL,
+                'Argument {INDEX} (${PARAMETER}) is {TYPE}{DETAILS} but {FUNCTIONLIKE} takes {TYPE}{DETAILS}',
+                self::REMEDIATION_B,
+                10139
+            ),
+            new Issue(
                 self::TypeMismatchArgumentNullableInternal,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_LOW,
                 'Argument {INDEX} (${PARAMETER}) is {TYPE} but {FUNCTIONLIKE} takes {TYPE} (expected type to be non-nullable)',
                 self::REMEDIATION_B,
                 10106
+            ),
+            new Issue(
+                self::TypeMismatchArgumentPropertyReference,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                'Argument {INDEX} is property {PROPERTY} with type {TYPE} but {FUNCTIONLIKE} takes a reference of type {TYPE}',
+                self::REMEDIATION_B,
+                10141
+            ),
+            new Issue(
+                self::TypeMismatchArgumentPropertyReferenceReal,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                'Argument {INDEX} is property {PROPERTY} with type {TYPE}{DETAILS} but {FUNCTIONLIKE} takes a reference of type {TYPE}{DETAILS}',
+                self::REMEDIATION_B,
+                10142
             ),
             new Issue(
                 self::TypeMismatchGeneratorYieldValue,
@@ -1400,6 +1437,14 @@ class Issue
                 "Returning type {TYPE} but {FUNCTIONLIKE} is declared to return {TYPE} (expected returned value to be non-nullable)",
                 self::REMEDIATION_B,
                 10107
+            ),
+            new Issue(
+                self::TypeMismatchReturnReal,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_CRITICAL,
+                "Returning type {TYPE}{DETAILS} but {FUNCTIONLIKE} is declared to return {TYPE}{DETAILS}",
+                self::REMEDIATION_B,
+                10138
             ),
             new Issue(
                 self::PartialTypeMismatchReturn,

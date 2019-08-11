@@ -4,7 +4,14 @@ Phan NEWS
 -----------------------
 
 New features(Analysis):
++ Emit the stricter issue type `PhanTypeMismatchReturnReal` instead of `PhanTypeMismatchReturn`
+  when Phan infers that the real type of the returned expression is likely to cause a TypeError (accounting for `strict_types` in the file). (#403)
+  See `internal/Issue-Types-Caught-by-Phan.md` for details on when it is thrown.
++ Emit the stricter issue type `PhanTypeMismatchArgumentReal` instead of `PhanTypeMismatchArgument`
+  when Phan infers that the real type of the argument is likely to cause a TypeError at runtime (#403)
 + Support php 7.4 typed property groups in the polyfill/fallback parser.
++ Warn about passing properties with incompatible types to reference parameters (#3060)
+  New issue types: `PhanTypeMismatchArgumentPropertyReference`, `PhanTypeMismatchArgumentPropertyReferenceReal`
 + Detect redundant conditions such as `is_array($this->array_prop)` on typed properties.
   Their values will either be a value of the correct type, or unset. (Reading from unset properties will throw an Error at runtime)
 + Emit `PhanCompatibleTypedProperty` if the target php version is less than 7.4 but typed properties are used.
@@ -16,6 +23,10 @@ New features(Analysis):
   Emit `PhanPossiblyUnsetPropertyOfThis` if the property is read from without setting it.
 + Don't emit `PhanTypeArraySuspiciousNull` when array access is used with the null coalescing operator. (#3032)
 + Don't emit `PhanTypeInvalidDimOffset` when array access is used with the null coalescing operator. (#2123)
++ Make Phan check for `PhanUndeclaredTypeProperty` suppressions on the property's doc comment, not the class. (#3047)
++ Make inferred real/phpdoc types for results of division more accurate.
++ Improve analysis of for loops and while loops.
+  Account for the possibility of the loop iteration never occurring. (unless the condition is unconditionally true)
 
 Plugins:
 + Add `StrictComparisonPlugin`, which warns about the following issue types:
@@ -25,10 +36,13 @@ Plugins:
 + Don't warn in `EmptyStatementListPlugin` if a TODO/FIXME/"Deliberately empty" comment is seen around the empty statement list. (#3036)
   (This may miss some TODOs due to `php-ast` not providing the end line numbers)
   The setting `'plugin_config' => ['empty_statement_list_ignore_todos' => true]` can be used to make it unconditionally warn about empty statement lists.
++ Improve checks for UseReturnValuePlugin for functions where warning depend on their arg count (`call_user_func`, `trait`/`interface`/`class_exists`, `preg_match`, etc)
 
 Bug fixes:
 + When a typed property has an incompatible default, don't infer the union type from the default. (#3024)
 + Don't emit `PhanTypeMismatchProperties` for assignments to dynamic properties. (#3042)
++ Fix false positive RedundantConditions analyzing properties of `$this` in the local scope. (#3038)
++ Properly infer that real type is always `int` (or a subtype) after the `is_int($var)` condition.
 
 Jul 30 2019, Phan 2.2.8
 -----------------------
