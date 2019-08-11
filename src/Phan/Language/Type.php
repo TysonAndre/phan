@@ -2565,12 +2565,12 @@ class Type
                 return true;
             } elseif ($type->isScalar() && (
                     Config::getValue('scalar_implicit_cast') ||
-                    in_array($type->getName(), Config::getValue('scalar_implicit_partial')['null'] ?? []))) {
+                    in_array($type->getName(), Config::getValue('scalar_implicit_partial')['null'] ?? [], true))) {
                 // e.g. allow casting ?string to string if scalar_implicit_cast or 'null' => ['string'] is in scalar_implicit_partial.
                 return true;
             }
 
-            if (!$type->getIsNullable()) {
+            if (!$type->isNullable()) {
                 return false;
             }
         }
