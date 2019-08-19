@@ -8,6 +8,10 @@ use ast\Node;
 use LogicException;
 use Phan\Analysis\BlockExitStatusChecker;
 use Phan\AST\Parser;
+use Phan\AST\TolerantASTConverter\Shim;
+
+// Provides AST_ARROW_FUNC and other new node kinds that aren't in php-ast 1.0.1
+Shim::load();
 
 /**
  * Debug utilities
@@ -416,7 +420,7 @@ class Debug
             ];
 
             $combinable = [];
-            $combinable[ast\AST_METHOD] = $combinable[ast\AST_FUNC_DECL] = $combinable[ast\AST_CLOSURE]
+            $combinable[ast\AST_METHOD] = $combinable[ast\AST_FUNC_DECL] = $combinable[ast\AST_CLOSURE] = $combinable[ast\AST_ARROW_FUNC]
                 = $combinable[ast\AST_PROP_GROUP] = $combinable[ast\AST_PROP_DECL] = $combinable[ast\AST_CLASS_CONST_DECL]
                 = $combinable[ast\AST_TRAIT_ALIAS] = $modifiers;
         }

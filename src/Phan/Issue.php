@@ -170,6 +170,7 @@ class Issue
     const TypeMismatchDeclaredParamNullable = 'PhanTypeMismatchDeclaredParamNullable';
     const TypeMissingReturn         = 'PhanTypeMissingReturn';
     const TypeNonVarPassByRef       = 'PhanTypeNonVarPassByRef';
+    const TypeNonVarReturnByRef       = 'PhanTypeNonVarReturnByRef';
     const TypeParentConstructorCalled = 'PhanTypeParentConstructorCalled';
     const TypeSuspiciousEcho        = 'PhanTypeSuspiciousEcho';
     const TypeSuspiciousStringExpression = 'PhanTypeSuspiciousStringExpression';
@@ -360,6 +361,11 @@ class Issue
     const UseNormalNamespacedNoEffect   = 'PhanUseNormalNamespacedNoEffect';
     const UseFunctionNoEffect           = 'PhanUseFunctionNoEffect';
     const UseConstantNoEffect           = 'PhanUseConstantNoEffect';
+    const EmptyPublicMethod = 'PhanEmptyPublicMethod';
+    const EmptyProtectedMethod = 'PhanEmptyProtectedMethod';
+    const EmptyPrivateMethod = 'PhanEmptyPrivateMethod';
+    const EmptyFunction = 'PhanEmptyFunction';
+    const EmptyClosure = 'PhanEmptyClosure';
 
     const UnusedVariable                        = 'PhanUnusedVariable';
     const UnusedPublicMethodParameter           = 'PhanUnusedPublicMethodParameter';
@@ -443,6 +449,7 @@ class Issue
     const AccessExtendsFinalClass                = 'PhanAccessExtendsFinalClass';
     const AccessExtendsFinalClassInternal        = 'PhanAccessExtendsFinalClassInternal';
     const AccessOverridesFinalMethod             = 'PhanAccessOverridesFinalMethod';
+    const AccessOverridesFinalMethodInTrait      = 'PhanAccessOverridesFinalMethodInTrait';
     const AccessOverridesFinalMethodInternal     = 'PhanAccessOverridesFinalMethodInternal';
     const AccessOverridesFinalMethodPHPDoc       = 'PhanAccessOverridesFinalMethodPHPDoc';
 
@@ -1196,6 +1203,7 @@ class Issue
                 11048
             ),
 
+
             // Issue::CATEGORY_ANALYSIS
             new Issue(
                 self::Unanalyzable,
@@ -1710,6 +1718,14 @@ class Issue
                 "Only variables can be passed by reference at argument {INDEX} of {FUNCTIONLIKE}",
                 self::REMEDIATION_B,
                 10018
+            ),
+            new Issue(
+                self::TypeNonVarReturnByRef,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Only variables can be returned by reference in {FUNCTIONLIKE}",
+                self::REMEDIATION_B,
+                10144
             ),
             new Issue(
                 self::NonClassMethodCall,
@@ -3480,6 +3496,46 @@ class Issue
                 self::REMEDIATION_B,
                 6073
             ),
+            new Issue(
+                self::EmptyPublicMethod,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_LOW,
+                'Empty public method {METHOD}',
+                self::REMEDIATION_B,
+                6074
+            ),
+            new Issue(
+                self::EmptyProtectedMethod,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_LOW,
+                'Empty protected method {METHOD}',
+                self::REMEDIATION_B,
+                6075
+            ),
+            new Issue(
+                self::EmptyPrivateMethod,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_LOW,
+                'Empty private method {METHOD}',
+                self::REMEDIATION_B,
+                6076
+            ),
+            new Issue(
+                self::EmptyFunction,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_LOW,
+                'Empty function {FUNCTION}',
+                self::REMEDIATION_B,
+                6077
+            ),
+            new Issue(
+                self::EmptyClosure,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_LOW,
+                'Empty closure',
+                self::REMEDIATION_B,
+                6078
+            ),
 
             // Issue::CATEGORY_REDEFINE
             new Issue(
@@ -3844,6 +3900,14 @@ class Issue
                 "Accessing non static property {PROPERTY} as static",
                 self::REMEDIATION_B,
                 1021
+            ),
+            new Issue(
+                self::AccessOverridesFinalMethodInTrait,
+                self::CATEGORY_ACCESS,
+                self::SEVERITY_NORMAL,
+                "Declaration of method {METHOD} overrides final method {METHOD} defined in trait in {FILE}:{LINE}. This is actually allowed in case of traits, even for final methods, but may lead to unexpected behavior",
+                self::REMEDIATION_B,
+                1033
             ),
 
             // Issue::CATEGORY_COMPATIBLE

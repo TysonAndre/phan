@@ -1281,6 +1281,9 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         // Get the method/function/closure we're in
         $method = $context->getFunctionLikeInScope($code_base);
 
+        if ($method->returnsRef()) {
+            $this->analyzeReturnsReference($method, $node);
+        }
         if ($method->hasYield()) {  // Function that is syntactically a Generator.
             $this->analyzeReturnInGenerator($method, $node);
             // TODO: Compare against TReturn of Generator<TKey,TValue,TSend,TReturn>
@@ -1341,6 +1344,27 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         }
 
         return $context;
+    }
+
+    /**
+     * @param Node $node a node of kind ast\AST_RETURN
+     */
+    private function analyzeReturnsReference(FunctionInterface $method, Node $node) : void
+    {
+        $expr = $node->children['expr'];
+        if ((!$expr instanceof Node) || !\in_array($expr->kind, ArgumentType::REFERENCE_NODE_KINDS, true)) {
+            $is_possible_reference = ArgumentType::isExpressionReturningReference($this->code_base, $this->context, $expr);
+
+            if (!$is_possible_reference) {
+                Issue::maybeEmit(
+                    $this->code_base,
+                    $this->context,
+                    Issue::TypeNonVarReturnByRef,
+                    $expr->lineno ?? $node->lineno,
+                    $method->getRepresentationForIssue()
+                );
+            }
+        }
     }
 
     /**
@@ -3395,7 +3419,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                     $variable = clone($variable);
                     $variable->setUnionType($new_type);
                     $context->addScopeVariable($variable);
-                } elseif ($variable instanceof Property) {
+                } else {
                     // This is a Property. Add any compatible new types to the type of the property.
                     AssignmentVisitor::addTypesToPropertyStandalone($code_base, $context, $variable, $new_type);
                 }
@@ -3540,7 +3564,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
 
             foreach ($parameter_list as $i => $parameter_clone) {
                 if (!isset($argument_types[$i]) && $parameter_clone->hasDefaultValue()) {
-                    $parameter_type = $parameter_clone->getDefaultValueType();
+                    $parameter_type = $parameter_clone->getDefaultValueType()->withRealTypeSet($parameter_clone->getNonVariadicUnionType()->getRealTypeSet());
                     if ($parameter_type->isType(NullType::instance(false))) {
                         // Treat a parameter default of null the same way as passing null to that parameter
                         // (Add null to the list of possibilities)
@@ -3642,18 +3666,19 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 if ($argument === null
                     && $parameter_clone->hasDefaultValue()
                 ) {
-                    $parameter_type = $parameter_clone->getDefaultValueType();
+                    $parameter_type = $parameter_clone->getDefaultValueType()->withRealTypeSet($parameter_clone->getNonVariadicUnionType()->getRealTypeSet());
                     if ($parameter_type->isType(NullType::instance(false))) {
                         // Treat a parameter default of null the same way as passing null to that parameter
                         // (Add null to the list of possibilities)
-                        $parameter_clone->addUnionType($parameter_type->eraseRealTypeSet());
+                        $parameter_clone->addUnionType($parameter_type);
                     } else {
                         // For other types (E.g. string), just replace the union type.
-                        $parameter_clone->setUnionType($parameter_type->eraseRealTypeSet());
+                        $parameter_clone->setUnionType($parameter_type);
                     }
                 }
 
                 // Add the parameter to the scope
+                // TODO: asNonVariadic()?
                 $method->getInternalScope()->addVariable(
                     $parameter_clone
                 );
@@ -3766,7 +3791,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 $argument_type = $argument_type->withUnionType($argument_types[$i]);
             }
         }
-        $argument_type = $argument_type->eraseRealTypeSet();
+        $argument_type = $argument_type->withRealTypeSet($parameter->getNonVariadicUnionType()->getRealTypeSet());
         // Then set the new type on that parameter based
         // on the argument's type. We'll use this to
         // retest the method with the passed in types

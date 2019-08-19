@@ -1,6 +1,13 @@
 Phan NEWS
 
-??? ?? 2019, Phan 2.2.11 (dev)
+Aug 18 2019, Phan 2.2.12 (dev)
+------------------------
+
+New features(Analysis):
++ Fix false positives for checking for redundant conditions with `iterable` and `is_iterable`.
++ Properly infer real types for `is_resource` checks and other cases where UnionType::fromFullyQualifiedRealString() was used.
+
+Aug 18 2019, Phan 2.2.11
 ------------------------
 
 New features(Analysis):
@@ -13,16 +20,44 @@ New features(Analysis):
 + Infer that `new $expr()` has a real type of object in all cases, not just common ones.
 + Improve real type inferred for `+(expr)`/`-(expr)`/`~(expr)` and warn about redundant conditions.
   This does not attempt to account for custom behavior for objects provided by PECL extensions.
-+ Show argument names and types in issue messages for functions/methods for PhanParamTooFew and PhanParamTooMany.
-+ Show more accurate columns for PhanSyntaxError for unexpected tokens in more cases.
++ Show argument names and types in issue messages for functions/methods for `PhanParamTooFew` and `PhanParamTooMany`.
++ Show more accurate columns for `PhanSyntaxError` for unexpected tokens in more cases.
 + Ignore scalar and null type casting config settings when checking for redundant or impossible conditions. (#3105)
++ Infer that `empty($x)` implies that the value of $x is null, an empty scalar, or the empty array.
++ Avoid false positives with `if (empty($x['first']['second']))` - Do not infer any types for the offset 'first' if there weren't any already. (#3112)
++ Avoid some bad inferences when using the value of expressions of the form `A || B`.
++ Improve redundant condition detection for empty/falsey/truthy checks, `self`, and internal functions building or processing arrays.
++ Include strings that are suffixes of variable names, classes, methods, properties, etc. in issue suggestions for undeclared elements. (#2342)
++ Emit `PhanTypeNonVarReturnByRef` when an invalid expression is returned by a function declared to return a reference.
++ Support manually annotating that functions/methods/closures are pure with `/** @phan-pure */`.
+  This is automatically inherited by overriding methods.
+  Also see `UseReturnValuePlugin` and `'plugin_config' => ['infer_pure_methods' => true]`.
 
 Plugins:
++ In `UseReturnValuePlugin`, support inferring whether closures, functions, and methods are pure
+  when `'plugin_config' => ['infer_pure_methods' => true]` is enabled.
+  (they're expected to not have side effects and should have their results used)
+
+  This is a best-effort heuristic.
+  This is done only for the functions and methods that are not excluded from analysis,
+  and it isn't done for methods that override or are overridden by other methods.
+
+  Note that functions such as `fopen()` are not pure due to side effects.
+  UseReturnValuePlugin also warns about those because their results should be used.
+
+  Automatic inference of function purity is done recursively.
++ Add `EmptyMethodAndFunctionPlugin` to warn about functions/methods/closures with empty statement lists. (#3110)
+  This does not warn about functions or methods that are deprecated, overrides, or overridden.
 + Fix false positive in InvalidVariableIssetPlugin for expressions such as `isset(self::$prop['field'])` (#3089)
+
+Maintenance:
++ Add example vim syntax highlighting snippet for Phan's custom phpdoc annotations to `plugins/vim/syntax/phan.vim`
+  This makes it easier to tell if annotations were correctly typed.
 
 Bug fixes:
 + Don't scan over folders that would be excluded by `'exclude_file_regex'` while parsing. (#3088)
   That adds additional time and may cause unnecessary permissions errors.
++ Properly parse literal float union types starting with `0.`
 
 Aug 12 2019, Phan 2.2.10
 ------------------------

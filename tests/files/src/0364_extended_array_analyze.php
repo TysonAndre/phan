@@ -12,7 +12,7 @@ function test364() {
     $x = get_array_by_ref364();
     p364(next($x));
     p364(prev($x));
-    p364(key($x));  // Guaranteed to be int, string, or false. Only returns keys of arrays or the internal hash table of objects.
+    p364(key($x));  // Guaranteed to be int, string, or null. Only returns keys of arrays or the internal hash table of objects.
     p364(pos(get_array_by_ref364()));
     p364(reset(get_array_by_ref364()));
     p364(array_change_key_case(['X' => 3], CASE_LOWER));
@@ -47,5 +47,6 @@ function p364(stdClass $x) : void {
 
 /** @return &float[] */
 function &get_array_by_ref364() {
-    return [42.1, 36.5];
+    return [42.1, 36.5];  // Causes "Notice: Only variable references should be returned by reference"
 }
+var_export(get_array_by_ref364());
