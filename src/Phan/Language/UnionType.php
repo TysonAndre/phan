@@ -3914,7 +3914,7 @@ class UnionType implements Serializable
         if ($is_php8) {
             $map_raw = require(__DIR__ . '/Internal/FunctionSignatureMapReal.php');
         } else {
-            $map_raw = require(__DIR__ . '/Internal/FunctionSignatureMapReal_php73.php');
+            $map_raw = require(__DIR__ . '/Internal/FunctionSignatureMapReal_php7.php');
         }
         foreach ($map_raw as $key => $value) {
             $map[\strtolower($key)] = $value;
