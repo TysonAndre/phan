@@ -8,6 +8,7 @@ use Exception;
 use Phan\AST\ContextNode;
 use Phan\Exception\CodeBaseException;
 use Phan\Language\Element\Func;
+use Phan\Language\Element\Method;
 use Phan\Language\Element\FunctionInterface;
 use Phan\Plugin\Internal\UseReturnValuePlugin;
 use Phan\PluginV3\PluginAwarePostAnalysisVisitor;
@@ -82,7 +83,11 @@ class UseReturnValueVisitor extends PluginAwarePostAnalysisVisitor
             ))->getFunctionFromNode();
 
             foreach ($function_list_generator as $function) {
-                $fqsen = $function->getFQSEN()->__toString();
+                if ($function instanceof Method) {
+                    $fqsen = $function->getDefiningFQSEN()->__toString();
+                } else {
+                    $fqsen = $function->getFQSEN()->__toString();
+                }
                 if (!UseReturnValuePlugin::$use_dynamic) {
                     $this->quickWarn($function, $fqsen, $node);
                     continue;
@@ -293,15 +298,15 @@ class UseReturnValueVisitor extends PluginAwarePostAnalysisVisitor
             );
             return;
         }
-        if ($method->getUnionType()->isNull() || !$method->hasReturn()) {
+        if ($method->getUnionType()->isNull() || !($method->hasReturn() || $method->isFromPHPDoc())) {
             return;
         }
         $this->emitPluginIssue(
             $this->code_base,
             (clone($this->context))->withLineNumberStart($node->lineno),
             UseReturnValuePlugin::UseReturnValueKnown,
-            'Expected to use the return value of the user-defined function/method {FUNCTION}',
-            [$method->getRepresentationForIssue()]
+            'Expected to use the return value of the user-defined function/method {FUNCTION} defined at {FILE}:{LINE}',
+            [$method->getRepresentationForIssue(), $method->getContext()->getFile(), $method->getContext()->getLineNumberStart()]
         );
     }
 }

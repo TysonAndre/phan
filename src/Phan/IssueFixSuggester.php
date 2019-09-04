@@ -6,6 +6,7 @@ use Closure;
 use Phan\Language\Context;
 use Phan\Language\Element\ClassConstant;
 use Phan\Language\Element\Clazz;
+use Phan\Language\Element\Func;
 use Phan\Language\Element\Method;
 use Phan\Language\Element\Property;
 use Phan\Language\Element\Variable;
@@ -549,23 +550,37 @@ class IssueFixSuggester
             // Don't bother suggesting globals for now
             return null;
         }
+        // Suggest similar variable names in the current scope.
         $suggestions = self::getVariableNamesInScopeWithSimilarName($context, $variable_name);
+        // Suggest instance or static properties of the same name, if accessible
         if ($context->isInClassScope()) {
             // TODO: Does this need to check for static closures
             $class_in_scope = $context->getClassInScope($code_base);
             if ($class_in_scope->hasPropertyWithName($code_base, $variable_name)) {
                 $property = $class_in_scope->getPropertyByName($code_base, $variable_name);
-
-                if (!$property->isDynamicProperty()) {
-                    // Don't suggest inherited private properties that can't be accessed
-                    // - This doesn't need to be checking if the visibility is protected,
-                    //   because it's looking for properties of the current class
-                    if (!$property->isPrivate() || $property->getDefiningClassFQSEN() === $class_in_scope->getFQSEN()) {
-                        $suggestion_prefix = $property->isStatic() ? 'self::$' : '$this->';
-                        $suggestions[] = $suggestion_prefix . $variable_name;
-                    }
+                if (self::shouldSuggestProperty($context, $class_in_scope, $property)) {
+                    $suggestion_prefix = $property->isStatic() ? 'self::$' : '$this->';
+                    $suggestions[] = $suggestion_prefix . $variable_name;
                 }
             }
+        }
+        // Suggest using the variable if it is defined but not used by the current closure.
+        $scope = $context->getScope();
+        $did_suggest_use_in_closure = false;
+        while ($scope->isInFunctionLikeScope()) {
+            $function = $context->withScope($scope)->getFunctionLikeInScope($code_base);
+            if (!($function instanceof Func) || !$function->isClosure()) {
+                break;
+            }
+            $scope = $function->getContext()->getScope()->getParentScope();
+            if ($scope->hasVariableWithName($variable_name)) {
+                $did_suggest_use_in_closure = true;
+                $suggestions[] = "(use(\$$variable_name) for {$function->getNameForIssue()} at line {$function->getContext()->getLineNumberStart()})";
+                break;
+            }
+        }
+        if (!$did_suggest_use_in_closure && Variable::isHardcodedGlobalVariableWithName($variable_name)) {
+            $suggestions[] = "(global \$$variable_name)";
         }
         if (count($suggestions) === 0) {
             return null;
@@ -575,6 +590,27 @@ class IssueFixSuggester
         return Suggestion::fromString(
             $prefix . ' ' . \implode(' or ', $suggestions)
         );
+    }
+
+    private static function shouldSuggestProperty(Context $context, Clazz $class_in_scope, Property $property) : bool
+    {
+        if ($property->isDynamicProperty()) {
+            // Don't suggest properties that weren't declared.
+            return false;
+        }
+        if ($property->isPrivate() && $property->getDefiningClassFQSEN() !== $class_in_scope->getFQSEN()) {
+            // Don't suggest inherited private properties that can't be accessed
+            // - This doesn't need to be checking if the visibility is protected,
+            //   because it's looking for properties of the current class
+            return false;
+        }
+        if ($property->isStatic()) {
+            if (!$context->getScope()->hasVariableWithName('this')) {
+                // Don't suggest $this->prop from a static method or a static closure.
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

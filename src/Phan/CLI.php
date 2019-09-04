@@ -382,6 +382,8 @@ class CLI
         $minimum_severity = Config::getValue('minimum_severity');
         $mask = -1;
 
+        self::throwIfUsingInitModifiersWithoutInit($opts);
+
         foreach ($opts as $key => $value) {
             $key = (string)$key;
             switch ($key) {
@@ -751,7 +753,9 @@ class CLI
                     // Handled before processing the CLI flag `--help`
                     break;
                 default:
-                    throw new UsageException("Unknown option '-$key'" . self::getFlagSuggestionString($key), EXIT_FAILURE);
+                    // All of phan's long options are currently at least 2 characters long.
+                    $key_repr = strlen($key) >= 2 ? "--$key" : "-$key";
+                    throw new UsageException("Unknown option '$key_repr'" . self::getFlagSuggestionString($key), EXIT_FAILURE);
             }
         }
         if (isset($opts['language-server-completion-vscode']) && Config::getValue('language_server_enable_completion')) {
@@ -801,6 +805,29 @@ class CLI
         }
 
         self::ensureServerRunsSingleAnalysisProcess();
+    }
+
+    /**
+     * @param array<string|int,mixed> $opts
+     * @throws UsageException if using a flag such as --init-level without --init
+     */
+    private static function throwIfUsingInitModifiersWithoutInit(array $opts) : void
+    {
+        if (isset($opts['init'])) {
+            return;
+        }
+        $bad_options = [];
+        foreach ($opts as $other_key => $_) {
+            // -3 is an option, and gets converted to `3` in an array key.
+            if (\strncmp((string)$other_key, 'init-', 5) === 0) {
+                $bad_options[] = "--$other_key";
+            }
+        }
+        if (count($bad_options) > 0) {
+            $option_pluralized = count($bad_options) > 1 ? "options" : "option";
+            $make_pluralized = count($bad_options) > 1 ? "make" : "makes";
+            throw new UsageException("The $option_pluralized " . \implode(' and ', $bad_options) . " only $make_pluralized sense when initializing a new Phan config with --init", EXIT_FAILURE, UsageException::PRINT_INIT_ONLY);
+        }
     }
 
     /**
@@ -970,7 +997,7 @@ class CLI
             }
 
             // Don't scan anything twice
-            $this->file_list = \array_unique($this->file_list);
+            $this->file_list = self::uniqueFileList($this->file_list);
         }
 
         // Exclude any files that should be excluded from
@@ -991,6 +1018,23 @@ class CLI
                 }
             );
         }
+    }
+
+    /**
+     * @param string[] $file_list
+     * @return array<int,string> $file_list without duplicates
+     */
+    public static function uniqueFileList(array $file_list) : array
+    {
+        $result = [];
+        foreach ($file_list as $file) {
+            // treat src/a.php, src//a.php, and src\a.php (on Windows) as the same file
+            $file_key = \preg_replace('@/{2,}@', '/', \str_replace(\DIRECTORY_SEPARATOR, '/', $file));
+            if (!isset($result[$file_key])) {
+                $result[$file_key] = $file;
+            }
+        }
+        return \array_values($result);
     }
 
     /**
@@ -1485,11 +1529,15 @@ EOB
                 continue;
             }
             $distance = \levenshtein($key_lower, \strtolower($flag));
-            // distance > 5 is to far off to be a typo
+            // distance > 5 is too far off to be a typo
             // Make sure that if two flags have the same distance, ties are sorted alphabetically
-            if ($distance <= 5) {
-                $similarities[$flag] = [$distance, "x" . \strtolower($flag), $flag];
+            if ($distance > 5) {
+                continue;
             }
+            if ($key === $flag) {
+                return " (This option may not apply to a regular Phan analysis, and/or it may be unintentionally unhandled in \Phan\CLI::__construct())";
+            }
+            $similarities[$flag] = [$distance, "x" . \strtolower($flag), $flag];
         }
 
         \asort($similarities); // retain keys and sort descending
@@ -1532,7 +1580,7 @@ EOB
      * @param string $directory_name
      * The name of a directory to scan for files ending in `.php`.
      *
-     * @return array<string,string>
+     * @return array<int,string>
      * A list of PHP files in the given directory
      *
      * @throws InvalidArgumentException
@@ -1605,6 +1653,7 @@ EOB
         $normalized_file_list = [];
         foreach ($file_list as $file_path) {
             $file_path = \preg_replace('@^(\.[/\\\\]+)+@', '', $file_path);
+            // Treat src/file.php and src//file.php and src\file.php the same way
             $normalized_file_list[$file_path] = $file_path;
         }
         \usort($normalized_file_list, static function (string $a, string $b) : int {
@@ -1615,6 +1664,7 @@ EOB
             return \strcmp(\preg_replace("@[/\\\\]+@", "\0", $a), \preg_replace("@[/\\\\]+@", "\0", $b));
         });
 
+        // @phan-suppress-next-line PhanPartialTypeMismatchReturn TODO fix https://github.com/phan/phan/issues/3169
         return $normalized_file_list;
     }
 

@@ -1,17 +1,54 @@
 Phan NEWS
 
-Aug 18 2019, Phan 2.2.12 (dev)
+??? ?? 2019, Phan 2.2.12 (dev)
 ------------------------
 
+New features(CLI):
++ Improve error messages when the `--init-*` flags are provided without passing `--init`. (#3153)
+  Previously, Phan would fail with a confusing error message.
+
 New features(Analysis):
++ Support `@phan-immutable` annotation on class doc comments, to indicate that all instance properties are read-only.
+
+  - Phan does not check if object fields of those immutable properties will change. (e.g. `$this->foo->prop = 'x';` is allowed)
+  - This annotation does not imply that methods have no side effects (e.g. I/O, modifying global state)
+  - This annotation does not imply that methods have deterministic return values or that methods' results should be used.
+
+  `@phan-immutable` is an alias of `@phan-read-only`. `@phan-read-only` was previously supported on properties.
++ Support `@phan-side-effect-free` annotation on class doc comments,
+  to indicate that all instances of the class are `@phan-immutable`
+  and that methods of the class are free of external side effects. (#3182)
+
+  - All instance properties are treated as read-only.
+  - Almost all instance methods are treated as `@phan-side-effect-free` - their return values must be used.
+    (excluding a few magic methods such as __wakeup, __set, etc.)
+    This does not imply that they are deterministic (e.g. `rand()`, `file_get_contents()`, and `microtime()` are allowed)
++ Add `@phan-side-effect-free` as a clearer name of what `@phan-pure` implied for methods.
 + Fix false positives for checking for redundant conditions with `iterable` and `is_iterable`.
 + Properly infer real types for `is_resource` checks and other cases where UnionType::fromFullyQualifiedRealString() was used.
 + Avoid false positives for the config setting `'assume_real_types_for_internal_functions'`.
   Include all return types for many internal global functions for `--target-php-version` of `7.[0-4]`,
   including those caused by invalid arguments or argument counts.
++ Warn about division, modulo, and exponentiation by 0 (or by values that would cast to 0).
++ Fix a bug converting absolute paths to relative paths when the project directory is a substring of a subdirectory (#3158)
++ Show the real signature of the abstract method in PhanClassContainsAbstractMethod issues. (#3152)
++ Support analyzing php 7.3's `is_countable()`, and warn when the check is redundant or impossible (#3172)
++ Don't suggest `$this->prop` as an alternative to the undeclared variable `$prop` from a static method/closure. (#3174)
++ Make real return types of `Closure::bind()` and other closure helpers more accurate. (#3184)
++ Include `use($missingVar)` in suggestions for `PhanUndeclaredVariable` if it is defined outside the closure(s) scope.
+  Also, suggest *hardcoded* globals such as `$argv`.
++ Warn about `$this instanceof self` and `$this instanceof static` being redundant.
++ Fix false positive `PhanInvalidConstantExpression` for php 7.4 argument unpacking (e.g. `function f($x = [1, ...SOME_CONST]) {}`)
++ Emit `PhanTypeMismatchArgumentInternalProbablyReal` when the real type of an argument doesn't match Phan's signature info for a function (#3199)
+  (but there is no Reflection type info for the parameter)
+  Continue emitting `PhanTypeMismatchArgumentInternal` when the real type info of the argument is unknown or is permitted to cast to the parameter.
 
 Plugins:
 + If possible, suggest the types that Phan observed during analysis with `UnknownElementTypePlugin`. (#3146)
++ New DependencyGraphPlugin and associated tool/pdep - see `tool/pdep -h`
+
+Bug fixes:
++ Don't parse `src/a.php` and `src\a.php` twice if both paths are generated from config or CLI options (#3166)
 
 Aug 18 2019, Phan 2.2.11
 ------------------------

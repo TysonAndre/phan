@@ -858,6 +858,7 @@ class Clazz extends AddressableElement
         }
         $class_fqsen = $this->getFQSEN();
         $context = $this->internal_context;
+        $is_pure = $this->isPure();
         foreach ($magic_method_map as $comment_method) {
             // $flags is the same as the flags for `public` and non-internal?
             // Or \ast\flags\MODIFIER_PUBLIC.
@@ -891,6 +892,9 @@ class Clazz extends AddressableElement
             $method->setNumberOfRequiredParameters($comment_method->getNumberOfRequiredParameters());
             $method->setNumberOfOptionalParameters($comment_method->getNumberOfOptionalParameters());
             $method->setIsFromPHPDoc(true);
+            if ($is_pure && !$comment_method->isStatic()) {
+                $method->setIsPure();
+            }
 
             $this->addMethod($code_base, $method, new None());
         }
@@ -1639,7 +1643,7 @@ class Clazz extends AddressableElement
 
     private static function makeCallMethodCloneForCaller(Method $method) : Method
     {
-        return new Method(
+        $clone = new Method(
             $method->getContext(),
             $method->getName(),
             $method->getUnionType(),
@@ -1649,6 +1653,8 @@ class Clazz extends AddressableElement
                 new VariadicParameter($method->getContext(), 'args', UnionType::empty(), 0)
             ]
         );
+        $clone->setPhanFlags($method->getPhanFlags());
+        return $clone;
     }
 
     /**
@@ -1797,6 +1803,7 @@ class Clazz extends AddressableElement
      * Set whether undeclared magic properties are forbidden
      * (properties accessed through __get or __set, with no (at)property annotation on parent class)
      * @param bool $forbid_undeclared_dynamic_properties - set to true to forbid.
+     * @suppress PhanUnreferencedPublicMethod
      */
     public function setForbidUndeclaredMagicProperties(
         bool $forbid_undeclared_dynamic_properties
@@ -1828,6 +1835,7 @@ class Clazz extends AddressableElement
      * Set whether undeclared magic methods are forbidden
      * (methods accessed through __call or __callStatic, with no (at)method annotation on class)
      * @param bool $forbid_undeclared_magic_methods - set to true to forbid.
+     * @suppress PhanUnreferencedPublicMethod
      */
     public function setForbidUndeclaredMagicMethods(
         bool $forbid_undeclared_magic_methods
@@ -1837,6 +1845,28 @@ class Clazz extends AddressableElement
             Flags::CLASS_FORBID_UNDECLARED_MAGIC_METHODS,
             $forbid_undeclared_magic_methods
         ));
+    }
+
+    /**
+     * Returns whether this class is `(at)immutable`
+     *
+     * This will warn if instance properties of instances of the class will not change after the object is constructed.
+     * - Methods of (at)immutable classes may change external state (e.g. perform I/O, modify other objects)
+     */
+    public function isImmutable() : bool
+    {
+        return $this->getPhanFlagsHasState(Flags::IS_READ_ONLY);
+    }
+
+    /**
+     * Returns whether this class is `(at)pure`
+     *
+     * This will warn if instance properties of instances of the class will not change after the object is constructed.
+     * - Methods of (at)immutable classes may change external state (e.g. perform I/O, modify other objects)
+     */
+    public function isPure() : bool
+    {
+        return $this->getPhanFlagsHasState(Flags::IS_SIDE_EFFECT_FREE);
     }
 
     /**

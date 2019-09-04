@@ -4,6 +4,7 @@ namespace Phan\ForkPool;
 
 /**
  * Represents the current progress of a forked analysis worker.
+ * @phan-immutable
  */
 class Progress
 {

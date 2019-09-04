@@ -17,6 +17,7 @@ use Phan\Plugin\ConfigPluginSet;
  * An issue emitted during analysis.
  * @phan-file-suppress PhanPluginDescriptionlessCommentOnPublicMethod
  * @SuppressWarnings(PHPMD.ConstantNamingConventions) these constant names are deliberately used to match the values
+ * @phan-pure
  */
 class Issue
 {
@@ -130,6 +131,7 @@ class Issue
     const TypeMismatchArgumentReal               = 'PhanTypeMismatchArgumentReal';
     const TypeMismatchArgumentNullable           = 'PhanTypeMismatchArgumentNullable';
     const TypeMismatchArgumentInternal           = 'PhanTypeMismatchArgumentInternal';
+    const TypeMismatchArgumentInternalProbablyReal = 'PhanTypeMismatchArgumentInternalProbablyReal';
     const TypeMismatchArgumentInternalReal       = 'PhanTypeMismatchArgumentInternalReal';
     const TypeMismatchArgumentNullableInternal   = 'PhanTypeMismatchArgumentNullableInternal';
     const PartialTypeMismatchArgument            = 'PhanPartialTypeMismatchArgument';
@@ -231,6 +233,9 @@ class Issue
     const CoalescingAlwaysNullInGlobalScope = 'PhanCoalescingAlwaysNullInGlobalScope';
     const TypeMismatchArgumentPropertyReference = 'PhanTypeMismatchArgumentPropertyReference';
     const TypeMismatchArgumentPropertyReferenceReal = 'PhanTypeMismatchArgumentPropertyReferenceReal';
+    const DivisionByZero = 'PhanDivisionByZero';
+    const ModuloByZero = 'PhanModuloByZero';
+    const PowerOfZero = 'PhanPowerOfZero';
 
     // Issue::CATEGORY_ANALYSIS
     const Unanalyzable              = 'PhanUnanalyzable';
@@ -1337,6 +1342,14 @@ class Issue
                 10139
             ),
             new Issue(
+                self::TypeMismatchArgumentInternalProbablyReal,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                'Argument {INDEX} (${PARAMETER}) is {TYPE}{DETAILS} but {FUNCTIONLIKE} takes {TYPE}{DETAILS}',
+                self::REMEDIATION_B,
+                10148
+            ),
+            new Issue(
                 self::TypeMismatchArgumentNullableInternal,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_LOW,
@@ -2400,6 +2413,30 @@ class Issue
                 "Using {CODE} of type {TYPE} as the left hand side of a null coalescing (??) operation. The left hand side may be unnecessary. (in the global scope - this is likely a false positive)",
                 self::REMEDIATION_B,
                 10127
+            ),
+            new Issue(
+                self::DivisionByZero,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                'Attempting to divide a value by a divisor of {CODE} of type {TYPE}',
+                self::REMEDIATION_B,
+                10145
+            ),
+            new Issue(
+                self::ModuloByZero,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                'Attempting to modulo a value with a modulus of {CODE} of type {TYPE}',
+                self::REMEDIATION_B,
+                10146
+            ),
+            new Issue(
+                self::PowerOfZero,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_LOW,
+                'Attempting to exponentiate a value to a power of {CODE} of type {TYPE} (the result will always be 1)',
+                self::REMEDIATION_B,
+                10147
             ),
             // Issue::CATEGORY_VARIABLE
             new Issue(
@@ -4524,6 +4561,7 @@ class Issue
 
     /**
      * Returns the number of arguments expected for the format string $this->getTemplate()
+     * @suppress PhanAccessReadOnlyProperty lazily computed
      */
     public function getExpectedArgumentCount() : int
     {
@@ -4683,7 +4721,7 @@ class Issue
      *
      * @param Context $context
      * The context in which the node we're going to be looking
-     * at exits.
+     * at exists.
      *
      * @param string $issue_type
      * The type of issue to emit such as Issue::ParentlessClass
@@ -4717,7 +4755,7 @@ class Issue
      *
      * @param Context $context
      * The context in which the node we're going to be looking
-     * at exits.
+     * at exists.
      *
      * @param string $issue_type
      * The type of issue to emit such as Issue::ParentlessClass

@@ -3,6 +3,7 @@
 namespace Phan\Language;
 
 use Closure;
+use Exception;
 use Generator;
 use InvalidArgumentException;
 use Phan\CodeBase;
@@ -69,6 +70,8 @@ if (!\function_exists('spl_object_id')) {
  * > and many other types
  *
  * @phan-file-suppress PhanPluginDescriptionlessCommentOnPublicMethod TODO: Document the public methods
+ * @phan-pure types/union types are immutable, but technically not pure (some methods cause issues to be emitted with Issue::maybeEmit()).
+ *            However, it's useful to treat them as if they were pure, to warn about not using return values.
  */
 class UnionType implements Serializable
 {
@@ -226,6 +229,15 @@ class UnionType implements Serializable
         }
 
         return $union_type;
+    }
+
+    /**
+     * @return array<int,Type> the corresponding set of types for this string.
+     * @throws InvalidArgumentException if any type name in the union type was invalid
+     */
+    public static function typeSetFromString(string $fully_qualified_string) : array
+    {
+        return self::fromFullyQualifiedPHPDocString($fully_qualified_string)->type_set;
     }
 
     /**
@@ -2996,6 +3008,86 @@ class UnionType implements Serializable
     }
 
     /**
+     * Returns the types for which is_countable($x) would be true.
+     * Takes `ArrayObject|false` and returns `ArrayObject`
+     * Takes `?(int[])` and returns `int[]`
+     * Takes `string` and returns an empty union type.
+     *
+     * @return UnionType
+     * A UnionType with known countable types kept, other types filtered out.
+     *
+     * @see nonGenericArrayTypes
+     * @suppress PhanUnreferencedPublicMethod
+     */
+    public function countableTypesStrictCast(CodeBase $code_base) : UnionType
+    {
+        static $default_types;
+        if (\is_null($default_types)) {
+            $default_types = [ArrayType::instance(false), Type::countableInstance()];
+        }
+        return UnionType::of(
+            self::castTypeListToCountable($code_base, $this->type_set, false) ?: $default_types,
+            self::castTypeListToCountable($code_base, $this->real_type_set, false) ?: $default_types
+        );
+    }
+
+    /**
+     * @param Type[] $type_list
+     * @return array<int,Type> possibly containing duplicates
+     * @internal
+     */
+    public static function castTypeListToCountable(CodeBase $code_base, array $type_list, bool $assume_subclass_implements_countable) : array
+    {
+        $result = [];
+        foreach ($type_list as $type) {
+            if ($type instanceof IterableType) {
+                $result[] = $type->asArrayType();
+                if ($assume_subclass_implements_countable && $type->isPossiblyObject()) {
+                    $result[] = Type::countableInstance();
+                }
+                continue;
+            } elseif ($type->isObjectWithKnownFQSEN()) {
+                $type = $type->withIsNullable(false);
+                $expanded_type = $type->asExpandedTypes($code_base);
+                foreach ($expanded_type->getTypeSet() as $part_type) {
+                    if ($part_type->getName() === 'Countable' && $part_type->getNamespace() === '\\') {
+                        $result[] = $type;
+                        continue 2;
+                    }
+                }
+                if ($assume_subclass_implements_countable) {
+                    try {
+                        $fqsen = $type->asFQSEN();
+                        if (!($fqsen instanceof FullyQualifiedClassName)) {
+                            // This is a closure
+                            continue;
+                        }
+                        if ($code_base->hasClassWithFQSEN($fqsen)) {
+                            if ($code_base->getClassByFQSEN($fqsen)->isFinal()) {
+                                // This is a final class and can't implement Countable
+                                continue;
+                            }
+                        }
+                    } catch (Exception $_) {
+                        // ignore it
+                    }
+                    $result[] = Type::countableInstance();
+                }
+                continue;
+            } else {
+                if ($type->isPossiblyObject()) {
+                    // e.g. object/mixed/callable-object can also be Countable
+                    $result[] = Type::countableInstance();
+                }
+                if ($type instanceof MixedType) {
+                    $result[] = ArrayType::instance(false);
+                }
+            }
+        }
+        return $result;
+    }
+
+    /**
      * Returns the types for which is_int($x) would be true.
      *
      * @return UnionType
@@ -3687,6 +3779,7 @@ class UnionType implements Serializable
      * A serialized UnionType
      *
      * @see \Serializable
+     * @suppress PhanAccessReadOnlyProperty this unserializes
      */
     public function unserialize($serialized) : void
     {
@@ -4839,6 +4932,7 @@ class UnionType implements Serializable
 
     /**
      * Shorter version of `UnionType::of($this->getTypeSet(), [$type])`
+     * @suppress PhanAccessReadOnlyProperty
      */
     public function withRealType(Type $type) : UnionType
     {
@@ -4857,6 +4951,7 @@ class UnionType implements Serializable
     /**
      * Shorter version of `UnionType::of($this->getTypeSet(), $real_type_set)`
      * @param ?array<int,Type> $real_type_set
+     * @suppress PhanAccessReadOnlyProperty
      */
     public function withRealTypeSet(?array $real_type_set) : UnionType
     {

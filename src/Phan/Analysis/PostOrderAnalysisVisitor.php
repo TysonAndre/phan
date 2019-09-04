@@ -831,6 +831,12 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         );
     }
 
+    const ISSUE_TYPES_RIGHT_SIDE_ZERO = [
+        flags\BINARY_POW => Issue::PowerOfZero,
+        flags\BINARY_DIV => Issue::DivisionByZero,
+        flags\BINARY_MOD => Issue::ModuloByZero,
+    ];
+
     private function analyzeBinaryNumericOp(Node $node) : void
     {
         $left = UnionTypeVisitor::unionTypeFromNode(
@@ -844,6 +850,14 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             $this->context,
             $node->children['right']
         );
+        if (!$right->isEmpty() && !$right->containsTruthy()) {
+            $this->emitIssue(
+                self::ISSUE_TYPES_RIGHT_SIDE_ZERO[$node->flags],
+                $node->children['right']->lineno ?? $node->lineno,
+                ASTReverter::toShortString($node->children['right']),
+                $right
+            );
+        }
         $this->warnAboutInvalidUnionType(
             $node,
             static function (Type $type) : bool {
@@ -3535,10 +3549,14 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * @param FunctionInterface $method
      * The method or function being called
      * @see analyzeMethodWithArgumentTypes (Which takes AST nodes)
+     *
+     * @param array<int,Node|mixed> $arguments
+     * An array of arguments to the callable, to analyze references.
      */
     public function analyzeCallableWithArgumentTypes(
         array $argument_types,
-        FunctionInterface $method
+        FunctionInterface $method,
+        array $arguments = []
     ) : void {
         if (!$method->needsRecursiveAnalysis()) {
             return;
@@ -3592,7 +3610,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 $this->updateParameterTypeByArgument(
                     $method,
                     $parameter_clone,
-                    null,  // TODO: Can array_map/array_filter accept closures with references? Consider warning?
+                    $arguments[$i] ?? null,
                     $argument_types,
                     $parameter_list,
                     $i

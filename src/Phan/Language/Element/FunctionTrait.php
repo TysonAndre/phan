@@ -61,7 +61,7 @@ trait FunctionTrait
     /** @return int flags from \Phan\Language\Element\Flags */
     abstract public function getPhanFlags() : int;
 
-    /** @return bool true if all of the bits in $bits is true in $this->getPhanFlags() */
+    /** @return bool true if all of the bits in $bits are true in $this->getPhanFlags() */
     abstract public function getPhanFlagsHasState(int $bits) : bool;
 
     abstract public function setPhanFlags(int $phan_flags) : void;
@@ -1734,7 +1734,7 @@ trait FunctionTrait
     /**
      * Returns stub text for the phpdoc parameters that can be used in markdown
      */
-    protected function getParameterStubText() : string
+    public function getParameterStubText() : string
     {
         return \implode(', ', \array_map(function (Parameter $parameter) : string {
             return $parameter->toStubString($this->isPHPInternal());
@@ -1744,7 +1744,7 @@ trait FunctionTrait
     /**
      * Returns stub text for the real parameters that can be used in `tool/make_stubs`
      */
-    protected function getRealParameterStubText() : string
+    public function getRealParameterStubText() : string
     {
         return \implode(', ', \array_map(static function (Parameter $parameter) : string {
             return $parameter->toStubString();
@@ -1757,7 +1757,7 @@ trait FunctionTrait
      */
     public function setIsPure() : void
     {
-        $this->setPhanFlags($this->getPhanFlags() | Flags::IS_PURE);
+        $this->setPhanFlags($this->getPhanFlags() | Flags::IS_SIDE_EFFECT_FREE);
     }
 
     /**
@@ -1766,6 +1766,6 @@ trait FunctionTrait
      */
     public function isPure() : bool
     {
-        return $this->getPhanFlagsHasState(Flags::IS_PURE);
+        return $this->getPhanFlagsHasState(Flags::IS_SIDE_EFFECT_FREE);
     }
 }
