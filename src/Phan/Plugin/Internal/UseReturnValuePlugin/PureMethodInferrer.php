@@ -100,10 +100,6 @@ class PureMethodInferrer
             // \Phan\Debug::printNode($_->getNode());
             return;
         }
-        if ($method->getUnionType()->isNull()) {
-            $graph->recordPotentialPureFunction($visitor->getLabel(), $method, $visitor->getUnresolvedStatusDependencies());
-            return;
-        }
         $graph->recordPotentialPureFunction($visitor->getLabel(), $method, $visitor->getUnresolvedStatusDependencies());
     }
 
@@ -121,13 +117,17 @@ class PureMethodInferrer
             // no-op closures are usually normal
             return;
         }
+        if ($method->isPHPInternal()) {
+            // Don't emit this for internal stubs
+            return;
+        }
         // Don't warn about the **caller** of void methods that do nothing.
         // Instead, warn about the implementation of void methods.
         self::emitPluginIssue(
             $code_base,
             $method->getContext(),
             UseReturnValuePlugin::UseReturnValueNoopVoid,
-            'The internal function/method {FUNCTION} is declared to return {TYPE} and it has no side effects',
+            'The function/method {FUNCTION} is declared to return {TYPE} and it has no side effects',
             [$method->getRepresentationForIssue(), $method->getUnionType()]
         );
     }
