@@ -1,11 +1,35 @@
 Phan NEWS
 
-??? ?? 2019, Phan 2.2.12 (dev)
+??? ?? 2019, Phan 2.2.13 (dev)
+------------------------
+
+New features(CLI):
++ Always print 100% in `--progress-bar` after completing any phase of analysis.
+  This is convenient for tools such as `tool/phoogle` that exit before starting the next phase.
+
+New features(Analysis):
++ Disable `simplify_ast` by default.
+  Phan's analysis of compound conditions and assignments/negations in conditions has improved enough that it should no longer be necessary.
++ Import more specific phpdoc/real array return types for internal global functions from opcache.
++ Emit `PhanUndeclaredVariable` and other warnings about arguments when there are too many parameters for methods. (#3245)
++ Infer real types of array/iterable keys and values in more cases.
+
+Maintenance:
++ Make `\Phan\Library\None` a singleton in internal uses.
+
+Bug fixes:
++ Consistently deduplicate the real type set of union types (fixes some false positives in redundant condition detection).
+
+Sep 08 2019, Phan 2.2.12
 ------------------------
 
 New features(CLI):
 + Improve error messages when the `--init-*` flags are provided without passing `--init`. (#3153)
   Previously, Phan would fail with a confusing error message.
++ New tool `tool/pdep` to visualize project dependencies - see `tool/pdep -h`
+  (uses the internal plugin `DependencyGraphPlugin`)
++ Support running `tool/phoogle` (search for functions/methods by signatures) in Windows.
++ Add support for `--limit <count>` and `--progress-bar` to `tool/phoogle`.
 
 New features(Analysis):
 + Support `@phan-immutable` annotation on class doc comments, to indicate that all instance properties are read-only.
@@ -43,6 +67,12 @@ New features(Analysis):
   (but there is no Reflection type info for the parameter)
   Continue emitting `PhanTypeMismatchArgumentInternal` when the real type info of the argument is unknown or is permitted to cast to the parameter.
 + Improve analysis of switch statements for unused variable detection and variable types (#3222, #1811)
++ Infer the value of `count()` for union types that have a real type with a single array shape.
++ Fix false positive `PhanSuspiciousValueComparisonInLoop` for value expressions that contain variables.
++ Warn about redundant condition detection in more cases in loops.
++ Warn about PHP 4 constructors such as `Foo::Foo()` if the class has no namespace and `__construct()` does not exist. (#740)
+  Infer that defining `Foo::Foo()` creates the method alias `Foo::__construct()`.
++ Don't emit `PhanTypeMismatchArgumentReal` if the only cause of the mismatch is nullability of real types (if phpdoc types were compatible) (#3231)
 
 Language Server/Daemon mode:
 + Ignore `'plugin_config' => ['infer_pure_methods' => true]` in language server and daemon mode. (#3220)
@@ -50,7 +80,10 @@ Language Server/Daemon mode:
 
 Plugins:
 + If possible, suggest the types that Phan observed during analysis with `UnknownElementTypePlugin`. (#3146)
-+ New DependencyGraphPlugin and associated tool/pdep - see `tool/pdep -h`
++ Make `InvalidVariableIssetPlugin` respect the `ignore_undeclared_variables_in_global_scope` option (#1403)
+
+Maintenance:
++ Correctly check for the number of cpus/cores on MacOS in Phan's unit tests (#3143)
 
 Bug fixes:
 + Don't parse `src/a.php` and `src\a.php` twice if both paths are generated from config or CLI options (#3166)

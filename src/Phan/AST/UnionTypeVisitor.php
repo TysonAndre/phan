@@ -910,22 +910,40 @@ class UnionTypeVisitor extends AnalysisVisitor
     {
         $children = $node->children;
         if (\count($children) > 0) {
-            $value_types_builder = new UnionTypeBuilder();
-
             $key_set = $this->getEquivalentArraySet($node);
-            if (\is_array($key_set) && \count($key_set) === \count($children)) {
+            if (\is_array($key_set)) {
                 // XXX decide how to deal with array components when the top level array is real
-                return $this->createArrayShapeType($children, $key_set)->asRealUnionType();
+                return $this->createArrayShapeType($key_set)->asRealUnionType();
             }
 
+            $value_types_builder = new UnionTypeBuilder();
+            $real_value_types_builder = new UnionTypeBuilder();
+            $record_real_union_type = static function (UnionType $union_type) use (&$real_value_types_builder) : void {
+                if (!$real_value_types_builder) {
+                    return;
+                }
+                $real_types = $union_type->getRealTypeSet();
+                if (!$real_types) {
+                    $real_value_types_builder = null;
+                    return;
+                }
+                foreach ($real_types as $type) {
+                    $real_value_types_builder->addType($type);
+                }
+            };
+
+            // XXX is this slow for extremely large arrays because of in_array check in UnionTypeBuilder?
             foreach ($children as $child) {
                 if (!($child instanceof Node)) {
                     // Skip this, we already emitted a syntax error.
+                    $real_value_types_builder = null;
                     continue;
                 }
                 if ($child->kind === ast\AST_UNPACK) {
                     // Analyze PHP 7.4's array spread operator, e.g. `[$a, ...$array, $b]`
-                    $value_types_builder->addUnionType($this->analyzeUnpack($child, true));
+                    $new_union_type = $this->analyzeUnpack($child, true);
+                    $value_types_builder->addUnionType($new_union_type);
+                    $record_real_union_type($new_union_type);
                     continue;
                 }
                 $value = $child->children['value'];
@@ -938,21 +956,48 @@ class UnionTypeVisitor extends AnalysisVisitor
                     );
                     if ($element_value_type->isEmpty()) {
                         $value_types_builder->addType(MixedType::instance(false));
+                        $real_value_types_builder = null;
                     } else {
                         $value_types_builder->addUnionType($element_value_type);
+                        $record_real_union_type($element_value_type);
                     }
                 } else {
-                    $value_types_builder->addType(Type::fromObject($value));
+                    $new_type = Type::fromObject($value);
+                    $value_types_builder->addType($new_type);
+                    if ($real_value_types_builder) {
+                        $real_value_types_builder->addType($new_type);
+                    }
                 }
             }
             // TODO: Normalize value_types, e.g. false+true=bool, array<int,T>+array<string,T>=array<mixed,T>
+
             $key_type_enum = GenericArrayType::getKeyTypeOfArrayNode($this->code_base, $this->context, $node, $this->should_catch_issue_exception);
-            return $value_types_builder->getPHPDocUnionType()->asNonEmptyGenericArrayTypes($key_type_enum)->withRealType(ArrayType::instance(false));
+            return $value_types_builder->getPHPDocUnionType()
+                                       ->asNonEmptyGenericArrayTypes($key_type_enum)
+                                       ->withRealTypeSet(self::arrayTypeFromRealTypeBuilder($real_value_types_builder));
         }
 
         // TODO: Also return types such as array<int, mixed>?
         // TODO: Fix or suppress false positives PhanTypeArraySuspicious caused by loops...
         return ArrayShapeType::empty(false)->asRealUnionType();
+    }
+
+    /**
+     * @return array<int,ArrayType>
+     */
+    private static function arrayTypeFromRealTypeBuilder(?UnionTypeBuilder $builder) : array {
+        if (!$builder || $builder->isEmpty()) {
+            static $array_type_set = null;
+            if ($array_type_set === null) {
+                $array_type_set = [ArrayType::instance(false)];
+            }
+            return $array_type_set;
+        }
+        $real_types = [];
+        foreach ($builder->getTypeSet() as $type) {
+            $real_types[] = GenericArrayType::fromElementType($type, false, GenericArrayType::KEY_MIXED);
+        }
+        return $real_types;
     }
 
     /**
@@ -984,7 +1029,7 @@ class UnionTypeVisitor extends AnalysisVisitor
     }
 
     /**
-     * @return ?array<int|string,true>
+     * @return ?array<int|string,Node>
      * Caller should check if the result size is too small and handle it (for duplicate keys)
      * Returns null if one or more keys could not be resolved
      *
@@ -1003,7 +1048,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                 if ($this->getPackedArrayFieldTypes($child_node->children['expr']) !== null) {
                     // This is a placeholder of a deliberately - the caller checks that the count of elements matches the count of AST child nodes.
                     // TODO: Refactor to handle edge cases such as `[...[1], 0 => 2]`
-                    $elements[] = true;
+                    $elements[] = $child_node;
                     continue;
                 }
                 return null;
@@ -1012,16 +1057,16 @@ class UnionTypeVisitor extends AnalysisVisitor
             $key_node = $child_node->children['key'];
             // NOTE: this has some overlap with DuplicateKeyPlugin
             if ($key_node === null) {
-                $elements[] = true;
+                $elements[] = $child_node;
             } elseif (is_scalar($key_node)) {
-                $elements[$key_node] = true;  // Check for float?
+                $elements[$key_node] = $child_node;  // Check for float?
             } else {
                 if ($context_node === null) {
                     $context_node = new ContextNode($this->code_base, $this->context, null);
                 }
                 $key = $context_node->getEquivalentPHPValueForNode($key_node, ContextNode::RESOLVE_CONSTANTS);
                 if (is_scalar($key)) {
-                    $elements[$key] = true;
+                    $elements[$key] = $child_node;
                 } else {
                     return null;
                 }
@@ -1069,19 +1114,14 @@ class UnionTypeVisitor extends AnalysisVisitor
     }
 
     /**
-     * @param array<int,Node> $children
-     * @param array<int|string,true> $key_set
+     * @param array<int|string,Node> $key_set
      */
-    private function createArrayShapeType(array $children, array $key_set) : ArrayShapeType
+    private function createArrayShapeType(array $key_set) : ArrayShapeType
     {
-        \reset($key_set);
         $field_types = [];
 
-        foreach ($children as $child) {
+        foreach ($key_set as $key => $child) {
             // Keep iteration over $children and key_set in sync
-            $key = \key($key_set);
-            \next($key_set);
-
             if ($child->kind === ast\AST_UNPACK) {
                 // handle [other_expr, ...expr, other_exprs]
                 $element_value_type = $this->getPackedArrayFieldTypes($child->children['expr']);
@@ -1964,6 +2004,34 @@ class UnionTypeVisitor extends AnalysisVisitor
     }
 
     /**
+     * @throws UnanalyzableException
+     */
+    public function visitClass(Node $node) : UnionType
+    {
+        if ($node->flags & ast\flags\CLASS_ANONYMOUS) {
+            $class_name =
+                (new ContextNode(
+                    $this->code_base,
+                    $this->context,
+                    $node
+                ))->getUnqualifiedNameForAnonymousClass();
+        } else {
+            $class_name = (string)$node->children['name'];
+        }
+
+        if (!$class_name) {
+            // Should only occur with --use-fallback-parser
+            throw new UnanalyzableException($node, "Class name cannot be empty");
+        }
+
+        // @phan-suppress-next-line PhanThrowTypeMismatchForCall
+        return FullyQualifiedClassName::fromStringInContext(
+            $class_name,
+            $this->context
+        )->asType()->asRealUnionType();
+    }
+
+    /**
      * Visit a node with kind `\ast\AST_CLASS_CONST`
      *
      * @param Node $node
@@ -2711,7 +2779,6 @@ class UnionTypeVisitor extends AnalysisVisitor
         Context $context,
         $node
     ) : UnionType {
-
         // If this is a list, build a union type by
         // recursively visiting the child nodes
         if ($node instanceof Node
