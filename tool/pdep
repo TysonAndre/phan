@@ -5,24 +5,32 @@
 use Phan\CLIBuilder;
 use Phan\Phan;
 
+define("PDEP_IGNORE_STATIC", 1 << 0);
+define("PDEP_HIDE_LABELS", 1 << 1);
+
 /** Prints a usage message and exits. */
 function usage(int $status) : void {
     global $argv;
     echo <<<EOT
 Usage: {$argv[0]} [options] [files or classes...]
 
- -c, --find-classes Find classes that depend on the passed files or classes
- -f, --find-files   Find files that depend on the passed files or classes
- -g, --graph        Graphviz dot output
+ -c, --find-classes  Find classes that depend on the passed files or classes
+ -f, --find-files    Find files that depend on the passed files or classes
+ -i, --import        Import class graph from json file previously generated
+ -j, --json          JSON output
+ -g, --graph         Graphviz dot output
+ -m, --graphml       GraphML output
+     --hide-labels   Labels are hidden - hover in yEd to see them
+     --ignore-static Don't include static calls and static var dependencies
  -d, --depth <depth_level>
     When walking the dependency graph, limit it to this depth. For
     example,
       {$argv[0]} -f -d 1 MyClass
     would show only the files that directly depend on MyClass.
  -l, --file-list <filelist.txt>
- -q, --quick        Uses Phan's --quick mode
- -p, --progress-bar Show progress bar
- -h, --help         This help
+ -q, --quick         Uses Phan's --quick mode
+ -p, --progress-bar  Show progress bar
+ -h, --help          This help
 
 If no filenames or classnames are provided, it will generate the
 full dependency tree.
@@ -45,10 +53,18 @@ call_user_func(static function () : void {
     $tool_dir = dirname($argv[0]);
     $depth = 0;
     $cmd = '';
+    $graph_flags = 0;
+    $graph_file = '';
+
     $options = getopt(
-        "cfghpqd:l:",
+        "cfjgmhpqd:l:i:",
         [
+            'import',
+            'json',
             'graph',
+            'graphml',
+            'ignore-static',
+            'hide-labels',
             'find-classes',
             'find-files',
             'file-list:',
@@ -64,16 +80,29 @@ call_user_func(static function () : void {
     if (isset($options['find-files'])) {
         $options['f'] = false;
     }
+    if (isset($options['import'])) {
+        $options['i'] = false;
+    }
     if (isset($options['c'])) {
         if (isset($options['f'])) {
             echo "ERROR: Cannot pass both -c and -f\n";
             usage(1);
         }
+        if (isset($options['i'])) {
+            echo "ERROR: Cannot pass both -c and -i\n";
+            usage(1);
+        }
         $mode = 'class';
     } elseif (isset($options['f'])) {
+        if (isset($options['i'])) {
+            echo "ERROR: Cannot pass both -f and -i\n";
+            usage(1);
+        }
         $mode = 'file';
+    } elseif (isset($options['i'])) {
+        $mode = 'import';
     } else {
-        echo "ERROR: Must specify either -c or -f\n";
+        echo "ERROR: Must specify either -c, -f or -i\n";
         usage(1);
     }
 
@@ -82,16 +111,29 @@ call_user_func(static function () : void {
         return;
     }
 
-    $code_base = require_once(__DIR__ . '/../src/codebase.php');
-    require_once(__DIR__ . '/../src/Phan/Bootstrap.php');
+    $code_base = require_once __DIR__ . '/../src/codebase.php';
+    require_once __DIR__ . '/../src/Phan/Bootstrap.php';
 
     $cli_builder = new CLIBuilder();
-
     foreach ($options as $opt => $value) {
         switch ($opt) {
+            case 'j':
+            case 'json':
+                $cmd = 'json';
+                break;
             case 'g':
             case 'graph':
                 $cmd = "graph";
+                break;
+            case 'm':
+            case 'graphml':
+                $cmd = "graphml";
+                break;
+            case 'ignore-static':
+                $graph_flags |= \PDEP_IGNORE_STATIC;
+                break;
+            case 'hide-labels':
+                $graph_flags |= \PDEP_HIDE_LABELS;
                 break;
             case 'p':
             case 'progress-bar':
@@ -109,6 +151,10 @@ call_user_func(static function () : void {
             case 'file-list':
                 // @phan-suppress-next-line PhanPossiblyNullTypeArgument
                 $cli_builder->setOption('file-list', $value);
+                break;
+            case 'i':
+            case 'import':
+                $graph_file = (string)$value;
                 break;
         }
     }
@@ -130,8 +176,25 @@ call_user_func(static function () : void {
     $putenv("PDEP_MODE", (string)$mode);
     $putenv("PDEP_DEPTH", (string)$depth);
     $putenv("PDEP_ARGS", $arg_string);
-    // @phan-suppress-next-line PhanThrowTypeAbsentForCall
-    Phan::analyzeFileList($code_base, /** @return string[] */ static function () use($cli) : array {
-        return $cli->getFileList();
-    });
+    $putenv("PDEP_GRAPH_FLAGS", (string)$graph_flags);
+
+    if ($mode == 'import') {
+        $data = file_get_contents($graph_file);
+        if (!$data) {
+            echo "Unable to read $graph_file\n";
+            exit(1);
+        }
+        $graph = json_decode($data, true);
+        if (!$graph) {
+            echo json_last_error_msg();
+            exit(1);
+        }
+        require_once __DIR__ . '/../src/Phan/Plugin/Internal/DependencyGraphPlugin.php';
+        (new \Phan\Plugin\Internal\DependencyGraphPlugin)->processGraph((array)$graph);
+    } else {
+        // @phan-suppress-next-line PhanThrowTypeAbsentForCall
+        Phan::analyzeFileList($code_base, /** @return string[] */ static function () use($cli) : array {
+            return $cli->getFileList();
+        });
+    }
 });

@@ -480,13 +480,11 @@ class Clazz extends AddressableElement
      */
     public function getParentClassFQSEN() : FullyQualifiedClassName
     {
-        $parent_type_option = $this->getParentTypeOption();
-
-        if (!$parent_type_option->isDefined()) {
+        if (!$this->parent_type) {
             throw new LogicException("Class $this has no parent");
         }
 
-        return FullyQualifiedClassName::fromType($parent_type_option->get());
+        return FullyQualifiedClassName::fromType($this->parent_type);
     }
 
     /**
@@ -498,13 +496,11 @@ class Clazz extends AddressableElement
      */
     public function getParentClass(CodeBase $code_base) : Clazz
     {
-        $parent_type_option = $this->getParentTypeOption();
-
-        if (!$parent_type_option->isDefined()) {
+        if (!$this->parent_type) {
             throw new LogicException("Class $this has no parent");
         }
 
-        $parent_fqsen = FullyQualifiedClassName::fromType($parent_type_option->get());
+        $parent_fqsen = FullyQualifiedClassName::fromType($this->parent_type);
 
         // invoking hasClassWithFQSEN also has the side effect of lazily loading the parent class definition.
         if (!$code_base->hasClassWithFQSEN($parent_fqsen)) {
@@ -518,20 +514,18 @@ class Clazz extends AddressableElement
 
     /**
      * @return Clazz
-     * The parent class of this class if defined
+     * The parent class of this class if defined (does not trigger class hydration of the parent class, unlike getParentClass)
      *
      * @throws LogicException|RuntimeException
      * An exception is thrown if this class has no parent
      */
     private function getParentClassWithoutHydrating(CodeBase $code_base) : Clazz
     {
-        $parent_type_option = $this->getParentTypeOption();
-
-        if (!$parent_type_option->isDefined()) {
+        if (!$this->parent_type) {
             throw new LogicException("Class $this has no parent");
         }
 
-        $parent_fqsen = FullyQualifiedClassName::fromType($parent_type_option->get());
+        $parent_fqsen = FullyQualifiedClassName::fromType($this->parent_type);
 
         // invoking hasClassWithFQSEN also has the side effect of lazily loading the parent class definition.
         if (!$code_base->hasClassWithFQSEN($parent_fqsen)) {
@@ -619,27 +613,31 @@ class Clazz extends AddressableElement
     public function getHierarchyRootFQSEN(
         CodeBase $code_base
     ) : FullyQualifiedClassName {
-        if (!$this->hasParentType()) {
-            return $this->getFQSEN();
+        $visited = [];
+        for ($current = $this; $current->hasParentType(); $current = $parent) {
+            $fqsen = $current->getFQSEN();
+            if (!$current->hasParentType()) {
+                return $fqsen;
+            }
+
+            if (!$code_base->hasClassWithFQSEN(
+                $current->getParentClassFQSEN()
+            )) {
+                // Let this emit an issue elsewhere for the
+                // parent not existing
+                return $fqsen;
+            }
+
+            // Get the parent class
+            $parent = $current->getParentClass($code_base);
+            $visited[$fqsen->__toString()] = true;
+
+            // Prevent infinite loops
+            if (\array_key_exists($parent->getFQSEN()->__toString(), $visited)) {
+                return $fqsen;
+            }
         }
-
-        if (!$code_base->hasClassWithFQSEN(
-            $this->getParentClassFQSEN()
-        )) {
-            // Let this emit an issue elsewhere for the
-            // parent not existing
-            return $this->getFQSEN();
-        }
-
-        // Get the parent class
-        $parent = $this->getParentClass($code_base);
-
-        // Prevent infinite loops
-        if ($parent === $this) {
-            return $this->getFQSEN();
-        }
-
-        return $parent->getHierarchyRootFQSEN($code_base);
+        return $current->getFQSEN();
     }
 
     /**
@@ -804,7 +802,7 @@ class Clazz extends AddressableElement
     /**
      * @param array<string,CommentProperty> $magic_property_map mapping from property name to property
      * @param CodeBase $code_base
-     * @return bool whether or not we defined it.
+     * @return bool whether or not we defined the magic property map
      */
     public function setMagicPropertyMap(
         array $magic_property_map,
@@ -847,7 +845,7 @@ class Clazz extends AddressableElement
     /**
      * @param array<string,\Phan\Language\Element\Comment\Method> $magic_method_map mapping from method name to this.
      * @param CodeBase $code_base
-     * @return bool whether or not we defined it.
+     * @return bool whether or not we defined the magic method map
      */
     public function setMagicMethodMap(
         array $magic_method_map,
@@ -1170,7 +1168,7 @@ class Clazz extends AddressableElement
             return;
         }
 
-        // Update the FQSEN if its not associated with this
+        // Update the FQSEN if it's not associated with this
         // class yet (always true)
         if ($constant->getFQSEN() !== $constant_fqsen) {
             $constant = clone($constant);
@@ -1228,7 +1226,7 @@ class Clazz extends AddressableElement
             $constant->getName()
         );
 
-        // Update the FQSEN if its not associated with this
+        // Update the FQSEN if it's not associated with this
         // class yet
         if ($constant->getFQSEN() !== $constant_fqsen) {
             $constant = clone($constant);
@@ -1567,7 +1565,7 @@ class Clazz extends AddressableElement
 
         if (!$code_base->hasMethodWithFQSEN($method_fqsen)) {
             if ('__construct' === $name) {
-                // Create a default constructor if its requested
+                // Create a default constructor if it's requested
                 // but doesn't exist yet
                 $default_constructor =
                     Method::defaultConstructorForClass(
@@ -1788,15 +1786,7 @@ class Clazz extends AddressableElement
      */
     public function getForbidUndeclaredMagicProperties(CodeBase $code_base) : bool
     {
-        return (
-            $this->getPhanFlagsHasState(Flags::CLASS_FORBID_UNDECLARED_MAGIC_PROPERTIES)
-            ||
-            (
-                $this->hasParentType()
-                && $code_base->hasClassWithFQSEN($this->getParentClassFQSEN())
-                && $this->getParentClass($code_base)->getForbidUndeclaredMagicProperties($code_base)
-            )
-        );
+        return $this->hasFlagsRecursive($code_base, Flags::CLASS_FORBID_UNDECLARED_MAGIC_PROPERTIES);
     }
 
     /**
@@ -1820,15 +1810,7 @@ class Clazz extends AddressableElement
      */
     public function getForbidUndeclaredMagicMethods(CodeBase $code_base) : bool
     {
-        return (
-            $this->getPhanFlagsHasState(Flags::CLASS_FORBID_UNDECLARED_MAGIC_METHODS)
-            ||
-            (
-                $this->hasParentType()
-                && $code_base->hasClassWithFQSEN($this->getParentClassFQSEN())
-                && $this->getParentClass($code_base)->getForbidUndeclaredMagicMethods($code_base)
-            )
-        );
+        return $this->hasFlagsRecursive($code_base, Flags::CLASS_FORBID_UNDECLARED_MAGIC_METHODS);
     }
 
     /**
@@ -1875,14 +1857,27 @@ class Clazz extends AddressableElement
      */
     public function hasDynamicProperties(CodeBase $code_base) : bool
     {
-        return
-            $this->getPhanFlagsHasState(Flags::CLASS_HAS_DYNAMIC_PROPERTIES)
-            ||
-            (
-                $this->hasParentType()
-                && $code_base->hasClassWithFQSEN($this->getParentClassFQSEN())
-                && $this->getParentClass($code_base)->hasDynamicProperties($code_base)
-            );
+        return $this->hasFlagsRecursive($code_base, Flags::CLASS_HAS_DYNAMIC_PROPERTIES);
+    }
+
+    private function hasFlagsRecursive(CodeBase $code_base, int $flags) : bool
+    {
+        $current = $this;
+        $checked = [];
+        while (true) {
+            if ($current->getPhanFlagsHasState($flags)) {
+                return true;
+            }
+            if (!$current->hasParentType() || !$code_base->hasClassWithFQSEN($current->getParentClassFQSEN())) {
+                return false;
+            }
+            $checked[$current->getFQSEN()->__toString()] = true;
+            $current = $this->getParentClass($code_base);
+            if (\array_key_exists($current->getFQSEN()->__toString(), $checked)) {
+                // Prevent infinite recursion.
+                return false;
+            }
+        }
     }
 
     /**
@@ -2033,8 +2028,8 @@ class Clazz extends AddressableElement
     }
 
     /**
-     * Add properties, constants and methods from all
-     * ancestors (parents, traits, ...) to this class
+     * Add class constants from all ancestors (parents, traits, ...)
+     * to this class
      *
      * @param CodeBase $code_base
      * The entire code base from which we'll find ancestor
@@ -2761,7 +2756,7 @@ class Clazz extends AddressableElement
                 return false;
             }
             $reflection_method = $reflection_class->getMethod($method->getName());
-            if ($reflection_method->getDeclaringClass()->getName() !== $reflection_class->getName()) {
+            if ($reflection_method->class !== $reflection_class->name) {
                 return false;
             }
             return true;

@@ -14,8 +14,9 @@ trait Memoize
     /**
      * @var array<string,mixed>
      * A map from key to memoized values
+     * @internal
      */
-    private $memoized_data = [];
+    protected $memoized_data = [];
 
     /**
      * Memoize the result of $fn(), saving the result
@@ -45,7 +46,7 @@ trait Memoize
 
     /**
      * @param string $key
-     * A unique key to test to see if its been seen before
+     * A unique key to test to see if it's been seen before
      *
      * @return bool
      * True if this is the first time this function has been
@@ -64,6 +65,7 @@ trait Memoize
     /**
      * Memoize the result of $fn(), saving the result
      * with key $key.
+     * (cached statically)
      *
      * @template T
      *

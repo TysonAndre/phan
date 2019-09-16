@@ -197,12 +197,12 @@ class Parameter extends Variable
         \ReflectionParameter $reflection_parameter
     ) : Parameter {
         $flags = 0;
-        // Check to see if its a pass-by-reference parameter
+        // Check to see if it's a pass-by-reference parameter
         if ($reflection_parameter->isPassedByReference()) {
             $flags |= \ast\flags\PARAM_REF;
         }
 
-        // Check to see if its variadic
+        // Check to see if it's variadic
         if ($reflection_parameter->isVariadic()) {
             $flags |= \ast\flags\PARAM_VARIADIC;
         }
@@ -459,7 +459,8 @@ class Parameter extends Variable
     }
 
     /**
-     * Records that this parameter is an output reference (it overwrites the value of the argument by reference
+     * Records that this parameter is an output reference
+     * (it overwrites the value of the argument by reference)
      */
     public function setIsOutputReference() : void
     {
@@ -468,7 +469,8 @@ class Parameter extends Variable
     }
 
     /**
-     * Records that this parameter is an output reference (it overwrites the value of the argument by reference
+     * Records that this parameter is an ignored reference
+     * (it should be assumed that the reference does not affect types in a meaningful way for the caller)
      */
     public function setIsIgnoredReference() : void
     {

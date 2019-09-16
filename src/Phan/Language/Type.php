@@ -1453,7 +1453,7 @@ class Type
      * @param array<int,string> $param_components Maps field keys (integers or strings) to the corresponding type representations
      * @param Context $context
      * @param int $source
-     * @return array<int,ClosureDeclarationParameter> The types for the representations of types, in the given $context
+     * @return array<int,ClosureDeclarationParameter> The representations of parameters of the closure, in the given $context
      *
      * @see Comment::magicParamFromMagicMethodParamString() - This is similar but has minor differences, such as references
      * @suppress PhanAccessClassConstantInternal
@@ -2029,6 +2029,18 @@ class Type
     }
 
     /**
+     * Check if this type can possibly cast to the declared type, ignoring nullability of this type
+     *
+     * Precondition: This is either non-nullable or the type NullType/VoidType
+     */
+    public function canCastToDeclaredType(CodeBase $code_base, Context $unused_context, Type $other) : bool
+    {
+        if ($other->isPossiblyObject() && $this->canPossiblyCastToClass($code_base, $other->withIsNullable(false))) {
+            return true;
+        }
+        return $this->canCastToType($other);
+    }
+    /**
      * Check if there is any way this type or a subclass could cast to $other.
      * (does not check for mixed)
      */
@@ -2365,68 +2377,79 @@ class Type
         CodeBase $code_base,
         int $recursion_depth = 0
     ) : UnionType {
+        $memoized = $this->memoized_data['expanded_types'] ?? null;
+        if ($memoized) {
+            return $memoized;
+        }
         // We're going to assume that if the type hierarchy
         // is taller than some value we probably messed up
         // and should bail out.
         if ($recursion_depth >= 20) {
             throw new RecursionDepthException("Recursion has gotten out of hand: " . Frame::getExpandedTypesDetails());
         }
-        return $this->memoize(__METHOD__, function () use ($code_base, $recursion_depth) : UnionType {
-            $union_type = $this->asPHPDocUnionType();
+        // @phan-suppress-next-line PhanAccessReadOnlyProperty
+        return $this->memoized_data['expanded_types'] = $this->computeExpandedTypes($code_base, $recursion_depth);
+    }
 
-            $class_fqsen = $this->asFQSEN();
+    private function computeExpandedTypes(CodeBase $code_base, int $recursion_depth) : UnionType
+    {
+        $union_type = $this->asPHPDocUnionType();
 
-            if (!($class_fqsen instanceof FullyQualifiedClassName)) {
-                return $union_type;
-            }
+        $class_fqsen = $this->asFQSEN();
 
-            if (!$code_base->hasClassWithFQSEN($class_fqsen)) {
-                return $union_type;
-            }
+        if (!($class_fqsen instanceof FullyQualifiedClassName)) {
+            return $union_type;
+        }
 
-            $clazz = $code_base->getClassByFQSEN($class_fqsen);
+        if (!$code_base->hasClassWithFQSEN($class_fqsen)) {
+            return $union_type;
+        }
+        // Guard against recursion
+        // @phan-suppress-next-line PhanAccessReadOnlyProperty
+        $this->memoized_data['expanded_types'] = $union_type;
 
-            $union_type = $union_type->withUnionType(
-                $clazz->getUnionType()->withIsNullable($this->is_nullable)
-            );
-            $additional_union_type = $clazz->getAdditionalTypes();
-            if ($additional_union_type !== null) {
-                $union_type = $union_type->withUnionType($additional_union_type->withIsNullable($this->is_nullable));
-            }
+        $clazz = $code_base->getClassByFQSEN($class_fqsen);
 
-            // Recurse up the tree to include all types
-            $representation = $this->__toString();
-            $recursive_union_type_builder = new UnionTypeBuilder();
-            foreach ($union_type->getTypeSet() as $clazz_type) {
-                if ($clazz_type->__toString() !== $representation) {
-                    $recursive_union_type_builder->addUnionType(
-                        $clazz_type->asExpandedTypes(
-                            $code_base,
-                            $recursion_depth + 1
-                        )
-                    );
-                } else {
-                    $recursive_union_type_builder->addType($clazz_type);
-                }
-            }
-            if (count($this->template_parameter_type_list) > 0) {
+        $union_type = $union_type->withUnionType(
+            $clazz->getUnionType()->withIsNullable($this->is_nullable)
+        );
+        $additional_union_type = $clazz->getAdditionalTypes();
+        if ($additional_union_type !== null) {
+            $union_type = $union_type->withUnionType($additional_union_type->withIsNullable($this->is_nullable));
+        }
+
+        // Recurse up the tree to include all types
+        $representation = $this->__toString();
+        $recursive_union_type_builder = new UnionTypeBuilder();
+        foreach ($union_type->getTypeSet() as $clazz_type) {
+            if ($clazz_type->__toString() !== $representation) {
                 $recursive_union_type_builder->addUnionType(
-                    $clazz->resolveParentTemplateType($this->getTemplateParameterTypeMap($code_base))
+                    $clazz_type->asExpandedTypes(
+                        $code_base,
+                        $recursion_depth + 1
+                    )
                 );
+            } else {
+                $recursive_union_type_builder->addType($clazz_type);
             }
+        }
+        if (count($this->template_parameter_type_list) > 0) {
+            $recursive_union_type_builder->addUnionType(
+                $clazz->resolveParentTemplateType($this->getTemplateParameterTypeMap($code_base))
+            );
+        }
 
-            // Add in aliases
-            // (If enable_class_alias_support is false, this will do nothing)
-            $fqsen_aliases = $code_base->getClassAliasesByFQSEN($class_fqsen);
-            foreach ($fqsen_aliases as $alias_fqsen_record) {
-                $alias_fqsen = $alias_fqsen_record->alias_fqsen;
-                $recursive_union_type_builder->addType(
-                    $alias_fqsen->asType()->withIsNullable($this->is_nullable)
-                );
-            }
+        // Add in aliases
+        // (If enable_class_alias_support is false, this will do nothing)
+        $fqsen_aliases = $code_base->getClassAliasesByFQSEN($class_fqsen);
+        foreach ($fqsen_aliases as $alias_fqsen_record) {
+            $alias_fqsen = $alias_fqsen_record->alias_fqsen;
+            $recursive_union_type_builder->addType(
+                $alias_fqsen->asType()->withIsNullable($this->is_nullable)
+            );
+        }
 
-            return $recursive_union_type_builder->getPHPDocUnionType();
-        });
+        return $recursive_union_type_builder->getPHPDocUnionType();
     }
 
     /**
@@ -2446,81 +2469,92 @@ class Type
         CodeBase $code_base,
         int $recursion_depth = 0
     ) : UnionType {
+        $memoized = $this->memoized_data['expanded_types_preserving_template'] ?? null;
+        if ($memoized) {
+            return $memoized;
+        }
         // We're going to assume that if the type hierarchy
         // is taller than some value we probably messed up
         // and should bail out.
         if ($recursion_depth >= 20) {
             throw new RecursionDepthException("Recursion has gotten out of hand: " . Frame::getExpandedTypesDetails());
         }
-        return $this->memoize(__METHOD__, function () use ($code_base, $recursion_depth) : UnionType {
-            $union_type = $this->asPHPDocUnionType();
+        // @phan-suppress-next-line PhanAccessReadOnlyProperty
+        return $this->memoized_data['expanded_types_preserving_template'] = $this->computeExpandedTypesPreservingTemplate($code_base, $recursion_depth);
+    }
 
-            $class_fqsen = $this->asFQSEN();
+    private function computeExpandedTypesPreservingTemplate(CodeBase $code_base, int $recursion_depth) : UnionType
+    {
+        $union_type = $this->asPHPDocUnionType();
 
-            if (!($class_fqsen instanceof FullyQualifiedClassName)) {
-                return $union_type;
-            }
+        $class_fqsen = $this->asFQSEN();
 
-            if (!$code_base->hasClassWithFQSEN($class_fqsen)) {
-                return $union_type;
-            }
+        if (!($class_fqsen instanceof FullyQualifiedClassName)) {
+            return $union_type;
+        }
 
-            $clazz = $code_base->getClassByFQSEN($class_fqsen);
+        if (!$code_base->hasClassWithFQSEN($class_fqsen)) {
+            return $union_type;
+        }
+        // Guard against recursion such as `class X extends Y{} class Y extends X{}`.
+        // @phan-suppress-next-line PhanAccessReadOnlyProperty
+        $this->memoized_data['expanded_types_preserving_template'] = $union_type;
 
-            $union_type = $union_type->withUnionType(
-                $clazz->getUnionType()->withIsNullable($this->is_nullable)
+        $clazz = $code_base->getClassByFQSEN($class_fqsen);
+
+        $union_type = $union_type->withUnionType(
+            $clazz->getUnionType()->withIsNullable($this->is_nullable)
+        );
+
+        if (count($this->template_parameter_type_list) > 0) {
+            $template_union_type = $clazz->resolveParentTemplateType($this->getTemplateParameterTypeMap($code_base))->asExpandedTypesPreservingTemplate($code_base, $recursion_depth + 1);
+            $template_union_type = $template_union_type->withType($this);
+        } else {
+            $template_union_type = UnionType::empty();
+        }
+
+        $additional_union_type = $clazz->getAdditionalTypes();
+        if ($additional_union_type !== null) {
+            $union_type = $union_type->withUnionType($additional_union_type->withIsNullable($this->is_nullable));
+        }
+
+        $representation = $this->__toString();
+        $recursive_union_type_builder = new UnionTypeBuilder();
+        // Recurse up the tree to include all types
+        if (count($this->template_parameter_type_list) > 0) {
+            $recursive_union_type_builder->addUnionType(
+                $template_union_type
             );
+        }
 
-            if (count($this->template_parameter_type_list) > 0) {
-                $template_union_type = $clazz->resolveParentTemplateType($this->getTemplateParameterTypeMap($code_base))->asExpandedTypesPreservingTemplate($code_base, $recursion_depth + 1);
-                $template_union_type = $template_union_type->withType($this);
-            } else {
-                $template_union_type = UnionType::empty();
-            }
-
-            $additional_union_type = $clazz->getAdditionalTypes();
-            if ($additional_union_type !== null) {
-                $union_type = $union_type->withUnionType($additional_union_type->withIsNullable($this->is_nullable));
-            }
-
-            $representation = $this->__toString();
-            $recursive_union_type_builder = new UnionTypeBuilder();
-            // Recurse up the tree to include all types
-            if (count($this->template_parameter_type_list) > 0) {
+        foreach ($union_type->getTypeSet() as $clazz_type) {
+            if ($clazz_type->__toString() !== $representation) {
                 $recursive_union_type_builder->addUnionType(
-                    $template_union_type
+                    $clazz_type->asExpandedTypesPreservingTemplate(
+                        $code_base,
+                        $recursion_depth + 1
+                    )
                 );
+            } else {
+                $recursive_union_type_builder->addType($clazz_type);
             }
+        }
 
-            foreach ($union_type->getTypeSet() as $clazz_type) {
-                if ($clazz_type->__toString() !== $representation) {
-                    $recursive_union_type_builder->addUnionType(
-                        $clazz_type->asExpandedTypesPreservingTemplate(
-                            $code_base,
-                            $recursion_depth + 1
-                        )
-                    );
-                } else {
-                    $recursive_union_type_builder->addType($clazz_type);
-                }
-            }
+        // Add in aliases
+        // (If enable_class_alias_support is false, this will do nothing)
+        $fqsen_aliases = $code_base->getClassAliasesByFQSEN($class_fqsen);
+        foreach ($fqsen_aliases as $alias_fqsen_record) {
+            $alias_fqsen = $alias_fqsen_record->alias_fqsen;
+            $recursive_union_type_builder->addType(
+                $alias_fqsen->asType()->withIsNullable($this->is_nullable)
+            );
+        }
 
-            // Add in aliases
-            // (If enable_class_alias_support is false, this will do nothing)
-            $fqsen_aliases = $code_base->getClassAliasesByFQSEN($class_fqsen);
-            foreach ($fqsen_aliases as $alias_fqsen_record) {
-                $alias_fqsen = $alias_fqsen_record->alias_fqsen;
-                $recursive_union_type_builder->addType(
-                    $alias_fqsen->asType()->withIsNullable($this->is_nullable)
-                );
-            }
-
-            $result = $recursive_union_type_builder->getPHPDocUnionType();
-            if (!$template_union_type->isEmpty()) {
-                return $result->replaceWithTemplateTypes($template_union_type);
-            }
-            return $result;
-        });
+        $result = $recursive_union_type_builder->getPHPDocUnionType();
+        if (!$template_union_type->isEmpty()) {
+            return $result->replaceWithTemplateTypes($template_union_type);
+        }
+        return $result;
     }
 
     /**
@@ -2558,7 +2592,7 @@ class Type
     /**
      * @param Type[] $target_type_set 1 or more types
      * @return bool
-     * True if this Type can be cast to the given Type cleanly.
+     * True if this Type can be cast to the given set of types cleanly.
      * This is overridden by ArrayShapeType to allow array{a:string,b:stdClass} to cast to string[]|stdClass[]
      */
     public function isSubtypeOfAnyTypeInSet(array $target_type_set) : bool
@@ -2574,8 +2608,8 @@ class Type
     /**
      * @param Type[] $target_type_set 1 or more types
      * @return bool
-     * True if this Type can be cast to the given Type cleanly.
-     * This is overridden by ArrayShapeType to allow array{a:string,b:stdClass} to cast to string[]|stdClass[]
+     * True if this Type can be cast to the given set of Types cleanly (accounting for templates)
+     * TODO: Override this in ArrayShapeType to allow array{a:string,b:stdClass} to cast to string[]|stdClass[]
      */
     public function canCastToAnyTypeInSetHandlingTemplates(array $target_type_set, CodeBase $code_base) : bool
     {
@@ -2728,7 +2762,7 @@ class Type
      * enforced, so be careful.
      *
      * @return bool
-     * True if this Type can be cast to the given Type
+     * True if this not nullable Type can be cast to the given Type
      * cleanly
      */
     protected function canCastToNonNullableType(Type $type) : bool
@@ -2809,7 +2843,7 @@ class Type
      *
      * @return bool
      * True if this Type can be cast to the given Type
-     * cleanly
+     * cleanly, accounting for template types.
      */
     protected function canCastToNonNullableTypeHandlingTemplates(Type $type, CodeBase $code_base) : bool
     {
@@ -3100,7 +3134,7 @@ class Type
 
     /**
      * @return Tuple5<string,string,array<int,string>,bool,?array<string|int,string>>
-     * A 5-tuple with the following types:
+     * A 5-tuple with the following types (for a type string that may contain array shape, closure, or template uses):
      * 0: the namespace
      * 1: the type name.
      * 2: The template parameters, if any
@@ -3185,7 +3219,7 @@ class Type
 
     /**
      * @return Tuple5<string,string,array<int,string>,bool,?array<string|int,string>>
-     * A 5-tuple with the following types:
+     * A 5-tuple with the following types (for a type string of a callable/closure):
      * 0: the namespace
      * 1: the type name.
      * 2: The template parameters, if any

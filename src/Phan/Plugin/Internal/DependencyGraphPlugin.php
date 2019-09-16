@@ -42,9 +42,15 @@ class DependencyGraphPlugin extends PluginV3 implements
     /** @var int */
     private $depth = 0;
 
-    /** @var array<int,array<string,array<string,string>>> */
+    /**
+     * A list of static calls observed by this plugin
+     * @var array<int,array<string,array<string,string>>>
+     */
     public static $static_calls = [];
-    /** @var array<int,array<string,array<string,string>>> */
+    /**
+     * A list of static variable accesses observed by this plugin
+     * @var array<int,array<string,array<string,string>>>
+     */
     public static $static_vars = [];
 
     /**
@@ -53,6 +59,18 @@ class DependencyGraphPlugin extends PluginV3 implements
     private function getFileString(FileRef $file_ref):string
     {
         return $file_ref->getFile() . ':' . $file_ref->getLineNumberStart();
+    }
+
+    /**
+     * @return array{0:string,1:int}
+     */
+    private static function getFileLineno(string $file_string):array
+    {
+        $idx = \strrpos($file_string, ':');
+        if ($idx === false) {
+            return [$file_string, 0];
+        }
+        return [\substr($file_string, 0, $idx), (int)\substr($file_string, $idx + 1)];
     }
 
     /** Build file<->class mappings */
@@ -147,7 +165,7 @@ class DependencyGraphPlugin extends PluginV3 implements
             echo "$k\n";
             foreach ($v as $kk => $vv) {
                 echo "\t$kk";
-                [$t,$lineno] = \explode(':', $vv);
+                [$t,$lineno] = self::getFileLineno($vv);
                 switch ($t) {
                     case 'C':
                         $type = 'Inheritance';
@@ -174,7 +192,7 @@ class DependencyGraphPlugin extends PluginV3 implements
                     if (!\array_key_exists($kk, $this->class_to_file)) {
                         continue;
                     }
-                    [$file]  = \explode(':', $this->class_to_file[$kk]);
+                    $file = self::getFileLineno($this->class_to_file[$kk])[0];
                     echo " - $file:$lineno $type\n";
                 }
             }
@@ -220,45 +238,63 @@ class DependencyGraphPlugin extends PluginV3 implements
                 $this->cgraph[$cnode][$cdepNode] = $ctype . ':' . $ref->getLineNumberStart();
             }
         }
-        foreach (self::$static_calls as $c) {
-            $cnode = \key($c);
-            if (!$cnode) {
-                continue;
-            }
-            if (!\array_key_exists($cnode, $this->class_to_file)) {
-                continue;
-            }
-            [$fnode] = \explode(':', $this->class_to_file[$cnode]);
-            $this->fgraph[$fnode][$c[$cnode]['file']]  = 's:' . $c[$cnode]['lineno'];
-            $this->cgraph[$cnode][$c[$cnode]['class']] = 's:' . $c[$cnode]['lineno'];
-        }
-        foreach (self::$static_vars as $c) {
-            $cnode = \key($c);
-            if (!$cnode) {
-                continue;
-            }
-            if (!\array_key_exists($cnode, $this->class_to_file)) {
-                continue;
-            }
-            [$fnode] = \explode(':', $this->class_to_file["$cnode"]);
-            $this->fgraph[$fnode][$c[$cnode]['file']]  = 'v:' . $c[$cnode]['lineno'];
-            $this->cgraph[$cnode][$c[$cnode]['class']] = 'v:' . $c[$cnode]['lineno'];
-        }
 
-        // $this->printGraph($this->cgraph);
-        // $this->printGraph($this->fgraph);
+        $flags = (int)$_ENV['PDEP_GRAPH_FLAGS'];
 
+        if (!($flags & \PDEP_IGNORE_STATIC)) {
+            foreach (self::$static_calls as $c) {
+                $cnode = \key($c);
+                if (!$cnode) {
+                    continue;
+                }
+                if (!\array_key_exists($cnode, $this->class_to_file)) {
+                    continue;
+                }
+                $fnode = self::getFileLineno($this->class_to_file[$cnode])[0];
+                $this->fgraph[$fnode][$c[$cnode]['file']]  = 's:' . $c[$cnode]['lineno'];
+                $this->cgraph[$cnode][$c[$cnode]['class']] = 's:' . $c[$cnode]['lineno'];
+            }
+            foreach (self::$static_vars as $c) {
+                $cnode = \key($c);
+                if (!$cnode) {
+                    continue;
+                }
+                if (!\array_key_exists($cnode, $this->class_to_file)) {
+                    continue;
+                }
+                $fnode = self::getFileLineno($this->class_to_file["$cnode"])[0];
+                $this->fgraph[$fnode][$c[$cnode]['file']]  = 'v:' . $c[$cnode]['lineno'];
+                $this->cgraph[$cnode][$c[$cnode]['class']] = 'v:' . $c[$cnode]['lineno'];
+            }
+        }
+        $this->processGraph();
+    }
+
+    /**
+     * Process either the cached or generated graph
+     * @param ?array<string,mixed> $cached_graph
+     */
+    public function processGraph(array $cached_graph = null): void
+    {
         $cmd  = $_ENV['PDEP_CMD'];
         $mode = $_ENV['PDEP_MODE'];
         $this->depth = (int)$_ENV['PDEP_DEPTH'];
         $args = empty($_ENV['PDEP_ARGS']) ? null : \explode(' ', $_ENV['PDEP_ARGS']);
-        $json = false;
+        $flags = (int)$_ENV['PDEP_GRAPH_FLAGS'];
+        $graph = [];
 
-        if (\Phan\Phan::$printer instanceof \Phan\Output\Printer\JSONPrinter) {
-            $json = true;
+        if ($cached_graph) {
+            $mode = $cached_graph['pdep_metadata']['mode'];
+            $this->ctype = $cached_graph['pdep_metadata']['ctype'];
+            $this->class_to_file = $cached_graph['pdep_metadata']['class_to_file'];
+            $this->file_to_class = $cached_graph['pdep_metadata']['file_to_class'];
+            unset($cached_graph['pdep_metadata']);
+            if ($mode == 'file') {
+                $this->fgraph = $cached_graph;
+            } else {
+                $this->cgraph = $cached_graph;
+            }
         }
-
-        $graph = $this->cgraph;
         if (empty($args)) {
             if ($mode == 'class') {
                 $graph = $this->cgraph;
@@ -276,7 +312,7 @@ class DependencyGraphPlugin extends PluginV3 implements
                         if (!\array_key_exists($v, $this->file_to_class)) {
                             // Probably no lineno specified, do a linear search
                             foreach ($this->file_to_class as $fi => $cl) {
-                                [$file] = \explode(':', (string)$fi);
+                                $file = self::getFileLineno((string)$fi)[0];
                                 if ($file == $v) {
                                     $v = $cl;
                                     goto found;
@@ -302,7 +338,7 @@ class DependencyGraphPlugin extends PluginV3 implements
                             \fwrite(\STDERR, "Couldn't find class $cnode" . \PHP_EOL);
                             exit(\EXIT_FAILURE);
                         }
-                        [$v] = \explode(':', $this->class_to_file[$cnode]);
+                        $v = self::getFileLineno($this->class_to_file[$cnode])[0];
                     }
                     $graph = $this->walkfGraph($graph, $v);
                 }
@@ -314,12 +350,18 @@ class DependencyGraphPlugin extends PluginV3 implements
         }
         if ($cmd == 'graph') {
             ($mode == 'class') ? $this->dumpClassDot(\basename((string)\getcwd()), $graph) : $this->dumpFileDot(\basename((string)\getcwd()), $graph);
+        } elseif ($cmd == 'graphml') {
+            $this->dumpGraphML(\basename((string)\getcwd()), $graph, $mode == 'class', (bool)($flags & \PDEP_HIDE_LABELS));
+        } elseif ($cmd == 'json') {
+            $graph['pdep_metadata'] = [
+                'mode' => $mode,
+                'ctype' => $this->ctype,
+                'file_to_class' => $this->file_to_class,
+                'class_to_file' => $this->class_to_file
+            ];
+            echo \json_encode($graph);
         } else {
-            if ($json) {
-                echo \json_encode($graph);
-            } else {
-                $this->printGraph($graph);
-            }
+            $this->printGraph($graph);
         }
         exit(\EXIT_SUCCESS);
     }
@@ -339,7 +381,7 @@ class DependencyGraphPlugin extends PluginV3 implements
         foreach ($graph as $node => $depNode) {
             $shapes .= "\"$node\" [shape=box]\n";
             foreach ($depNode as $dnode => $val) {
-                [$type,$lineno] = \explode(':', (string)$val);
+                [$type,$lineno] = self::getFileLineno((string)$val);
                 $style = '';
                 if ($type == 's') {
                     $style = ',color=seagreen';
@@ -384,7 +426,7 @@ class DependencyGraphPlugin extends PluginV3 implements
                 $shapes .= '"' . \addslashes(\trim($node, "\\")) . "\" [$shape]\n";
             }
             foreach ($depNode as $dnode => $val) {
-                [$type] = \explode(':', (string)$val);
+                $type = self::getFileLineno((string)$val)[0];
                 $style = '';
                 if ($type == 's') {
                     $style = ' [color=seagreen]';
@@ -397,6 +439,127 @@ class DependencyGraphPlugin extends PluginV3 implements
         }
         echo $shapes;
         echo "}\n";
+    }
+
+    /**
+     * Dump the class or file graph in GraphML format
+     * @param string $title
+     * @param array<string,array<string,string>> $graph
+     * @param bool $is_classgraph
+     * @param bool $hide_labels
+     */
+    private function dumpGraphML(string $title, array $graph, bool $is_classgraph, bool $hide_labels):void
+    {
+        $node_id = 0;
+        $edge_id = 0;
+
+        if ($hide_labels) {
+            $visible = 'false';
+        } else {
+            $visible = 'true';
+        }
+
+        echo '<?xml version="1.0" encoding="UTF-8"?>' . \PHP_EOL;
+        echo '<graphml xmlns="http://graphml.graphdrawing.org/xmlns"' . \PHP_EOL;
+        echo '         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"' . \PHP_EOL;
+        echo '         xmlns:y="http://www.yworks.com/xml/graphml"' . \PHP_EOL;
+        echo '         xmlns:java="http://www.yworks.com/xml/yfiles-common/1.0/java"' . \PHP_EOL;
+        echo '         xmlns:sys="http://www.yworks.com/xml/yfiles-common/markup/primitives/2.0"' . \PHP_EOL;
+        echo '         xmlns:x="http://www.yworks.com/xml/yfiles-common/markup/2.0"' . \PHP_EOL;
+        echo '         xmlns:yed="http://www.yworks.com/xml/yed/3"' . \PHP_EOL;
+        echo '         xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns' . \PHP_EOL;
+        echo '         http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">' . \PHP_EOL;
+        echo '  <key attr.name="Title" attr.type="string" for="graph" id="d0"/>' . \PHP_EOL;
+        echo '  <key id="d1" for="node" attr.name="color" attr.type="string">' . \PHP_EOL;
+        echo '    <default>black</default>' . \PHP_EOL;
+        echo '  </key>' . \PHP_EOL;
+        echo '  <key id="d2" for="node" attr.name="ntype" attr.type="string">' . \PHP_EOL;
+        echo '    <default>class</default>' . \PHP_EOL;
+        echo '  </key>' . \PHP_EOL;
+        echo '  <key id="d3" for="edge" attr.name="color" attr.type="string">' . \PHP_EOL;
+        echo '    <default>black</default>' . \PHP_EOL;
+        echo '  </key>' . \PHP_EOL;
+        echo '  <key id="d4" for="edge" attr.name="lineno" attr.type="int"/>' . \PHP_EOL;
+        echo '  <key id="d5" for="node" yfiles.type="nodegraphics"/>' . \PHP_EOL;
+        echo '  <key id="d6" for="edge" yfiles.type="edgegraphics"/>' . \PHP_EOL;
+        echo '  <graph id="G" edgedefault="directed">' . \PHP_EOL;
+        echo '    <data key="d0" xml:space="preserve"><![CDATA[' . $title . ']]></data>' . \PHP_EOL;
+
+        // Build node_id map
+        $nodes = [];
+        foreach (\array_keys($graph) as $node) {
+            $node_name = \trim($node, "\\");
+            $nodes[$node_name] = $node_id++;
+        }
+        $node_id = 0;
+
+        // Nodes
+        foreach ($graph as $node => $depNode) {
+            $node_name = \trim($node, "\\");
+            $col = '#FFFFFF';
+            $ntype = 'class';
+            $shape = 'rectangle';
+            echo '    <node id="n' . $node_id . '">' . \PHP_EOL;
+            if ($is_classgraph) {
+                switch ($this->ctype[$node]) {
+                    case 'I':
+                        $col = '#6699FF';
+                        $ntype = 'interface';
+                        $shape = 'ellipse';
+                        break;
+                    case 'T':
+                        $col = '#C483D1';
+                        $ntype = 'trait';
+                        $shape = 'hexagon';
+                        break;
+                }
+                echo '      <data key="d1">' . $col . '</data>' . \PHP_EOL;
+                echo '      <data key="d2">' . $ntype . '</data>' . \PHP_EOL;
+            }
+            echo '      <data key="d5">' . \PHP_EOL;
+            echo '        <y:ShapeNode>' . \PHP_EOL;
+            echo '          <y:Geometry height="30.0" width="160.0"/>' . \PHP_EOL;
+            echo '          <y:Fill color="' . $col . '" transparent="false"/>' . \PHP_EOL;
+            echo '          <y:NodeLabel alignment="center" visible="' . $visible . '">' . $node_name . '</y:NodeLabel>' . \PHP_EOL;
+            echo '          <y:Shape type="' . $shape . '"/>' . \PHP_EOL;
+            echo '        </y:ShapeNode>' . \PHP_EOL;
+            echo '      </data>' . \PHP_EOL;
+            echo '    </node>' . \PHP_EOL;
+
+            // Edges
+            foreach ($depNode as $dnode => $val) {
+                $ecol = '#000000';
+                [$type,$lineno] = self::getFileLineno((string)$val);
+                [$dnode] = \explode(',', $dnode);
+                if ($type == 's') {
+                    $ecol = '#2E8B57'; // Seagreen
+                } elseif ($type == 'v') {
+                    $ecol = '#FF6347';  // Tomato
+                }
+                $source = $nodes[\trim($dnode, "\\")];
+                $target = $nodes[\trim($node, "\\")];
+                echo '    <edge id="e' . $edge_id . '" source="n' . $source . '" target="n' . $target . '">' . \PHP_EOL;
+                echo '      <data key="d3">' . $ecol . '</data>' . \PHP_EOL;
+                if (!$is_classgraph) {
+                    echo '      <data key="d4">' . $lineno . '</data>' . \PHP_EOL;
+                }
+                echo '      <data key="d6">' . \PHP_EOL;
+                echo '        <y:PolyLineEdge>' . \PHP_EOL;
+                echo '          <y:LineStyle color="' . $ecol . '" type="line" width="1.0"/>' . \PHP_EOL;
+                echo '          <y:Arrows source="none" target="standard"/>' . \PHP_EOL;
+                if (!$is_classgraph) {
+                    echo '          <y:EdgeLabel alignment="center" textColor="#000000" visible="' . $visible . '">' . $lineno . '</y:EdgeLabel>' . \PHP_EOL;
+                }
+                echo '        </y:PolyLineEdge>' . \PHP_EOL;
+                echo '      </data>' . \PHP_EOL;
+
+                echo '    </edge>' . \PHP_EOL;
+                $edge_id++;
+            }
+            $node_id++;
+        }
+        echo '  </graph>' . \PHP_EOL;
+        echo '</graphml>' . \PHP_EOL;
     }
 
     /** Hook up our visitor class */

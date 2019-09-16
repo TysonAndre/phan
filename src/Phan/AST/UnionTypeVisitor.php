@@ -985,7 +985,8 @@ class UnionTypeVisitor extends AnalysisVisitor
     /**
      * @return array<int,ArrayType>
      */
-    private static function arrayTypeFromRealTypeBuilder(?UnionTypeBuilder $builder) : array {
+    private static function arrayTypeFromRealTypeBuilder(?UnionTypeBuilder $builder) : array
+    {
         if (!$builder || $builder->isEmpty()) {
             static $array_type_set = null;
             if ($array_type_set === null) {
@@ -2763,8 +2764,8 @@ class UnionTypeVisitor extends AnalysisVisitor
      * The node which we'd like to determine the type of.
      *
      * @return UnionType
-     * The UnionType associated with the given node
-     * in the given Context within the given CodeBase
+     * The UnionType of the class for the node representing
+     * a usage of a class in the given Context within the given CodeBase
      *
      * @throws IssueException
      * An exception is thrown if we can't find a class for
@@ -3222,7 +3223,7 @@ class UnionTypeVisitor extends AnalysisVisitor
      * @param string|Node $method_name
      *
      * @return array<int,FullyQualifiedMethodName>
-     * A list of CallableTypes associated with the given node
+     * A list of `FullyQualifiedMethodName`s associated with the given node
      */
     private function methodFQSENListFromParts($class_or_expr, $method_name) : array
     {
@@ -3347,7 +3348,7 @@ class UnionTypeVisitor extends AnalysisVisitor
      * @param string|Node $node
      *
      * @return array<int,FullyQualifiedFunctionLikeName>
-     * A list of CallableTypes associated with the given node
+     * A list of `FullyQualifiedFunctionLikeName`s associated with the given node
      *
      * @throws IssueException
      * An exception is thrown if we can't find a class for

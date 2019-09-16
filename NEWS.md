@@ -6,6 +6,10 @@ Phan NEWS
 New features(CLI):
 + Always print 100% in `--progress-bar` after completing any phase of analysis.
   This is convenient for tools such as `tool/phoogle` that exit before starting the next phase.
++ Add GraphML output support to `DependencyGraphPlugin`.
+  This allows `tool/pdep` output to be imported by Neo4j, Gephi and yEd
++ Add json output and import to `tool/pdep`
+  For caching large graphs in order to generate multiple sub-graphs without re-scanning
 
 New features(Analysis):
 + Disable `simplify_ast` by default.
@@ -13,12 +17,33 @@ New features(Analysis):
 + Import more specific phpdoc/real array return types for internal global functions from opcache.
 + Emit `PhanUndeclaredVariable` and other warnings about arguments when there are too many parameters for methods. (#3245)
 + Infer real types of array/iterable keys and values in more cases.
++ Expose the last compilation warning seen when tokenizing or parsing with the native parser, if possible (#3263)
+  New issue types: `PhanSyntaxCompileWarning`
+  Additionally, expose the last compilation warning or deprecation notice seen when tokenizing in the polyfill.
++ Improve inference of when the real result of a binary operation is a float. (#3256)
++ Emit stricter warnings for more real type mismatches (#3256)
+  (e.g. emit `PhanTypeMismatchArgumentReal` for `float->int` when `strict_types=1`, `'literal string'->int`, etc.)
+
+Language Server/Daemon mode:
++ Fix logged Error when language server receives `didChangeConfiguration` events. (this is a no-op)
+
+Plugins:
++ Fix failure to emit `PhanPluginDescriptionlessComment*` when a description
+  would be automatically generated from the property or method's return type. (#3265)
++ Support checking for duplicate phpdoc descriptions of properties or methods within a class in `HasPHPDocPlugin`.
+  Set `'plugin_config' => ['has_phpdoc_check_duplicates' => true]` to enable these checks.
+  (this skips deprecated methods/properties)
 
 Maintenance:
 + Make `\Phan\Library\None` a singleton in internal uses.
 
 Bug fixes:
 + Consistently deduplicate the real type set of union types (fixes some false positives in redundant condition detection).
++ Fix `\Phan\Debug`'s dumping representation of flags for `ast\AST_DIM`, `ast\AST_ARRAY_ELEM`,
+  `ast\AST_PARAM`, `ast\AST_ASSIGN_OP` (`??=`), and `ast\AST_CONDITIONAL`.
+
+  This affects some crash reporting and tools such as `internal/dump_fallback_ast.php`
++ Fix some infinite recursion edge cases caused parsing invalid recursive class inheritance. (#3264)
 
 Sep 08 2019, Phan 2.2.12
 ------------------------
