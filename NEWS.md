@@ -26,6 +26,10 @@ New features(Analysis):
 + Consistently infer that variadic parameters are arrays with integer keys. (#3294)
 + Improve types inferred when the config setting `enable_extended_internal_return_type_plugins` is enabled.
 + Speed up sorting the list of parsed files, and avoid unnecessary work in `--dump-parsed-file-list`.
++ Emit `PhanEmptyForeach` and `PhanEmptyYieldFrom` when iterating over empty arrays.
++ Infer that properties of `$this` are initialized to their default values at the start of `__construct()`. (#3213)
+  (this is limited to instance properties which are declared in the current class (i.e. not inherited)).
+  To disable this, set `infer_default_properties_in_construct` to false.
 
 Language Server/Daemon mode:
 + Fix logged Error when language server receives `didChangeConfiguration` events. (this is a no-op)
@@ -36,6 +40,8 @@ Plugins:
 + Support checking for duplicate phpdoc descriptions of properties or methods within a class in `HasPHPDocPlugin`.
   Set `'plugin_config' => ['has_phpdoc_check_duplicates' => true]` to enable these checks.
   (this skips deprecated methods/properties)
++ Implement `LoopVariableReusePlugin`, to detect reusing loop variables in nested loops. (#3045)
+  (e.g. `for ($i = 0; $i < 10; $i++) { /* various code ... */ foreach ($array as $i => $value) { ... } }`)
 
 Maintenance:
 + Make `\Phan\Library\None` a singleton in internal uses.

@@ -3647,6 +3647,7 @@ class Type
      */
     public function asFunctionInterfaceOrNull(CodeBase $code_base, Context $context) : ?FunctionInterface
     {
+        // @phan-suppress-next-line PhanSuspiciousValueComparison
         if (static::class !== self::class) {
             // Overridden in other subclasses
             return null;
