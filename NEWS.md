@@ -14,6 +14,10 @@ New features(CLI, Configs):
   When this is enabled, infer that properties of `$this` are initialized to their default values at the start of `__construct()`. (#3213)
   (this is limited to instance properties which are declared in the current class (i.e. not inherited)).
   Off by default.
++ Add a config setting `strict_object_checking`. (#3262)
+  When enabled, Phan will warn if some of the object types in the union type don't contain a property.
+  Additionally, warn about definite non-object types when accessing properties.
+  Also add `--strict-object-checking` to enable this setting.
 
 New features(Analysis):
 + Disable `simplify_ast` by default.
@@ -31,6 +35,18 @@ New features(Analysis):
 + Improve types inferred when the config setting `enable_extended_internal_return_type_plugins` is enabled.
 + Speed up sorting the list of parsed files, and avoid unnecessary work in `--dump-parsed-file-list`.
 + Emit `PhanEmptyForeach` and `PhanEmptyYieldFrom` when iterating over empty arrays.
++ Infer that properties of `$this` are initialized to their default values at the start of `__construct()`. (#3213)
+  (this is limited to instance properties which are declared in the current class (i.e. not inherited)).
+  To disable this, set `infer_default_properties_in_construct` to false.
++ Improve analysis of conditions on properties of `$this`, such as `if (isset($this->prop['field1']['field2']))` (#3295)
++ Improve suggestions for `PhanUndeclaredFunction`.
+  Properly suggest similar global functions for non-fully qualified calls in namespaces.
+  Suggest `new ClassName()` as a suggestion for `ClassName()`.
++ Improve suggestions for global constants (`PhanUndeclaredConstant`).
+  Suggest similar constant names case-insensitively within the same namespace or the global namespace.
++ Suggest obvious getters and setters for instance properties in `PhanAccessPropertyProtected` and `PhanAccessPropertyPrivate` (#2540)
++ When `strict_method_checking` is enabled,
+  warn if some of the **object** types in the union type don't contain that method. (#3262)
 
 Language Server/Daemon mode:
 + Fix logged Error when language server receives `didChangeConfiguration` events. (this is a no-op)

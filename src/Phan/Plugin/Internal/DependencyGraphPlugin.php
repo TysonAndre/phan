@@ -7,7 +7,6 @@ use Exception;
 use Phan\CLI;
 use Phan\CodeBase;
 use Phan\Exception\FQSENException;
-use Phan\Language\Element\AddressableElement;
 use Phan\Language\Element\Clazz;
 use Phan\Language\FileRef;
 use Phan\Language\FQSEN\FullyQualifiedClassName;
@@ -27,7 +26,7 @@ class DependencyGraphPlugin extends PluginV3 implements
     PostAnalyzeNodeCapability,
     FinalizeProcessCapability
 {
-    /** @var array<int, AddressableElement> */
+    /** @var array<int, Clazz> */
     private $elements = [];
     /** @var string[] */
     private $class_to_file = [];
@@ -149,7 +148,7 @@ class DependencyGraphPlugin extends PluginV3 implements
         $newgraph[$node] = $this->fgraph[$node];
         $visited[$node] = true;
         foreach ($this->fgraph[$node] as $n => $unused) {
-            $newgraph = $this->walkfGraph($newgraph, $n);
+            $newgraph = $this->walkfGraph($newgraph, $n, $depth + 1);
         }
         return $newgraph;
     }
@@ -311,7 +310,7 @@ class DependencyGraphPlugin extends PluginV3 implements
                                 $file = self::getFileLineno((string)$fi)[0];
                                 if ($file == $v) {
                                     $v = $cl;
-                                    goto found;
+                                    goto cfound;
                                 }
                             }
                             \fwrite(\STDERR, "Couldn't find file $v" . \PHP_EOL);
@@ -319,7 +318,19 @@ class DependencyGraphPlugin extends PluginV3 implements
                         }
                         $v = $this->file_to_class[$v];
                     }
-                    found:
+
+                    try {
+                        $fqsen = FullyQualifiedClassName::fromFullyQualifiedString($v);
+                    } catch (FQSENException $e) {
+                        \fwrite(\STDERR, "Invalid class fqsen $v: {$e->getMessage()}\n");
+                        exit(\EXIT_FAILURE);
+                    }
+                    $cnode = (string)$fqsen;
+                    if (!\array_key_exists($cnode, $this->class_to_file)) {
+                        \fwrite(\STDERR, "Couldn't find class $cnode" . \PHP_EOL);
+                        exit(\EXIT_FAILURE);
+                    }
+                    cfound:
                     $graph = $this->walkcGraph($graph, $v);
                 } elseif ($mode == 'file') {
                     if (!\strstr($v, '.')) {
@@ -336,6 +347,19 @@ class DependencyGraphPlugin extends PluginV3 implements
                         }
                         $v = self::getFileLineno($this->class_to_file[$cnode])[0];
                     }
+                    if (!\array_key_exists($v, $this->file_to_class)) {
+                        // Probably no lineno specified, do a linear search
+                        foreach ($this->file_to_class as $fi => $cl) {
+                            $file = self::getFileLineno((string)$fi)[0];
+                            if ($file == $v) {
+                                $v = $file;
+                                goto ffound;
+                            }
+                        }
+                        \fwrite(\STDERR, "Couldn't find file $v" . \PHP_EOL);
+                        exit(\EXIT_FAILURE);
+                    }
+                    ffound:
                     $graph = $this->walkfGraph($graph, $v);
                 }
             }
@@ -373,9 +397,13 @@ class DependencyGraphPlugin extends PluginV3 implements
             $graph = $this->fgraph;
         }
         $shapes = '';
+        $shape_defined = [];
         echo "strict digraph $title {\nrankdir=RL\nsplines=ortho\n";
         foreach ($graph as $node => $depNode) {
-            $shapes .= "\"$node\" [shape=box]\n";
+            if (empty($shape_defined[$node])) {
+                $shapes .= "\"$node\" [shape=box]\n";
+                $shape_defined[$node] = true;
+            }
             foreach ($depNode as $dnode => $val) {
                 [$type,$lineno] = self::getFileLineno((string)$val);
                 $style = '';
@@ -386,6 +414,10 @@ class DependencyGraphPlugin extends PluginV3 implements
                     $style = ',color=tomato';
                 }
                 echo "\"$dnode\" -> \"$node\" [taillabel=$lineno,labelfontsize=10,labeldistance=1.4{$style}]\n";
+                if (empty($shape_defined[$dnode])) {
+                    $shapes .= "\"$dnode\" [shape=box]\n";
+                    $shape_defined[$dnode] = true;
+                }
             }
         }
         echo $shapes;
@@ -404,22 +436,27 @@ class DependencyGraphPlugin extends PluginV3 implements
         }
         echo "strict digraph $title {\nrankdir=RL\nsplines=ortho\n";
         $shapes = '';
+        $shape_defined = [];
         foreach ($graph as $node => $depNode) {
-            $shape = "";
-            switch ($this->ctype[$node]) {
-                case 'C':
-                    $shape = "shape=box";
-                    break;
-                case 'I':
-                    $shape = "shape=note,color=blue,fontcolor=blue";
-                    break;
-                case 'T':
-                    $shape = "shape=component,color=purple,fontcolor=purple";
-                    break;
-            }
-            if ($shape) {
-                // Defer the shape definitions until after the edges. This tends to give a better node layout
-                $shapes .= '"' . \addslashes(\trim($node, "\\")) . "\" [$shape]\n";
+            if (empty($shape_defined[$node])) {
+                $shape = "";
+                switch ($this->ctype[$node]) {
+                    case 'C':
+                        $shape = "shape=box";
+                        break;
+                    case 'I':
+                        $shape = "shape=note,color=blue,fontcolor=blue";
+                        break;
+                    case 'T':
+                        $shape = "shape=component,color=purple,fontcolor=purple";
+                        break;
+                }
+
+                if ($shape) {
+                    // Defer the shape definitions until after the edges. This tends to give a better node layout
+                    $shapes .= '"' . \addslashes(\trim($node, "\\")) . "\" [$shape]\n";
+                    $shape_defined[$node] = true;
+                }
             }
             foreach ($depNode as $dnode => $val) {
                 $type = self::getFileLineno((string)$val)[0];
@@ -431,6 +468,26 @@ class DependencyGraphPlugin extends PluginV3 implements
                     $style = ' [color=tomato]';
                 }
                 echo '"' . \addslashes(\trim($dnode, "\\")) . '" -> "' . \addslashes(\trim($node, "\\")) . "\"$style\n";
+                if (empty($shape_defined[$dnode])) {
+                    $shape = "";
+                    switch ($this->ctype[$dnode]) {
+                        case 'C':
+                            $shape = "shape=box";
+                            break;
+                        case 'I':
+                            $shape = "shape=note,color=blue,fontcolor=blue";
+                            break;
+                        case 'T':
+                            $shape = "shape=component,color=purple,fontcolor=purple";
+                            break;
+                    }
+
+                    if ($shape) {
+                        // Defer the shape definitions until after the edges. This tends to give a better node layout
+                        $shapes .= '"' . \addslashes(\trim($dnode, "\\")) . "\" [$shape]\n";
+                        $shape_defined[$dnode] = true;
+                    }
+                }
             }
         }
         echo $shapes;

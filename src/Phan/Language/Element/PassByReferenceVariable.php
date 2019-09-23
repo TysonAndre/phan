@@ -121,18 +121,20 @@ class PassByReferenceVariable extends Variable
         $this->element->setPhanFlags($phan_flags);
     }
 
+    public function getFileRef() : FileRef
+    {
+        return $this->element->getFileRef();
+    }
+
     /**
-     * Returns the context in which the element this is a reference to
-     * was declared.
+     * Gets the context (only set if this is a reference to an AddressableElement such as a property)
+     * @deprecated - use getElement() instead and check if the result is an AddressableElement.
+     * @throws \Error if the element is an UnaddressableElement
+     * @suppress PhanPossiblyUndeclaredMethod
      */
     public function getContext() : Context
     {
         return $this->element->getContext();
-    }
-
-    public function getFileRef() : FileRef
-    {
-        return $this->element->getFileRef();
     }
 
     /**
@@ -141,7 +143,7 @@ class PassByReferenceVariable extends Variable
      */
     public function isPHPInternal() : bool
     {
-        return $this->element->isPHPInternal();
+        return $this->element instanceof AddressableElement && $this->element->isPHPInternal();
     }
 
     /**

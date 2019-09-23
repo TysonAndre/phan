@@ -874,6 +874,7 @@ trait ConditionVisitorUtil
             }
             $kind = $var->kind;
             if ($kind === ast\AST_VAR) {
+                // @phan-suppress-next-line PhanPossiblyUndeclaredProperty
                 $this->context = (new BlockAnalysisVisitor($this->code_base, $this->context))->__invoke($tmp);
                 return $condition->analyzeVar($this, $var, $expr_node);
             }
@@ -1314,6 +1315,11 @@ trait ConditionVisitorUtil
                     return null;
                 }
                 continue;
+            }
+            if ($node->kind === ast\AST_PROP) {
+                if (is_string($node->children['prop']) && self::isThisVarNode($node->children['expr'])) {
+                    return 'this';
+                }
             }
 
             // TODO: Handle more than one level of nesting

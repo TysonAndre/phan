@@ -396,7 +396,7 @@ class AssignmentVisitor extends AnalysisVisitor
                     $this->code_base,
                     $this->context,
                     $value_node
-                ))->getProperty(false);
+                ))->getProperty(false, true);
 
                 // Set the element type on each element of
                 // the list
@@ -513,7 +513,7 @@ class AssignmentVisitor extends AnalysisVisitor
                         $this->code_base,
                         $this->context,
                         $value_node
-                    ))->getProperty(false);
+                    ))->getProperty(false, true);
 
                     // Set the element type on each element of
                     // the list
@@ -741,8 +741,10 @@ class AssignmentVisitor extends AnalysisVisitor
         if (!\is_string($property_name)) {
             return $this->context;
         }
-        if (($node->children['expr']->kind ?? null) === \ast\AST_VAR &&
-                $node->children['expr']->children['name'] === 'this') {
+        $expr_node = $node->children['expr'];
+        if ($expr_node instanceof Node &&
+                $expr_node->kind === \ast\AST_VAR &&
+                $expr_node->children['name'] === 'this') {
             $this->handleThisPropertyAssignmentInLocalScopeByName($node, $property_name);
         }
 
@@ -761,7 +763,8 @@ class AssignmentVisitor extends AnalysisVisitor
                     $property_name,
                     $this->context,
                     false,
-                    $node
+                    $node,
+                    true
                 );
             } catch (IssueException $exception) {
                 Issue::maybeEmitInstance(
@@ -1239,6 +1242,8 @@ class AssignmentVisitor extends AnalysisVisitor
                     $this->code_base,
                     $property_name,
                     $this->context,
+                    true,
+                    null,
                     true
                 );
             } catch (IssueException $exception) {
