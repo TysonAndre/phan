@@ -203,6 +203,7 @@ class Issue
     const TypeInvalidTraitReturn          = 'PhanTypeInvalidTraitReturn';
     const TypeInvalidTraitParam           = 'PhanTypeInvalidTraitParam';
     const InfiniteRecursion               = 'PhanInfiniteRecursion';
+    const PossibleInfiniteRecursionSameParams = 'PhanPossiblyInfiniteRecursionSameParams';
     const TypeComparisonToInvalidClass    = 'PhanTypeComparisonToInvalidClass';
     const TypeComparisonToInvalidClassType = 'PhanTypeComparisonToInvalidClassType';
     const TypeInvalidPropertyName = 'PhanTypeInvalidPropertyName';
@@ -484,6 +485,7 @@ class Issue
     const CompatibleImplodeOrder             = 'PhanCompatibleImplodeOrder';
     const CompatibleUnparenthesizedTernary   = 'PhanCompatibleUnparenthesizedTernary';
     const CompatibleTypedProperty            = 'PhanCompatibleTypedProperty';
+    const CompatibleDefaultEqualsNull        = 'PhanCompatibleDefaultEqualsNull';
     const CompatiblePHP8PHP4Constructor      = 'PhanCompatiblePHP8PHP4Constructor';
 
     // Issue::CATEGORY_GENERIC
@@ -2162,6 +2164,14 @@ class Issue
                 "{FUNCTIONLIKE} is calling itself in a way that may cause infinite recursion.",
                 self::REMEDIATION_B,
                 10093
+            ),
+            new Issue(
+                self::PossibleInfiniteRecursionSameParams,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "{FUNCTIONLIKE} is calling itself with the same parameters it was called with. This may cause infinite recursion (Phan does not check for changes to global or shared state).",
+                self::REMEDIATION_B,
+                10149
             ),
             new Issue(
                 self::PossiblyNonClassMethodCall,
@@ -4178,6 +4188,14 @@ class Issue
                 "PHP4 constructors will be removed in php 8, and should not be used. __construct() should be added/used instead to avoid accidentally calling {METHOD}",
                 self::REMEDIATION_B,
                 3022
+            ),
+            new Issue(
+                self::CompatibleDefaultEqualsNull,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_NORMAL,
+                "In PHP 8.0, using a default ({CODE}) that resolves to null will no longer cause the parameter ({PARAMETER}) to be nullable",
+                self::REMEDIATION_B,
+                3023
             ),
 
             // Issue::CATEGORY_GENERIC

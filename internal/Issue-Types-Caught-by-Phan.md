@@ -413,6 +413,14 @@ Declaring an autoloader with function __autoload() was deprecated in PHP 7.2 and
 
 e.g. [this issue](https://github.com/phan/phan/tree/2.0.0/tests/plugin_test/expected/000_plugins.php.expected#L20) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/2.0.0/tests/plugin_test/src/000_plugins.php#L64).
 
+## PhanCompatibleDefaultEqualsNull
+
+```
+In PHP 8.0, using a default ({CODE}) that resolves to null will no longer cause the parameter ({PARAMETER}) to be nullable
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/files/expected/0782_nullable_compat.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/files/src/0782_nullable_compat.php#L4).
+
 ## PhanCompatibleDimAlternativeSyntax
 
 This is emitted deliberately when using the polyfill and/or using php 7.4+.
@@ -761,6 +769,14 @@ Empty protected method {METHOD}
 ```
 Empty public method {METHOD}
 ```
+
+## PhanEmptyYieldFrom
+
+```
+Saw a yield from statement with empty iterable type {TYPE}
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/files/expected/0774_empty_foreach.php.expected#L6) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/files/src/0774_empty_foreach.php#L16).
 
 ## PhanNoopArray
 
@@ -2224,6 +2240,16 @@ Returning type {TYPE} but {FUNCTIONLIKE} is declared to return {TYPE} ({TYPE} is
 
 e.g. [this issue](https://github.com/phan/phan/tree/2.0.0/tests/plugin_test/expected/026_strict_return_checks.php.expected#L3) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/2.0.0/tests/plugin_test/src/026_strict_return_checks.php#L31).
 
+## PhanPossiblyInfiniteRecursionSameParams
+
+Note that when there are 1 or more parameters, this is only emitted when unused variable detection is enabled (needed to check for reassignments)
+
+```
+{FUNCTIONLIKE} is calling itself with the same parameters it was called with. This may cause infinite recursion (Phan does not check for changes to global or shared state).
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/files/expected/0783_possibly_infinite_recursion.php.expected#L2) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/files/src/0783_possibly_infinite_recursion.php#L9).
+
 ## PhanPossiblyNonClassMethodCall
 
 ```
@@ -3414,6 +3440,18 @@ This issue will be emitted from the following code
 
 ```php
 class F { function f() { $v = parent::f(); } }
+```
+
+## PhanPossiblyUndeclaredMethod
+
+```
+Call to possibly undeclared method {METHOD} on type {TYPE} ({TYPE} does not declare the method)
+```
+
+## PhanPossiblyUndeclaredProperty
+
+```
+Reference to possibly undeclared property {PROPERTY} of expression of type {TYPE} ({TYPE} does not declare that property)
 ```
 
 ## PhanPossiblyUnsetPropertyOfThis
