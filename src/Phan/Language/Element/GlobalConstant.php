@@ -34,7 +34,6 @@ class GlobalConstant extends AddressableElement implements ConstantInterface
     /**
      * @return bool
      * True if this is a global constant that should be treated as if the real type is unknown.
-
      */
     public function isDynamicConstant() : bool
     {
