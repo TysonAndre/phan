@@ -1,6 +1,16 @@
 Phan NEWS
 
-??? ?? 2019, Phan 2.2.13 (dev)
+??? ?? 2019, Phan 2.2.14 (dev)
+------------------------
+
+New features(Analysis):
+
++ Add support for `list<T>` and `non-empty-list<T>` in phpdoc and in inferred values.
+  These represent arrays with consecutive integer keys starting at 0 without any gaps (e.g. `function (string ...$args) {}`)
++ Allow omitting keys from array shapes for sequential array elements
+  (e.g. `array{stdClass, array}` is equivalent to `array{0:stdClass, 1:array}`).
+
+Oct 03 2019, Phan 2.2.13
 ------------------------
 
 New features(CLI, Configs):
@@ -65,6 +75,7 @@ New features(Analysis):
   (e.g. warn about `'string literal' >= $nullableBool`)
 + Fix edge cases analyzing conditions on superglobals.
 + Be more consistent about when PhanTypeArraySuspiciousNullable is emitted, e.g. for `?mixed`, `array|null`, etc.
++ Fix false positive impossible condition for casting mixed to an array.
 
 Language Server/Daemon mode:
 + Fix logged Error when language server receives `didChangeConfiguration` events. (this is a no-op)

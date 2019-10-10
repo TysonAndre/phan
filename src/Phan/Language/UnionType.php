@@ -30,6 +30,7 @@ use Phan\Language\Type\GenericArrayInterface;
 use Phan\Language\Type\GenericArrayType;
 use Phan\Language\Type\IntType;
 use Phan\Language\Type\IterableType;
+use Phan\Language\Type\ListType;
 use Phan\Language\Type\LiteralFloatType;
 use Phan\Language\Type\LiteralIntType;
 use Phan\Language\Type\LiteralStringType;
@@ -99,20 +100,20 @@ class UnionType implements Serializable
         . '(\s*\|\s*' . Type::type_regex_or_this . ')*';
 
     /**
-     * @var array<int,Type> This is an immutable list of unique types.
+     * @var list<Type> This is an immutable list of unique types.
      */
     private $type_set;
 
     /**
-     * @var array<int,Type> * This is an immutable list of unique types.
+     * @var list<Type> * This is an immutable list of unique types.
      */
     private $real_type_set;
 
     /**
-     * @param array<int,Type> $type_list
+     * @param list<Type> $type_list
      * An optional list of types represented by this union
      * @param bool $is_unique - Whether or not this is already unique. Only set to true within UnionType code.
-     * @param array<int,Type> $real_type_set
+     * @param list<Type> $real_type_set
      * @see UnionType::of() for a more memory efficient equivalent.
      * @phan-pure
      */
@@ -124,7 +125,7 @@ class UnionType implements Serializable
 
     /**
      * @param Type[] $type_list
-     * @param array<int,Type> $real_type_set
+     * @param list<Type> $real_type_set
      * @phan-pure
      */
     public static function of(array $type_list, array $real_type_set = []) : UnionType
@@ -233,7 +234,7 @@ class UnionType implements Serializable
     }
 
     /**
-     * @return array<int,Type> the corresponding set of types for this string.
+     * @return list<Type> the corresponding set of types for this string.
      * @throws InvalidArgumentException if any type name in the union type was invalid
      */
     public static function typeSetFromString(string $fully_qualified_string) : array
@@ -312,8 +313,8 @@ class UnionType implements Serializable
     }
 
     /**
-     * @param array<int,Type> $type_list
-     * @return array<int,Type>
+     * @param list<Type> $type_list
+     * @return list<Type>
      * @phan-pure
      */
     public static function getUniqueTypes(array $type_list) : array
@@ -368,7 +369,7 @@ class UnionType implements Serializable
     }
 
     /**
-     * @return array<int,string>
+     * @return list<string>
      */
     private static function extractTypePartsForStringInContext(string $type_string) : array
     {
@@ -411,7 +412,7 @@ class UnionType implements Serializable
     }
 
     /**
-     * @return array<int,string>
+     * @return list<string>
      */
     private static function extractTypeParts(string $type_string) : array
     {
@@ -432,7 +433,7 @@ class UnionType implements Serializable
     /**
      * Expands any GenericMultiArrayType and ScalarRawType instances in $types if necessary.
      *
-     * @param array<int,Type> $types
+     * @param list<Type> $types
      * @return array<int,Type>
      */
     public static function normalizeMultiTypes(array $types) : array
@@ -548,7 +549,7 @@ class UnionType implements Serializable
      *
      * @param FullyQualifiedMethodName|FullyQualifiedFunctionName $function_fqsen
      *
-     * @return array<int,array{return_type:?UnionType,parameter_name_type_map:array<string,UnionType>}>
+     * @return list<array{return_type:?UnionType,parameter_name_type_map:array<string,UnionType>}>
      *
      * @see internal_varargs_check
      * Formerly `function internal_varargs_check`
@@ -626,7 +627,7 @@ class UnionType implements Serializable
     }
 
     /**
-     * @return array<int,Type>
+     * @return list<Type>
      * The list of simple types associated with this
      * union type. Keys are consecutive.
      */
@@ -644,7 +645,7 @@ class UnionType implements Serializable
     }
 
     /**
-     * @return array<int,Type>
+     * @return list<Type>
      * The list of real simple types associated with this
      * union type. Keys are consecutive.
      *
@@ -817,7 +818,7 @@ class UnionType implements Serializable
 
     /**
      * @param Type[] $type_list
-     * @return array<int,Type>
+     * @return list<Type>
      */
     private static function filterTypesInBoolFamily(array $type_list) : array
     {
@@ -1160,7 +1161,7 @@ class UnionType implements Serializable
 
     /**
      * @param array<int,Type> $type_set
-     * @return array<int,Type> the subset of types in $type_set excluding the subclasses/sub-types of $object_type
+     * @return list<Type> the subset of types in $type_set excluding the subclasses/sub-types of $object_type
      */
     public static function typesWithoutSubclassesOf(CodeBase $code_base, array $type_set, Type $object_type) : array
     {
@@ -1251,7 +1252,7 @@ class UnionType implements Serializable
 
     /**
      * @param Type[] $type_list
-     * @return array<int,Type> a list of non-nullable types that may contain duplicates.
+     * @return list<Type> a list of non-nullable types that may contain duplicates.
      */
     private static function toNonNullableTypeList(array $type_list) : array
     {
@@ -1285,7 +1286,7 @@ class UnionType implements Serializable
 
     /**
      * @param Type[] $type_list
-     * @return array<int,Type> a list of nullable types that may contain duplicates.
+     * @return list<Type> a list of nullable types that may contain duplicates.
      */
     private static function toNullableTypeList(array $type_list) : array
     {
@@ -1338,8 +1339,8 @@ class UnionType implements Serializable
     }
 
     /**
-     * @param array<int,Type> $type_set
-     * @return array<int,Type> which may contain duplicates
+     * @param list<Type> $type_set
+     * @return list<Type> which may contain duplicates
      */
     private static function toNonFalseyTypeSet(array $type_set) : array
     {
@@ -1546,8 +1547,8 @@ class UnionType implements Serializable
     }
 
     /**
-     * @param array<int, Type> $type_set
-     * @return array<int, Type>
+     * @param list<Type> $type_set
+     * @return list<Type>
      */
     private static function toNonTruthyTypeSet(array $type_set) : array
     {
@@ -1799,7 +1800,7 @@ class UnionType implements Serializable
      * Casts the type list to non-null iterables and sub-types of iterable.
      * Preserve classes implementing Traversable.
      * @param Type[] $type_list
-     * @return array<int,Type>
+     * @return list<Type>
      */
     private static function castToIterableTypesStrict(CodeBase $code_base, array $type_list, bool $object_to_traversable) : array
     {
@@ -2853,7 +2854,7 @@ class UnionType implements Serializable
 
     /**
      * @param Type[] $type_list
-     * @return array<int,Type> $type_list
+     * @return list<Type> $type_list
      */
     private static function castToObjectTypesStrict(array $type_list) : array
     {
@@ -2973,7 +2974,7 @@ class UnionType implements Serializable
 
     /**
      * @param Type[] $type_list
-     * @return array<int,Type>
+     * @return list<Type>
      */
     private static function typeSetToScalarTypesStrict(array $type_list) : array
     {
@@ -3009,7 +3010,7 @@ class UnionType implements Serializable
 
     /**
      * @param Type[] $type_list
-     * @return array<int,Type> possibly containing duplicates
+     * @return list<Type> possibly containing duplicates
      */
     private static function castTypeListToCallable(array $type_list) : array
     {
@@ -3049,7 +3050,7 @@ class UnionType implements Serializable
 
     /**
      * @param Type[] $type_list
-     * @return array<int,Type> a list of countable subclasses and array types, possibly containing duplicates
+     * @return list<Type> a list of countable subclasses and array types, possibly containing duplicates
      * @internal
      */
     public static function castTypeListToCountable(CodeBase $code_base, array $type_list, bool $assume_subclass_implements_countable) : array
@@ -3166,7 +3167,7 @@ class UnionType implements Serializable
 
     /**
      * @param Type[] $type_set
-     * @return array<int,Type>
+     * @return list<Type>
      */
     private static function castTypeListToString(array $type_set) : array
     {
@@ -3323,7 +3324,7 @@ class UnionType implements Serializable
 
     /**
      * @param Type[] $type_list
-     * @return array<int,Type>
+     * @return list<Type>
      */
     private static function castToArrayTypesStrict(array $type_list) : array
     {
@@ -3638,6 +3639,22 @@ class UnionType implements Serializable
     }
 
     /**
+     * Get a new type for each type in this union which is
+     * the generic array version of this type. For instance,
+     * 'int|float' will produce 'list<int>|list<float>'.
+     *
+     * If $this is an empty UnionType, this method will produce an empty UnionType
+     */
+    public function asListTypes() : UnionType
+    {
+        return $this->asMappedUnionType(
+            static function (Type $type) : Type {
+                return ListType::fromElementType($type, false);
+            }
+        );
+    }
+
+    /**
      * @return UnionType
      * Get a new type for each type in this union which is
      * the generic array version of this type. For instance,
@@ -3655,6 +3672,34 @@ class UnionType implements Serializable
         $result = $this->asMappedUnionType(
             static function (Type $type) use ($key_type) : Type {
                 return $type->asGenericArrayType($key_type);
+            }
+        );
+        if (!$result->hasRealTypeSet()) {
+            return $result->withRealType($type);
+        }
+        return $result;
+    }
+
+    /**
+     * @return UnionType
+     * Get a new type for each type in this union which is
+     * the generic array version of this type. For instance,
+     * 'int|float' will produce 'list<int>|list<float>'.
+     *
+     * If $this is an empty UnionType, this method will produce 'list<mixed>'
+     */
+    public function asNonEmptyListTypes() : UnionType
+    {
+        static $type = null;
+        if ($type === null) {
+            $type = ListType::fromElementType(MixedType::instance(false), false);
+        }
+        if (\count($this->type_set) === 0) {
+            return $type->asRealUnionType();
+        }
+        $result = $this->asMappedUnionType(
+            static function (Type $type) : Type {
+                return ListType::fromElementType($type, false);
             }
         );
         if (!$result->hasRealTypeSet()) {
@@ -4105,7 +4150,7 @@ class UnionType implements Serializable
     /**
      * @param Type[] $type_set
      * @param int $flags non-zero
-     * @param ?array<int,Type> $real_type_set
+     * @param ?list<Type> $real_type_set
      */
     public static function asNormalizedTypesInner(array $type_set, int $flags, ?array $real_type_set) : UnionType
     {
@@ -4136,7 +4181,7 @@ class UnionType implements Serializable
             }
         }
         // TODO: Convert array|array{} to array?
-        return UnionType::of($builder->getTypeSet(), $real_type_set);
+        return UnionType::of($builder->getTypeSet(), $real_type_set ?? []);
     }
 
     /**
@@ -4239,7 +4284,7 @@ class UnionType implements Serializable
      */
     public function generateUniqueId() : string
     {
-        /** @var array<int,int> $ids */
+        /** @var list<int> $ids */
         // Real types are given negative ids, and phpdoc types are given non-negative ids.
         $ids = [];
         foreach ($this->real_type_set as $type) {
@@ -4615,14 +4660,14 @@ class UnionType implements Serializable
         return $type_set->withRealTypeSet(self::intOrStringTypeSet());
     }
 
-    /** @return array<int,Type> */
+    /** @return list<Type> */
     private static function intOrFloatTypeSet() : array
     {
         static $types;
         return $types ?? ($types = [IntType::instance(false), FloatType::instance(false)]);
     }
 
-    /** @return array<int,Type> */
+    /** @return list<Type> */
     private static function intOrStringTypeSet() : array
     {
         static $types;
@@ -4796,7 +4841,7 @@ class UnionType implements Serializable
     }
 
     /**
-     * @return array<int,string>
+     * @return list<string>
      * Returns a list of known strings for LiteralStringType instances in this union type.
      * E.g. for `?'foo'|?'bar'|?false|?T`, returns `['foo', 'bar']`
      * @suppress PhanUnreferencedPublicMethod provided for plugins
@@ -4813,8 +4858,8 @@ class UnionType implements Serializable
     }
 
     /**
-     * @return array<int,int>
-     * Returns a list of known strings for LiteralStringType instances in this union type.
+     * @return list<int>
+     * Returns a list of known integers for LiteralIntType instances in this union type.
      * E.g. for `?11|?2|?false|?T`, returns `[11, 2]`
      * @suppress PhanUnreferencedPublicMethod provided for plugins
      */
@@ -4830,7 +4875,7 @@ class UnionType implements Serializable
     }
 
     /**
-     * @return ?array<int,?int|?bool|?string|?float>
+     * @return ?list<?int|?bool|?string|?float>
      * Returns a list of known scalars that this union type could be.
      * E.g. for `?11|?2|?false|?'str'|?T`, returns `[11, 2, false, 'str', null]`
      *
@@ -5016,7 +5061,7 @@ class UnionType implements Serializable
 
     /**
      * Shorter version of `UnionType::of($this->getTypeSet(), $real_type_set)`
-     * @param ?array<int,Type> $real_type_set
+     * @param ?list<Type> $real_type_set
      * @suppress PhanAccessReadOnlyProperty
      */
     public function withRealTypeSet(?array $real_type_set) : UnionType

@@ -42,12 +42,14 @@ use Phan\Language\Type\GenericIterableType;
 use Phan\Language\Type\GenericMultiArrayType;
 use Phan\Language\Type\IntType;
 use Phan\Language\Type\IterableType;
+use Phan\Language\Type\ListType;
 use Phan\Language\Type\LiteralFloatType;
 use Phan\Language\Type\LiteralIntType;
 use Phan\Language\Type\LiteralStringType;
 use Phan\Language\Type\MixedType;
 use Phan\Language\Type\NativeType;
 use Phan\Language\Type\NonEmptyGenericArrayType;
+use Phan\Language\Type\NonEmptyListType;
 use Phan\Language\Type\NullType;
 use Phan\Language\Type\ObjectType;
 use Phan\Language\Type\ResourceType;
@@ -91,17 +93,17 @@ class Type
      * A legal type identifier (e.g. 'int' or 'DateTime')
      */
     const simple_type_regex =
-        '(\??)(?:callable-(?:string|object|array)|class-string|non-empty-array|\\\\?[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*(?:\\\\[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)*)';
+        '(\??)(?:callable-(?:string|object|array)|class-string|non-empty-(?:array|list)|\\\\?[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*(?:\\\\[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)*)';
 
     const simple_noncapturing_type_regex =
-        '\\\\?(?:callable-(?:string|object|array)|class-string|non-empty-array|[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*(?:\\\\[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)*)';
+        '\\\\?(?:callable-(?:string|object|array)|class-string|non-empty-(?:array|list)|[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*(?:\\\\[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)*)';
 
     /**
      * @var string
      * A legal type identifier (e.g. 'int' or 'DateTime')
      */
     const simple_type_regex_or_this =
-        '(\??)(callable-(?:string|object|array)|class-string|non-empty-array|[a-zA-Z_\x7f-\xff\\\][a-zA-Z0-9_\x7f-\xff\\\]*|\$this)';
+        '(\??)(callable-(?:string|object|array)|class-string|non-empty-(?:array|list)|[a-zA-Z_\x7f-\xff\\\][a-zA-Z0-9_\x7f-\xff\\\]*|\$this)';
 
     const shape_key_regex =
         '(?:[-.\/^;$%*+_a-zA-Z0-9\x7f-\xff]|\\\\(?:[nrt\\\\]|x[0-9a-fA-F]{2}))+\??';
@@ -123,7 +125,7 @@ class Type
      * @suppress PhanUnreferencedPublicClassConstant
      */
     const array_shape_entry_regex_noncapturing =
-        '(?:' . self::shape_key_regex . ')\s*:\s*(?:' . self::simple_noncapturing_type_regex . '=?)';
+        '(?:' . self::shape_key_regex . '\s*:)?\s*(?:' . self::simple_noncapturing_type_regex . '=?)';
 
     /**
      * @var string
@@ -158,8 +160,8 @@ class Type
           . '>'
           . '|'
           . '\{('  // Expect either '{' or '<', after a word token.
-            . '(?:' . self::shape_key_regex . '\s*:\s*(?-6)(?:\|(?-6))*=?)'  // {shape_key_regex:<type_regex>}
-            . '(?:,\s*' . self::shape_key_regex . '\s*:\s*(?-6)(?:\|(?-6))*=?)*'  // {shape_key_regex:<type_regex>}
+            . '(?:' . self::shape_key_regex . '\s*:)?\s*(?-6)(?:\|(?-6))*=?'  // {shape_key_regex:<type_regex>}
+            . '(?:,(?:\s*' . self::shape_key_regex . '\s*:)?\s*(?-6)(?:\|(?-6))*=?)*'  // {shape_key_regex:<type_regex>}
           . ')?\})?'
         . ')'
         . '(?:\[\])*'
@@ -199,8 +201,8 @@ class Type
               . '>'
               . '|'
               . '(\{)('  // Expect either '{' or '<', after a word token. Match '{' to disambiguate 'array{}'
-                . '(?:' . self::shape_key_regex . '\s*:\s*(?-8)(?:\|(?-8))*=?)'  // {shape_key_regex:<type_regex>}
-                . '(?:,\s*' . self::shape_key_regex . '\s*:\s*(?-8)(?:\|(?-8))*=?)*'  // {shape_key_regex:<type_regex>}
+                . '(?:' . self::shape_key_regex . '\s*:)?\s*(?-8)(?:\|(?-8))*=?'  // {shape_key_regex:<type_regex>}
+                . '(?:,(?:\s*' . self::shape_key_regex . '\s*:)?\s*(?-8)(?:\|(?-8))*=?)*'  // {shape_key_regex:<type_regex>}
               . ')?\})?'
             . ')'
           . '(?:\[\])*'
@@ -222,8 +224,10 @@ class Type
         'float'           => true,
         'int'             => true,
         'iterable'        => true,
+        'list'            => true,
         'mixed'           => true,
         'non-empty-array' => true,
+        'non-empty-list'  => true,
         'null'            => true,
         'object'          => true,
         'resource'        => true,
@@ -289,7 +293,7 @@ class Type
     protected $name = '';
 
     /**
-     * @var array<int,UnionType>
+     * @var list<UnionType>
      * A possibly empty list of concrete types that
      * act as parameters to this type if it is a templated
      * type.
@@ -315,7 +319,7 @@ class Type
      * @param string $name
      * The name of the type such as 'int' or 'MyClass'
      *
-     * @param array<int,UnionType> $template_parameter_type_list
+     * @param list<UnionType> $template_parameter_type_list
      * A (possibly empty) list of template parameter types
      *
      * @param bool $is_nullable
@@ -359,7 +363,7 @@ class Type
      * @param string $type_name
      * The name of the type such as 'int' or 'MyClass'
      *
-     * @param array<int,UnionType> $template_parameter_type_list
+     * @param list<UnionType> $template_parameter_type_list
      * A (possibly empty) list of template parameter types
      *
      * @param bool $is_nullable
@@ -482,8 +486,14 @@ class Type
                             $is_nullable
                         );
                         break;
+                    case 'list':
+                        $value = self::parseListTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable, false);
+                        break;
                     case 'non-empty-array':
                         $value = self::parseGenericArrayTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable, true);
+                        break;
+                    case 'non-empty-list':
+                        $value = self::parseListTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable, true);
                         break;
                 }
             }
@@ -526,7 +536,7 @@ class Type
      * The base type of this generic type referencing a
      * generic class
      *
-     * @param array<int,UnionType> $template_parameter_type_list
+     * @param list<UnionType> $template_parameter_type_list
      * A map from a template type identifier to a
      * concrete union type
      */
@@ -701,10 +711,14 @@ class Type
                 return FloatType::instance($is_nullable);
             case 'int':
                 return IntType::instance($is_nullable);
+            case 'list':
+                return ListType::fromElementType(MixedType::instance(false), $is_nullable);
             case 'mixed':
                 return MixedType::instance($is_nullable);
             case 'non-empty-array':
                 return NonEmptyGenericArrayType::fromElementType(MixedType::instance(false), $is_nullable, GenericArrayType::KEY_MIXED);
+            case 'non-empty-list':
+                return NonEmptyListType::fromElementType(MixedType::instance(false), $is_nullable);
             case 'null':
                 return NullType::instance($is_nullable);
             case 'object':
@@ -871,14 +885,18 @@ class Type
 
         if (!$namespace) {
             if (count($template_parameter_type_name_list) > 0) {
-                if (\strcasecmp($type_name, 'array') === 0) {
-                    // template parameter type list
-                    $template_parameter_type_list = self::createTemplateParameterTypeList($template_parameter_type_name_list);
-                    return self::parseGenericArrayTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable, false);
-                } elseif (\strcasecmp($type_name, 'iterable') === 0) {
-                    // template parameter type list
-                    $template_parameter_type_list = self::createTemplateParameterTypeList($template_parameter_type_name_list);
-                    return self::parseGenericIterableTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable);
+                switch (\strtolower($type_name)) {
+                    case 'array':
+                        // template parameter type list
+                        $template_parameter_type_list = self::createTemplateParameterTypeList($template_parameter_type_name_list);
+                        return self::parseGenericArrayTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable, false);
+                    case 'list':
+                        $template_parameter_type_list = self::createTemplateParameterTypeList($template_parameter_type_name_list);
+                        return self::parseListTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable, false);
+                    case 'iterable':
+                        // template parameter type list
+                        $template_parameter_type_list = self::createTemplateParameterTypeList($template_parameter_type_name_list);
+                        return self::parseGenericIterableTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable);
                 }
             }
             return self::fromInternalTypeName(
@@ -934,8 +952,8 @@ class Type
     }
 
     /**
-     * @param array<int,string> $template_parameter_type_name_list
-     * @return array<int,UnionType>
+     * @param list<string> $template_parameter_type_name_list
+     * @return list<UnionType>
      */
     private static function createTemplateParameterTypeList(array $template_parameter_type_name_list) : array
     {
@@ -946,7 +964,7 @@ class Type
 
     /**
      * @param bool $is_closure_type
-     * @param array<int,string> $shape_components
+     * @param list<string> $shape_components
      * @param bool $is_nullable
      * @throws AssertionError if creating a closure/callable from the arguments failed
      * @suppress PhanPossiblyFalseTypeArgument, PhanPossiblyFalseTypeArgumentInternal
@@ -976,7 +994,7 @@ class Type
         }
     }
     /**
-     * @param array<int,UnionType> $template_parameter_type_list
+     * @param list<UnionType> $template_parameter_type_list
      * @param bool $is_nullable
      */
     private static function parseGenericArrayTypeFromTemplateParameterList(
@@ -1035,11 +1053,76 @@ class Type
                 $always_has_elements
             );
         }
+        if ($always_has_elements) {
+            return NonEmptyGenericArrayType::fromElementType(
+                MixedType::instance(false),
+                $is_nullable,
+                $key_type
+            );
+        }
         return ArrayType::instance($is_nullable);
     }
 
     /**
-     * @param array<int,UnionType> $template_parameter_type_list
+     * @param list<UnionType> $template_parameter_type_list
+     * @param bool $is_nullable
+     */
+    private static function parseListTypeFromTemplateParameterList(
+        array $template_parameter_type_list,
+        bool $is_nullable,
+        bool $always_has_elements
+    ) : ArrayType {
+        $template_count = count($template_parameter_type_list);
+        if ($template_count !== 1) {
+            if ($always_has_elements) {
+                return NonEmptyListType::fromElementType(
+                    MixedType::instance(false),
+                    $is_nullable
+                );
+            }
+            return ListType::fromElementType(
+                MixedType::instance(false),
+                $is_nullable
+            );
+        }
+        // array<T> or array<key, T>
+        $types = $template_parameter_type_list[$template_count - 1]->getTypeSet();
+        if (count($types) === 1) {
+            if ($always_has_elements) {
+                return NonEmptyListType::fromElementType(
+                    // @phan-suppress-next-line PhanPossiblyFalseTypeArgument
+                    \reset($types),
+                    $is_nullable
+                );
+            }
+            return ListType::fromElementType(
+                // @phan-suppress-next-line PhanPossiblyFalseTypeArgument
+                \reset($types),
+                $is_nullable
+            );
+        } elseif (count($types) > 1) {
+            return new GenericMultiArrayType(
+                $types,
+                $is_nullable,
+                GenericArrayType::KEY_INT,
+                $always_has_elements,
+                true
+            );
+        }
+        if ($always_has_elements) {
+            return NonEmptyListType::fromElementType(
+                MixedType::instance(false),
+                $is_nullable
+            );
+        }
+        return ListType::fromElementType(
+            MixedType::instance(false),
+            $is_nullable
+        );
+    }
+
+    /**
+     * @param list<UnionType> $template_parameter_type_list
      * @param bool $is_nullable
      */
     private static function parseGenericIterableTypeFromTemplateParameterList(
@@ -1059,7 +1142,7 @@ class Type
     }
 
     /**
-     * @param array<int,UnionType> $template_parameter_type_list
+     * @param list<UnionType> $template_parameter_type_list
      * @param bool $is_nullable
      */
     private static function parseClassStringTypeFromTemplateParameterList(
@@ -1290,6 +1373,10 @@ class Type
                         return self::parseClassStringTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable);
                     case 'non-empty-array':
                         return self::parseGenericArrayTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable, true);
+                    case 'list':
+                        return self::parseListTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable, false);
+                    case 'non-empty-list':
+                        return self::parseListTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable, true);
                 }
                 // TODO: Warn about unrecognized types.
             }
@@ -1416,7 +1503,7 @@ class Type
 
     /**
      * @param bool $is_closure_type
-     * @param array<int,string> $shape_components
+     * @param list<string> $shape_components
      * @param Context $context
      * @param int $source
      * @param bool $is_nullable
@@ -1477,10 +1564,10 @@ class Type
     }
 
     /**
-     * @param array<int,string> $param_components Maps field keys (integers or strings) to the corresponding type representations
+     * @param list<string> $param_components Maps field keys (integers or strings) to the corresponding type representations
      * @param Context $context
      * @param int $source
-     * @return array<int,ClosureDeclarationParameter> The representations of parameters of the closure, in the given $context
+     * @return list<ClosureDeclarationParameter> The representations of parameters of the closure, in the given $context
      *
      * @see Comment::magicParamFromMagicMethodParamString() - This is similar but has minor differences, such as references
      * @suppress PhanAccessClassConstantInternal
@@ -2343,7 +2430,7 @@ class Type
     }
 
     /**
-     * @return array<int,UnionType>
+     * @return list<UnionType>
      * The set of types filling in template parameter types defined
      * on the class specified by this type.
      */
@@ -2935,7 +3022,7 @@ class Type
     }
 
     /**
-     * @param array<int,UnionType> $other_template_parameter_type_list
+     * @param list<UnionType> $other_template_parameter_type_list
      */
     private function canTemplateTypesCast(array $other_template_parameter_type_list, CodeBase $code_base) : bool
     {
@@ -3139,7 +3226,7 @@ class Type
      * @param string $type_string
      * Any type string such as 'int' or 'Set<int>'
      *
-     * @return Tuple5<string,string,array<int,string>,bool,?array<string|int,string>>
+     * @return Tuple5<string,string,list<string>,bool,?array<string|int,string>>
      * A 5-tuple with the following types:
      * 0: the namespace
      * 1: the type name.
@@ -3160,7 +3247,7 @@ class Type
     }
 
     /**
-     * @return Tuple5<string,string,array<int,string>,bool,?array<string|int,string>>
+     * @return Tuple5<string,string,list<string>,bool,?array<string|int,string>>
      * A 5-tuple with the following types (for a type string that may contain array shape, closure, or template uses):
      * 0: the namespace
      * 1: the type name.
@@ -3245,7 +3332,7 @@ class Type
     }
 
     /**
-     * @return Tuple5<string,string,array<int,string>,bool,?array<string|int,string>>
+     * @return Tuple5<string,string,list<string>,bool,?array<string|int,string>>
      * A 5-tuple with the following types (for a type string of a callable/closure):
      * 0: the namespace
      * 1: the type name.
@@ -3281,7 +3368,7 @@ class Type
     }
 
     /**
-     * @return array<int,string>
+     * @return list<string>
      */
     private static function closureParams(string $arg_list) : array
     {
@@ -3302,23 +3389,27 @@ class Type
         $result = [];
         foreach (self::extractNameList($shape_component_string) as $shape_component) {
             // Because these can be nested, there may be more than one ':'. Only consider the first.
-            $parts = \explode(':', $shape_component, 2);
-            if (count($parts) !== 2) {
-                continue;
+            if (preg_match('/^(' . self::shape_key_regex . ')\s*:\s*(.*)$/', $shape_component, $parts)) {
+                $field_name = $parts[1];
+                $field_value = \trim($parts[2]);
+                if ($field_value === '') {
+                    continue;
+                }
+                $result[$field_name] = $field_value;
+            } else {
+                $shape_component = \trim($shape_component);
+                if ($shape_component === '') {
+                    continue;
+                }
+                $result[] = $shape_component;
             }
-            $field_name = \trim($parts[0]);
-            if ($field_name === '') {
-                continue;
-            }
-            $field_value = \trim($parts[1]);
-            $result[$field_name] = $field_value;
         }
         return $result;
     }
 
     /**
      * Extracts the inner parts of a template name list (i.e. within <>) or a shape component list (i.e. within {})
-     * @return array<int,string>
+     * @return list<string>
      */
     private static function extractNameList(string $list_string) : array
     {
@@ -3363,8 +3454,8 @@ class Type
     /**
      * Heuristic to handle literal commas in single quoted strings inside of templates/array shapes.
      *
-     * @param array<int,string> $results
-     * @return array<int,string>
+     * @param list<string> $results
+     * @return list<string>
      */
     private static function joinQuotedStrings(array $results) : array
     {

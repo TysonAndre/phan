@@ -2,7 +2,6 @@
 
 namespace Phan\Language\Element;
 
-use Phan\Language\Type\GenericArrayType;
 use Phan\Language\UnionType;
 
 /**
@@ -125,7 +124,7 @@ class VariadicParameter extends Parameter
     /**
      * If this parameter is variadic (e.g. `DateTime ...$args`),
      * then this returns the corresponding array type(s) of $args.
-     * (e.g. `array<int,DateTime>`)
+     * (e.g. `list<DateTime>`)
      *
      * NOTE: For analyzing the code within a function,
      * code should pass $param->cloneAsNonVariadic() instead.
@@ -142,8 +141,7 @@ class VariadicParameter extends Parameter
     public function getUnionType() : UnionType
     {
         if (!$this->isCloneOfVariadic()) {
-            // TODO: Figure out why asNonEmptyGenericArrayTypes() causes test failures
-            return parent::getUnionType()->asNonEmptyGenericArrayTypes(GenericArrayType::KEY_INT);
+            return parent::getUnionType()->asNonEmptyListTypes();
         }
         return $this->type;
     }

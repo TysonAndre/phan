@@ -47,6 +47,14 @@ final class NonEmptyGenericArrayType extends GenericArrayType
         return $map->offsetGet($type);
     }
 
+    protected function canCastToNonNullableType(Type $type) : bool
+    {
+        if (!$type->isPossiblyTruthy()) {
+            return false;
+        }
+        return parent::canCastToNonNullableType($type);
+    }
+
     /** @override */
     public function isPossiblyFalsey() : bool
     {
@@ -75,5 +83,11 @@ final class NonEmptyGenericArrayType extends GenericArrayType
         }
 
         return $string;
+    }
+
+    /** @override */
+    public function isDefinitelyNonEmptyArray() : bool
+    {
+        return true;
     }
 }
