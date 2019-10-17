@@ -21,6 +21,7 @@ use Phan\Language\FQSEN\FullyQualifiedFunctionName;
 use Phan\Language\FQSEN\FullyQualifiedMethodName;
 use Phan\Language\Type\ArrayShapeType;
 use Phan\Language\Type\ArrayType;
+use Phan\Language\Type\AssociativeArrayType;
 use Phan\Language\Type\BoolType;
 use Phan\Language\Type\CallableStringType;
 use Phan\Language\Type\CallableType;
@@ -125,7 +126,7 @@ class UnionType implements Serializable
 
     /**
      * @param Type[] $type_list
-     * @param list<Type> $real_type_set
+     * @param Type[] $real_type_set
      * @phan-pure
      */
     public static function of(array $type_list, array $real_type_set = []) : UnionType
@@ -1160,7 +1161,7 @@ class UnionType implements Serializable
     }
 
     /**
-     * @param array<int,Type> $type_set
+     * @param list<Type> $type_set
      * @return list<Type> the subset of types in $type_set excluding the subclasses/sub-types of $object_type
      */
     public static function typesWithoutSubclassesOf(CodeBase $code_base, array $type_set, Type $object_type) : array
@@ -3275,7 +3276,7 @@ class UnionType implements Serializable
     }
 
     /**
-     * Takes `a|b[]|c|d[]|e|f[]|ArrayAccess` and returns `f[]`
+     * Takes `a|b[]|c|d[]|e|f[]|ArrayAccess` and returns `b[]|f[]`
      *
      * @return UnionType
      * A UnionType with non-array types filtered out
@@ -3494,7 +3495,6 @@ class UnionType implements Serializable
         // If array is in there, then it can be any type
         if (\in_array($array_type_nonnull, $type_set, true)) {
             $builder->addType($mixed_type);
-            $builder->addType($null_type);
         } elseif (\in_array($mixed_type, $type_set, true)
             || \in_array($array_type_nullable, $type_set, true)
         ) {
@@ -3672,6 +3672,32 @@ class UnionType implements Serializable
         $result = $this->asMappedUnionType(
             static function (Type $type) use ($key_type) : Type {
                 return $type->asGenericArrayType($key_type);
+            }
+        );
+        if (!$result->hasRealTypeSet()) {
+            return $result->withRealType($type);
+        }
+        return $result;
+    }
+
+    /**
+     * @return UnionType
+     * Get a new type for each type in this union which is
+     * the associative array version of this type. For instance,
+     * 'int|float' will produce 'associative-array<int>|associative-array<float>'.
+     *
+     * If $this is an empty UnionType, this method will produce 'associative-array<mixed>'
+     */
+    public function asNonEmptyAssociativeArrayTypes(int $key_type) : UnionType
+    {
+        static $cache = [];
+        $type = ($cache[$key_type] ?? ($cache[$key_type] = AssociativeArrayType::fromElementType(MixedType::instance(false), false, $key_type)));
+        if (\count($this->type_set) === 0) {
+            return $type->asRealUnionType();
+        }
+        $result = $this->asMappedUnionType(
+            static function (Type $type) use ($key_type) : Type {
+                return AssociativeArrayType::fromElementType($type, false, $key_type);
             }
         );
         if (!$result->hasRealTypeSet()) {
@@ -4025,8 +4051,8 @@ class UnionType implements Serializable
     }
 
     /**
-     * @param array<string,array<int|string,string>> $php74_map
-     * @return array<string,array<int|string,string>>
+     * @param array<string,associative-array<int|string,string>> $php74_map
+     * @return array<string,associative-array<int|string,string>>
      */
     private static function computePHP80FunctionSignatureMap(array $php74_map) : array
     {
@@ -4035,8 +4061,8 @@ class UnionType implements Serializable
     }
 
     /**
-     * @param array<string,array<int|string,string>> $php73_map
-     * @return array<string,array<int|string,string>>
+     * @param array<string,associative-array<int|string,string>> $php73_map
+     * @return array<string,associative-array<int|string,string>>
      */
     private static function computePHP74FunctionSignatureMap(array $php73_map) : array
     {
@@ -4045,8 +4071,8 @@ class UnionType implements Serializable
     }
 
     /**
-     * @param array<string,array<int|string,string>> $php73_map
-     * @return array<string,array<int|string,string>>
+     * @param array<string,associative-array<int|string,string>> $php73_map
+     * @return array<string,associative-array<int|string,string>>
      */
     private static function computePHP72FunctionSignatureMap(array $php73_map) : array
     {
@@ -4065,8 +4091,8 @@ class UnionType implements Serializable
     }
 
     /**
-     * @param array<string,array<int|string,string>> $php71_map
-     * @return array<string,array<int|string,string>>
+     * @param array<string,associative-array<int|string,string>> $php71_map
+     * @return array<string,associative-array<int|string,string>>
      */
     private static function computePHP70FunctionSignatureMap(array $php71_map) : array
     {
@@ -4075,8 +4101,8 @@ class UnionType implements Serializable
     }
 
     /**
-     * @param array<string,array<int|string,string>> $php70_map
-     * @return array<string,array<int|string,string>>
+     * @param array<string,associative-array<int|string,string>> $php70_map
+     * @return array<string,associative-array<int|string,string>>
      */
     private static function computePHP56FunctionSignatureMap(array $php70_map) : array
     {
@@ -4085,9 +4111,9 @@ class UnionType implements Serializable
     }
 
     /**
-     * @param array<string,array<int|string,string>> $older_map
-     * @param array{new:array<string,array<int|string,string>>,old:array<string,array<int|string,string>>} $delta
-     * @return array<string,array<int|string,string>>
+     * @param array<string,associative-array<int|string,string>> $older_map
+     * @param array{new:array<string,associative-array<int|string,string>>,old:array<string,associative-array<int|string,string>>} $delta
+     * @return array<string,associative-array<int|string,string>>
      *
      * @see applyDeltaToGetOlderSignatures - This is doing the exact same thing in reverse.
      * @suppress PhanUnreferencedPrivateMethod this will be used again when Phan supports the next PHP minor release
@@ -4101,9 +4127,9 @@ class UnionType implements Serializable
     }
 
     /**
-     * @param array<string,array<int|string,string>> $newer_map
-     * @param array{new:array<string,array<int|string,string>>,old:array<string,array<int|string,string>>} $delta
-     * @return array<string,array<int|string,string>>
+     * @param array<string,associative-array<int|string,string>> $newer_map
+     * @param array{new:array<string,associative-array<int|string,string>>,old:array<string,associative-array<int|string,string>>} $delta
+     * @return array<string,associative-array<int|string,string>>
      */
     private static function applyDeltaToGetOlderSignatures(array $newer_map, array $delta) : array
     {
@@ -4372,6 +4398,52 @@ class UnionType implements Serializable
     }
 
     /**
+     * Flatten literals in keys and values of top-level array shapes into non-literal types (but not standalone literals)
+     * E.g. convert array{2:array{key:'value'}} to array<int,array{key:'value'}>
+     */
+    public function withFlattenedTopLevelArrayShapeTypeInstances() : UnionType
+    {
+        if (!$this->hasArrayShapeTypeInstances()) {
+            return $this;
+        }
+        return UnionType::of(
+            self::withFlattenedTopLevelArrayShapeTypeInstancesForSet($this->type_set),
+            self::withFlattenedTopLevelArrayShapeTypeInstancesForSet($this->real_type_set)
+        );
+    }
+
+    /**
+     * @param list<Type> $type_set
+     * @return list<Type>
+     */
+    private static function withFlattenedTopLevelArrayShapeTypeInstancesForSet(array $type_set) : array {
+        $result = [];
+        $has_other_array_type = false;
+        $empty_array_shape_type = null;
+        foreach ($type_set as $type) {
+            if ($type instanceof ArrayShapeType) {
+                if (\count($type->getFieldTypes()) === 0) {
+                    $empty_array_shape_type = $type;
+                    continue;
+                }
+                $has_other_array_type = true;
+                foreach ($type->withFlattenedTopLevelArrayShapeTypeInstances() as $type_part) {
+                    $result[] = $type_part;
+                }
+            } else {
+                $result[] = $type;
+                if ($type instanceof ArrayType) {
+                    $has_other_array_type = true;
+                }
+            }
+        }
+        if ($empty_array_shape_type && !$has_other_array_type) {
+            $result[] = ArrayType::instance($empty_array_shape_type->isNullable());
+        }
+        return $result;
+    }
+
+    /**
      * Flatten literals in keys and values into non-literal types (but not standalone literals)
      * E.g. convert array{2:3} to array<int,string>
      */
@@ -4380,11 +4452,21 @@ class UnionType implements Serializable
         if (!$this->hasArrayShapeTypeInstances()) {
             return $this;
         }
+        return UnionType::of(
+            self::withFlattenedArrayShapeTypeInstancesForSet($this->type_set),
+            self::withFlattenedArrayShapeTypeInstancesForSet($this->real_type_set)
+        );
+    }
 
-        $builder = new UnionTypeBuilder();
+    /**
+     * @param list<Type> $type_set
+     * @return list<Type>
+     */
+    private static function withFlattenedArrayShapeTypeInstancesForSet(array $type_set) : array {
+        $result = [];
         $has_other_array_type = false;
         $empty_array_shape_type = null;
-        foreach ($this->type_set as $type) {
+        foreach ($type_set as $type) {
             if ($type->hasArrayShapeTypeInstances()) {
                 if ($type instanceof ArrayShapeType) {
                     if (\count($type->getFieldTypes()) === 0) {
@@ -4394,19 +4476,19 @@ class UnionType implements Serializable
                 }
                 $has_other_array_type = true;
                 foreach ($type->withFlattenedArrayShapeOrLiteralTypeInstances() as $type_part) {
-                    $builder->addType($type_part);
+                    $result[] = $type_part;
                 }
             } else {
-                $builder->addType($type);
+                $result[] = $type;
                 if ($type instanceof ArrayType) {
                     $has_other_array_type = true;
                 }
             }
         }
         if ($empty_array_shape_type && !$has_other_array_type) {
-            $builder->addType(ArrayType::instance($empty_array_shape_type->isNullable()));
+            $result[] = ArrayType::instance($empty_array_shape_type->isNullable());
         }
-        return $builder->getPHPDocUnionType();
+        return $result;
     }
 
     /**
@@ -4419,10 +4501,22 @@ class UnionType implements Serializable
             return $this;
         }
 
-        $builder = new UnionTypeBuilder();
+        return UnionType::of(
+            self::withFlattenedArrayShapeOrLiteralTypeInstancesForSet($this->type_set),
+            self::withFlattenedArrayShapeOrLiteralTypeInstancesForSet($this->real_type_set)
+        );
+    }
+
+    /**
+     * @param list<Type> $type_set
+     * @return list<Type>
+     */
+    private static function withFlattenedArrayShapeOrLiteralTypeInstancesForSet(array $type_set) : array
+    {
+        $result = [];
         $has_other_array_type = false;
         $empty_array_shape_type = null;
-        foreach ($this->type_set as $type) {
+        foreach ($type_set as $type) {
             if ($type->hasArrayShapeOrLiteralTypeInstances()) {
                 if ($type instanceof ArrayShapeType) {
                     if (\count($type->getFieldTypes()) === 0) {
@@ -4431,19 +4525,75 @@ class UnionType implements Serializable
                     }
                 }
                 foreach ($type->withFlattenedArrayShapeOrLiteralTypeInstances() as $type_part) {
-                    $builder->addType($type_part);
+                    $result[] = $type_part;
                 }
             } else {
-                $builder->addType($type);
+                $result[] = $type;
             }
             if ($type instanceof ArrayType) {
                 $has_other_array_type = true;
             }
         }
         if ($empty_array_shape_type && !$has_other_array_type) {
-            $builder->addType(ArrayType::instance($empty_array_shape_type->isNullable()));
+            $result[] = ArrayType::instance($empty_array_shape_type->isNullable());
         }
-        return $builder->getPHPDocUnionType();
+        return $result;
+    }
+
+    /**
+     * Returns this union type after an operation that converts arrays to associative arrays is applied.
+     */
+    public function withAssociativeArrays(bool $can_reduce_size) : UnionType
+    {
+        return UnionType::of(
+            self::withAssociativeArraysForSet($this->type_set, $can_reduce_size),
+            self::withAssociativeArraysForSet($this->real_type_set, $can_reduce_size)
+        );
+    }
+
+    /**
+     * @param list<Type> $type_set
+     * @return list<Type> with all array types as associative arrays or array shapes
+     */
+    private static function withAssociativeArraysForSet(array $type_set, bool $can_reduce_size) : array
+    {
+        foreach ($type_set as $i => $type) {
+            if (!$type instanceof ArrayType) {
+                continue;
+            }
+            if ($type instanceof ArrayShapeType) {
+                continue;
+            }
+            $type_set[$i] = $type->asAssociativeArrayType($can_reduce_size);
+        }
+        return $type_set;
+    }
+
+    /**
+     * Returns this union type after an operation that converts arrays with integer keys to lists is applied.
+     * (e.g. array_unshift, array_merge)
+     */
+    public function withIntegerKeyArraysAsLists() : UnionType
+    {
+        return UnionType::of(
+            self::withIntegerKeyArraysAsListsForSet($this->type_set),
+            self::withIntegerKeyArraysAsListsForSet($this->real_type_set)
+        );
+    }
+
+    /**
+     * @param list<Type> $type_set
+     * @return list<Type> with all array types as lists, or as arrays with mixed or string keys
+     */
+    private static function withIntegerKeyArraysAsListsForSet(array $type_set) : array
+    {
+        foreach ($type_set as $i => $type) {
+            if (!$type instanceof ArrayType) {
+                continue;
+            }
+            $type_set[$i] = $type->convertIntegerKeyArrayToList();
+        }
+        return $type_set;
     }
 
     /**
@@ -4752,7 +4902,7 @@ class UnionType implements Serializable
             return null;
         }
         $type = \reset($type_set);
-        // @phan-suppress-next-line PhanPossiblyFalseTypeArgumentInternal
+        // @phan-suppress-next-line PhanPossiblyFalseTypeArgumentInternal TODO: Infer non-empty-array from count
         switch (\get_class($type)) {
             case LiteralIntType::class:
                 return $type->isNullable() ? null : $type->getValue();

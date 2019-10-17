@@ -390,7 +390,7 @@ class DependencyGraphPlugin extends PluginV3 implements
                 'class_to_file' => $this->class_to_file
             ]);
         } elseif ($cmd == 'json' && $this->depth != 0) {
-            echo \json_encode($graph, JSON_PRETTY_PRINT);
+            echo \json_encode($graph, \JSON_PRETTY_PRINT);
         } else {
             $this->printGraph($graph);
         }
@@ -470,6 +470,7 @@ class DependencyGraphPlugin extends PluginV3 implements
                 }
             }
             foreach ($depNode as $dnode => $val) {
+                [$dnode] = \explode(',', $dnode);
                 $type = self::getFileLineno((string)$val)[0];
                 $style = '';
                 if ($type == 's') {

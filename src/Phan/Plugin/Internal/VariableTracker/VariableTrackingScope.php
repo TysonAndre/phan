@@ -16,8 +16,8 @@ use function spl_object_id;
 class VariableTrackingScope
 {
     /**
-     * @var array<string,array<int,bool>>
-     * Maps a variable id to a list of definitions in that scope.
+     * @var array<string,associative-array<int,bool>>
+     * Maps a variable id to a set of definitions ids in that scope.
      *
      * This is true if 100% of the definitions are made within the scope,
      * false if a fraction of the definitions could be from preceding scopes.
@@ -27,8 +27,8 @@ class VariableTrackingScope
     protected $defs = [];
 
     /**
-     * @var array<string,array<int,true>>
-     * Maps a variable id to a list of uses which occurred within that scope.
+     * @var array<string,associative-array<int,true>>
+     * Maps a variable id to a list of use ids which occurred within that scope.
      * (of definitions that might have occurred before this scope)
      */
     protected $uses = [];
@@ -98,7 +98,7 @@ class VariableTrackingScope
      *
      * This is overridden by subclasses, some of which will modify $this->defs
      *
-     * @return ?array<int,true> the ids of Nodes which defined $variable_name
+     * @return ?associative-array<int,true> the ids of Nodes which defined $variable_name
      */
     public function getDefinition(string $variable_name) : ?array
     {
@@ -110,7 +110,7 @@ class VariableTrackingScope
      *
      * This is overridden by subclasses
      *
-     * @return ?array<int,true> the ids of Nodes which defined $variable_name
+     * @return ?associative-array<int,true> the ids of Nodes which defined $variable_name
      */
     public function getDefinitionUpToScope(string $variable_name, VariableTrackingScope $forbidden_scope) : ?array
     {
@@ -123,7 +123,7 @@ class VariableTrackingScope
     /**
      * Recursively finds the accessible definitions of various variable names
      *
-     * @return array<string,array<int,true>>
+     * @return array<string,associative-array<int,true>>
      */
     public function getDefinitionsRecursively() : array
     {
@@ -209,7 +209,7 @@ class VariableTrackingScope
     }
 
     /**
-     * @param array<string,array<int,bool>> $uses
+     * @param array<string,associative-array<int,bool>> $uses
      */
     private function mergeUses(array $uses) : void
     {
@@ -248,8 +248,8 @@ class VariableTrackingScope
     }
 
     /**
-     * @param array<int,VariableTrackingBranchScope> $branch_scopes
-     * @param array<int,VariableTrackingBranchScope> $inner_exiting_scope_list
+     * @param list<VariableTrackingBranchScope> $branch_scopes
+     * @param list<VariableTrackingBranchScope> $inner_exiting_scope_list
      */
     public function mergeBranchScopeList(
         array $branch_scopes,
@@ -293,7 +293,7 @@ class VariableTrackingScope
     }
 
     /**
-     * @param array<int,VariableTrackingScope> $branch_scopes
+     * @param list<VariableTrackingScope> $branch_scopes
      * @return array<string,true>
      */
     private static function computeCommonDefsShadowingSet(array $branch_scopes) : array

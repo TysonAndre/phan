@@ -36,7 +36,7 @@ final class ArrayShapeType extends ArrayType implements GenericArrayInterface
     /**
      * This array shape converted to a list of 0 or more ArrayTypes.
      * This is lazily set.
-     * @var ?array<int,ArrayType>
+     * @var ?list<ArrayType>
      */
     private $as_generic_array_type_instances = null;
 
@@ -57,7 +57,7 @@ final class ArrayShapeType extends ArrayType implements GenericArrayInterface
      * E.g. `array{a:int,b:int,c:int|string}` will have two unique union types of values: `int`, and `int|string`
      * Lazily set.
      *
-     * @var ?array<int,UnionType>
+     * @var ?list<UnionType>
      */
     private $unique_value_union_types;
 
@@ -153,7 +153,7 @@ final class ArrayShapeType extends ArrayType implements GenericArrayInterface
     }
 
     /**
-     * @return array<int,ArrayType> the array shape transformed to remove literal keys and values.
+     * @return list<ArrayType> the array shape transformed to remove literal keys and values.
      */
     private function computeGenericArrayTypeInstances() : array
     {
@@ -377,6 +377,10 @@ final class ArrayShapeType extends ArrayType implements GenericArrayInterface
                     return false;
                 }
             }
+        } elseif ($type instanceof AssociativeArrayType) {
+            if (!$this->canCastToAssociativeArray()) {
+                return false;
+            }
         } else {
             if (($this->getKeyType() & ($type->getKeyType() ?: GenericArrayType::KEY_MIXED)) === 0 && ($ignore_config || !Config::getValue('scalar_array_key_cast'))) {
                 // Attempting to cast an int key to a string key (or vice versa) is normally invalid.
@@ -390,6 +394,36 @@ final class ArrayShapeType extends ArrayType implements GenericArrayInterface
         return true;
     }
 
+    /**
+     * True if this can cast to a list type, based on the keys
+     * @internal
+     */
+    public function canCastToList() : bool
+    {
+        $i = 0;
+        foreach ($this->field_types as $k => $v) {
+            if ($k !== $i++ || $v->isPossiblyUndefined()) {
+                return true;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Returns true if this is empty or can't cast to a list
+     * @internal
+     */
+    public function canCastToAssociativeArray() : bool
+    {
+        $i = 0;
+        foreach ($this->field_types as $k => $v) {
+            if ($k !== $i++ || $v->isPossiblyUndefined()) {
+                return true;
+            }
+        }
+        return \count($this->field_types) === 0;
+    }
+
     private function canCastToGenericIterableType(GenericIterableType $iterable_type) : bool
     {
         if (!$this->getKeyUnionType()->canCastToUnionType($iterable_type->getKeyUnionType())) {
@@ -399,13 +433,13 @@ final class ArrayShapeType extends ArrayType implements GenericArrayInterface
         return $this->canEachFieldTypeCastToExpectedUnionType($iterable_type->getElementUnionType());
     }
 
-    /** @return array<int,UnionType> */
+    /** @return list<UnionType> */
     private function getUniqueValueUnionTypes() : array
     {
         return $this->unique_value_union_types ?? ($this->unique_value_union_types = $this->calculateUniqueValueUnionTypes());
     }
 
-    /** @return array<int,UnionType> */
+    /** @return list<UnionType> */
     private function calculateUniqueValueUnionTypes() : array
     {
         $field_types = $this->field_types;
@@ -638,7 +672,7 @@ final class ArrayShapeType extends ArrayType implements GenericArrayInterface
     }
 
     /**
-     * @return array<int,ArrayType>
+     * @return list<ArrayType>
      * @override
      */
     public function withFlattenedArrayShapeOrLiteralTypeInstances() : array
@@ -650,6 +684,31 @@ final class ArrayShapeType extends ArrayType implements GenericArrayInterface
         return $this->as_generic_array_type_instances = $this->computeGenericArrayTypeInstances();
     }
 
+    /**
+     * @return list<ArrayType>
+     * @override
+     */
+    public function withFlattenedTopLevelArrayShapeTypeInstances() : array
+    {
+        if (\count($this->field_types) === 0) {
+            // there are 0 fields, so we know nothing about the field types (and there's no way to indicate an empty array yet)
+            return [ArrayType::instance($this->is_nullable)];
+        }
+
+        $union_type_builder = new UnionTypeBuilder();
+        foreach ($this->field_types as $key => $field_union_type) {
+            foreach ($field_union_type->getTypeSet() as $type) {
+                $union_type_builder->addUnionType(
+                    $type->asPHPDocUnionType()
+                         ->withFlattenedArrayShapeOrLiteralTypeInstances()
+                         ->asGenericArrayTypes(\is_string($key) ? GenericArrayType::KEY_STRING : GenericArrayType::KEY_INT)
+                         ->withIsNullable($this->is_nullable)
+                );
+            }
+        }
+        return $union_type_builder->getTypeSet();
+    }
+
     public function asGenericArrayType(int $key_type) : Type
     {
         return GenericArrayType::fromElementType($this, false, $key_type);
@@ -659,7 +718,7 @@ final class ArrayShapeType extends ArrayType implements GenericArrayInterface
      * Computes the non-nullable union of two or more array shape types.
      *
      * E.g. array{0: string} + array{0:int,1:int} === array{0:int|string,1:int}
-     * @param array<int,ArrayShapeType> $array_shape_types
+     * @param list<ArrayShapeType> $array_shape_types
      */
     public static function union(array $array_shape_types) : ArrayShapeType
     {
@@ -689,10 +748,21 @@ final class ArrayShapeType extends ArrayType implements GenericArrayInterface
      * Computes the union of two array shape types.
      *
      * E.g. array{0: string} + array{0:stdClass,1:int} === array{0:string,1:int}
+     *
+     * @param bool $is_assignment - If true, this is computing the effect of assigning each field in $left to an array with previous type $right, keeping array key order.
      */
-    public static function combineWithPrecedence(ArrayShapeType $left, ArrayShapeType $right) : ArrayShapeType
+    public static function combineWithPrecedence(ArrayShapeType $left, ArrayShapeType $right, bool $is_assignment = false) : ArrayShapeType
     {
-        return self::fromFieldTypes($left->field_types + $right->field_types, false);
+        if ($is_assignment) {
+            // Not using $left->field_types + $right->field_types because that would put the array keys from $added before the array keys from $existing when iterating/displaying types.
+            $combination = $right->field_types;
+            foreach ($left->field_types as $i => $type) {
+                $combination[$i] = $type;
+            }
+        } else {
+            $combination = $left->field_types + $right->field_types;
+        }
+        return self::fromFieldTypes($combination, false);
     }
 
     /**
@@ -993,5 +1063,10 @@ final class ArrayShapeType extends ArrayType implements GenericArrayInterface
             false,
             GenericArrayType::KEY_MIXED
         );
+    }
+
+    public function asAssociativeArrayType(bool $unused_can_reduce_size) : ArrayType
+    {
+        return $this;
     }
 }

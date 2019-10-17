@@ -172,10 +172,11 @@ class AssignOperatorAnalysisVisitor extends FlagVisitorImplementation
             // If both left and right are arrays, then this is array
             // concatenation.
             if ($left->isGenericArray() && $right->isGenericArray()) {
+                BinaryOperatorFlagVisitor::checkInvalidArrayShapeCombination($this->code_base, $this->context, $node, $left, $right);
                 if ($left->isEqualTo($right)) {
                     return $left;
                 }
-                return ArrayType::combineArrayTypesOverriding($left, $right);
+                return ArrayType::combineArrayTypesOverriding($left, $right, false);
             }
 
             $this->warnAboutInvalidUnionType(
@@ -220,7 +221,7 @@ class AssignOperatorAnalysisVisitor extends FlagVisitorImplementation
             if ($left_is_array || $right_is_array) {
                 if ($left_is_array && $right_is_array) {
                     // TODO: Make the right types for array offsets completely override the left types?
-                    return ArrayType::combineArrayTypesOverriding($left, $right);
+                    return ArrayType::combineArrayTypesOverriding($left, $right, false);
                 }
 
                 if ($left_is_array

@@ -24,14 +24,19 @@ use Phan\Language\Element\Method;
 use Phan\Language\Element\Parameter;
 use Phan\Language\Element\PassByReferenceVariable;
 use Phan\Language\Element\Property;
+use Phan\Language\Element\TypedElementInterface;
 use Phan\Language\Element\Variable;
 use Phan\Language\FQSEN\FullyQualifiedClassName;
 use Phan\Language\Type;
 use Phan\Language\Type\ArrayShapeType;
 use Phan\Language\Type\ArrayType;
+use Phan\Language\Type\AssociativeArrayType;
 use Phan\Language\Type\FalseType;
 use Phan\Language\Type\GenericArrayType;
+use Phan\Language\Type\ListType;
 use Phan\Language\Type\MixedType;
+use Phan\Language\Type\NonEmptyAssociativeArrayType;
+use Phan\Language\Type\NonEmptyGenericArrayType;
 use Phan\Language\Type\NullType;
 use Phan\Language\Type\StringType;
 use Phan\Language\UnionType;
@@ -73,6 +78,11 @@ class AssignmentVisitor extends AnalysisVisitor
     private $dim_type;
 
     /**
+     * @var Node
+     */
+    private $assignment_node;
+
+    /**
      * @param CodeBase $code_base
      * The global code base we're operating within
      *
@@ -80,7 +90,7 @@ class AssignmentVisitor extends AnalysisVisitor
      * The context of the parser at the node for which we'd
      * like to determine a type
      *
-     * @param Node $unused_assignment_node
+     * @param Node $assignment_node
      * The AST node containing the assignment
      *
      * @param UnionType $right_type
@@ -98,7 +108,7 @@ class AssignmentVisitor extends AnalysisVisitor
     public function __construct(
         CodeBase $code_base,
         Context $context,
-        Node $unused_assignment_node,
+        Node $assignment_node,
         UnionType $right_type,
         int $dim_depth = 0,
         UnionType $dim_type = null
@@ -108,6 +118,7 @@ class AssignmentVisitor extends AnalysisVisitor
         $this->right_type = $right_type->withSelfResolvedInContext($context);
         $this->dim_depth = $dim_depth;
         $this->dim_type = $dim_type;  // null for `$x[] =` or when dim_depth is 0.
+        $this->assignment_node = $assignment_node;
     }
 
     /**
@@ -366,6 +377,7 @@ class AssignmentVisitor extends AnalysisVisitor
             if (!$value_node instanceof Node) {
                 return;
             }
+            // TODO: Infer that this is creating or copying a reference [&$a] = [&$b]
         }
         if ($kind === \ast\AST_VAR) {
             $variable = Variable::fromNodeInContext(
@@ -377,7 +389,7 @@ class AssignmentVisitor extends AnalysisVisitor
 
             // Set the element type on each element of
             // the list
-            $variable->setUnionType($element_type);
+            $this->analyzeSetUnionType($variable, $element_type, $value_node);
 
             // Note that we're not creating a new scope, just
             // adding variables to the existing scope
@@ -392,7 +404,7 @@ class AssignmentVisitor extends AnalysisVisitor
 
                 // Set the element type on each element of
                 // the list
-                $property->setUnionType($element_type);
+                $this->analyzeSetUnionType($property, $element_type, $value_node);
             } catch (UnanalyzableException $_) {
                 // Ignore it. There's nothing we can do.
             } catch (NodeException $_) {
@@ -415,6 +427,105 @@ class AssignmentVisitor extends AnalysisVisitor
             ))->__invoke($value_node);
         }
     }  // TODO: Warn if $value_node is not a node. NativeSyntaxCheckPlugin already does this.
+
+    /**
+     * Set the element's union type.
+     * This should be used for warning about assignments such as `$leftHandSide = $str`, but not `is_string($var)`,
+     * when typed properties could be used.
+     *
+     * @param Node|string|int|float $node
+     */
+    private function analyzeSetUnionType(
+        TypedElementInterface $element,
+        UnionType $element_type,
+        $node
+    ) : void {
+        $element->setUnionType($element_type);
+        if ($element instanceof PassByReferenceVariable) {
+            self::analyzeSetUnionTypePassByRef($this->code_base, $this->context, $element, $element_type, $node);
+        }
+    }
+
+    /**
+     * Set the element's union type.
+     * This should be used for warning about assignments such as `$leftHandSide = $str`, but not `is_string($var)`,
+     * when typed properties could be used.
+     *
+     * Static version of analyzeSetUnionType
+     *
+     * @param Node|string|int|float $node
+     */
+    public static function analyzeSetUnionTypeInContext(
+        CodeBase $code_base,
+        Context $context,
+        TypedElementInterface $element,
+        UnionType $element_type,
+        $node
+    ) : void {
+        $element->setUnionType($element_type);
+        if ($element instanceof PassByReferenceVariable) {
+            self::analyzeSetUnionTypePassByRef($code_base, $context, $element, $element_type, $node);
+        }
+    }
+
+    /**
+     * Set the reference element's union type.
+     * This should be used for warning about assignments such as `$leftHandSideRef = $str`, but not `is_string($varRef)`,
+     * when typed properties could be used.
+     *
+     * @param Node|string|int|float $node
+     */
+    private static function analyzeSetUnionTypePassByRef(
+        CodeBase $code_base,
+        Context $context,
+        PassByReferenceVariable $reference_element,
+        UnionType $new_type,
+        $node
+    ) : void {
+        $element = $reference_element->getElement();
+        while ($element instanceof PassByReferenceVariable) {
+            $reference_element = $element;
+            $element = $element->getElement();
+        }
+        if ($element instanceof Property) {
+            $real_union_type = $element->getRealUnionType();
+            if (!$real_union_type->isEmpty() && !$new_type->getRealUnionType()->canCastToDeclaredType($code_base, $context, $real_union_type)) {
+                $reference_context = $reference_element->getContextOfCreatedReference();
+                if ($reference_context) {
+                    // Here, we emit the issue at the place where the reference was created,
+                    // since that's the code that can be changed or where issues should be suppressed.
+                    Issue::maybeEmit(
+                        $code_base,
+                        $reference_context,
+                        Issue::TypeMismatchPropertyRealByRef,
+                        $reference_context->getLineNumberStart(),
+                        $new_type,
+                        $element->getRepresentationForIssue(),
+                        $real_union_type,
+                        $context->getFile(),
+                        $node->lineno ?? $context->getLineNumberStart()
+                    );
+                }
+                return;
+            }
+            if (!$new_type->asExpandedTypes($code_base)->canCastToUnionType($element->getPHPDocUnionType())) {
+                $reference_context = $reference_element->getContextOfCreatedReference();
+                if ($reference_context) {
+                    Issue::maybeEmit(
+                        $code_base,
+                        $reference_context,
+                        Issue::TypeMismatchPropertyByRef,
+                        $reference_context->getLineNumberStart(),
+                        $new_type,
+                        $element->getRepresentationForIssue(),
+                        $element->getPHPDocUnionType(),
+                        $context->getFile(),
+                        $node->lineno ?? $context->getLineNumberStart()
+                    );
+                }
+            }
+        }
+    }
 
     /**
      * Analyzes code such as list($a) = function_returning_array();
@@ -494,7 +605,7 @@ class AssignmentVisitor extends AnalysisVisitor
 
                 // Set the element type on each element of
                 // the list
-                $variable->setUnionType($element_type);
+                $this->analyzeSetUnionType($variable, $element_type, $value_node);
 
                 // Note that we're not creating a new scope, just
                 // adding variables to the existing scope
@@ -509,7 +620,7 @@ class AssignmentVisitor extends AnalysisVisitor
 
                     // Set the element type on each element of
                     // the list
-                    $property->setUnionType($element_type);
+                    $this->analyzeSetUnionType($property, $element_type, $value_node);
                 } catch (UnanalyzableException $_) {
                     // Ignore it. There's nothing we can do.
                 } catch (NodeException $_) {
@@ -964,14 +1075,9 @@ class AssignmentVisitor extends AnalysisVisitor
                 $old_type = ArrayType::instance(false)->asPHPDocUnionType();
             }
             if ($this->dim_depth > 1 || ($old_type->hasTopLevelNonArrayShapeTypeInstances() || $right_type->hasTopLevelNonArrayShapeTypeInstances() || $right_type->isEmpty())) {
-                $new_type = $old_type->withUnionType(
-                    $right_type
-                );
+                $new_type = $old_type->withUnionType($right_type);
             } else {
-                $new_type = ArrayType::combineArrayTypesOverriding(
-                    $right_type,
-                    $old_type
-                );
+                $new_type = ArrayType::combineArrayTypesOverriding($right_type, $old_type, true);
             }
         }
         $this->context = $this->context->withThisPropertySetToTypeByName($prop_name, $new_type);
@@ -1331,7 +1437,6 @@ class AssignmentVisitor extends AnalysisVisitor
         }
         // Check to see if the variable already exists
         if ($variable) {
-
             // If the variable isn't a pass-by-reference parameter
             // we clone it so as to not disturb its previous types
             // as we replace it.
@@ -1359,17 +1464,21 @@ class AssignmentVisitor extends AnalysisVisitor
                 }
                 // TODO: Make the behavior more precise for $x['a']['b'] = ...; when $x is an array shape.
                 if ($this->dim_depth > 1 || ($old_variable_union_type->hasTopLevelNonArrayShapeTypeInstances() || $right_type->hasTopLevelNonArrayShapeTypeInstances() || $right_type->isEmpty())) {
-                    $variable->setUnionType($old_variable_union_type->withUnionType(
+                    $new_union_type = $old_variable_union_type->withUnionType(
                         $right_type
-                    ));
+                    );
                 } else {
-                    $variable->setUnionType(ArrayType::combineArrayTypesOverriding(
+                    $new_union_type = ArrayType::combineArrayTypesOverriding(
                         $right_type,
-                        $old_variable_union_type
-                    ));
+                        $old_variable_union_type,
+                        true
+                    );
                 }
+                // Note that after $x[anything] = anything, $x is guaranteed not to be the empty array.
+                // TODO: Handle `$x = 'x'; $s[0] = '0';`
+                $this->analyzeSetUnionType($variable, $new_union_type->nonFalseyClone(), $node);
             } else {
-                $variable->setUnionType($this->right_type);
+                $this->analyzeSetUnionType($variable, $this->right_type, $node);
             }
 
             $this->context->addScopeVariable(
@@ -1397,12 +1506,35 @@ class AssignmentVisitor extends AnalysisVisitor
         if ($this->dim_depth > 0) {
             // Reduce false positives: If $variable did not already exist, assume it may already have other array fields
             // (e.g. in a loop, or in the global scope)
+            // TODO: Don't if this isn't in a loop or the global scope.
             $variable->setUnionType($this->right_type->withType(ArrayType::instance(false)));
         } else {
             // Set that type on the variable
             $variable->setUnionType(
                 $this->right_type
             );
+            if ($this->assignment_node->kind === ast\AST_ASSIGN_REF) {
+                $expr = $this->assignment_node->children['expr'];
+                if ($expr instanceof Node && \in_array($expr->kind, [ast\AST_STATIC_PROP, ast\AST_PROP], true)) {
+                    try {
+                        $property = (new ContextNode(
+                            $this->code_base,
+                            $this->context,
+                            $expr
+                        ))->getProperty($expr->kind === ast\AST_STATIC_PROP);
+                        $variable = new PassByReferenceVariable(
+                            $variable,
+                            $property,
+                            $this->code_base,
+                            $this->context
+                        );
+                    } catch (IssueException $_) {
+                        // Hopefully caught elsewhere
+                    } catch (NodeException $_) {
+                        // Hopefully caught elsewhere
+                    }
+                }
+            }
         }
 
         // Note that we're not creating a new scope, just
@@ -1432,6 +1564,11 @@ class AssignmentVisitor extends AnalysisVisitor
         }
         $dim_type = $this->dim_type;
         $right_type = $this->right_type;
+
+        // Sanity check: Don't add list<T> to a property that isn't list<T>
+        // unless it has 1 or more array types and all are list<T>
+        $right_type = self::normalizeListTypesInDimAssignment($assign_type, $right_type);
+
         if ($assign_type->isEmpty() || ($assign_type->hasGenericArray() && !$assign_type->asExpandedTypes($this->code_base)->hasArrayAccess())) {
             // For empty union types or 'array', expect the provided dimension to be able to cast to int|string
             if ($dim_type && !$dim_type->isEmpty() && !$dim_type->canCastToUnionType($int_or_string_type)) {
@@ -1488,6 +1625,67 @@ class AssignmentVisitor extends AnalysisVisitor
             }
         }
         return $right_type;
+    }
+
+    private static function normalizeListTypesInDimAssignment(UnionType $assign_type, UnionType $right_type) : UnionType
+    {
+        // Offsets of $can_cast:
+        // 0. lazily computed: True if list types should be kept as-is.
+        // 1. lazily computed: Should this cast from a regular array to an associative array?
+        $can_cast = [];
+        /**
+         * @param list<Type> $type_set
+         * @return list<Type> with top level list converted to non-empty-array. May contain duplicates.
+         */
+        $map_type_set = static function (array $type_set) use ($assign_type, &$can_cast) : array {
+            foreach ($type_set as $i => $type) {
+                if ($type instanceof ListType) {
+                    $result = ($can_cast[0] = ($can_cast[0] ?? $assign_type->hasTypeMatchingCallback(static function (Type $other_type) : bool {
+                        if (!$other_type instanceof ArrayType) {
+                            return false;
+                        }
+                        if ($other_type instanceof ListType) {
+                            return true;
+                        }
+                        // @phan-suppress-next-line PhanAccessMethodInternal
+                        if ($other_type instanceof ArrayShapeType && $other_type->canCastToList()) {
+                            return true;
+                        }
+                        return false;
+                    })));
+                    if ($result) {
+                        continue;
+                    }
+                    $type_set[$i] = NonEmptyGenericArrayType::fromElementType($type->genericArrayElementType(), $type->isNullable(), $type->getKeyType());
+                } elseif ($type instanceof GenericArrayType) {
+                    $result = ($can_cast[1] = ($can_cast[1] ?? $assign_type->hasTypeMatchingCallback(static function (Type $other_type) : bool {
+                        if (!$other_type instanceof ArrayType) {
+                            return false;
+                        }
+                        if ($other_type instanceof AssociativeArrayType) {
+                            return true;
+                        }
+                        // @phan-suppress-next-line PhanAccessMethodInternal
+                        if ($other_type instanceof ArrayShapeType && $other_type->canCastToList()) {
+                            return true;
+                        }
+                        return false;
+                    })));
+                    if (!$result) {
+                        continue;
+                    }
+                    $type_set[$i] = NonEmptyAssociativeArrayType::fromElementType($type->genericArrayElementType(), $type->isNullable(), $type->getKeyType());
+                }
+            }
+            return $type_set;
+        };
+        $new_type_set = $map_type_set($right_type->getTypeSet());
+        $new_real_type_set = $map_type_set($right_type->getRealTypeSet());
+        if (\count($can_cast) === 0) {
+            return $right_type;
+        }
+        return UnionType::of($new_type_set, $new_real_type_set);
+        // echo "Converting $right_type to $assign_type: $result\n";
     }
 
     /**

@@ -819,7 +819,8 @@ class GenericArrayType extends ArrayType implements GenericArrayInterface
      * @internal
      * @deprecated
      */
-    public static function instance(bool $unused_is_nullable) {
+    public static function instance(bool $unused_is_nullable)
+    {
         throw new \AssertionError(static::class . '::' . __FUNCTION__ . ' should not be used');
     }
 
@@ -829,5 +830,31 @@ class GenericArrayType extends ArrayType implements GenericArrayInterface
     public function isDefinitelyNonEmptyArray() : bool
     {
         return false;
+    }
+
+    /**
+     * Returns the equivalent (possibly nullable) associative array type for this type.
+     */
+    public function asAssociativeArrayType(bool $unused_can_reduce_size) : ArrayType
+    {
+        return AssociativeArrayType::fromElementType(
+            $this->element_type,
+            $this->is_nullable,
+            $this->key_type
+        );
+    }
+
+    /**
+     * Convert ArrayTypes with integer-only keys to ListType.
+     */
+    public function convertIntegerKeyArrayToList() : ArrayType
+    {
+        if ($this->key_type !== GenericArrayType::KEY_INT) {
+            return $this;
+        }
+        if ($this->isDefinitelyNonEmptyArray()) {
+            return NonEmptyListType::fromElementType($this->element_type, $this->is_nullable, $this->key_type);
+        }
+        return ListType::fromElementType($this->element_type, $this->is_nullable, $this->key_type);
     }
 }

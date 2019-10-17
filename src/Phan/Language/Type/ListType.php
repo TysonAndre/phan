@@ -52,18 +52,17 @@ class ListType extends GenericArrayType
      */
     protected function canCastToNonNullableType(Type $type) : bool
     {
-        if (!$type->isPossiblyTruthy()) {
-            return false;
-        }
-        if ($type instanceof ArrayShapeType) {
-            if (!$type->canCastToGenericArrayKeys($this)) {
-                return false;
-            }
-        }
-        return parent::canCastToNonNullableType($type);
+        return $this->canCastToTypeCommon($type) &&
+            parent::canCastToNonNullableType($type);
     }
 
     protected function canCastToNonNullableTypeWithoutConfig(Type $type) : bool
+    {
+        return $this->canCastToTypeCommon($type) &&
+            parent::canCastToNonNullableTypeWithoutConfig($type);
+    }
+
+    private function canCastToTypeCommon(Type $type) : bool
     {
         if (!$type->isPossiblyTruthy()) {
             return false;
@@ -72,8 +71,10 @@ class ListType extends GenericArrayType
             if (!$type->canCastToGenericArrayKeys($this)) {
                 return false;
             }
+        } elseif ($type instanceof AssociativeArrayType) {
+            return false;
         }
-        return parent::canCastToNonNullableTypeWithoutConfig($type);
+        return true;
     }
 
     public function asNonFalseyType() : Type
@@ -88,5 +89,11 @@ class ListType extends GenericArrayType
     public function __toString() : string
     {
         return ($this->is_nullable ? '?' : '') . 'list<' . $this->element_type->__toString() . '>';
+    }
+
+    // This is already a list.
+    public function convertIntegerKeyArrayToList() : ArrayType
+    {
+        return $this;
     }
 }

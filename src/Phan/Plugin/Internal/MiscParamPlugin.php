@@ -6,6 +6,7 @@ use ast;
 use ast\Node;
 use Closure;
 use Phan\Analysis\AssignmentVisitor;
+use Phan\Analysis\ConditionVisitor;
 use Phan\AST\ContextNode;
 use Phan\AST\UnionTypeVisitor;
 use Phan\CodeBase;
@@ -18,11 +19,16 @@ use Phan\Language\Context;
 use Phan\Language\Element\FunctionInterface;
 use Phan\Language\Element\Variable;
 use Phan\Language\FQSEN\FullyQualifiedClassName;
+use Phan\Language\Type;
 use Phan\Language\Type\ArrayShapeType;
 use Phan\Language\Type\ArrayType;
+use Phan\Language\Type\AssociativeArrayType;
 use Phan\Language\Type\CallableType;
 use Phan\Language\Type\FalseType;
 use Phan\Language\Type\GenericArrayType;
+use Phan\Language\Type\ListType;
+use Phan\Language\Type\NonEmptyListType;
+use Phan\Language\Type\NonEmptyAssociativeArrayType;
 use Phan\Language\Type\StringType;
 use Phan\Language\UnionType;
 use Phan\Parse\ParseVisitor;
@@ -48,7 +54,7 @@ final class MiscParamPlugin extends PluginV3 implements
         $stop_exception = new StopParamAnalysisException();
 
         /**
-         * @param array<int,Node|int|float|string> $args
+         * @param list<Node|int|float|string> $args
          */
         $min_max_callback = static function (
             CodeBase $code_base,
@@ -82,7 +88,7 @@ final class MiscParamPlugin extends PluginV3 implements
             );
         };
         /**
-         * @param array<int,Node|int|float|string> $args
+         * @param list<Node|int|float|string> $args
          */
         $array_udiff_callback = static function (
             CodeBase $code_base,
@@ -137,7 +143,7 @@ final class MiscParamPlugin extends PluginV3 implements
         };
 
         /**
-         * @param array<int,Node|int|float|string> $args
+         * @param list<Node|int|float|string> $args
          * @return void
          * @throws StopParamAnalysisException
          * to prevent Phan's default incorrect analysis of a call to join()
@@ -269,7 +275,7 @@ final class MiscParamPlugin extends PluginV3 implements
             }
         };
         /**
-         * @param array<int,Node|int|float|string> $args
+         * @param list<Node|int|float|string> $args
          */
         $array_uintersect_uassoc_callback = static function (
             CodeBase $code_base,
@@ -375,12 +381,12 @@ final class MiscParamPlugin extends PluginV3 implements
         };
 
         /**
-         * @param array<int,Node|int|float|string> $args
+         * @param list<Node|int|float|string> $args
          */
         $array_add_callback = static function (
             CodeBase $code_base,
             Context $context,
-            FunctionInterface $unused_function,
+            FunctionInterface $function,
             array $args,
             ?Node $_
         ) : void {
@@ -406,7 +412,9 @@ final class MiscParamPlugin extends PluginV3 implements
                 // E.g. unfold_args(args)
                 $expr_node = $args[$i];
                 $right_inner_type = UnionTypeVisitor::unionTypeFromNode($code_base, $context, $expr_node);
-                $right_type = $right_inner_type->asGenericArrayTypes(GenericArrayType::KEY_INT);
+                // TODO add a way to append vs prepend values when `$x[] = expr;` is treated
+                // as assigning to a specific offset instead of adding list<ExprT> to the union type.
+                $right_type = $right_inner_type->asNonEmptyListTypes();
 
                 $new_context = (new AssignmentVisitor(
                     $code_base,
@@ -416,12 +424,21 @@ final class MiscParamPlugin extends PluginV3 implements
                     1
                 ))->__invoke($modified_array_node);
             }
+            if ($function->getName() === 'array_unshift'
+                    && $modified_array_node instanceof Node &&
+                    $modified_array_node->kind === ast\AST_VAR) {
+                $variable = (new ConditionVisitor($code_base, $new_context))->getVariableFromScope($modified_array_node, $new_context);
+                if ($variable) {
+                    $variable->setUnionType($variable->getUnionType()->withIntegerKeyArraysAsLists());
+                    $new_context->addScopeVariable($variable);
+                }
+            }
             // Hackish: copy properties from this
             $context->setScope($new_context->getScope());
         };
 
         /**
-         * @param array<int,Node|int|float|string> $args
+         * @param list<Node|int|float|string> $args
          */
         $array_remove_single_callback = static function (
             CodeBase $code_base,
@@ -439,11 +456,11 @@ final class MiscParamPlugin extends PluginV3 implements
             if (!$variable) {
                 return;
             }
-            $variable->setUnionType($variable->getUnionType()->withFlattenedArrayShapeOrLiteralTypeInstances());
+            $variable->setUnionType($variable->getUnionType()->withFlattenedTopLevelArrayShapeTypeInstances());
         };
 
         /**
-         * @param array<int,Node|int|float|string> $args
+         * @param list<Node|int|float|string> $args
          */
         $array_splice_callback = static function (
             CodeBase $code_base,
@@ -465,15 +482,93 @@ final class MiscParamPlugin extends PluginV3 implements
             // TODO: Support array_splice('x', $offset, $length, $notAnArray)
             // TODO: handle empty array
             $added_types = UnionTypeVisitor::unionTypeFromNode($code_base, $context, $args[3])->genericArrayTypes();
-            $added_types = $added_types->withFlattenedArrayShapeOrLiteralTypeInstances();
+            $added_types = $added_types->withFlattenedTopLevelArrayShapeTypeInstances();
 
-            $old_types = $variable->getUnionType()->withFlattenedArrayShapeOrLiteralTypeInstances();
+            $old_types = $variable->getUnionType()->withFlattenedTopLevelArrayShapeTypeInstances();
 
-            $variable->setUnionType($old_types->withUnionType($added_types));
+            $variable->setUnionType($old_types->withUnionType($added_types->withIntegerKeyArraysAsLists()));
         };
 
         /**
-         * @param array<int,Node|int|float|string> $args
+         * @param list<Node|int|float|string> $args
+         */
+        $sort_callback = static function (
+            CodeBase $code_base,
+            Context $context,
+            FunctionInterface $unused_function,
+            array $args,
+            ?Node $_
+        ) use ($get_variable) : void {
+            // TODO: support nested adds, like AssignmentVisitor
+            // TODO: Could be more specific for arrays with known length and order
+            if (count($args) < 1) {
+                return;
+            }
+            $variable = $get_variable($code_base, $context, $args[0]);
+            if (!$variable) {
+                return;
+            }
+
+            // TODO: handle empty array
+            $new_types = $variable->getUnionType()
+                ->withFlattenedTopLevelArrayShapeTypeInstances()
+                ->asMappedUnionType(static function (Type $type) : Type {
+                    if ($type instanceof ListType) {
+                        return $type;
+                    }
+                    if ($type instanceof GenericArrayType) {
+                        if ($type->isDefinitelyNonEmptyArray()) {
+                            return NonEmptyListType::fromElementType($type->genericArrayElementType(), $type->isNullable(), $type->getKeyType());
+                        }
+                        return ListType::fromElementType($type->genericArrayElementType(), $type->isNullable(), $type->getKeyType());
+                    }
+                    return $type;
+                });
+
+            $variable->setUnionType($new_types);
+        };
+
+        /**
+         * @param list<Node|int|float|string> $args
+         */
+        $associative_sort_callback = static function (
+            CodeBase $code_base,
+            Context $context,
+            FunctionInterface $unused_function,
+            array $args,
+            ?Node $_
+        ) use ($get_variable) : void {
+            // TODO: support nested adds, like AssignmentVisitor
+            // TODO: Could be more specific for arrays with known length and order
+            if (count($args) < 1) {
+                return;
+            }
+            $variable = $get_variable($code_base, $context, $args[0]);
+            if (!$variable) {
+                return;
+            }
+
+            // TODO: handle empty array
+            $new_types = $variable->getUnionType()
+                ->withFlattenedTopLevelArrayShapeTypeInstances()
+                ->asMappedUnionType(static function (Type $type) : Type {
+                    if ($type instanceof AssociativeArrayType) {
+                        return $type;
+                    }
+                    if ($type instanceof GenericArrayType) {
+                        if ($type->isDefinitelyNonEmptyArray()) {
+                            return NonEmptyAssociativeArrayType::fromElementType($type->genericArrayElementType(), $type->isNullable(), $type->getKeyType());
+                        }
+                        return AssociativeArrayType::fromElementType($type->genericArrayElementType(), $type->isNullable(), $type->getKeyType());
+                    }
+                    return $type;
+                });
+
+            $variable->setUnionType($new_types);
+        };
+
+        /**
+         * @param list<Node|int|float|string> $args
          * TODO: Could make unused variable detection more precise for https://github.com/phan/phan/issues/1812 , but low priority.
          */
         $extract_callback = static function (
@@ -585,7 +680,7 @@ final class MiscParamPlugin extends PluginV3 implements
 
         /**
          * Most of the work was already done in ParseVisitor
-         * @param array<int,Node|int|float|string> $args
+         * @param list<Node|int|float|string> $args
          * @see \Phan\Parse\ParseVisitor::analyzeDefine()
          */
         $define_callback = static function (
@@ -642,7 +737,7 @@ final class MiscParamPlugin extends PluginV3 implements
         };
 
         /**
-         * @param array<int,Node|int|float|string> $args
+         * @param list<Node|int|float|string> $args
          */
         $class_alias_callback = static function (
             CodeBase $code_base,
@@ -707,7 +802,15 @@ final class MiscParamPlugin extends PluginV3 implements
             'array_shift' => $array_remove_single_callback,
             'array_unshift' => $array_add_callback,
 
-            'array_splice' => $array_splice_callback,  // TODO: If this callback ever does anything other than flatten, then create a different callback
+            'array_splice' => $array_splice_callback,
+            // Convert arrays to lists
+            'sort' => $sort_callback,
+            'usort' => $sort_callback,
+
+            'asort' => $associative_sort_callback,
+            'uasort' => $associative_sort_callback,
+            'ksort' => $associative_sort_callback,
+            'uksort' => $associative_sort_callback,
 
             'extract' => $extract_callback,
 

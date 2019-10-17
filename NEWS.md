@@ -1,14 +1,49 @@
 Phan NEWS
 
-??? ?? 2019, Phan 2.2.14 (dev)
-------------------------
+??? ?? 2019, Phan 2.3.1 (dev)
+-----------------------
 
 New features(Analysis):
++ Emit `PhanTypeMismatchPropertyRealByRef` or `PhanTypeMismatchPropertyByRef`
+  when potentially assigning an incompatible type to a php 7.4 typed property
+  (or a property with a phpdoc type).
++ Warn about suspicious uses of `+` or `+=` on array shapes or lists. (#3364)
+  These operator will prefer the fields from the left hand side,
+  and will merge lists instead of concatenate them.
+  New issue types: `PhanSuspiciousBinaryAddLists`, `PhanUselessBinaryAddRight`
++ Improvements to inferred types of `sort`, `array_merge`, etc. (#3354)
 
+Oct 13 2019, Phan 2.3.0
+-----------------------
+
+New features(CLI, Configs):
++ Limit --debug-emitted-issues to the files that weren't excluded from analysis.
+
+New features(Analysis):
 + Add support for `list<T>` and `non-empty-list<T>` in phpdoc and in inferred values.
   These represent arrays with consecutive integer keys starting at 0 without any gaps (e.g. `function (string ...$args) {}`)
++ Add support for `associative-array<T>` and `non-empty-associative-array<T>` in phpdoc and in inferred values. (#3357)
+
+  These are the opposite of `list<T>` and `non-empty-associative-list<T>`. `list` cannot cast to `associative-array` and vice-versa.
+  These represent arrays that are unlikely to end up with consecutive integer keys starting at 0 without any gaps.
+  `associative-array` is inferred after analyzing code such as the following:
+
+  - Expressions such as `[$uid1 => $value, $uid2 => $value2]` with unknown keys
+  - Unsetting an array key of a variable.
+  - Adding an unknown array key to an empty array.
+  - Certain built-in functions, such as `array_filter` or `array_unique`,
+    which don't preserve all keys and don't renumber array keys.
+
+  Note that `array<string, T>` is always treated like an associative array.
+
+  However, `T[]` (i.e. `array<mixed, T>`) is not treated like `associative-array<mixed, T>` (i.e. `associative-array<T>`).
+  Phan will warn about using the latter (`associative-array`) where a list is expected, but not the former (`array`).
 + Allow omitting keys from array shapes for sequential array elements
   (e.g. `array{stdClass, array}` is equivalent to `array{0:stdClass, 1:array}`).
++ Add array key of array shapes in the same field order that php would for assignments such as `$x = [10]; $x[1] = 11;`. (#3359)
++ Infer that arrays are non-empty after analyzing code such as `$x[expr] = expr` or `$x[] = expr`.
++ Infer that arrays are possibly empty after analyzing code such as `unset($x[expr]);`.
++ Fix false positives in redundant condition detection when the source union type contains the `mixed` type.
 
 Oct 03 2019, Phan 2.2.13
 ------------------------

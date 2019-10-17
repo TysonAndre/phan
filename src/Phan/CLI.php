@@ -62,7 +62,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    const PHAN_VERSION = '2.2.14-dev';
+    const PHAN_VERSION = '2.3.1-dev';
 
     /**
      * List of short flags passed to getopt
@@ -216,7 +216,7 @@ class CLI
             }
             $value_set[$file] = $file;
         }
-        return array_values($value_set);
+        return \array_values($value_set);
     }
 
     /**
@@ -483,7 +483,7 @@ class CLI
                     if (!is_string($value)) {
                         $value = Issue::TRACE_BASIC;
                     }
-                    Issue::setTraceIssues($value);
+                    BufferingCollector::setTraceIssues($value);
                     break;
                 case 'a':
                 case 'dump-ast':
@@ -1023,13 +1023,13 @@ class CLI
                 $exclude_file_set["./$normalized_file"] = true;
             }
 
-            $this->file_list = \array_filter(
+            $this->file_list = \array_values(\array_filter(
                 $this->file_list,
                 static function (string $file) use ($exclude_file_set) : bool {
                     // Handle edge cases such as 'mydir/subdir\subsubdir' on Windows, if mydir/subdir was in the Phan config.
                     return !isset($exclude_file_set[\str_replace('\\', '/', $file)]);
                 }
-            );
+            ));
         }
     }
 

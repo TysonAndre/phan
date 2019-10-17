@@ -94,20 +94,20 @@ class ArrayType extends IterableType
      * @param UnionType $right the right-hand side (e.g. of a `+` operator).
      * @return UnionType with ArrayType subclass(es)
      */
-    public static function combineArrayTypesOverriding(UnionType $left, UnionType $right) : UnionType
+    public static function combineArrayTypesOverriding(UnionType $left, UnionType $right, bool $is_assignment = false) : UnionType
     {
         return UnionType::of(
-            ArrayType::combineArrayTypeListsOverriding($left->getTypeSet(), $right->getTypeSet()),
-            ArrayType::combineArrayTypeListsOverriding($left->getRealTypeSet(), $right->getRealTypeSet())
+            ArrayType::combineArrayTypeListsOverriding($left->getTypeSet(), $right->getTypeSet(), $is_assignment),
+            ArrayType::combineArrayTypeListsOverriding($left->getRealTypeSet(), $right->getRealTypeSet(), $is_assignment)
         );
     }
 
     /**
-     * @param array<int,Type> $left_types
-     * @param array<int,Type> $right_types
+     * @param list<Type> $left_types
+     * @param list<Type> $right_types
      * @return list<Type>
      */
-    private static function combineArrayTypeListsOverriding(array $left_types, array $right_types) : array
+    private static function combineArrayTypeListsOverriding(array $left_types, array $right_types, bool $is_assignment) : array
     {
         $result = new UnionTypeBuilder();
         $left_array_shape_types = [];
@@ -143,11 +143,10 @@ class ArrayType extends IterableType
             if (\count($right_array_shape_types) === 0) {
                 return $left_array_shape_types;
             }
-            // fields from the left take precedence (e.g. [0, false] + ['string'] becomes [0, false])
-            return [ArrayShapeType::combineWithPrecedence(
-                ArrayShapeType::union($left_array_shape_types),
-                ArrayShapeType::union($right_array_shape_types)
-            )];
+            // Fields from the left take precedence (e.g. [0, false] + ['string'] becomes [0, false])
+            $left_union_type = ArrayShapeType::union($left_array_shape_types);
+            $right_union_type = ArrayShapeType::union($right_array_shape_types);
+            return [ArrayShapeType::combineWithPrecedence($left_union_type, $right_union_type, $is_assignment)];
         }
         foreach (\array_merge($left_array_shape_types, $right_array_shape_types) as $type) {
             foreach ($type->withFlattenedArrayShapeOrLiteralTypeInstances() as $type_part) {
@@ -267,6 +266,30 @@ class ArrayType extends IterableType
     {
         // arrays can't cast to object.
         return false;
+    }
+
+    /**
+     * Returns the equivalent (possibly nullable) associative array type (or array shape type) for this type.
+     *
+     * TODO: Implement for ArrayShapeType (not currently calling it) with $can_reduce_size
+     */
+    public function asAssociativeArrayType(bool $unused_can_reduce_size) : ArrayType
+    {
+        return AssociativeArrayType::fromElementType(
+            MixedType::instance(false),
+            $this->is_nullable,
+            GenericArrayType::KEY_MIXED
+        );
+    }
+
+    /**
+     * Convert ArrayTypes with integer-only keys to ListType.
+     * Calling withFlattenedArrayShapeTypeInstances first is recommended.
+     */
+    public function convertIntegerKeyArrayToList() : ArrayType
+    {
+        // The base type has unknown keys. Do nothing.
+        return $this;
     }
 }
 // Trigger the autoloader for GenericArrayType so that it won't be called

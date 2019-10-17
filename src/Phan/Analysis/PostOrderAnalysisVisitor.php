@@ -61,7 +61,7 @@ use function implode;
 class PostOrderAnalysisVisitor extends AnalysisVisitor
 {
     /**
-     * @var array<int,Node> a list of parent nodes of the currently analyzed node,
+     * @var list<Node> a list of parent nodes of the currently analyzed node,
      * within the current global or function-like scope
      */
     private $parent_node_list;
@@ -76,7 +76,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * The context of the parser at the node for which we'd
      * like to determine a type
      *
-     * @param array<int,Node> $parent_node_list
+     * @param list<Node> $parent_node_list
      * The parent node list of the node being analyzed
      */
     public function __construct(
@@ -263,26 +263,44 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             if ($union_type->isEmpty()) {
                 return;
             }
-            $union_type = $union_type->withStaticResolvedInContext($this->context);
-            if (!$union_type->asExpandedTypes($this->code_base)->hasArrayLike() && !$union_type->hasMixedType()) {
+            $resolved_union_type = $union_type->withStaticResolvedInContext($this->context);
+            if (!$resolved_union_type->asExpandedTypes($this->code_base)->hasArrayLike() && !$resolved_union_type->hasMixedType()) {
                 $this->emitIssue(
                     Issue::TypeArrayUnsetSuspicious,
                     $node->lineno,
-                    (string)$union_type
+                    (string)$resolved_union_type
                 );
-            }
-            if (!$union_type->hasTopLevelArrayShapeTypeInstances()) {
-                return;
             }
             $dim_node = $node->children['dim'];
             $dim_value = $dim_node instanceof Node ? (new ContextNode($this->code_base, $this->context, $dim_node))->getEquivalentPHPScalarValue() : $dim_node;
+            // unset($x[$i]) should convert a list<T> or non-empty-list<T> to an array<Y>
+            $union_type = $union_type->withAssociativeArrays(true);
+            $variable = clone($variable);
+            $context->addScopeVariable($variable);
+            $variable->setUnionType($union_type);
+            /*
+            if (!is_scalar($dim_value) || (!is_numeric($dim_value) || $dim_value >= 0)) {
+                foreach ($union_type->getTypeSet() as $type) {
+                    if ($type instanceof ListType) {
+                        $union_type = $union_type->withoutType($type)->withType(
+                            GenericArrayType::fromElementType($type->genericArrayElementType(), false, $type->getKeyType())
+                        );
+                        $variable = clone($variable);
+                        $context->addScopeVariable($variable);
+                        $variable->setUnionType($union_type);
+                    }
+                }
+            }
+             */
+
+            if (!$union_type->hasTopLevelArrayShapeTypeInstances()) {
+                return;
+            }
             // TODO: detect and warn about null
             if (!\is_scalar($dim_value)) {
                 return;
             }
-            $variable = clone($variable);
-            $context->addScopeVariable($variable);
-            $variable->setUnionType($variable->getUnionType()->withoutArrayShapeField($dim_value));
+            $variable->setUnionType($union_type->withoutArrayShapeField($dim_value));
         }
     }
 
@@ -1498,7 +1516,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     }
 
     /**
-     * @param array<int,UnionType> $template_type_list
+     * @param list<UnionType> $template_type_list
      */
     private function compareYieldAgainstDeclaredType(Node $node, FunctionInterface $method, Context $context, array $template_type_list) : Context
     {
@@ -1605,7 +1623,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     }
 
     /**
-     * @param array<int,UnionType> $template_type_list
+     * @param list<UnionType> $template_type_list
      */
     private function compareYieldFromAgainstDeclaredType(Node $node, FunctionInterface $method, Context $context, array $template_type_list, UnionType $yield_from_type) : Context
     {
@@ -2886,7 +2904,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     }
 
     /**
-     * @param array<int,Node> $parent_node_list
+     * @param list<Node> $parent_node_list
      * @return bool true if the union type should skip analysis due to being the left-hand side expression of an assignment
      * We skip checks for $x['key'] being valid in expressions such as `$x['key']['key2']['key3'] = 'value';`
      * because those expressions will create $x['key'] as a side effect.
@@ -3397,7 +3415,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     }
 
     /**
-     * @param array<int,Node|string|int|float> $argument_list the arguments of the invocation, containing the pass by reference argument
+     * @param list<Node|string|int|float> $argument_list the arguments of the invocation, containing the pass by reference argument
      *
      * @param Parameter $parameter the parameter types inferred from combination of real and union type
      *
@@ -3459,10 +3477,10 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         }
 
         if ($variable) {
-            $set_variable_type = static function (UnionType $new_type) use ($code_base, $context, $variable) : void {
+            $set_variable_type = static function (UnionType $new_type) use ($code_base, $context, $variable, $argument) : void {
                 if ($variable instanceof Variable) {
                     $variable = clone($variable);
-                    $variable->setUnionType($new_type);
+                    AssignmentVisitor::analyzeSetUnionTypeInContext($code_base, $context, $variable, $new_type, $argument);
                     $context->addScopeVariable($variable);
                 } else {
                     // This is a Property. Add any compatible new types to the type of the property.
@@ -3515,7 +3533,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
 
     /**
      * @param Closure(UnionType):void $set_variable_type
-     * @param array<int,Node|string|int|float> $argument_list
+     * @param list<Node|string|int|float> $argument_list
      */
     private static function analyzeWriteOnlyReference(
         CodeBase $code_base,
@@ -3569,14 +3587,14 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      *
      * This is used when analyzing callbacks and closures, e.g. in array_map.
      *
-     * @param array<int,UnionType> $argument_types
+     * @param list<UnionType> $argument_types
      * An AST node listing the arguments
      *
      * @param FunctionInterface $method
      * The method or function being called
      * @see analyzeMethodWithArgumentTypes (Which takes AST nodes)
      *
-     * @param array<int,Node|mixed> $arguments
+     * @param list<Node|mixed> $arguments
      * An array of arguments to the callable, to analyze references.
      */
     public function analyzeCallableWithArgumentTypes(
@@ -3856,10 +3874,10 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * The argument whose type we'd like to replace the
      * parameter type with.
      *
-     * @param array<int,UnionType> $argument_types
+     * @param list<UnionType> $argument_types
      * The type of arguments
      *
-     * @param array<int,Parameter> &$parameter_list
+     * @param list<Parameter> &$parameter_list
      * The parameter list - types are modified by reference
      *
      * @param int $parameter_offset
@@ -3946,15 +3964,13 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 // Could not figure out the node name
                 return;
             }
-        } elseif ($argument->kind == ast\AST_STATIC_PROP) {
+        } elseif (\in_array($argument->kind, [ast\AST_STATIC_PROP, ast\AST_PROP], true)) {
             try {
                 $variable = (new ContextNode(
                     $this->code_base,
                     $this->context,
                     $argument
-                ))->getProperty(
-                    true
-                );
+                ))->getProperty($argument->kind === ast\AST_STATIC_PROP);
             } catch (IssueException $_) {
                 // Hopefully caught elsewhere
             } catch (NodeException $_) {
@@ -3975,7 +3991,8 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             new PassByReferenceVariable(
                 $parameter,
                 $variable,
-                $this->code_base
+                $this->code_base,
+                $this->context
             );
         // Add it to the (cloned) scope of the function wrapped
         // in a way that makes it addressable as the

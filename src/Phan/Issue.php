@@ -212,6 +212,8 @@ class Issue
     const TypeErrorInOperation = 'PhanTypeErrorInOperation';
     const TypeInvalidPropertyDefaultReal    = 'PhanTypeInvalidPropertyDefaultReal';
     const TypeMismatchPropertyReal          = 'PhanTypeMismatchPropertyReal';
+    const TypeMismatchPropertyRealByRef     = 'PhanTypeMismatchPropertyRealByRef';
+    const TypeMismatchPropertyByRef         = 'PhanTypeMismatchPropertyByRef';
     const ImpossibleCondition               = 'PhanImpossibleCondition';
     const ImpossibleConditionInLoop         = 'PhanImpossibleConditionInLoop';
     const ImpossibleConditionInGlobalScope  = 'PhanImpossibleConditionInGlobalScope';
@@ -392,6 +394,8 @@ class Issue
     const UnusedVariableValueOfForeachWithKey   = 'PhanUnusedVariableValueOfForeachWithKey';  // has higher false positive rates than UnusedVariable
     const EmptyForeach                          = 'PhanEmptyForeach';
     const EmptyYieldFrom                        = 'PhanEmptyYieldFrom';
+    const UselessBinaryAddRight                 = 'PhanUselessBinaryAddRight';
+    const SuspiciousBinaryAddLists              = 'PhanSuspiciousBinaryAddLists';
     const UnusedVariableCaughtException         = 'PhanUnusedVariableCaughtException';  // has higher false positive rates than UnusedVariable
     const UnusedGotoLabel                       = 'PhanUnusedGotoLabel';
     const UnusedVariableReference               = 'PhanUnusedVariableReference';
@@ -2270,6 +2274,22 @@ class Issue
                 10137
             ),
             new Issue(
+                self::TypeMismatchPropertyRealByRef,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "{TYPE} may end up assigned to property {PROPERTY} of type {TYPE} by reference at {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                10150
+            ),
+            new Issue(
+                self::TypeMismatchPropertyByRef,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_LOW,
+                "{TYPE} may end up assigned to property {PROPERTY} of type {TYPE} by reference at {FILE}:{LINE}",
+                self::REMEDIATION_B,
+                10151
+            ),
+            new Issue(
                 self::ImpossibleCondition,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_LOW,
@@ -3436,6 +3456,22 @@ class Issue
                 'Saw a yield from statement with empty iterable type {TYPE}',
                 self::REMEDIATION_B,
                 6080
+            ),
+            new Issue(
+                self::UselessBinaryAddRight,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_LOW,
+                "Addition of {TYPE} + {TYPE} {CODE} is probably unnecessary. Array fields from the left hand side will be used instead of each of the fields from the right hand side",
+                self::REMEDIATION_B,
+                6081
+            ),
+            new Issue(
+                self::SuspiciousBinaryAddLists,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_LOW,
+                "Addition of {TYPE} + {TYPE} {CODE} is a suspicious way to add two lists. Some of the array fields from the left hand side will be part of the result, replacing the fields with the same key from the right hand side (this operator does not concatenate the lists)",
+                self::REMEDIATION_B,
+                6082
             ),
             new Issue(
                 self::UnusedVariableCaughtException,
@@ -4669,6 +4705,11 @@ class Issue
         $error_map = self::issueMap();
 
         if (!isset($error_map[$type])) {
+            // Print a verbose error so that this isn't silently caught.
+            \fwrite(\STDERR, "Saw undefined error type $type\n");
+            \ob_start();
+            \debug_print_backtrace(\DEBUG_BACKTRACE_IGNORE_ARGS);
+            \fwrite(\STDERR, \rtrim(\ob_get_clean() ?: "failed to dump backtrace") . \PHP_EOL);
             throw new InvalidArgumentException("Undefined error type $type");
         }
 
@@ -4739,35 +4780,12 @@ class Issue
     const TRACE_VERBOSE = 'verbose';
 
     /**
-     * @var ?string - This is null unless debugging.
-     */
-    private static $trace_issues = null;
-
-    /**
-     * Ensure that backtraces with the cause of the emitted issue are printed to stderr.
-     * If null, stop emitting backtraces.
-     */
-    public static function setTraceIssues(?string $level) : void
-    {
-        self::$trace_issues = $level ? \strtolower($level) : null;
-    }
-
-    /**
      * @param IssueInstance $issue_instance
      * An issue instance to emit
      */
     public static function emitInstance(
         IssueInstance $issue_instance
     ) : void {
-        if (self::$trace_issues) {
-            if (self::$trace_issues === self::TRACE_VERBOSE) {
-                \phan_print_backtrace();
-            } else {
-                \ob_start();
-                \debug_print_backtrace(\DEBUG_BACKTRACE_IGNORE_ARGS);
-                \fwrite(\STDERR, (\ob_get_clean() ?: "failed to dump backtrace") . \PHP_EOL);
-            }
-        }
         Phan::getIssueCollector()->collectIssue($issue_instance);
     }
 
