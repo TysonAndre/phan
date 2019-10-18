@@ -110,6 +110,67 @@ class UseReturnValueVisitor extends PluginAwarePostAnalysisVisitor
     }
 
     /**
+     * Checks if a method has unnecessary branches leading to the same returned value
+     *
+     * @param Node $node a node of type AST_METHOD
+     * @override
+     */
+    public function visitMethod(Node $node) : void
+    {
+        $this->analyzeFunctionLike($node);
+    }
+
+    /**
+     * Checks if a global function has unnecessary branches leading to the same returned value
+     *
+     * @param Node $node a node of type AST_FUNC_DECL
+     * @override
+     */
+    public function visitFuncDecl(Node $node) : void
+    {
+        $this->analyzeFunctionLike($node);
+    }
+
+    /**
+     * Checks if a closure has unnecessary branches leading to the same returned value
+     *
+     * NOTE: There is no need to implement this for AST_ARROW_FUNC,
+     * which is currently limited to only one possible returned expression.
+     * @param Node $node a node of type AST_CLOSURE
+     * @override
+     */
+    public function visitClosure(Node $node) : void
+    {
+        $this->analyzeFunctionLike($node);
+    }
+
+    /**
+     * Checks if a function-like has unnecessary branches leading to the same returned value
+     */
+    private function analyzeFunctionLike(Node $node) : void
+    {
+        if (!$this->context->isInFunctionLikeScope()) {
+            return;
+        }
+        $method = $this->context->getFunctionLikeInScope($this->code_base);
+        if (!$method->isPure()) {
+            return;
+        }
+        if ($method instanceof Method) {
+            if ($method->isAbstract()) {
+                return;
+            }
+        }
+        if (!$method->hasReturn() || $method->hasYield()) {
+            return;
+        }
+        $stmts = $node->children['stmts'];
+        if ($stmts instanceof Node) {
+            (new RedundantReturnVisitor($this->code_base, $this->context, $stmts))->analyze();
+        }
+    }
+
+    /**
      * @param Node $node a node of type AST_METHOD_CALL
      * @override
      */
