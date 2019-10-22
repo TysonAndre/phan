@@ -1,7 +1,29 @@
 Phan NEWS
 
-??? ?? 2019, Phan 2.3.1 (dev)
+??? ?? 2019, Phan 2.3.2 (dev)
 -----------------------
+
+New features(Analysis):
++ Fix edge cases in checking if some nullable types were possibly falsey
+  (`?true` and literal floats (e.g. `?1.1`))
++ Emit `PhanCoalescingNeverNull` instead of `PhanCoalescingNeverNullIn*`
+  if it's impossible for the node kind to be null. (#3386)
++ Warn about array destructuring syntax errors (`[] = $arr`, `[$withoutKey, 1 => $withKey] = $arr`)
++ Return a clone of an existing variable if one already exists in Variable::fromNodeInContext. (#3406)
+  This helps analyze `PassByReferenceVariable`s.
+
+Oct 20 2019, Phan 2.3.1
+-----------------------
+
+New features(CLI, Configs):
++ Instead of printing the full help when Phan CLI args or configuration is invalid,
+  print just the errors/warnings and instructions and `Type ./phan --help (or --extended-help) for usage.`
++ Add an option `--debug-signal-handler` that can be used to diagnose
+  why Phan or a plugin is slow or hanging. (Requires the `pcntl` module)
+  This installs a signal handler that response to SIGINT (aka Ctrl-C), SIGUSR1, and SIGUSR2.
++ Print a single backtrace in the crash reporter with the file, line, and arguments instead of multiple backtraces.
++ Emit a warning suggesting using `--long-option` instead when `-long-option[=value]` is passed in.
++ Change colorization of some error messages. Print some warnings to stderr instead of using `error_log()`.
 
 New features(Analysis):
 + Emit `PhanTypeMismatchPropertyRealByRef` or `PhanTypeMismatchPropertyByRef`
@@ -18,6 +40,11 @@ New features(Analysis):
 
   This requires that `UseReturnValuePlugin` be enabled and works best when `'plugin_config' => ['infer_pure_methods' => true]` is set.
 + Allow `list<X>` to cast to `array{0:X, 1?:X}` (#3390)
++ Speed up computing line numbers of diagnostics in the polyfill/fallback parser when there are multiple diagnostics.
+
+Language Server/Daemon mode:
++ Reduce the CPU usage of the language server's main process when the `pcntl` module is used to fork analysis processes (Unix/Linux).
++ Speed up serializing large responses in language server mode (e.g. when a string has an unmatched quote).
 
 Oct 13 2019, Phan 2.3.0
 -----------------------

@@ -27,8 +27,8 @@ use Phan\Language\Type\CallableType;
 use Phan\Language\Type\FalseType;
 use Phan\Language\Type\GenericArrayType;
 use Phan\Language\Type\ListType;
-use Phan\Language\Type\NonEmptyListType;
 use Phan\Language\Type\NonEmptyAssociativeArrayType;
+use Phan\Language\Type\NonEmptyListType;
 use Phan\Language\Type\StringType;
 use Phan\Language\UnionType;
 use Phan\Parse\ParseVisitor;
@@ -626,12 +626,19 @@ final class MiscParamPlugin extends PluginV3 implements
                     if (Variable::isSuperglobalVariableWithName($name)) {
                         return;
                     }
-                    $scope->addVariable(new Variable(
-                        $context,
-                        $name,
-                        $field_type,
-                        0
-                    ));
+                    $variable = $scope->getVariableByNameOrNull($name);
+                    if ($variable) {
+                        $variable = clone($variable);
+                        $variable->setUnionType($field_type);
+                    } else {
+                        $variable = new Variable(
+                            $context,
+                            $name,
+                            $field_type,
+                            0
+                        );
+                    }
+                    $scope->addVariable($variable);
                 };
                 // TODO: Ignore superglobals
 

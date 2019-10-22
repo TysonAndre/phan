@@ -6,6 +6,7 @@ use AssertionError;
 use InvalidArgumentException;
 use Phan\Config\Initializer;
 use Phan\Daemon\ExitException;
+use Phan\Debug\SignalHandler;
 use Phan\Exception\UsageException;
 use Phan\ForkPool\Writer;
 use Phan\Language\Element\AddressableElement;
@@ -62,7 +63,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    const PHAN_VERSION = '2.3.1-dev';
+    const PHAN_VERSION = '2.3.2-dev';
 
     /**
      * List of short flags passed to getopt
@@ -91,6 +92,7 @@ class CLI
         'dead-code-detection',
         'debug',
         'debug-emitted-issues:',
+        'debug-signal-handler',
         'directory:',
         'disable-cache',
         'disable-plugins',
@@ -311,7 +313,7 @@ class CLI
         }
 
         if (\array_key_exists('h', $opts) || \array_key_exists('help', $opts)) {
-            throw new UsageException('', EXIT_SUCCESS);  // --help prints help and calls exit(0)
+            throw new UsageException('', EXIT_SUCCESS, UsageException::PRINT_NORMAL);  // --help prints help and calls exit(0)
         }
         if (\array_key_exists('help-annotations', $opts)) {
             $result = "See https://github.com/phan/phan/wiki/Annotating-Your-Source-Code for more details." . \PHP_EOL . \PHP_EOL;
@@ -327,6 +329,7 @@ class CLI
             \printf("Phan %s\n", self::PHAN_VERSION);
             throw new ExitException('', EXIT_SUCCESS);
         }
+        $this->warnSuspiciousShortOptions($argv);
 
         // Determine the root directory of the project from which
         // we route all relative paths passed in as args
@@ -405,8 +408,13 @@ class CLI
                     $file_list = \is_array($value) ? $value : [$value];
                     foreach ($file_list as $file_name) {
                         if (!is_string($file_name)) {
-                            \error_log("invalid argument for --file-list");
-                            continue;
+                            // Should be impossible?
+                            throw new UsageException(
+                                "invalid argument for --file-list",
+                                EXIT_FAILURE,
+                                null,
+                                true
+                            );
                         }
                         $file_path = Config::projectPath($file_name);
                         if (\is_file($file_path) && \is_readable($file_path)) {
@@ -419,7 +427,12 @@ class CLI
                                 continue;
                             }
                         }
-                        \error_log("Unable to read file $file_path");
+                        throw new UsageException(
+                            "Unable to read file $file_path",
+                            EXIT_FAILURE,
+                            null,
+                            true
+                        );
                     }
                     break;
                 case 'l':
@@ -428,8 +441,12 @@ class CLI
                         $directory_list = \is_array($value) ? $value : [$value];
                         foreach ($directory_list as $directory_name) {
                             if (!is_string($directory_name)) {
-                                \error_log("Invalid --directory setting");
-                                return;
+                                throw new UsageException(
+                                    'Invalid --directory setting (expected a single argument)',
+                                    EXIT_FAILURE,
+                                    null,
+                                    false
+                                );
                             }
                             $this->file_list_in_config = \array_merge(
                                 $this->file_list_in_config,
@@ -484,6 +501,9 @@ class CLI
                         $value = Issue::TRACE_BASIC;
                     }
                     BufferingCollector::setTraceIssues($value);
+                    break;
+                case 'debug-signal-handler':
+                    SignalHandler::init();
                     break;
                 case 'a':
                 case 'dump-ast':
@@ -820,6 +840,27 @@ class CLI
     }
 
     /**
+     * @param list<string> $argv
+     */
+    private static function warnSuspiciousShortOptions(array $argv) : void
+    {
+        $opt_set = [];
+        foreach (self::GETOPT_LONG_OPTIONS as $opt) {
+            $opt_set['-' . \rtrim($opt, ':')] = true;
+        }
+        foreach (array_slice($argv, 1) as $arg) {
+            $arg = \preg_replace('/=.*$/', '', $arg);
+            if (\array_key_exists($arg, $opt_set)) {
+                self::printHelpSection(
+                    "WARNING: Saw suspicious CLI arg '$arg' (did you mean '-$arg')\n",
+                    false,
+                    true
+                );
+            }
+        }
+    }
+
+    /**
      * @param array<string|int,mixed> $opts
      * @throws UsageException if using a flag such as --init-level without --init
      */
@@ -872,12 +913,22 @@ class CLI
                 if (\file_exists($absolute_path)) {
                     $valid_files++;
                 } else {
-                    \fprintf(STDERR, "Warning: Could not find file '%s' passed in %s" . \PHP_EOL, $absolute_path, self::colorizeHelpSectionIfSupported('--include-analysis-file-list'));
+                    \fprintf(
+                        STDERR,
+                        "%sCould not find file '%s' passed in %s" . \PHP_EOL,
+                        self::colorizeHelpSectionIfSupported('WARNING: '),
+                        $absolute_path,
+                        self::colorizeHelpSectionIfSupported('--include-analysis-file-list')
+                    );
                 }
             }
             if ($valid_files === 0) {
                 // TODO convert this to an error in Phan 3.
-                \fprintf(STDERR, "Warning: None of the files in %s exist - This will be an error in future Phan releases." . \PHP_EOL, self::colorizeHelpSectionIfSupported('--include-analysis-file-list'));
+                self::printHelpSection(
+                    "WARNING: None of the files in %s exist - This will be an error in future Phan releases." . \PHP_EOL,
+                    false,
+                    true
+                );
             }
         }
     }
@@ -1117,11 +1168,16 @@ EOT;
         global $argv;
 
         if ($msg !== '') {
-            self::printHelpSection("ERROR: $msg\n", $forbid_color_in_error);
+            self::printHelpSection("ERROR:");
+            self::printHelpSection(" $msg\n", $forbid_color_in_error);
         }
 
         $init_help = self::INIT_HELP;
         echo "Usage: {$argv[0]} [options] [files...]\n";
+        if ($usage_type === UsageException::PRINT_INVALID_ARGS) {
+            self::printHelpSection("Type {$argv[0]} --help (or --extended-help) for usage.\n");
+            exit($exit_code);
+        }
         if ($usage_type === UsageException::PRINT_INIT_ONLY) {
             self::printHelpSection($init_help . "\n");
             exit($exit_code);
@@ -1196,9 +1252,6 @@ $init_help
 
  -D, --debug
   Print debugging output to stderr. Useful for looking into performance issues or crashes.
-
- --debug-emitted-issues={basic,verbose}
-  Print backtraces of emitted issues which weren't suppressed to stderr.
 
  -q, --quick
   Quick mode - doesn't recurse into all function calls
@@ -1381,6 +1434,18 @@ Extended help:
   This is almost entirely false positives for most coding styles.
   Implies --unused-variable-detection
 
+ --debug-emitted-issues={basic,verbose}
+  Print backtraces of emitted issues which weren't suppressed to stderr.
+
+ --debug-signal-handler
+  Set up a signal handler that can handle interrupts, SIGUSR1, and SIGUSR2.
+  This requires pcntl, and slows down Phan. When this option is enabled,
+
+  Ctrl-C (kill -INT <pid>) can be used to make Phan stop and print a crash report.
+  (This is useful for diagnosing why Phan or a plugin is slow or not responding)
+  kill -USR1 <pid> can be used to print a backtrace and continue running.
+  kill -USR2 <pid> can be used to print a backtrace, plus values of parameters, and continue running.
+
  --language-server-on-stdin
   Start the language server (For the Language Server protocol).
   This is a different protocol from --daemonize, clients for various IDEs already exist.
@@ -1456,13 +1521,18 @@ EOB
 
     /**
      * Prints a section of the help or usage message to stdout.
+     * @internal
      */
-    private static function printHelpSection(string $section, bool $forbid_color = false) : void
+    public static function printHelpSection(string $section, bool $forbid_color = false, bool $toStderr = false) : void
     {
         if (!$forbid_color) {
             $section = self::colorizeHelpSectionIfSupported($section);
         }
-        echo $section;
+        if ($toStderr) {
+            \fwrite(STDERR, $section);
+        } else {
+            echo $section;
+        }
     }
 
     /**
@@ -1501,6 +1571,7 @@ EOB
         };
         $section = \preg_replace_callback('@<\S+>|\{\S+\}@', $colorize_opt_cb, $section);
         $section = \preg_replace('@^ERROR:@', Colorizing::colorizeTextWithColorCode(Colorizing::STYLES['light_red'], '\0'), $section);
+        $section = \preg_replace('@^WARNING:@', Colorizing::colorizeTextWithColorCode(Colorizing::STYLES['yellow'], '\0'), $section);
         return $section;
     }
 
@@ -1646,7 +1717,10 @@ EOB
                 }
                 if (!$file_info->isFile() || !$file_info->isReadable()) {
                     $file_path = $file_info->getRealPath();
-                    \error_log("Unable to read file {$file_path}");
+                    \fwrite(
+                        STDERR,
+                        self::colorizeHelpSectionIfSupported('ERROR: ') . "Unable to read file {$file_path}\n"
+                    );
                     return false;
                 }
 
@@ -1670,7 +1744,7 @@ EOB
 
             $file_list = \array_keys(\iterator_to_array($iterator));
         } catch (\Exception $exception) {
-            \error_log($exception->getMessage());
+            \fwrite(STDERR, $exception->getMessage() . "\n");
         }
 
         // Normalize leading './' in paths.
