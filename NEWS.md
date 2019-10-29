@@ -1,7 +1,40 @@
 Phan NEWS
 
-??? ?? 2019, Phan 2.3.2 (dev)
+??? ?? 2019, Phan 2.4.1 (dev)
 -----------------------
+
+New features(CLI, Configs):
++ Enable the progress bar by default, if `STDERR` is being rendered directly to a terminal.
+  Add a new option `--no-progress-bar`.
+
+New features(Analysis):
++ Suggest similarly named static methods and static properties for `PhanUndeclaredConstant` issues on class constants. (#3393)
+
+Bug fixes:
++ Fix a bug where global functions, closures, and arrow functions may have inferred values from previous analysis unintentionally
+  left over in the original scope when analyzing that function again. (methods were unaffected)
+
+Maintenance:
++ Clarify a warning message about "None of the files to analyze in /path/to/project exist"
+
+Plugins:
++ Add a new plugin `RedundantAssignmentPlugin` to warn about assigning the same value a variable already has to that variable. (#3424)
+  New issue types: `PhanPluginRedundantAssignment`, `PhanPluginRedundantAssignmentInLoop`, `PhanPluginRedundantAssignmentInGlobalScope`
+
+Oct 26 2019, Phan 2.4.0
+-----------------------
+
+New features(CLI, Configs):
++ Support saving and loading baselines with `--save-baseline=.phan/baseline.php` and `--load-baseline=.phan/baseline.php`. (#2000)
+  `--save-baseline` will save all pre-existing issues for the provided analysis settings to a file.
+  When Phan is invoked later with `--load-baseline`, it will ignore any
+  issue kinds in the files from `file_suppressions` in the baseline.
+
+  This is useful for setting up analysis with Phan on a new project,
+  or when enabling stricter analysis settings.
+
+  Different baseline files can be used for different Phan configurations.
+  (e.g. `.phan/baseline_deadcode.php` for runs with `--dead-code-detection`)
 
 New features(Analysis):
 + Fix edge cases in checking if some nullable types were possibly falsey
@@ -11,6 +44,10 @@ New features(Analysis):
 + Warn about array destructuring syntax errors (`[] = $arr`, `[$withoutKey, 1 => $withKey] = $arr`)
 + Return a clone of an existing variable if one already exists in Variable::fromNodeInContext. (#3406)
   This helps analyze `PassByReferenceVariable`s.
++ Don't emit PhanParamSpecial2 for min/max/implode/join with a single vararg. (#3396)
++ Properly emit PhanPossiblyInfiniteRecursionSameParams for functions with varargs.
++ Emit `PhanNoopNew` or `PhanNoopNewNoSideEffects` when an object is created with `new expr(...)` but the result is not used (#3410)
++ Emit `PhanPluginUseReturnValueInternalKnown` for about unused results of function calls on the right hand side of control flow operators (`??`/`?:`/`&&`/`||`) (#3408)
 
 Oct 20 2019, Phan 2.3.1
 -----------------------

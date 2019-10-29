@@ -165,8 +165,8 @@ class Config
         // (e.g. `'@Test\.php$@'`, or `'@vendor/.*/(tests|Tests)/@'`)
         'exclude_file_regex' => '',
 
-        // A file list that defines files that will be excluded
-        // from parsing and analysis and will not be read at all.
+        // A list of files that will be excluded from parsing and analysis
+        // and will not be read at all.
         //
         // This is useful for excluding hopelessly unanalyzable
         // files that can't be removed for whatever reason.
@@ -207,8 +207,15 @@ class Config
         // This is set internally by Phan based on exclude_analysis_directory_list
         '__exclude_analysis_regex' => null,
 
-        // A file list that defines files that will be included
-        // in static analysis, to the exclusion of others.
+        // A list of files that will be included in static analysis,
+        // **to the exclusion of others.**
+        //
+        // This typically should not get put in your Phan config file.
+        // It gets set by `--include-analysis-file-list`.
+        //
+        // Use `directory_list` and `file_list` instead to add files
+        // to be parsed and analyzed, and `exclude_*` to exclude files
+        // and folders from analysis.
         'include_analysis_file_list' => [],
 
         // Backwards Compatibility Checking. This is slow
@@ -854,6 +861,13 @@ class Config
 
         'dump_matching_functions' => false,
 
+        // This is the path to a file containing a list of pre-existing issues to ignore, on a per-file basis.
+        // It's recommended to set this with --load-baseline=path/to/baseline.php
+        'baseline_path' => null,
+
+        // For internal use only.
+        '__save_baseline_path' => null,
+
         // A list of plugin files to execute.
         //
         // Plugins which are bundled with Phan can be added here by providing their name (e.g. `'AlwaysReturnPlugin'`)
@@ -1287,6 +1301,7 @@ class Config
             'array_casts_as_null' => $is_bool,
             'autoload_internal_extension_signatures' => $is_associative_string_array,
             'backward_compatibility_checks' => $is_bool,
+            'baseline_path' => $is_string_or_null,
             'cache_polyfill_asts' => $is_bool,
             'check_docblock_signature_param_type_match' => $is_bool,
             'check_docblock_signature_return_type_match' => $is_bool,

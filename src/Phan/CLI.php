@@ -63,14 +63,14 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    const PHAN_VERSION = '2.3.2-dev';
+    const PHAN_VERSION = '2.4.1-dev';
 
     /**
      * List of short flags passed to getopt
      * still available: g,n,w
      * @internal
      */
-    const GETOPT_SHORT_OPTIONS = 'f:m:o:c:k:aeqbr:pid:3:y:l:tuxj:zhvs:SCP:I:D';
+    const GETOPT_SHORT_OPTIONS = 'f:m:o:c:k:aeqbr:pid:3:y:l:tuxj:zhvs:SCP:I:DB:';
 
     /**
      * List of long flags passed to getopt
@@ -135,10 +135,12 @@ class CLI
         'language-server-tcp-connect:',
         'language-server-tcp-server:',
         'language-server-verbose',
+        'load-baseline:',
         'markdown-issue-messages',
         'memory-limit:',
         'minimum-severity:',
         'no-color',
+        'no-progress-bar',
         'output:',
         'output-mode:',
         'parent-constructor-required:',
@@ -151,6 +153,7 @@ class CLI
         'quick',
         'redundant-condition-detection',
         'require-config-exists',
+        'save-baseline:',
         'signature-compatibility',
         'strict-method-checking',
         'strict-object-checking',
@@ -386,6 +389,7 @@ class CLI
         $printer_type = 'text';
         $minimum_severity = Config::getValue('minimum_severity');
         $mask = -1;
+        $progress_bar = null;
 
         self::throwIfUsingInitModifiersWithoutInit($opts);
 
@@ -490,7 +494,10 @@ class CLI
                     break;
                 case 'p':
                 case 'progress-bar':
-                    Config::setValue('progress_bar', true);
+                    $progress_bar = true;
+                    break;
+                case 'no-progress-bar':
+                    $progress_bar = false;
                     break;
                 case 'D':
                 case 'debug':
@@ -784,6 +791,28 @@ class CLI
                 case 'no-color':
                     // Handled before processing the CLI flag `--help`
                     break;
+                case 'save-baseline':
+                    if (!is_string($value)) {
+                        throw new UsageException("--save-baseline expects a single writeable file", 1);
+                    }
+                    if (!is_dir(dirname($value))) {
+                        throw new UsageException("--save-baseline expects a file in a folder that already exists, got path '$value' in folder '" . dirname($value) . "'", 1);
+                    }
+                    Config::setValue('__save_baseline_path', $value);
+                    break;
+                case 'B':
+                case 'load-baseline':
+                    if (!is_string($value)) {
+                        throw new UsageException("--load-baseline expects a single readable file", 1);
+                    }
+                    if (!is_file($value)) {
+                        throw new UsageException("--load-baseline expects a path to a file, got '$value'", 1);
+                    }
+                    if (!is_readable($value)) {
+                        throw new UsageException("--load-baseline passed file '$value' which could not be read", 1);
+                    }
+                    Config::setValue('baseline_path', $value);
+                    break;
                 default:
                     // All of phan's long options are currently at least 2 characters long.
                     $key_repr = strlen($key) >= 2 ? "--$key" : "-$key";
@@ -802,6 +831,7 @@ class CLI
         self::restartWithoutProblematicExtensions();
         self::checkPluginsExist();
         self::checkValidFileConfig();
+        Config::setValue('progress_bar', $progress_bar ?? self::shouldUseProgressBarByDefault(\STDERR));
 
         $output = $this->output;
         $printer = $factory->getPrinter($printer_type, $output);
@@ -835,7 +865,7 @@ class CLI
             && Config::getValue('dead_code_detection')) {
             throw new AssertionError("We cannot run dead code detection on more than one core.");
         }
-
+        self::checkSaveBaselineOptionsAreValid();
         self::ensureServerRunsSingleAnalysisProcess();
     }
 
@@ -924,11 +954,11 @@ class CLI
             }
             if ($valid_files === 0) {
                 // TODO convert this to an error in Phan 3.
-                self::printHelpSection(
-                    "WARNING: None of the files in %s exist - This will be an error in future Phan releases." . \PHP_EOL,
-                    false,
-                    true
+                $error_message = sprintf(
+                    "None of the files to analyze in %s exist - This will be an error in future Phan releases." . \PHP_EOL,
+                    Config::getProjectRootDirectory()
                 );
+                CLI::printWarningToStderr($error_message);
             }
         }
     }
@@ -943,7 +973,7 @@ class CLI
      * https://github.com/composer/xdebug-handler
      * (This is internal, so it was duplicated in case their API changed)
      *
-     * @param mixed $output A valid CLI output stream
+     * @param resource $output A valid CLI output stream
      * @suppress PhanUndeclaredFunction
      */
     public static function supportsColor($output) : bool
@@ -957,6 +987,35 @@ class CLI
                 || false !== \getenv('ANSICON')
                 || 'ON' === \getenv('ConEmuANSI')
                 || 'xterm' === \getenv('TERM');
+        }
+
+        if (\function_exists('stream_isatty')) {
+            return \stream_isatty($output);
+        } elseif (\function_exists('posix_isatty')) {
+            return \posix_isatty($output);
+        }
+
+        $stat = \fstat($output);
+        // Check if formatted mode is S_IFCHR
+        return $stat ? 0020000 === ($stat['mode'] & 0170000) : false;
+    }
+
+    /**
+     * Returns true if the output stream is a TTY.
+     *
+     * @param resource $output A valid CLI output stream
+     * @suppress PhanUndeclaredFunction
+     */
+    private static function shouldUseProgressBarByDefault($output) : bool
+    {
+        if (self::isDaemonOrLanguageServer()) {
+            return false;
+        }
+        if (\defined('PHP_WINDOWS_VERSION_BUILD')) {
+            // https://www.php.net/sapi_windows_vt100_support
+            // >  By the way, if a stream is redirected, the VT100 feature will not be enabled:
+            return (\function_exists('sapi_windows_vt100_support')
+                && \sapi_windows_vt100_support($output));
         }
 
         if (\function_exists('stream_isatty')) {
@@ -996,6 +1055,23 @@ class CLI
         if (!$all_plugins_exist) {
             \fwrite(STDERR, "Exiting due to invalid plugin config.\n");
             exit(1);
+        }
+    }
+
+    /**
+     * @throws UsageException if the combination of options is invalid
+     */
+    private static function checkSaveBaselineOptionsAreValid() : void
+    {
+        if (Config::getValue('__save_baseline_path')) {
+            if (Config::getValue('processes') !== 1) {
+                // This limitation may be fixed in a subsequent release.
+                throw new UsageException("--save-baseline is not supported in combination with --processes", 1);
+            }
+            if (self::isDaemonOrLanguageServer()) {
+                // This will never be supported
+                throw new UsageException("--save-baseline does not make sense to use in Daemon mode or as a language server.", 1);
+            }
         }
     }
 
@@ -1247,8 +1323,8 @@ $init_help
   [--color-scheme={default,code,light,eclipse_dark,vim}]
     This (or the environment variable PHAN_COLOR_SCHEME) can be used to set the color scheme for emitted issues.
 
- -p, --progress-bar
-  Show progress bar
+ -p, --progress-bar, --no-progress-bar
+  Show progress bar. --no-progress-bar disables the progress bar.
 
  -D, --debug
   Print debugging output to stderr. Useful for looking into performance issues or crashes.
@@ -1374,6 +1450,21 @@ $init_help
   TCP port for Phan to listen for JSON requests on, in daemon mode.
   (e.g. `default`, which is an alias for port 4846.)
   `phan_client` can be used to communicate with the Phan Daemon.
+
+ --save-baseline <path/to/baseline.php>
+  Generates a baseline of pre-existing issues that can be used to suppress
+  pre-existing issues in subsequent runs (with --load-baseline)
+
+  This baseline depends on the environment, CLI and config settings used to run Phan
+  (e.g. --dead-code-detection, plugins, etc.)
+
+  Paths such as .phan/baseline.php, .phan/baseline_deadcode.php, etc. are recommended.
+
+ --B, -load-baseline <path/to/baseline.php>
+  Loads a baseline of pre-existing issues to suppress.
+
+  (For best results, the baseline should be generated with the same/similar
+  environment and settings as those used to run Phan)
 
  -v, --version
   Print Phan's version number
@@ -1517,6 +1608,14 @@ EOB
             );
         }
         exit($exit_code);
+    }
+
+    /**
+     * Prints a warning to stderr (except for the label, nothing else is colorized
+     */
+    public static function printWarningToStderr(string $message) : void
+    {
+        fwrite(STDERR, self::colorizeHelpSectionIfSupported('WARNING: ') . $message);
     }
 
     /**

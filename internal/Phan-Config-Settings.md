@@ -74,8 +74,8 @@ n.b.: If you'd like to parse but not analyze 3rd
 
 ## exclude_file_list
 
-A file list that defines files that will be excluded
-from parsing and analysis and will not be read at all.
+A list of files that will be excluded from parsing and analysis
+and will not be read at all.
 
 This is useful for excluding hopelessly unanalyzable
 files that can't be removed for whatever reason.
@@ -104,14 +104,28 @@ project.
 
 ## include_analysis_file_list
 
-A file list that defines files that will be included
-in static analysis, to the exclusion of others.
+A list of files that will be included in static analysis,
+**to the exclusion of others.**
+
+This typically should not get put in your Phan config file.
+It gets set by `--include-analysis-file-list`.
+
+Use [`directory_list`](#directory_list) and [`file_list`](#file_list) instead to add files
+to be parsed and analyzed, and `exclude_*` to exclude files
+and folders from analysis.
 
 (Default: `[]`)
 
 # Issue Filtering
 
 These settings can be used to control what issues show up in Phan's output.
+
+## baseline_path
+
+This is the path to a file containing a list of pre-existing issues to ignore, on a per-file basis.
+It's recommended to set this with --load-baseline=path/to/baseline.php
+
+(Default: `null`)
 
 ## disable_file_based_suppression
 

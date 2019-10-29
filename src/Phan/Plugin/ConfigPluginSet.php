@@ -6,6 +6,7 @@ use AssertionError;
 use ast\Node;
 use Closure;
 use Phan\AST\Visitor\Element;
+use Phan\CLI;
 use Phan\CodeBase;
 use Phan\Config;
 use Phan\Exception\IssueException;
@@ -27,6 +28,8 @@ use Phan\LanguageServer\DefinitionResolver;
 use Phan\LanguageServer\GoToDefinitionRequest;
 use Phan\Library\RAII;
 use Phan\Plugin\Internal\ArrayReturnTypeOverridePlugin;
+use Phan\Plugin\Internal\BaselineLoadingPlugin;
+use Phan\Plugin\Internal\BaselineSavingPlugin;
 use Phan\Plugin\Internal\BuiltinSuppressionPlugin;
 use Phan\Plugin\Internal\CallableParamPlugin;
 use Phan\Plugin\Internal\ClosureReturnTypeOverridePlugin;
@@ -62,13 +65,12 @@ use Phan\PluginV3\PreAnalyzeNodeCapability;
 use Phan\PluginV3\ReturnTypeOverrideCapability;
 use Phan\PluginV3\SuppressionCapability;
 use Phan\Suggestion;
-use ReflectionException;
-use ReflectionProperty;
 use Throwable;
 use UnusedSuppressionPlugin;
 use function get_class;
 use function is_null;
 use function is_object;
+use function property_exists;
 use const EXIT_FAILURE;
 use const PHP_EOL;
 use const STDERR;
@@ -849,6 +851,23 @@ final class ConfigPluginSet extends PluginV3 implements
             $plugin_set[] = $load_plugin('UnreachableCodePlugin');
         }
 
+        // The baseline saving plugin will save all issues that weren't suppressed by line suppressions, file suppressions, and global Phan suppressions.
+        $save_baseline_path = Config::getValue('__save_baseline_path');
+        if ($save_baseline_path) {
+            // TODO: Phan isn't currently capable of saving a baseline when there are multiple processes.
+            $plugin_set[] = new BaselineSavingPlugin($save_baseline_path);
+        }
+        // NOTE: The baseline loading plugin is deliberately loaded after the saving plugin,
+        // so that BaselineSavingPlugin will read the issues before they get filtered out by the baseline.
+        $load_baseline_path = Config::getValue('baseline_path');
+        if ($load_baseline_path) {
+            if (\is_readable($load_baseline_path)) {
+                $plugin_set[] = new BaselineLoadingPlugin($load_baseline_path);
+            } else {
+                \fwrite(STDERR, CLI::colorizeHelpSectionIfSupported("WARNING: ") . "Could not load baseline from file '$load_baseline_path'" . PHP_EOL);
+            }
+        }
+
         // Register the entire set.
         $this->plugin_set = $plugin_set;
 
@@ -962,14 +981,7 @@ final class ConfigPluginSet extends PluginV3 implements
      */
     private static function getGenericClosureForPluginAwarePreAnalysisVisitor(string $plugin_analysis_class) : Closure
     {
-        try {
-            new ReflectionProperty($plugin_analysis_class, 'parent_node_list');
-            $has_parent_node_list = true;
-        } catch (ReflectionException $_) {
-            $has_parent_node_list = false;
-        }
-
-        if ($has_parent_node_list) {
+        if (property_exists($plugin_analysis_class, 'parent_node_list')) {
             /**
              * Create an instance of $plugin_analysis_class and run the visit*() method corresponding to $node->kind.
              *
@@ -1067,14 +1079,7 @@ final class ConfigPluginSet extends PluginV3 implements
      */
     private static function getGenericClosureForPluginAwarePostAnalysisVisitor(string $plugin_analysis_class) : Closure
     {
-        try {
-            new ReflectionProperty($plugin_analysis_class, 'parent_node_list');
-            $has_parent_node_list = true;
-        } catch (ReflectionException $_) {
-            $has_parent_node_list = false;
-        }
-
-        if ($has_parent_node_list) {
+        if (property_exists($plugin_analysis_class, 'parent_node_list')) {
             /**
              * Create an instance of $plugin_analysis_class and run the visit*() method corresponding to $node->kind.
              *
