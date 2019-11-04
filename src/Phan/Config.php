@@ -537,6 +537,12 @@ class Config
         'read_magic_method_annotations' => true,
 
         // If disabled, Phan will not read docblock type
+        // annotation comments for `@mixin`.
+        //
+        // Note: `read_type_annotations` must also be enabled.
+        'read_mixin_annotations' => true,
+
+        // If disabled, Phan will not read docblock type
         // annotation comments (such as for `@return`, `@param`,
         // `@var`, `@suppress`, `@deprecated`) and only rely on
         // types expressed in code.
@@ -758,10 +764,13 @@ class Config
         ],
 
         // Set this to false to emit `PhanUndeclaredFunction` issues for internal functions that Phan has signatures for,
-        // but aren't available in the codebase, or the internal functions used to run Phan
+        // but aren't available in the codebase, or from Reflection.
         // (may lead to false positives if an extension isn't loaded)
         //
         // If this is true(default), then Phan will not warn.
+        //
+        // Even when this is false, Phan will still infer return values and check parameters of internal functions
+        // if Phan has the signatures.
         'ignore_undeclared_functions_with_known_signatures' => true,
 
         // If a file to be analyzed can't be parsed,

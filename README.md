@@ -56,6 +56,7 @@ Phan is able to perform the following kinds of analysis:
 * Check for unused variables and parameters. (Pass in `--unused-variable-detection`)
 * Check for redundant or impossible conditions and pointless casts. (Pass in `--redundant-condition-detection`)
 * Check for unused `use` statements.
+  These and a few other issue types can be automatically fixed with `--automatic-fix`.
 * Check for classes, functions and methods being redefined.
 * Check for sanity with class inheritance (e.g. checks method signature compatibility).
   Phan also checks for final classes/methods being overridden, that abstract methods are implemented, and that the implemented interface is really an interface (and so on).
@@ -73,7 +74,7 @@ Phan is able to perform the following kinds of analysis:
 * Supports [`@deprecated` annotation](https://github.com/phan/phan/wiki/Annotating-Your-Source-Code#deprecated) for deprecating classes, methods and functions
 * Supports [`@internal` annotation](https://github.com/phan/phan/wiki/Annotating-Your-Source-Code#internal) for elements (such as a constant, function, class, class constant, property or method) as internal to the package in which it's defined.
 * Supports `@suppress <ISSUE_TYPE>` annotations for [suppressing issues](https://github.com/phan/phan/wiki/Annotating-Your-Source-Code#suppress).
-* Supports [magic @property annotations](https://github.com/phan/phan/wiki/Annotating-Your-Source-Code#property) (partial) (`@property <union_type> <variable_name>`)
+* Supports [magic @property annotations](https://github.com/phan/phan/wiki/Annotating-Your-Source-Code#property) (`@property <union_type> <variable_name>`)
 * Supports [magic @method annotations](https://github.com/phan/phan/wiki/Annotating-Your-Source-Code#method) (`@method <union_type> <method_name>(<union_type> <param1_name>)`)
 * Supports [`class_alias` annotations (experimental, off by default)](https://github.com/phan/phan/pull/586)
 * Supports indicating the class to which a closure will be bound, via `@phan-closure-scope` ([example](tests/files/src/0264_closure_override_context.php))
@@ -110,7 +111,7 @@ Additional analysis features have been provided by [plugins](https://github.com/
 - [Checking coding style conventions](https://github.com/phan/phan/tree/master/.phan/plugins#3-plugins-specific-to-code-styles)
 - [Others](https://github.com/phan/phan/tree/master/.phan/plugins#plugins)
 
-Example: [Phan's plugins for self-analysis.](https://github.com/phan/phan/blob/1.2.1/.phan/config.php#L593-L613)
+Example: [Phan's plugins for self-analysis.](https://github.com/phan/phan/blob/2.4.1/.phan/config.php#L494-L537)
 
 # Usage
 
@@ -162,22 +163,29 @@ return [
     ],
 
     // A list of plugin files to execute.
-    // See https://github.com/phan/phan/tree/master/.phan/plugins for even more.
-    // (Pass these in as relative paths.
-    // Base names without extensions such as 'AlwaysReturnPlugin'
-    // can be used to refer to a plugin that is bundled with Phan)
+    // Plugins which are bundled with Phan can be added here by providing their name (e.g. 'AlwaysReturnPlugin')
+    //
+    // Documentation about available bundled plugins can be found
+    // at https://github.com/phan/phan/tree/master/.phan/plugins
+    //
+    // Alternately, you can pass in the full path to a PHP file
+    // with the plugin's implementation (e.g. 'vendor/phan/phan/.phan/plugins/AlwaysReturnPlugin.php')
     'plugins' => [
         // checks if a function, closure or method unconditionally returns.
-
         // can also be written as 'vendor/phan/phan/.phan/plugins/AlwaysReturnPlugin.php'
         'AlwaysReturnPlugin',
+        'DollarDollarPlugin',
+        'DuplicateArrayKeyPlugin',
+        'DuplicateExpressionPlugin',
+        'PregRegexCheckerPlugin',
+        'PrintfCheckerPlugin',
+        'SleepCheckerPlugin',
         // Checks for syntactically unreachable statements in
         // the global scope or function bodies.
         'UnreachableCodePlugin',
-        'DollarDollarPlugin',
-        'DuplicateArrayKeyPlugin',
-        'PregRegexCheckerPlugin',
-        'PrintfCheckerPlugin',
+        'UseReturnValuePlugin',
+        'EmptyStatementListPlugin',
+        'LoopVariableReusePlugin',
     ],
 ];
 ```

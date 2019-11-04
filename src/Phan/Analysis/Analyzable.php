@@ -69,6 +69,15 @@ trait Analyzable
     }
 
     /**
+     * Clears the node so that it won't be used for analysis.
+     * @suppress PhanTypeMismatchProperty
+     */
+    protected function clearNode() : void
+    {
+        $this->node = null;
+    }
+
+    /**
      * Ensure that annotations about what flags a function declaration has have been added
      * @suppress PhanUndeclaredProperty deliberately using dynamic properties
      */
@@ -88,6 +97,7 @@ trait Analyzable
      * @return Context
      * Analyze the node associated with this object
      * in the given context
+     * @suppress PhanUnreferencedPublicMethod phan has issues with dead code detection with traits and interfaces
      */
     public function analyze(Context $context, CodeBase $code_base) : Context
     {

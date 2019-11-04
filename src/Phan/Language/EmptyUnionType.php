@@ -988,6 +988,11 @@ final class EmptyUnionType extends UnionType
         return $this;  // empty
     }
 
+    public function asMappedListUnionType(Closure $closure) : UnionType
+    {
+        return $this;  // empty
+    }
+
     /**
      * @param Closure(UnionType):UnionType $closure
      * @override
@@ -1176,6 +1181,12 @@ final class EmptyUnionType extends UnionType
     }
 
     /** @override */
+    public function withPossiblyEmptyArrays() : UnionType
+    {
+        return $this;
+    }
+
+    /** @override */
     public function withFlattenedTopLevelArrayShapeTypeInstances() : UnionType
     {
         return $this;
@@ -1225,7 +1236,7 @@ final class EmptyUnionType extends UnionType
         return $this;
     }
 
-    public function canAnyTypeStrictCastToUnionType(CodeBase $code_base, UnionType $target) : bool
+    public function canAnyTypeStrictCastToUnionType(CodeBase $code_base, UnionType $target, bool $allow_casting = true) : bool
     {
         return true;
     }

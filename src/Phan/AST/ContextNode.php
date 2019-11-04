@@ -861,7 +861,7 @@ class ContextNode
      * Yields a list of FunctionInterface objects for the 'expr' of an AST_CALL.
      * @return iterable<mixed, FunctionInterface>
      */
-    public function getFunctionFromNode() : iterable
+    public function getFunctionFromNode(bool $return_placeholder_for_undefined = false) : iterable
     {
         $expression = $this->node;
         if (!($expression instanceof Node)) {
@@ -881,7 +881,7 @@ class ContextNode
             $name = $expression->children['name'];
             try {
                 return [
-                    $this->getFunction($name),
+                    $this->getFunction($name, false, $return_placeholder_for_undefined),
                 ];
             } catch (IssueException $exception) {
                 Issue::maybeEmitInstance(
@@ -954,8 +954,22 @@ class ContextNode
     /**
      * @throws IssueException for PhanUndeclaredFunction to be caught and reported by the caller
      */
-    private function throwUndeclaredFunctionIssueException(FullyQualifiedFunctionName $function_fqsen, bool $suggest_in_global_namespace, FullyQualifiedFunctionName $namespaced_function_fqsen = null) : void
+    private function returnStubOrThrowUndeclaredFunctionIssueException(FullyQualifiedFunctionName $function_fqsen, bool $suggest_in_global_namespace, FullyQualifiedFunctionName $namespaced_function_fqsen = null, bool $return_placeholder_for_undefined = false) : Func
     {
+        if ($return_placeholder_for_undefined) {
+            $functions = $this->code_base->getPlaceholdersForUndeclaredFunction($function_fqsen);
+            Issue::maybeEmitWithParameters(
+                $this->code_base,
+                $this->context,
+                Issue::UndeclaredFunction,
+                $this->node->lineno ?? $this->context->getLineNumberStart(),
+                [ "$function_fqsen()" ],
+                IssueFixSuggester::suggestSimilarGlobalFunction($this->code_base, $this->context, $namespaced_function_fqsen ?? $function_fqsen, $suggest_in_global_namespace)
+            );
+            if ($functions) {
+                return $functions[0];
+            }
+        }
         throw new IssueException(
             Issue::fromType(Issue::UndeclaredFunction)(
                 $this->context->getFile(),
@@ -975,6 +989,11 @@ class ContextNode
      * that is being declared and false if we're getting a
      * function being called.
      *
+     * @param bool $return_placeholder_for_undefined
+     * When this is true, Phan will create a placeholder
+     * for undefined functions so that argument counts and
+     * types can be checked.
+     *
      * @return FunctionInterface
      * A method with the given name in the given context
      *
@@ -988,7 +1007,8 @@ class ContextNode
      */
     public function getFunction(
         string $function_name,
-        bool $is_function_declaration = false
+        bool $is_function_declaration = false,
+        bool $return_placeholder_for_undefined = false
     ) : FunctionInterface {
 
         $node = $this->node;
@@ -1009,7 +1029,7 @@ class ContextNode
             // For relative functions (e.g. namespace\foo())
             $function_fqsen = FullyQualifiedFunctionName::make($namespace, $function_name);
             if (!$code_base->hasFunctionWithFQSEN($function_fqsen)) {
-                $this->throwUndeclaredFunctionIssueException($function_fqsen, false);
+                return $this->returnStubOrThrowUndeclaredFunctionIssueException($function_fqsen, false, null, $return_placeholder_for_undefined);
             }
             return $code_base->getFunctionByFQSEN($function_fqsen);
         } else {
@@ -1024,7 +1044,7 @@ class ContextNode
                     // Make sure the method we're calling actually exists
                     if (!$code_base->hasFunctionWithFQSEN($function_fqsen)) {
                         // The FQSEN from 'use MyNS\function_name;' was the only possible fqsen for that function.
-                        $this->throwUndeclaredFunctionIssueException($function_fqsen, false);
+                        return $this->returnStubOrThrowUndeclaredFunctionIssueException($function_fqsen, false, null, $return_placeholder_for_undefined);
                     }
 
                     return $code_base->getFunctionByFQSEN($function_fqsen);
@@ -1036,14 +1056,7 @@ class ContextNode
                     return $code_base->getFunctionByFQSEN($function_fqsen);
                 }
                 if ($namespace === '' || \strpos($function_name, '\\') !== false) {
-                    throw new IssueException(
-                        Issue::fromType(Issue::UndeclaredFunction)(
-                            $context->getFile(),
-                            $node->lineno,
-                            [ "$function_fqsen()" ],
-                            IssueFixSuggester::suggestSimilarGlobalFunction($this->code_base, $context, $function_fqsen, false)
-                        )
-                    );
+                    return $this->returnStubOrThrowUndeclaredFunctionIssueException($function_fqsen, false, null, $return_placeholder_for_undefined);
                 }
                 // If it doesn't exist in the local namespace, try it
                 // in the global namespace
@@ -1058,10 +1071,11 @@ class ContextNode
         // Make sure the method we're calling actually exists
         if (!$code_base->hasFunctionWithFQSEN($function_fqsen)) {
             $not_fully_qualified = (bool)($flags & ast\flags\NAME_NOT_FQ);
-            $this->throwUndeclaredFunctionIssueException(
+            return $this->returnStubOrThrowUndeclaredFunctionIssueException(
                 $function_fqsen,
                 $not_fully_qualified,
-                $not_fully_qualified ? FullyQualifiedFunctionName::make($namespace, $function_name) : $function_fqsen
+                $not_fully_qualified ? FullyQualifiedFunctionName::make($namespace, $function_name) : $function_fqsen,
+                $return_placeholder_for_undefined
             );
         }
 
@@ -2559,56 +2573,8 @@ class ContextNode
      */
     public function getValueForMagicConstByNode(Node $node)
     {
-        // TODO: clean up or refactor?
-        $context = $this->context;
-        $flags = $node->flags;
-        switch ($flags) {
-            case ast\flags\MAGIC_CLASS:
-                if ($context->isInClassScope()) {
-                    return \ltrim($context->getClassFQSEN()->__toString(), '\\');
-                }
-                break;
-            case ast\flags\MAGIC_FUNCTION:
-                if ($context->isInFunctionLikeScope()) {
-                    $fqsen = $context->getFunctionLikeFQSEN();
-                    return $fqsen->isClosure() ? '{closure}' : $fqsen->getName();
-                }
-                break;
-            case ast\flags\MAGIC_METHOD:
-                // TODO: Is this right?
-                if ($context->isInFunctionLikeScope()) {
-                    return \ltrim($context->getFunctionLikeFQSEN()->__toString(), '\\');
-                }
-                break;
-            case ast\flags\MAGIC_DIR:
-                return \dirname(Config::projectPath($context->getFile()));
-            case ast\flags\MAGIC_FILE:
-                return Config::projectPath($context->getFile());
-            case ast\flags\MAGIC_LINE:
-                return $node->lineno ?? $context->getLineNumberStart();
-            case ast\flags\MAGIC_NAMESPACE:
-                return \ltrim($context->getNamespace(), '\\');
-            case ast\flags\MAGIC_TRAIT:
-                // TODO: Could check if in trait, low importance.
-                if (!$context->isInClassScope()) {
-                    break;
-                }
-                $fqsen = $this->context->getClassFQSEN();
-                if ($this->code_base->hasClassWithFQSEN($fqsen)) {
-                    if (!$this->code_base->getClassByFQSEN($fqsen)->isTrait()) {
-                        break;
-                    }
-                }
-                return \ltrim($context->getClassFQSEN()->__toString(), '\\');
-            default:
-                return $node;
-        }
-        $this->emitIssue(
-            Issue::UndeclaredMagicConstant,
-            $node->lineno,
-            UnionTypeVisitor::MAGIC_CONST_NAME_MAP[$flags]
-        );
-        return '';
+        $result = (new UnionTypeVisitor($this->code_base, $this->context))->visitMagicConst($node)->asSingleScalarValueOrNullOrSelf();
+        return is_object($result) ? $node : $result;
     }
 
     /**

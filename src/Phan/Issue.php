@@ -126,6 +126,7 @@ class Issue
     const TypeInvalidInstanceof     = 'PhanTypeInvalidInstanceof';
     const TypeInvalidDimOffset      = 'PhanTypeInvalidDimOffset';
     const TypeInvalidDimOffsetArrayDestructuring = 'PhanTypeInvalidDimOffsetArrayDestructuring';
+    const TypeInvalidCallExpressionAssignment    = 'PhanTypeInvalidCallExpressionAssignment';
     const TypeInvalidExpressionArrayDestructuring = 'PhanTypeInvalidExpressionArrayDestructuring';
     const TypeInvalidThrowsNonObject             = 'PhanTypeInvalidThrowsNonObject';
     const TypeInvalidThrowsNonThrowable          = 'PhanTypeInvalidThrowsNonThrowable';
@@ -244,6 +245,7 @@ class Issue
     const DivisionByZero = 'PhanDivisionByZero';
     const ModuloByZero = 'PhanModuloByZero';
     const PowerOfZero = 'PhanPowerOfZero';
+    const InvalidMixin = 'PhanInvalidMixin';
 
     // Issue::CATEGORY_ANALYSIS
     const Unanalyzable              = 'PhanUnanalyzable';
@@ -259,9 +261,10 @@ class Issue
     const StaticPropIsStaticType    = 'PhanStaticPropIsStaticType';
 
     // Issue::CATEGORY_CONTEXT
-    const ContextNotObject          = 'PhanContextNotObject';
+    const ContextNotObject           = 'PhanContextNotObject';
     const ContextNotObjectInCallable = 'PhanContextNotObjectInCallable';
-    const ContextNotObjectUsingSelf = 'PhanContextNotObjectUsingSelf';
+    const ContextNotObjectUsingSelf  = 'PhanContextNotObjectUsingSelf';
+    const SuspiciousMagicConstant    = 'PhanSuspiciousMagicConstant';
 
     // Issue::CATEGORY_DEPRECATED
     const DeprecatedClass           = 'PhanDeprecatedClass';
@@ -1244,7 +1247,7 @@ class Issue
                 self::UndeclaredMagicConstant,
                 self::CATEGORY_UNDEFINED,
                 self::SEVERITY_LOW,
-                "Reference to magic constant {CONST} that is undeclared in the current scope",
+                "Reference to magic constant {CONST} that is undeclared in the current scope: {DETAILS}",
                 self::REMEDIATION_B,
                 11044
             ),
@@ -1998,6 +2001,14 @@ class Issue
                 10047
             ),
             new Issue(
+                self::TypeInvalidCallExpressionAssignment,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Probably unused assignment to function result {CODE} for function returning {TYPE}",
+                self::REMEDIATION_B,
+                10153
+            ),
+            new Issue(
                 self::TypeInvalidExpressionArrayDestructuring,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
@@ -2518,6 +2529,14 @@ class Issue
                 self::REMEDIATION_B,
                 10147
             ),
+            new Issue(
+                self::InvalidMixin,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_LOW,
+                'Attempting to use a mixin of invalid or missing type {TYPE}',
+                self::REMEDIATION_B,
+                10152
+            ),
             // Issue::CATEGORY_VARIABLE
             new Issue(
                 self::VariableUseClause,
@@ -2570,6 +2589,14 @@ class Issue
                 'Cannot use {CLASS} as type when not in object context in {FUNCTION}',
                 self::REMEDIATION_B,
                 4002
+            ),
+            new Issue(
+                self::SuspiciousMagicConstant,
+                self::CATEGORY_CONTEXT,
+                self::SEVERITY_NORMAL,
+                'Suspicious reference to magic constant {CODE}: {DETAILS}',
+                self::REMEDIATION_B,
+                4003
             ),
 
             // Issue::CATEGORY_DEPRECATED

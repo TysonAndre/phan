@@ -549,6 +549,7 @@ class Type
      * @param list<UnionType> $template_parameter_type_list
      * A map from a template type identifier to a
      * concrete union type
+     * @phan-side-effect-free
      */
     public static function fromType(
         Type $type,
@@ -567,6 +568,7 @@ class Type
      * @param mixed $object
      * @return Type
      * Get a type for the given object. Equivalent to Type::fromObject($object)->asNonLiteralType()
+     * @phan-side-effect-free
      */
     public static function nonLiteralFromObject($object) : Type
     {
@@ -591,6 +593,7 @@ class Type
      * Get a type for the given object
      * @param mixed $object
      * @throws AssertionError if the type was unexpected
+     * @phan-side-effect-free
      */
     public static function fromObject($object) : Type
     {
@@ -624,6 +627,7 @@ class Type
      * If $object is an array, return an ArrayShapeType (with nested fields) instead of an ArrayType
      * @param mixed $object
      * @throws AssertionError if the type was unexpected
+     * @phan-side-effect-free
      */
     public static function fromObjectExtended($object) : Type
     {
@@ -637,6 +641,7 @@ class Type
      * Get a type for the given array as an array shape, recursively.
      * @param array<mixed,mixed> $array
      * @throws AssertionError if the type was unexpected
+     * @phan-side-effect-free
      */
     public static function fromArray(array $array) : ArrayShapeType
     {
@@ -669,6 +674,7 @@ class Type
      * Get a type for the given type name
      *
      * @throws AssertionError if the type was unexpected
+     * @phan-side-effect-free
      */
     public static function fromInternalTypeName(
         string $type_name,
@@ -776,6 +782,7 @@ class Type
      * @param bool $is_nullable
      * True if this type can be null, false if it cannot
      * be null.
+     * @phan-side-effect-free
      */
     public static function fromNamespaceAndName(
         string $namespace,
@@ -787,6 +794,7 @@ class Type
 
     /**
      * Converts the reflection type to a string that Phan can understand
+     * @phan-side-effect-free
      */
     public static function stringFromReflectionType(
         ?\ReflectionType $reflection_type
@@ -807,6 +815,7 @@ class Type
 
     /**
      * Creates a type for the ReflectionType of a parameter, return value, etc.
+     * @phan-side-effect-free
      */
     public static function fromReflectionType(
         \ReflectionType $reflection_type
@@ -830,6 +839,7 @@ class Type
      * @throws InvalidArgumentException if type name was invalid
      *
      * @throws FQSENException
+     * @phan-side-effect-free
      */
     public static function fromFullyQualifiedString(
         string $fully_qualified_string
@@ -1191,6 +1201,7 @@ class Type
      * Parse a type from the given string
      *
      * @suppress PhanPossiblyFalseTypeArgument, PhanPossiblyFalseTypeArgumentInternal
+     * @phan-side-effect-free
      */
     public static function fromStringInContext(
         string $string,
@@ -2032,19 +2043,11 @@ class Type
 
     /**
      * Returns true if this has any instance of `static` or `self`.
-     * This is overridden in subclasses such as `SelfType`.
+     * This is overridden in subclasses such as `SelfType` and `IterableType`
      */
-    public function hasStaticOrSelfTypesRecursive(CodeBase $code_base) : bool
+    public function hasStaticOrSelfTypesRecursive(CodeBase $_) : bool
     {
-        $union_type = $this->iterableValueUnionType($code_base);
-        if (!$union_type) {
-            return false;
-        }
-        foreach ($union_type->getTypeSet() as $type) {
-            if ($type->hasStaticOrSelfTypesRecursive($code_base)) {
-                return true;
-            }
-        }
+        // TODO: Check template types?
         return false;
     }
 
@@ -2055,6 +2058,8 @@ class Type
      * @return bool
      * True if the given type references the class context
      * in which it exists such as 'self' or 'parent'
+     *
+     * @phan-side-effect-free
      */
     public static function isSelfTypeString(
         string $type_string
@@ -2071,6 +2076,8 @@ class Type
      * @return bool
      * True if the given type references the class context
      * in which it exists is '$this' or 'static'
+     *
+     * @phan-side-effect-free
      */
     public static function isStaticTypeString(
         string $type_string
@@ -2332,7 +2339,7 @@ class Type
     /**
      * @return ?UnionType returns the iterable key's union type, if this is a subtype of iterable. null otherwise.
      */
-    public function iterableKeyUnionType(CodeBase $unused_code_base) : ?UnionType
+    public function iterableKeyUnionType(CodeBase $code_base) : ?UnionType
     {
         if ($this->namespace === '\\') {
             $name = strtolower($this->name);
@@ -2346,13 +2353,63 @@ class Type
             // TODO: If this is a subclass of iterator, look up the signature of MyClass->key()
         }
 
-        /*
-        if ($this->namespace !== '\\') {
+        $fqsen = FullyQualifiedClassName::fromType($this);
+        if (!$code_base->hasClassWithFQSEN($fqsen)) {
             return null;
         }
-        // TODO: check for Traversable and Generator and other subclasses of Traversable
-        */
-        return null;
+        static $iterator_fqsen;
+        static $iterator_aggregate_fqsen;
+        if ($iterator_fqsen === null) {
+            // @phan-suppress-next-line PhanThrowTypeAbsentForCall
+            $iterator_fqsen = Type::fromFullyQualifiedString('\Iterator');
+            // @phan-suppress-next-line PhanThrowTypeAbsentForCall
+            $iterator_aggregate_fqsen = Type::fromFullyQualifiedString('\IteratorAggregate');
+        }
+        $expanded_types = $this->asExpandedTypes($code_base);
+        $iterator_type = $this;
+        // Given an IteratorAggregate implementation with getIterator, determine the class of the Iterator if possible.
+        if ($expanded_types->hasTypeWithFQSEN($iterator_aggregate_fqsen)) {
+            $class = $code_base->getClassByFQSEN($fqsen);
+            if (!$class->hasMethodWithName($code_base, 'getIterator')) {
+                // Should be impossible
+                return null;
+            }
+            // Find the class of the iterator
+            $method = $class->getMethodByName($code_base, 'getIterator');
+            $new_expanded_types = null;
+            foreach ($method->getUnionType()->getTypeSet() as $iterator_type) {
+                if ($iterator_type->isObjectWithKnownFQSEN()) {
+                    $new_fqsen = FullyQualifiedClassName::fromType($iterator_type);
+                    if (!$code_base->hasClassWithFQSEN($new_fqsen)) {
+                        continue;
+                    }
+                    $new_expanded_types = $iterator_type->asExpandedTypes($code_base);
+                    $fqsen = $new_fqsen;
+                    break;
+                }
+            }
+            if (!$new_expanded_types) {
+                return null;
+            }
+            $expanded_types = $new_expanded_types;
+        }
+        // Given an Iterator, return the type of the key
+        if ($expanded_types->hasTypeWithFQSEN($iterator_fqsen)) {
+            $class = $code_base->getClassByFQSEN($fqsen);
+            if (!$class->hasMethodWithName($code_base, 'key')) {
+                // Should be impossible
+                return null;
+            }
+            $method = $class->getMethodByName($code_base, 'key');
+            $result = $method->getUnionType();
+            if ($result->hasTemplateTypeRecursive()) {
+                $result = $result->withTemplateParameterTypeMap(
+                    $iterator_type->getTemplateParameterTypeMap($code_base)
+                )->withoutTemplateTypeRecursive();
+            }
+            return $result;
+        }
+        return StringType::instance(false)->asPHPDocUnionType();
     }
 
     /**
@@ -2360,7 +2417,7 @@ class Type
      *
      * This is overridden by the array subclasses
      */
-    public function iterableValueUnionType(CodeBase $unused_code_base) : ?UnionType
+    public function iterableValueUnionType(CodeBase $code_base) : ?UnionType
     {
         if ($this->namespace === '\\') {
             $name = strtolower($this->name);
@@ -2372,6 +2429,62 @@ class Type
                 return $this->valueTypeOfGenerator();
             }
             // TODO: If this is a subclass of iterator, look up the signature of MyClass->current()
+        }
+        $fqsen = FullyQualifiedClassName::fromType($this);
+        if (!$code_base->hasClassWithFQSEN($fqsen)) {
+            return null;
+        }
+        static $iterator_fqsen;
+        static $iterator_aggregate_fqsen;
+        if ($iterator_fqsen === null) {
+            // @phan-suppress-next-line PhanThrowTypeAbsentForCall
+            $iterator_fqsen = Type::fromFullyQualifiedString('\Iterator');
+            // @phan-suppress-next-line PhanThrowTypeAbsentForCall
+            $iterator_aggregate_fqsen = Type::fromFullyQualifiedString('\IteratorAggregate');
+        }
+        $expanded_types = $this->asExpandedTypes($code_base);
+        $iterator_type = $this;
+        // Given an IteratorAggregate implementation with getIterator, determine the class of the Iterator if possible.
+        if ($expanded_types->hasTypeWithFQSEN($iterator_aggregate_fqsen)) {
+            $class = $code_base->getClassByFQSEN($fqsen);
+            if (!$class->hasMethodWithName($code_base, 'getIterator')) {
+                // Should be impossible
+                return null;
+            }
+            // Find the class of the iterator
+            $method = $class->getMethodByName($code_base, 'getIterator');
+            $new_expanded_types = null;
+            foreach ($method->getUnionType()->getTypeSet() as $iterator_type) {
+                if ($iterator_type->isObjectWithKnownFQSEN()) {
+                    $new_fqsen = FullyQualifiedClassName::fromType($iterator_type);
+                    if (!$code_base->hasClassWithFQSEN($new_fqsen)) {
+                        continue;
+                    }
+                    $new_expanded_types = $iterator_type->asExpandedTypes($code_base);
+                    $fqsen = $new_fqsen;
+                    break;
+                }
+            }
+            if (!$new_expanded_types) {
+                return null;
+            }
+            $expanded_types = $new_expanded_types;
+        }
+        // Given an Iterator, return the type of the value (from ->current())
+        if ($expanded_types->hasTypeWithFQSEN($iterator_fqsen)) {
+            $class = $code_base->getClassByFQSEN($fqsen);
+            if (!$class->hasMethodWithName($code_base, 'current')) {
+                // Should be impossible
+                return null;
+            }
+            $method = $class->getMethodByName($code_base, 'current');
+            $result = $method->getUnionType();
+            if ($result->hasTemplateTypeRecursive()) {
+                $result = $result->withTemplateParameterTypeMap(
+                    $iterator_type->getTemplateParameterTypeMap($code_base)
+                )->withoutTemplateTypeRecursive();
+            }
+            return $result;
         }
         return null;
     }
@@ -3229,6 +3342,8 @@ class Type
      *
      * @return string
      * A canonical name for the given type name
+     *
+     * @phan-side-effect-free
      */
     public static function canonicalNameFromName(
         string $name
@@ -3626,6 +3741,7 @@ class Type
      * @param int|string|float|bool|null $b
      * @param int $flags
      * @internal
+     * @phan-side-effect-free
      */
     public static function performComparison($a, $b, int $flags) : bool
     {
@@ -3659,6 +3775,7 @@ class Type
      * Returns the Type for \Traversable
      *
      * @suppress PhanThrowTypeAbsentForCall
+     * @phan-side-effect-free
      */
     public static function traversableInstance() : Type
     {
@@ -3670,6 +3787,7 @@ class Type
      * Returns the Type for \Throwable
      *
      * @suppress PhanThrowTypeAbsentForCall
+     * @phan-side-effect-free
      */
     public static function throwableInstance() : Type
     {
@@ -3681,6 +3799,7 @@ class Type
      * Returns the Type for \Countable
      *
      * @suppress PhanThrowTypeAbsentForCall
+     * @phan-side-effect-free
      */
     public static function countableInstance() : Type
     {

@@ -351,10 +351,13 @@ Phan will not assume it knows specific types if the default value is `false` or 
 ## ignore_undeclared_functions_with_known_signatures
 
 Set this to false to emit `PhanUndeclaredFunction` issues for internal functions that Phan has signatures for,
-but aren't available in the codebase, or the internal functions used to run Phan
+but aren't available in the codebase, or from Reflection.
 (may lead to false positives if an extension isn't loaded)
 
 If this is true(default), then Phan will not warn.
+
+Even when this is false, Phan will still infer return values and check parameters of internal functions
+if Phan has the signatures.
 
 (Default: `true`)
 
@@ -556,6 +559,15 @@ annotation comments for `@property`.
 - When enabled, in addition to inferring existence of magic properties,
   Phan will also warn when writing to `@property-read` and reading from `@property-read`.
 Phan will warn when writing to read-only properties and reading from write-only properties.
+
+Note: [`read_type_annotations`](#read_type_annotations) must also be enabled.
+
+(Default: `true`)
+
+## read_mixin_annotations
+
+If disabled, Phan will not read docblock type
+annotation comments for `@mixin`.
 
 Note: [`read_type_annotations`](#read_type_annotations) must also be enabled.
 

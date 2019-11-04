@@ -1,14 +1,46 @@
 Phan NEWS
 
-??? ?? 2019, Phan 2.4.1 (dev)
+??? ?? 2019, Phan 2.4.2 (dev)
+-----------------------
+
+New features(Analysis):
++ Emit `PhanTypeInvalidCallExpressionAssignment` when improperly assigning to a function/method's result (or a dimension of that result) (#3455)
++ Fix an edge case parsing `(0)::class` with the polyfill. (#3454)
++ Emit `PhanTypeInvalidDimOffset` for accessing any dimension on an empty string or an empty array. (#3385)
++ Warn about invalid string literal offsets such as `'str'[3]`, `'str'[-4]`, etc. (#3385)
+
+Nov 03 2019, Phan 2.4.1
 -----------------------
 
 New features(CLI, Configs):
 + Enable the progress bar by default, if `STDERR` is being rendered directly to a terminal.
   Add a new option `--no-progress-bar`.
++ Emit warnings about missing files in `file_list`, CLI args, etc. to `STDERR`. (#3434)
++ Clear the progress bar when emitting many types of warnings to STDERR.
 
 New features(Analysis):
 + Suggest similarly named static methods and static properties for `PhanUndeclaredConstant` issues on class constants. (#3393)
++ Support `@mixin` (and an alias `@phan-mixin`) as a way to load public methods and public instance properties
+  as magic methods and magic properties from another classlike. (#3237)
+
+  Attempts to parse or analyze mixins can be disabled by setting `read_mixin_annotations` to `false` in your Phan config.
++ Support `@readonly` as an alias of the `@phan-read-only` annotation.
++ Also emit `PhanImpossibleTypeComparison` for `int === float` checks. (#3106)
++ Emit `PhanSuspiciousMagicConstant` when using `__METHOD__` in a function instead of a method.
++ Check return types and parameter types of global functions which Phan has signatures for,
+  when `ignore_undeclared_functions_with_known_signatures` is `false` and `PhanUndeclaredFunction` is emitted. (#3441)
+
+  Previously, Phan would emit `PhanUndeclaredFunction` without checking param or return types.
++ Emit `PhanImpossibleTypeComparison*` and `PhanSuspiciousWeakTypeComparison*`
+  when `in_array` or `array_search` is used in a way that will always return false.
++ Emit `PhanImpossibleTypeComparison*` when `array_key_exists` is used in a way that will always return false.
+  (e.g. checking for a string literal or negative key in a list, an integer in an array with known string keys, or anything in an empty array)
++ Add some missing function analyzers: Infer that `shuffle`, `rsort`, `natsort`, etc. convert arrays to lists.
+  Same for `arsort`, `krsort`, etc.
++ Convert to `list` or `associative-array` in `sort`/`asort` in more edge cases.
++ Infer that `sort`/`asort` on an array (and other internal functions using references) returns a real `list` or `associative-array`.
+  Infer that `sort`/`asort` on a non-empty array (and other internal functions using references) returns a real `non-empty-list` or `non-empty-associative-array`.
++ Infer that some array operations (`array_reduce`, `array_filter`, etc.) result in `array` instead of `non-empty-array` (etc.)
 
 Bug fixes:
 + Fix a bug where global functions, closures, and arrow functions may have inferred values from previous analysis unintentionally
@@ -20,6 +52,8 @@ Maintenance:
 Plugins:
 + Add a new plugin `RedundantAssignmentPlugin` to warn about assigning the same value a variable already has to that variable. (#3424)
   New issue types: `PhanPluginRedundantAssignment`, `PhanPluginRedundantAssignmentInLoop`, `PhanPluginRedundantAssignmentInGlobalScope`
++ Warn about alignment directives and more padding directives (`'x`) without width directive in `PrintfCheckerPlugin` (#3317)
++ Also emit `PhanPluginPrintfNoArguments` in cases when the format string could not be determined. (#3198)
 
 Oct 26 2019, Phan 2.4.0
 -----------------------

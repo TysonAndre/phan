@@ -11,7 +11,7 @@ use Phan\Language\Type;
  * @see ArrayType for the representation of `array`
  * @phan-pure
  */
-final class NonEmptyListType extends ListType
+final class NonEmptyListType extends ListType implements NonEmptyArrayInterface
 {
     /**
      * @override
@@ -95,6 +95,19 @@ final class NonEmptyListType extends ListType
             );
         }
         return NonEmptyAssociativeArrayType::fromElementType(
+            $this->element_type,
+            $this->is_nullable,
+            $this->key_type
+        );
+    }
+
+    /**
+     * @return ListType
+     * @phan-real-return ListType
+     */
+    public function asPossiblyEmptyArrayType() : ArrayType
+    {
+        return ListType::fromElementType(
             $this->element_type,
             $this->is_nullable,
             $this->key_type

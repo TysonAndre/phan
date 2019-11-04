@@ -38,6 +38,7 @@ use Phan\Language\Type\LiteralStringType;
 use Phan\Language\Type\LiteralTypeInterface;
 use Phan\Language\Type\MixedType;
 use Phan\Language\Type\MultiType;
+use Phan\Language\Type\NonEmptyArrayInterface;
 use Phan\Language\Type\NullType;
 use Phan\Language\Type\ObjectType;
 use Phan\Language\Type\ScalarType;
@@ -1316,7 +1317,6 @@ class UnionType implements Serializable
     /**
      * @return bool - True if type set is not empty and at least one type is NullType or nullable or FalseType or BoolType.
      * (I.e. the type is always falsey, or both sometimes falsey with a non-falsey type it can be narrowed down to)
-     * This does not include values such as `IntType`, since there is currently no `NonZeroIntType`.
      */
     public function containsFalsey() : bool
     {
@@ -2159,10 +2159,21 @@ class UnionType implements Serializable
      *
      * E.g. allows ?T|Other -> T, null|Other -> ?T, ?T -> ?Other
      * Does not allow ?T -> Other, etc.
+     *
+     * @param bool $allow_casting
+     * If true, allow non-identical types to cast to other types if that would be permitted by casting rules for param/return types
+     * (e.g. int -> float)
      */
-    public function canAnyTypeStrictCastToUnionType(CodeBase $code_base, UnionType $target) : bool
+    public function canAnyTypeStrictCastToUnionType(CodeBase $code_base, UnionType $target, bool $allow_casting = true) : bool
     {
         foreach ($this->type_set as $type) {
+            if ($type instanceof IntType && !$allow_casting) {
+                if (!$target->hasTypeMatchingCallback(static function (Type $type) : bool {
+                    return $type instanceof IntType || $type instanceof MixedType;
+                })) {
+                    return false;
+                }
+            }
             if ($type->asPHPDocUnionType()->canStrictCastToUnionType($code_base, $target)) {
                 return true;
             }
@@ -2421,7 +2432,8 @@ class UnionType implements Serializable
      */
     public function hasAnyTypeOverlap(CodeBase $code_base, UnionType $other) : bool
     {
-        return $this->canAnyTypeStrictCastToUnionType($code_base, $other) || $other->canAnyTypeStrictCastToUnionType($code_base, $this);
+        return $this->canAnyTypeStrictCastToUnionType($code_base, $other, false) ||
+            $other->canAnyTypeStrictCastToUnionType($code_base, $this, false);
     }
 
     /**
@@ -3596,6 +3608,38 @@ class UnionType implements Serializable
     }
 
     /**
+     * @param Closure(Type):(list<Type>) $closure
+     * A closure mapping `Type` to a list of types for that type
+     *
+     * @return UnionType
+     * A new UnionType with each type mapped to a list of types
+     * through the given closure.
+     */
+    public function asMappedListUnionType(Closure $closure) : UnionType
+    {
+        // In php 7.3, this could be replaced with https://www.php.net/array_push
+        $new_type_set = [];
+        foreach ($this->type_set as $type) {
+            foreach ($closure($type) as $new_type) {
+                $new_type_set[] = $new_type;
+            }
+        }
+        $new_real_type_set = [];
+        foreach ($this->real_type_set as $type) {
+            foreach ($closure($type) as $new_type) {
+                $new_real_type_set[] = $new_type;
+            }
+        }
+        if ($new_type_set === $this->type_set && $new_real_type_set === $this->real_type_set) {
+            return $this;
+        }
+        return UnionType::of(
+            $new_type_set,
+            $new_real_type_set
+        );
+    }
+
+    /**
      * @param Closure(UnionType):UnionType $closure
      */
     public function withMappedElementTypes(Closure $closure) : UnionType
@@ -4410,6 +4454,22 @@ class UnionType implements Serializable
             self::withFlattenedTopLevelArrayShapeTypeInstancesForSet($this->type_set),
             self::withFlattenedTopLevelArrayShapeTypeInstancesForSet($this->real_type_set)
         );
+    }
+
+    /**
+     * Convert non-empty-array, etc. to array.
+     *
+     * This reflects a change that removes elements from an array.
+     * @see withFlattenedTopLevelArrayShapeTypeInstances
+     */
+    public function withPossiblyEmptyArrays() : UnionType
+    {
+         return $this->asMappedUnionType(static function (Type $type) : Type {
+            if ($type instanceof NonEmptyArrayInterface) {
+                return $type->asPossiblyEmptyArrayType();
+            }
+             return $type;
+         });
     }
 
     /**

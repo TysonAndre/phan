@@ -854,8 +854,8 @@ class BlockAnalysisVisitor extends AnalysisVisitor
     }
 
     /**
-     * For "foreach loop" nodes, we analyze the loop variables in PreOrderAnalysisVisitor, then analyze the statements.
-     * (right now, the statements are just analyzed without creating a BranchScope)
+     * For "foreach loop" nodes, we analyze the loop variables,
+     * then analyze the statements in a different scope (e.g. BranchScope when there may be 0 iterations)
      *
      * @param Node $node a node of type ast\AST_FOREACH
      * @throws NodeException
@@ -882,6 +882,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor
                 $has_at_least_one_iteration = \count($expr_node->children) > 0;
             } else {
                 // e.g. look up global constants and class constants.
+                // TODO: Handle non-empty-array, etc.
                 $expr_value = (new ContextNode($code_base, $this->context, $expr_node))->getEquivalentPHPScalarValue();
 
                 $has_at_least_one_iteration = \is_array($expr_value) && count($expr_value) > 0;
@@ -944,10 +945,10 @@ class BlockAnalysisVisitor extends AnalysisVisitor
             // Combine contexts from continue/break statements within this foreach loop
             unset($node->phan_loop_contexts);
         }
+
         if (\count($context_list) >= 2) {
             $context = (new ContextMergeVisitor($context, $context_list))->combineChildContextList();
         }
-
         $context = $context->withExitLoop($node);
 
         return $this->postOrderAnalyze($context, $node);

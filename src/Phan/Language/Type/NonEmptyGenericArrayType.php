@@ -11,7 +11,7 @@ use Phan\Language\Type;
  * @see ArrayType for the representation of `array`
  * @phan-pure
  */
-final class NonEmptyGenericArrayType extends GenericArrayType
+final class NonEmptyGenericArrayType extends GenericArrayType implements NonEmptyArrayInterface
 {
     /**
      * @override
@@ -102,6 +102,19 @@ final class NonEmptyGenericArrayType extends GenericArrayType
             );
         }
         return NonEmptyAssociativeArrayType::fromElementType(
+            $this->element_type,
+            $this->is_nullable,
+            $this->key_type
+        );
+    }
+
+    /**
+     * @return GenericArrayType
+     * @phan-real-return GenericArrayType
+     */
+    public function asPossiblyEmptyArrayType() : ArrayType
+    {
+        return GenericArrayType::fromElementType(
             $this->element_type,
             $this->is_nullable,
             $this->key_type

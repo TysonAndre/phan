@@ -374,27 +374,6 @@ class PrintfCheckerPlugin extends PluginV3 implements AnalyzeFunctionCallCapabil
     {
         // Given a node, extract the printf directive and whether or not it could be translated
         $primitive_for_fmtstr = $this->astNodeToPrimitive($code_base, $context, $pattern_node);
-        if ($primitive_for_fmtstr === null) {
-            self::emitIssue(
-                $code_base,
-                $context,
-                'PhanPluginPrintfVariableFormatString',
-                'Code {CODE} has a dynamic format string that could not be inferred by Phan',
-                [ASTReverter::toShortString($pattern_node)],
-                Issue::SEVERITY_LOW,
-                Issue::REMEDIATION_B,
-                self::ERR_UNTRANSLATED_UNKNOWN_FORMAT_STRING
-            );
-            // TODO: Add a verbose option
-            return;
-        }
-        // Make sure that the untranslated format string is being used correctly.
-        // If the format string will be translated, also check the translations.
-
-        $fmt_str = $primitive_for_fmtstr->value;
-        $is_translated = $primitive_for_fmtstr->is_translated;
-        $specs = is_string($fmt_str) ? ConversionSpec::extractAll($fmt_str) : [];
-        $fmt_str = (string)$fmt_str;
         /**
          * @param string $issue_type
          * A name for the type of issue such as 'PhanPluginMyIssue'
@@ -428,6 +407,35 @@ class PrintfCheckerPlugin extends PluginV3 implements AnalyzeFunctionCallCapabil
                 $issue_type_id
             );
         };
+        if ($primitive_for_fmtstr === null) {
+            $emit_issue(
+                'PhanPluginPrintfVariableFormatString',
+                'Code {CODE} has a dynamic format string that could not be inferred by Phan',
+                [ASTReverter::toShortString($pattern_node)],
+                Issue::SEVERITY_LOW,
+                self::ERR_UNTRANSLATED_UNKNOWN_FORMAT_STRING
+            );
+            if (\is_array($arg_nodes) && count($arg_nodes) === 0) {
+                $replacement_function_name = \in_array($function->getName(), ['vprintf', 'fprintf', 'vfprintf'], true) ? 'fwrite' : 'echo';
+                $emit_issue(
+                    "PhanPluginPrintfNoArguments",
+                    "No format string arguments are given for {STRING_LITERAL}, consider using {FUNCTION} instead",
+                    ['(unknown)', $replacement_function_name],
+                    Issue::SEVERITY_LOW,
+                    self::ERR_UNTRANSLATED_USE_ECHO
+                );
+                return;
+            }
+            // TODO: Add a verbose option
+            return;
+        }
+        // Make sure that the untranslated format string is being used correctly.
+        // If the format string will be translated, also check the translations.
+
+        $fmt_str = $primitive_for_fmtstr->value;
+        $is_translated = $primitive_for_fmtstr->is_translated;
+        $specs = is_string($fmt_str) ? ConversionSpec::extractAll($fmt_str) : [];
+        $fmt_str = (string)$fmt_str;
 
         // Check for extra or missing arguments
         if (\is_array($arg_nodes) && \count($arg_nodes) === 0) {
@@ -503,13 +511,13 @@ class PrintfCheckerPlugin extends PluginV3 implements AnalyzeFunctionCallCapabil
             foreach ($spec_group as $spec) {
                 $canonical = $spec->toCanonicalString();
                 $types[$canonical] = true;
-                if ($spec->padding_char === ' ' && ($spec->width === '' || !$spec->position)) {
+                if ((\strlen($spec->padding_char) > 0 || \strlen($spec->alignment)) && ($spec->width === '' || !$spec->position)) {
                     // Warn about "100% dollars" but not about "100%1$ 2dollars" (If both position and width were parsed, assume the padding was intentional)
                     $emit_issue(
                         'PhanPluginPrintfNotPercent',
                         // phpcs:ignore Generic.Files.LineLength.MaxExceeded
-                        "Format string {STRING_LITERAL} contains something that is not a percent sign, it will be treated as a format string '{STRING_LITERAL}' with padding. Use {DETAILS} for a literal percent sign, or '{STRING_LITERAL}' to be less ambiguous",
-                        [self::encodeString($fmt_str), $spec->directive, '%%', $canonical],
+                        "Format string {STRING_LITERAL} contains something that is not a percent sign, it will be treated as a format string '{STRING_LITERAL}' with padding of \"{STRING_LITERAL}\" and alignment of '{STRING_LITERAL}' but no width. Use {DETAILS} for a literal percent sign, or '{STRING_LITERAL}' to be less ambiguous",
+                        [self::encodeString($fmt_str), $spec->directive, $spec->padding_char, $spec->alignment, '%%', $canonical],
                         Issue::SEVERITY_NORMAL,
                         self::ERR_UNTRANSLATED_NOT_PERCENT
                     );

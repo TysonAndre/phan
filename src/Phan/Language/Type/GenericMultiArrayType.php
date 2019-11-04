@@ -338,4 +338,14 @@ final class GenericMultiArrayType extends ArrayType implements MultiType, Generi
         }
         return $result->getPHPDocUnionType();
     }
+
+    public function getKeyType() : int
+    {
+        return $this->key_type;
+    }
+
+    public function isDefinitelyNonEmptyArray() : bool
+    {
+        return $this->always_has_elements;
+    }
 }

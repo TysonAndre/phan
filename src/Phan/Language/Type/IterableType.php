@@ -5,6 +5,7 @@ namespace Phan\Language\Type;
 use Phan\CodeBase;
 use Phan\Language\Context;
 use Phan\Language\Type;
+use Phan\Language\UnionType;
 
 /**
  * Phan's representation of `iterable`
@@ -73,9 +74,43 @@ class IterableType extends NativeType
         return true;
     }
 
+    /**
+     * Returns the types of the elements
+     */
+    public function genericArrayElementUnionType() : UnionType
+    {
+        // TODO getElementUnionType in subclasses is redundant where implemented?
+        return UnionType::empty();
+    }
+
     public function isAlwaysFalsey() : bool
     {
         return false;
+    }
+
+    public function hasStaticOrSelfTypesRecursive(CodeBase $code_base) : bool
+    {
+        $union_type = $this->iterableValueUnionType($code_base);
+        if (!$union_type) {
+            return false;
+        }
+        foreach ($union_type->getTypeSet() as $type) {
+            if ($type !== $this && $type->hasStaticOrSelfTypesRecursive($code_base)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns `GenericArrayType::KEY_*` for the union type of this iterable's keys.
+     * e.g. for `iterable<string, stdClass>`, returns KEY_STRING.
+     *
+     * Overridden in subclasses.
+     */
+    public function getKeyType() : int
+    {
+        return GenericArrayType::KEY_MIXED;
     }
 }
 // Trigger autoloader for subclass before make() can get called.
