@@ -1,6 +1,39 @@
 Phan NEWS
 
-??? ?? 2019, Phan 2.4.2 (dev)
+??? ?? 2019, Phan 2.4.3 (dev)
+-----------------------
+
+New features(CLI, Configs):
++ Support `NO_COLOR` environment variable. (https://no-color.org/)
+  When this variable is set, Phan's error message and issue text will not be colorized unless the CLI arg `--color` or `-c` is used.
+  This overrides the `PHAN_ENABLE_COLOR_OUTPUT` setting.
++ Add `PHAN_DISABLE_PROGRESS_BAR` environment variable to disable progress bar by default unless the CLI arg `--progress-bar` is used.
+
+New features(Analysis):
++ Make issue suggestions (and CLI suggestions) for completions of prefixes case-insensitive.
++ Support `@seal-properties` and `@seal-methods` as aliases of `@phan-forbid-undeclared-magic-properties` and `@phan-forbid-undeclared-magic-methods`
++ More aggressively infer real types of array destructuring(e.g. `[$x] = expr`) and accesses of array dimensions (e.g. `$x = expr[dim]`) (#3481)
+
+  This will result in a few more false positives about potentially real redundant/impossible conditions and real type mismatches.
++ Fix false positives caused by assuming that the default values of properties are the real types of properties.
+
+Plugins:
++ Also start checking if closures (and arrow functions) can be static in `PossiblyStaticMethodPlugin`
++ Add `AvoidableGetterPlugin` to suggest when `$this->prop` can be used instead of `$this->getProp()`.
+  (This will suggest using the property instead of the getter method if there are no known method overrides of the getter. This is only checked for instance properties of `$this`)
+
+Maintenance:
++ Bump minimum version of netresearch/jsonmapper to avoid php notices in the language server in php 7.4
+
+Bug fixes:
++ Properly emit redundant and impossible condition warnings about uses of class constants defined as literal strings/floats/integers.
+  (i.e. infer their real union types)
++ Fix false positive inference that `$x[0]` was `string` for `$x` of types such as `list<\MyClass>|string` (reported in #3483)
++ Consistently inherit analysis settings from parent classes recursively, instead of only inheriting them from the direct parent class. (#3472)
+  (settings include presence of dynamic properties, whether undeclared magic methods are forbidden, etc.)
++ Don't treat methods that were overridden in one class but inherited by a different class as if they had overrides.
+
+Nov 08 2019, Phan 2.4.2
 -----------------------
 
 New features(Analysis):
@@ -9,6 +42,18 @@ New features(Analysis):
 + Emit `PhanTypeInvalidDimOffset` for accessing any dimension on an empty string or an empty array. (#3385)
 + Warn about invalid string literal offsets such as `'str'[3]`, `'str'[-4]`, etc. (#3385)
 + Infer that arrays are non-empty and support array access from `isset($x[$offset])` (#3463)
++ Make `array_key_exists` imply argument is a `non-empty-array` (or an `object`). (#3465, #3469)
++ Make `isset($x[$offset])` imply argument is a `non-empty-array`, `object`, or `string`
+  Make `isset($x['literal string'])` imply argument is a `non-empty-array` or `object`, and not a `string`.
++ Make `isset($x->prop)` imply `$x` is an `object`.
++ Make `isset($this->prop[$x])` imply `$this->prop` is not the empty array shape. (#3467)
++ Improve worst-case time of deduplicating unique types in a union type (#3477, suggested in #3475)
+
+Maintenance:
++ Update function signature maps for internal signatures.
+
+Bug fixes:
++ Fix false positive `PhanSuspiciousWeakTypeComparison` for `in_array`/`array_search`/`array_key_exists` with function arguments defaulting to `[]`
 
 Nov 03 2019, Phan 2.4.1
 -----------------------
@@ -540,7 +585,7 @@ Maintenance:
 + Made `--polyfill-parse-all-element-doc-comments` a no-op, it was only needed for compatibility with running Phan with php 7.0.
 + Minor updates to CLI help for Phan.
 + Restart without problematic extensions unless the corresponding `PHAN_ALLOW_$extension` flag is set. (#2900)
-  These include uopz and grpc (when Phan would use `pcntl_fork`) - Phan already restarts without xdebug.
+  These include uopz and grpc (when Phan would use `pcntl_fork`) - Phan already restarts without Xdebug.
 + Fix `Debug::nodeToString()` - Make it use a polyfill for `ast\get_kind_name` if the php-ast version is missing or outdated.
 
 Jul 01 2019, Phan 2.2.4
@@ -2673,10 +2718,10 @@ New Features (CLI, Configs)
 + Add config (`autoload_internal_extension_signatures`) to allow users to specify PHP extensions (modules) used by the analyzed project,
   along with stubs for Phan to use (instead of ReflectionFunction, etc) if the PHP binary used to run Phan doesn't have those extensions enabled. (#627)
   Add a script (`tool/make_stubs`) to output the contents of stubs to use for `autoload_internal_extension_signatures` (#627).
-+ By default, automatically restart Phan without xdebug if xdebug is enabled. (#1161)
-  If you wish to analyze a project using XDebug's functions, set `autoload_internal_extension_signatures`
++ By default, automatically restart Phan without Xdebug if Xdebug is enabled. (#1161)
+  If you wish to analyze a project using Xdebug's functions, set `autoload_internal_extension_signatures`
   (e.g. `['xdebug' => 'vendor/phan/phan/.phan/internal_stubs/xdebug.phan_php']`)
-  If you wish to use xdebug to debug Phan's analysis itself, set and export the environment variable `PHAN_ALLOW_XDEBUG=1`.
+  If you wish to use Xdebug to debug Phan's analysis itself, set and export the environment variable `PHAN_ALLOW_XDEBUG=1`.
 + Improve analysis of return types of `array_pop`, `array_shift`, `current`, `end`, `next`, `prev`, `reset`, `array_map`, `array_filter`, etc.
   See `ArrayReturnTypeOverridePlugin.php.`
   Phan can analyze callables (for `array_map`/`array_filter`) of `Closure` form, as well as strings/2-part arrays that are inlined.
@@ -2866,7 +2911,7 @@ New Features (CLI, Configs)
 + Create `enable_class_alias_support` config setting (disabled by default), which enables analyzing basic usage of class_alias. (Issue #586)
   Set it to true to enable it.
   NOTE: this is still experimental.
-+ Warn to stderr about running Phan analysis with XDebug (Issue #116)
++ Warn to stderr about running Phan analysis with Xdebug (Issue #116)
   The warning can be disabled by the Phan config setting `skip_slow_php_options_warning` to true.
 + Add a config setting 'scalar_implicit_partial' to allow moving away from 'scalar_implicit_cast' (Issue #541)
   This allows users to list out (and gradually remove) permitted scalar type casts.

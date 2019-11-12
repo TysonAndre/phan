@@ -1510,7 +1510,7 @@ class UnionTypeVisitor extends AnalysisVisitor
         if (self::hasArrayShapeOrList($union_type)) {
             $element_type = $this->resolveArrayShapeElementTypes($node, $union_type);
             if ($element_type !== null) {
-                return $element_type->eraseRealTypeSet();
+                return $element_type;
             }
         }
 
@@ -1523,7 +1523,7 @@ class UnionTypeVisitor extends AnalysisVisitor
 
         // Figure out what the types of accessed array
         // elements would be.
-        $generic_types = $union_type->genericArrayElementTypes()->eraseRealTypeSet();
+        $generic_types = $union_type->genericArrayElementTypes(true);
 
         // If we have generics, we're all set
         if (!$generic_types->isEmpty()) {
@@ -1623,6 +1623,10 @@ class UnionTypeVisitor extends AnalysisVisitor
                 }
             }
             $element_types = $element_types->withType($string_type);
+            if ($union_type->hasRealTypeSet()) {
+                // @phan-suppress-next-line PhanAccessMethodInternal
+                $element_types = $element_types->withRealTypeSet(UnionType::computeRealElementTypesForDimAccess($union_type->getRealTypeSet()));
+            }
         }
 
         if ($element_types->isEmpty()) {
@@ -1815,12 +1819,14 @@ class UnionTypeVisitor extends AnalysisVisitor
          * @var bool $has_non_array_shape_type this will be true if there are types that support array access
          *           but have unknown array shapes in $union_type
          */
-        $has_non_array_shape_type = false;
+        $has_generic_array = false;
+        $has_string = false;
         $resulting_element_type = null;
         foreach ($union_type->getTypeSet() as $type) {
             if (!($type instanceof ArrayShapeType)) {
                 if ($type instanceof StringType) {
-                    if (\is_int($dim_value)) {
+                    $has_string = true;
+                    if (\is_int($dim_value) || \filter_var($dim_value, \FILTER_VALIDATE_INT) !== false) {
                         // If we request a string offset from a string, that's not valid. Only accept integer dimensions as valid.
                         // in php, indices of strings can be negative
                         if ($resulting_element_type !== null) {
@@ -1828,7 +1834,6 @@ class UnionTypeVisitor extends AnalysisVisitor
                         } else {
                             $resulting_element_type = StringType::instance(false)->asPHPDocUnionType();
                         }
-                        $has_non_array_shape_type = true;
                     } else {
                         // TODO: Warn about string indices of strings?
                     }
@@ -1837,7 +1842,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                         continue;
                     }
                     // TODO: Could be more precise about check for ArrayAccess
-                    $has_non_array_shape_type = true;
+                    $has_generic_array = true;
                     continue;
                 }
                 continue;
@@ -1854,12 +1859,25 @@ class UnionTypeVisitor extends AnalysisVisitor
             }
         }
         if ($resulting_element_type === null) {
-            if (!$has_non_array_shape_type) {
+            if (!$has_string && !$has_generic_array) {
                 // This is exclusively array shape types.
                 // Return false to indicate that the offset doesn't exist in any of those array shape types.
                 return false;
             }
             return null;
+        }
+        if ($has_string || $has_generic_array) {
+            if ($has_string && $has_generic_array) {
+                return null;
+            }
+            if ($resulting_element_type->hasRealTypeSet()) {
+                $resulting_element_type = UnionType::of(
+                    $resulting_element_type->getTypeSet(),
+                    \array_map(static function (Type $type) : Type {
+                        return $type->withIsNullable(true);
+                    }, $resulting_element_type->getRealTypeSet())
+                );
+            }
         }
         return $resulting_element_type;
     }
@@ -2208,8 +2226,20 @@ class UnionTypeVisitor extends AnalysisVisitor
                 $this->context,
                 $node
             ))->getClassConst();
-
-            return $constant->getUnionType();
+            $union_type = $constant->getUnionType();
+            $class_node = $node->children['class'];
+            if (!$class_node instanceof Node || $class_node->kind !== ast\AST_NAME) {
+                // ignore nonsense like (0)::class, and dynamic accesses such as $var::CLASS
+                return $union_type->eraseRealTypeSet();
+            }
+            if (\strcasecmp($class_node->children['name'], 'static') === 0) {
+                if ($this->context->isInClassScope() && $this->context->getClassInScope($this->code_base)->isFinal()) {
+                    // static::X should be treated like self::X in a final class.
+                    return $union_type;
+                }
+                return $union_type->eraseRealTypeSet();
+            }
+            return $union_type;
         } catch (NodeException $_) {
             // ignore, this should warn elsewhere
         }

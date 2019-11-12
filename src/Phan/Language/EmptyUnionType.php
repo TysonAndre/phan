@@ -95,7 +95,7 @@ final class EmptyUnionType extends UnionType
      */
     public function withUnionType(UnionType $union_type) : UnionType
     {
-        return $union_type->eraseRealTypeSet();
+        return $union_type->eraseRealTypeSetRecursively();
     }
 
     /**
@@ -960,7 +960,7 @@ final class EmptyUnionType extends UnionType
      * @return UnionType
      * The subset of types in this
      */
-    public function genericArrayElementTypes() : UnionType
+    public function genericArrayElementTypes(bool $add_real_types = false) : UnionType
     {
         return $this; // empty
     }
@@ -1106,7 +1106,7 @@ final class EmptyUnionType extends UnionType
 
     public function replaceWithTemplateTypes(UnionType $template_union_type) : UnionType
     {
-        return $template_union_type->eraseRealTypeSet();
+        return $template_union_type->eraseRealTypeSetRecursively();
     }
 
     public function hasTypeWithFQSEN(Type $other) : bool
@@ -1447,6 +1447,11 @@ final class EmptyUnionType extends UnionType
     }
 
     public function eraseRealTypeSet() : UnionType
+    {
+        return $this;
+    }
+
+    public function eraseRealTypeSetRecursively() : UnionType
     {
         return $this;
     }

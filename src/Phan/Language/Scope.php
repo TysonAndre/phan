@@ -163,7 +163,7 @@ abstract class Scope
      */
     public function isInMethodLikeScope() : bool
     {
-        return ($this->flags & self::IN_CLASS_LIKE_SCOPE) !== 0 && $this->flags & self::IN_FUNCTION_LIKE_SCOPE !== 0;
+        return ($this->flags & self::IN_CLASS_LIKE_SCOPE) !== 0 && ($this->flags & self::IN_FUNCTION_LIKE_SCOPE) !== 0;
     }
 
     /**
@@ -442,7 +442,7 @@ abstract class Scope
      */
     public function __toString() : string
     {
-        return $this->getFQSEN() . "\t" . \implode(',', $this->getVariableMap());
+        return $this->fqsen . "\t" . \implode(',', $this->getVariableMap());
     }
 
     /**

@@ -478,6 +478,8 @@ class ParseVisitor extends ScopeVisitor
                     }
                 }
                 $default_type = $union_type;
+                // Erase the corresponding real type set to avoid false positives such as `$x->prop['field'] === null` is redundant/impossible.
+                $union_type = $union_type->eraseRealTypeSetRecursively();
                 if ($real_union_type->isEmpty()) {
                     if ($union_type->isType(NullType::instance(false))) {
                         $union_type = UnionType::empty();
@@ -492,9 +494,8 @@ class ParseVisitor extends ScopeVisitor
                             $union_type
                         );
                         $union_type = $real_union_type;
-                    } else {
-                        $union_type = $union_type->withRealTypeSet($real_type_set);
                     }
+                    $union_type = $union_type->withRealTypeSet($real_union_type->getTypeSet());
                 }
             }
 
@@ -555,7 +556,7 @@ class ParseVisitor extends ScopeVisitor
                 // to avoid issues such as https://github.com/phan/phan/issues/311 and many more.
                 if ($future_union_type !== null) {
                     try {
-                        $original_union_type = $future_union_type->get();
+                        $original_union_type = $future_union_type->get()->eraseRealTypeSetRecursively();
                         if (!$variable_has_literals) {
                             $original_union_type = $original_union_type->asNonLiteralType();
                         }
@@ -657,7 +658,7 @@ class ParseVisitor extends ScopeVisitor
                     $this->code_base,
                     $this->context,
                     $node
-                ))->getConst()->getUnionType()->eraseRealTypeSet();
+                ))->getConst()->getUnionType()->eraseRealTypeSetRecursively();
             } catch (IssueException $_) {
                 // ignore
             }
@@ -754,7 +755,12 @@ class ParseVisitor extends ScopeVisitor
                     );
                 }
             } else {
-                $constant->setUnionType(Type::fromObject($value_node)->asPHPDocUnionType());
+                // This is a literal scalar value.
+                // Assume that this is the only definition of the class constant and that it's not a stub for something that depends on configuration.
+                //
+                // TODO: What about internal stubs (isPHPInternal()) - if Phan would treat those like being from phpdoc,
+                // it should do the same for FutureUnionType
+                $constant->setUnionType(Type::fromObject($value_node)->asRealUnionType());
             }
             $constant->setNodeForValue($value_node);
 

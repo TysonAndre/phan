@@ -335,7 +335,7 @@ class Func extends AddressableElement implements FunctionInterface
     {
         $string = '';
 
-        $string .= 'function ' . $this->getName();
+        $string .= 'function ' . $this->name;
 
         $string .= '(' . \implode(', ', $this->getParameterList()) . ')';
 
@@ -355,6 +355,15 @@ class Func extends AddressableElement implements FunctionInterface
     public function returnsRef() : bool
     {
         return $this->getFlagsHasState(flags\FUNC_RETURNS_REF);
+    }
+
+    /**
+     * @return bool
+     * True if this is a static closure or arrow func, such as `static fn() => $x`
+     */
+    public function isStatic() : bool
+    {
+        return $this->getFlagsHasState(flags\MODIFIER_STATIC);
     }
 
     /**
@@ -476,6 +485,6 @@ class Func extends AddressableElement implements FunctionInterface
         if ($this->isClosure()) {
             return $this->getStubForClosure();
         }
-        return $this->getName() . '()';
+        return $this->name . '()';
     }
 }

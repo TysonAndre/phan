@@ -64,7 +64,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    const PHAN_VERSION = '2.4.2-dev';
+    const PHAN_VERSION = '2.4.3-dev';
 
     /**
      * List of short flags passed to getopt
@@ -253,7 +253,14 @@ class CLI
 
         foreach ($argv as $arg) {
             if ($arg[0] == '-') {
-                throw new UsageException("Unknown option '$arg'" . self::getFlagSuggestionString(\preg_replace('@(=.*$)|(^-+)@', '', $arg)), EXIT_FAILURE);
+                $parts = \explode('=', $arg, 2);
+                $key = $parts[0];
+                $value = $parts[1] ?? '';  // php getopt() treats --processes and --processes= the same way
+                $key = \preg_replace('/^--?/', '', $key);
+                if ($value === '' && in_array($key . ':', self::GETOPT_LONG_OPTIONS, true)) {
+                    throw new UsageException("Missing required value for '$arg'", EXIT_FAILURE);
+                }
+                throw new UsageException("Unknown option '$arg'" . self::getFlagSuggestionString($key), EXIT_FAILURE);
             }
         }
     }
@@ -817,6 +824,10 @@ class CLI
                 default:
                     // All of phan's long options are currently at least 2 characters long.
                     $key_repr = strlen($key) >= 2 ? "--$key" : "-$key";
+                    echo "Checking $key\n";
+                    if ($value === false && in_array($key . ':', self::GETOPT_LONG_OPTIONS, true)) {
+                        throw new UsageException("Missing required argument value for '$key_repr'", EXIT_FAILURE);
+                    }
                     throw new UsageException("Unknown option '$key_repr'" . self::getFlagSuggestionString($key), EXIT_FAILURE);
             }
         }
@@ -927,11 +938,16 @@ class CLI
             Config::setValue('color_issue_messages', true);
         } elseif (isset($opts['no-color'])) {
             Config::setValue('color_issue_messages', false);
-        } elseif (getenv('PHAN_DISABLE_COLOR_OUTPUT')) {
+        } elseif (self::hasNoColorEnv()) {
             Config::setValue('color_issue_messages', false);
         } elseif (getenv('PHAN_ENABLE_COLOR_OUTPUT')) {
             Config::setValue('color_issue_messages_if_supported', true);
         }
+    }
+
+    private static function hasNoColorEnv() : bool
+    {
+        return getenv('PHAN_DISABLE_COLOR_OUTPUT') || getenv('NO_COLOR');
     }
 
     private static function checkValidFileConfig() : void
@@ -1012,6 +1028,9 @@ class CLI
         if (self::isDaemonOrLanguageServer()) {
             return false;
         }
+        if (\getenv('PHAN_DISABLE_PROGRESS_BAR')) {
+            return false;
+        }
         if (\defined('PHP_WINDOWS_VERSION_BUILD')) {
             // https://www.php.net/sapi_windows_vt100_support
             // >  By the way, if a stream is redirected, the VT100 feature will not be enabled:
@@ -1043,13 +1062,12 @@ class CLI
                     $details = ' (Referenced as ' . StringUtil::jsonEncode($plugin_path_or_name) . ')';
                     $details .= self::getPluginSuggestionText($plugin_path_or_name);
                 }
-                \fprintf(
-                    STDERR,
+                self::printErrorToStderr(\sprintf(
                     "Phan %s could not find plugin %s%s\n",
                     CLI::PHAN_VERSION,
                     StringUtil::jsonEncode($plugin_file_name),
                     $details
-                );
+                ));
                 $all_plugins_exist = false;
             }
         }
@@ -1688,7 +1706,7 @@ EOB
      */
     public static function colorizeHelpSectionIfSupported(string $section) : string
     {
-        if (Config::getValue('color_issue_messages') ?? (!getenv('PHAN_DISABLE_COLOR_OUTPUT') && self::supportsColor(\STDOUT))) {
+        if (Config::getValue('color_issue_messages') ?? (!self::hasNoColorEnv() && self::supportsColor(\STDOUT))) {
             $section = self::colorizeHelpSection($section);
         }
         return $section;
@@ -1774,7 +1792,11 @@ EOB
                 continue;
             }
             if ($key === $flag) {
-                return " (This option may not apply to a regular Phan analysis, and/or it may be unintentionally unhandled in \Phan\CLI::__construct())";
+                if (in_array($key . ':', self::GETOPT_LONG_OPTIONS, true)) {
+                    return " (This option is probably missing the required value. Or this option may not apply to a regular Phan analysis, and/or it may be unintentionally unhandled in \Phan\CLI::__construct())";
+                } else {
+                    return " (This option may not apply to a regular Phan analysis, and/or it may be unintentionally unhandled in \Phan\CLI::__construct())";
+                }
             }
             $similarities[$flag] = [$distance, "x" . \strtolower($flag), $flag];
         }
@@ -2219,10 +2241,11 @@ EOB
             return;
         }
         if (!\extension_loaded('ast')) {
-            fwrite(
-                STDERR,
+            self::printHelpSection(
                 // phpcs:ignore Generic.Files.LineLength.MaxExceeded
-                "The php-ast extension must be loaded in order for Phan to work. See https://github.com/phan/phan#getting-started for more details. Alternately, invoke Phan with the CLI option --allow-polyfill-parser (which is noticeably slower)\n"
+                "ERROR: The php-ast extension must be loaded in order for Phan to work. See https://github.com/phan/phan#getting-started for more details. Alternately, invoke Phan with the CLI option --allow-polyfill-parser (which is noticeably slower)\n",
+                false,
+                true
             );
             exit(EXIT_FAILURE);
         }
@@ -2234,13 +2257,15 @@ EOB
                 Config::AST_VERSION
             );
         } catch (\LogicException $_) {
-            fwrite(
-                STDERR,
-                'Unknown AST version ('
+            self::printHelpSection(
+                'ERROR: Unknown AST version ('
                 . Config::AST_VERSION
                 . ') in configuration. '
                 . "You may need to rebuild the latest version of the php-ast extension.\n"
-                . "(You are using php-ast " . (new ReflectionExtension('ast'))->getVersion() . ", but " . Config::MINIMUM_AST_EXTENSION_VERSION . " or newer is required. Alternately, test with --force-polyfill-parser (which is noticeably slower))\n"
+                . "See https://github.com/phan/phan#getting-started for more details.\n"
+                . "(You are using php-ast " . (new ReflectionExtension('ast'))->getVersion() . ", but " . Config::MINIMUM_AST_EXTENSION_VERSION . " or newer is required. Alternately, test with --force-polyfill-parser (which is noticeably slower))\n",
+                false,
+                true
             );
             exit(EXIT_FAILURE);
         }
@@ -2251,12 +2276,13 @@ EOB
                 '<' . '?php syntaxerror',
                 Config::AST_VERSION
             );
-            fwrite(
-                STDERR,
-                'Expected ast\\parse_code to throw ParseError on invalid inputs. Configured AST version: '
+            self::printHelpSection(
+                'ERROR: Expected ast\\parse_code to throw ParseError on invalid inputs. Configured AST version: '
                 . Config::AST_VERSION
                 . '. '
-                . "You may need to rebuild the latest version of the php-ast extension.\n"
+                . "You may need to rebuild the latest version of the php-ast extension.\n",
+                false,
+                true
             );
             exit(EXIT_FAILURE);
         } catch (\ParseError $_) {
@@ -2288,13 +2314,13 @@ EOB
         $extensions_to_disable = [];
         if (self::shouldRestartToExclude('xdebug')) {
             $extensions_to_disable[] = 'xdebug';
-            // Restart if xdebug is loaded, unless the environment variable PHAN_ALLOW_XDEBUG is set.
+            // Restart if Xdebug is loaded, unless the environment variable PHAN_ALLOW_XDEBUG is set.
             if (!getenv('PHAN_DISABLE_XDEBUG_WARN')) {
                 fwrite(STDERR, <<<EOT
-[info] Disabling xdebug: Phan is around five times as slow when xdebug is enabled (xdebug only makes sense when debugging Phan itself)
-[info] To run Phan with xdebug, set the environment variable PHAN_ALLOW_XDEBUG to 1.
+[info] Disabling Xdebug: Phan is around five times as slow when Xdebug is enabled (Xdebug only makes sense when debugging Phan itself)
+[info] To run Phan with Xdebug, set the environment variable PHAN_ALLOW_XDEBUG to 1.
 [info] To disable this warning, set the environment variable PHAN_DISABLE_XDEBUG_WARN to 1.
-[info] To include function signatures of xdebug, see .phan/internal_stubs/xdebug.phan_php
+[info] To include function signatures of Xdebug, see .phan/internal_stubs/xdebug.phan_php
 
 EOT
                 );

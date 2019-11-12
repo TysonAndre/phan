@@ -2,6 +2,7 @@
 
 namespace Phan\Output\Collector;
 
+use Phan\CLI;
 use Phan\Issue;
 use Phan\IssueInstance;
 use Phan\Output\Filter\AnyFilter;
@@ -54,19 +55,20 @@ final class BufferingCollector implements IssueCollectorInterface
             return;
         }
         if (self::$trace_issues) {
+            CLI::printToStderr("Backtrace of $issue is:\n");
             if (self::$trace_issues === Issue::TRACE_VERBOSE) {
                 \phan_print_backtrace();
             } else {
                 \ob_start();
                 \debug_print_backtrace(\DEBUG_BACKTRACE_IGNORE_ARGS);
-                \fwrite(\STDERR, (\ob_get_clean() ?: "failed to dump backtrace") . \PHP_EOL);
+                CLI::printToStderr((\ob_get_clean() ?: "failed to dump backtrace") . \PHP_EOL);
             }
         }
 
-        $this->issues[$this->formatSortableKey($issue)] = $issue;
+        $this->issues[self::formatSortableKey($issue)] = $issue;
     }
 
-    private function formatSortableKey(IssueInstance $issue) : string
+    private static function formatSortableKey(IssueInstance $issue) : string
     {
         // This needs to be a sortable key so that output
         // is in the expected order
