@@ -10,6 +10,7 @@ New features(CLI, Configs):
 + Add `PHAN_DISABLE_PROGRESS_BAR` environment variable to disable progress bar by default unless the CLI arg `--progress-bar` is used.
 
 New features(Analysis):
++ Make inferred real types more accurate for equality/identity/instanceof checks.
 + Combine array shape types into a single union type when merging variable types from multiple branches. (#3506)
   Do a better job of invalidating the real union type of fields of array shape types when the field is only checked/set on some code branches.
 + Make issue suggestions (and CLI suggestions) for completions of prefixes case-insensitive.
