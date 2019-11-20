@@ -8,6 +8,7 @@ New features(CLI, Configs):
   When this variable is set, Phan's error message and issue text will not be colorized unless the CLI arg `--color` or `-c` is used.
   This overrides the `PHAN_ENABLE_COLOR_OUTPUT` setting.
 + Add `PHAN_DISABLE_PROGRESS_BAR` environment variable to disable progress bar by default unless the CLI arg `--progress-bar` is used.
++ Show an extra decimal digit of precision in the progress bar when the terminal is wide enough. (#3514)
 
 New features(Analysis):
 + Make inferred real types more accurate for equality/identity/instanceof checks.
@@ -28,6 +29,7 @@ Plugins:
 
 Maintenance:
 + Bump minimum version of netresearch/jsonmapper to avoid php notices in the language server in php 7.4
++ Improve worst-case performance when analyzing code that has many possible combinations of array shapes.
 
 Bug fixes:
 + Properly emit redundant and impossible condition warnings about uses of class constants defined as literal strings/floats/integers.
