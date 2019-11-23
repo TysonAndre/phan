@@ -35,6 +35,8 @@ class Issue
     const SyntaxCompileWarning           = 'PhanSyntaxCompileWarning';
     const SyntaxEmptyListArrayDestructuring = 'PhanSyntaxEmptyListArrayDestructuring';
     const SyntaxMixedKeyNoKeyArrayDestructuring = 'PhanSyntaxMixedKeyNoKeyArrayDestructuring';
+    const SyntaxReturnExpectedValue      = 'PhanSyntaxReturnExpectedValue';
+    const SyntaxReturnValueInVoid        = 'PhanSyntaxReturnValueInVoid';
 
     // Issue::CATEGORY_UNDEFINED
     const AmbiguousTraitAliasSource = 'PhanAmbiguousTraitAliasSource';
@@ -126,6 +128,7 @@ class Issue
     const TypeInvalidInstanceof     = 'PhanTypeInvalidInstanceof';
     const TypeInvalidDimOffset      = 'PhanTypeInvalidDimOffset';
     const TypeInvalidDimOffsetArrayDestructuring = 'PhanTypeInvalidDimOffsetArrayDestructuring';
+    const TypePossiblyInvalidDimOffset           = 'PhanTypePossiblyInvalidDimOffset';
     const TypeInvalidCallExpressionAssignment    = 'PhanTypeInvalidCallExpressionAssignment';
     const TypeInvalidExpressionArrayDestructuring = 'PhanTypeInvalidExpressionArrayDestructuring';
     const TypeInvalidThrowsNonObject             = 'PhanTypeInvalidThrowsNonObject';
@@ -856,6 +859,22 @@ class Issue
                 'Cannot mix keyed and unkeyed array entries in array destructuring assignments',
                 self::REMEDIATION_A,
                 17013
+            ),
+            new Issue(
+                self::SyntaxReturnValueInVoid,
+                self::CATEGORY_SYNTAX,
+                self::SEVERITY_CRITICAL,
+                'Syntax error: {TYPE} function {FUNCTIONLIKE} must not return a value (did you mean "{CODE}" instead of "{CODE}"?)',
+                self::REMEDIATION_A,
+                17014
+            ),
+            new Issue(
+                self::SyntaxReturnExpectedValue,
+                self::CATEGORY_SYNTAX,
+                self::SEVERITY_CRITICAL,
+                'Syntax error: Function {FUNCTIONLIKE} with return type {TYPE} must return a value (did you mean "{CODE}" instead of "{CODE}"?)',
+                self::REMEDIATION_A,
+                17015
             ),
 
             // Issue::CATEGORY_UNDEFINED
@@ -1991,6 +2010,14 @@ class Issue
                 "Invalid offset {SCALAR} of array type {TYPE}",
                 self::REMEDIATION_B,
                 10046
+            ),
+            new Issue(
+                self::TypePossiblyInvalidDimOffset,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Possibly invalid offset {SCALAR} of array type {TYPE}",
+                self::REMEDIATION_B,
+                10154
             ),
             new Issue(
                 self::TypeInvalidDimOffsetArrayDestructuring,

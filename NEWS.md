@@ -1,6 +1,26 @@
 Phan NEWS
 
-??? ?? 2019, Phan 2.4.3 (dev)
+??? ?? 2019, Phan 2.4.4 (dev)
+-----------------------
+New features(CLI, Configs):
++ When stderr is redirected a file or to another program, show an append-only progress bar by default. (#3514)
+  Phan would previously disable the progress bar entirely by default.
+
+  The new `--long-progress-bar` CLI flag can be used to choose this progress bar.
+
+  (The `--no-progress-bar` CLI flag or the environment variable `PHAN_DISABLE_PROGRESS_BAR=1` can be used to disable this)
++ Treat `$var = $x['possibly undefined offset']` as creating a definitely defined variable,
+  not a possibly undefined variable. (#3534)
+
+  The config setting `convert_possibly_undefined_offset_to_nullable` controls
+  whether the field type gets cast to the nullable equivalent after removing undefined.
+
+New features(Analysis):
++ Emit `PhanPossiblyUndefinedArrayOffset` for accesses to array fields that are possibly undefined. (#3534)
++ Warn about returning/not returning in void/non-void functions.
+  New issue types: `PhanSyntaxReturnValueInVoid`, `PhanSyntaxReturnExpectedValue`
+
+Nov 20 2019, Phan 2.4.3
 -----------------------
 
 New features(CLI, Configs):
@@ -20,6 +40,7 @@ New features(Analysis):
 
   This will result in a few more false positives about potentially real redundant/impossible conditions and real type mismatches.
 + Fix false positives caused by assuming that the default values of properties are the real types of properties.
++ Infer that globals used in functions (`global $myGlobal;`) have unknown real types - don't emit warnings about redundant/impossible conditions. (#3521)
 
 Plugins:
 + Also start checking if closures (and arrow functions) can be static in `PossiblyStaticMethodPlugin`
@@ -39,6 +60,7 @@ Bug fixes:
   (settings include presence of dynamic properties, whether undeclared magic methods are forbidden, etc.)
 + Don't treat methods that were overridden in one class but inherited by a different class as if they had overrides.
 + Fix a crash when running in php 8.0.0-dev due to Union Types being found in Reflection. (#3503)
++ Fix edge case looking up the `extends` class/interface name when the namespace is a `use` alias (#3494)
 
 Nov 08 2019, Phan 2.4.2
 -----------------------
