@@ -403,6 +403,7 @@ class Issue
     const UnusedGlobalFunctionParameter         = 'PhanUnusedGlobalFunctionParameter';
     const UnusedVariableValueOfForeachWithKey   = 'PhanUnusedVariableValueOfForeachWithKey';  // has higher false positive rates than UnusedVariable
     const EmptyForeach                          = 'PhanEmptyForeach';
+    const EmptyForeachBody                      = 'PhanEmptyForeachBody';
     const EmptyYieldFrom                        = 'PhanEmptyYieldFrom';
     const UselessBinaryAddRight                 = 'PhanUselessBinaryAddRight';
     const SuspiciousBinaryAddLists              = 'PhanSuspiciousBinaryAddLists';
@@ -412,6 +413,7 @@ class Issue
     const UnusedVariableStatic                  = 'PhanUnusedVariableStatic';
     const UnusedVariableGlobal                  = 'PhanUnusedVariableGlobal';
     const UnusedReturnBranchWithoutSideEffects  = 'PhanUnusedReturnBranchWithoutSideEffects';
+    const RedundantArrayValuesCall                  = 'PhanRedundantArrayValuesCall';
     const VariableDefinitionCouldBeConstant     = 'PhanVariableDefinitionCouldBeConstant';
     const VariableDefinitionCouldBeConstantEmptyArray = 'PhanVariableDefinitionCouldBeConstantEmptyArray';
     const VariableDefinitionCouldBeConstantString = 'PhanVariableDefinitionCouldBeConstantString';
@@ -3525,6 +3527,14 @@ class Issue
                 6079
             ),
             new Issue(
+                self::EmptyForeachBody,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_LOW,
+                'Saw a foreach statement with empty body over array of type {TYPE} (iterating has no side effects)',
+                self::REMEDIATION_B,
+                6086
+            ),
+            new Issue(
                 self::EmptyYieldFrom,
                 self::CATEGORY_NOOP,
                 self::SEVERITY_LOW,
@@ -3587,6 +3597,14 @@ class Issue
                 'Possibly useless branch in a function where the return value must be used - all branches return values equivalent to {CODE} (previous return is at line {LINE})',
                 self::REMEDIATION_B,
                 6083
+            ),
+            new Issue(
+                self::RedundantArrayValuesCall,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_NORMAL,
+                'Attempting to convert {TYPE} to a list using {FUNCTION} (it is already a list)',
+                self::REMEDIATION_B,
+                6087
             ),
             new Issue(
                 self::UseNormalNamespacedNoEffect,

@@ -37,6 +37,7 @@ return [
 'imagecreatefromtga' => ['resource|false', 'filename'=>'string'],
 'openssl_x509_verify' => ['resource|false', 'cert'=>'string|resource', 'key'=>'string|resource'],
 'password_algos' => ['list<string>'],
+'password_hash' => ['string|false|null', 'password'=>'string', 'algo'=>'?string|?int', 'options='=>'array'],
 'pcntl_unshare' => ['bool', 'flags'=>'int'],
 'proc_open' => ['resource|false', 'command'=>'string|string[]', 'descriptorspec'=>'array', '&w_pipes'=>'resource[]', 'cwd='=>'?string', 'env='=>'?array', 'other_options='=>'array'],
 'ReflectionReference::fromArrayElement' => ['?ReflectionReference', 'array'=>'array', 'key'=>'int|string'],
@@ -49,6 +50,7 @@ return [
 'WeakReference::get' => ['?object'],
 ],
 'old' => [
+'password_hash' => ['string|false|null', 'password'=>'string', 'algo'=>'int', 'options='=>'array'],
 'proc_open' => ['resource|false', 'command'=>'string', 'descriptorspec'=>'array', '&w_pipes'=>'resource[]', 'cwd='=>'?string', 'env='=>'?array', 'other_options='=>'array'],
 'strip_tags' => ['string', 'str'=>'string', 'allowable_tags='=>'string'],
 ]

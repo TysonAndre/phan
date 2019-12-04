@@ -1,7 +1,20 @@
 Phan NEWS
 
-??? ?? 2019, Phan 2.4.4 (dev)
+??? ?? 2019, Phan 2.4.5 (dev)
 -----------------------
+
+Bug fixes:
++ Fix bug in native parsing of `AST_TYPE_UNION` (union type) nodes for PHP 8.0.0-dev.
++ Don't print duplicate entries for functions with alternate signatures in `tool/make_stubs`
++ Fix Error parsing internal template types such as `non-empty-list<string>` when using `Type::fromFullyQualifiedString()`.
++ Fix warnings about `password_hash()` algorithm constants with php 7.4 (#3560)
+  `PASSWORD_DEFAULT` became null in php 7.4, and other constants became strings.
+
+  Note that you will need to run Phan with both php 7.4 and a `target_php_version` of 7.4 to fix the errors.
+
+Nov 24 2019, Phan 2.4.4
+-----------------------
+
 New features(CLI, Configs):
 + When stderr is redirected a file or to another program, show an append-only progress bar by default. (#3514)
   Phan would previously disable the progress bar entirely by default.
@@ -19,6 +32,20 @@ New features(Analysis):
 + Emit `PhanPossiblyUndefinedArrayOffset` for accesses to array fields that are possibly undefined. (#3534)
 + Warn about returning/not returning in void/non-void functions.
   New issue types: `PhanSyntaxReturnValueInVoid`, `PhanSyntaxReturnExpectedValue`
++ Infer that `$var[$offset] = expr;`/`$this->prop[$offset] = expr;` causes that element to be non-null (#3546)
++ Emit `PhanEmptyForeachBody` when iterating over a type that isn't `Traversable` with an empty statement list.
++ Warn about computing `array_values` for an array that is already a list. (#3540)
++ Infer the real type is still an array after assigning to a field of an array.
+
+Plugins:
++ In `DuplicateExpressionPlugin`, emit `PhanPluginDuplicateIfStatements`
+  if the body for `else` is identical to the above body for the `if/elseif`.
+
+Maintenance:
++ Support native parsing of `AST_TYPE_UNION` (union type) nodes for PHP 8.0.0-dev.
++ Reduce memory usage after the polyfill/fallback parser parses ASTs
+  (when the final AST isn't cached on disk from a previous run)
++ Make the error message for missing `php-ast` contain more detailed instructions on how to install `php-ast`.
 
 Nov 20 2019, Phan 2.4.3
 -----------------------
