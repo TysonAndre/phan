@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../src/Phan/Bootstrap.php';
 
+use Phan\AST\TolerantASTConverter\Shim;
 use Phan\CodeBase;
 use Phan\Language\Context;
 use Phan\Language\Type;
@@ -30,7 +31,6 @@ use Phan\Language\UnionType;
 class OpcacheFuncInfoParser
 {
     const OVERRIDES = [
-        'password_hash' => 'false|null|string',  // this was allowed to be false in php 7.1. PHP 8.0 makes this more consistent, and is ?string
         'config_get_hash' => null,  // skip php debug method
         // wrong handling of string for 32-bit
         'mysqli_get_charset' => null,
@@ -227,6 +227,7 @@ class OpcacheFuncInfoParser
      */
     public static function main() : void
     {
+        Shim::load();
         global $argv;
         if (count($argv) !== 2) {
             fwrite(STDERR, "Usage: {$argv[0]} path/to/php-src" . PHP_EOL);
@@ -298,7 +299,13 @@ EOT;
             if (!$opcache_type->canStrictCastToUnionType($code_base, $reflection_type)) {
                 fwrite(STDERR, "Error for $function_name: Opcache infers the type is $opcache_type but reflection infers that the type is $reflection_type (check if the corresponding php versions are the same)\n");
             } else {
-                if ($opcache_type->isEqualTo($reflection_type)) {
+                if ($opcache_type->asNormalizedTypes()->isEqualTo($reflection_type->asNormalizedTypes())) {
+                    foreach ($reflection_type->getTypeSet() as $type) {
+                        if ($type instanceof IntType || $type->isInBoolFamily() || $type instanceof VoidType || $type instanceof FloatType || $type instanceof NullType) {
+                            continue;
+                        }
+                        continue 2;
+                    }
                     fwrite(STDERR, "$function_name: Opcache duplicates the reflection type $opcache_type\n");
                 }
                 // fwrite(STDERR, "$function_name: Opcache infers the type is $opcache_type and reflection infers that the type is $reflection_type\n");

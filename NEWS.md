@@ -1,11 +1,25 @@
 Phan NEWS
 
-??? ?? 2019, Phan 2.4.5 (dev)
+??? ?? 2019, Phan 2.4.6 (dev)
+-----------------------
+
+New Features(Analysis)
++ Improve inferred array shapes for multi-dimensional assignments or conditions on arrays
+  (e.g. `$x['first']['second'] = expr` or `if (cond($x['first']['second']))`) (#1510, #3569)
+
+Bug fixes:
++ Fix false positive PhanTypePossiblyInvalidDimOffset seen after
+  other array fields get added to an array shape by assignment or condition (#3579, #3569)
+
+Dec 10 2019, Phan 2.4.5
 -----------------------
 
 Plugins:
 + When adding a plugin overriding the return type of a method,
   make it affect all methods of descendant classlikes that inherited that method definition.
+
+New Features(Analysis)
++ Infer that `!empty($x['field']...)` also implies `$x['field']` is non-falsey. (#3570)
 
 Bug fixes:
 + Fix bug in native parsing of `AST_TYPE_UNION` (union type) nodes for PHP 8.0.0-dev.
@@ -15,6 +29,7 @@ Bug fixes:
   `PASSWORD_DEFAULT` became null in php 7.4, and other constants became strings.
 
   Note that you will need to run Phan with both php 7.4 and a `target_php_version` of 7.4 to fix the errors.
++ Fix uncaught `AssertionError` when parsing `@return \\...` (#3573)
 
 Nov 24 2019, Phan 2.4.4
 -----------------------
