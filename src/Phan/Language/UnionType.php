@@ -385,7 +385,9 @@ class UnionType implements Serializable
      */
     private static function mergeUniqueTypes(array $type_list, array $other_type_list) : array
     {
-        if (\count($other_type_list) + \count($type_list) <= 8) {
+        if (\count($other_type_list) <= 4) {
+            // NOTE: implementing it this way takes advantage of copy-on-write for small arrays.
+            // If no new types were added, the original array $type_list will be reused.
             foreach ($other_type_list as $type) {
                 if (!\in_array($type, $type_list, true)) {
                     $type_list[] = $type;
@@ -860,7 +862,7 @@ class UnionType implements Serializable
         }
         return UnionType::ofUnique(
             self::mergeUniqueTypes($type_set, $other_type_set),
-            ($this->real_type_set && $union_type->real_type_set) ? \array_merge($this->real_type_set, $union_type->real_type_set) : []
+            ($this->real_type_set && $union_type->real_type_set) ? self::mergeUniqueTypes($this->real_type_set, $union_type->real_type_set) : []
         );
     }
 
