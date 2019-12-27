@@ -382,6 +382,7 @@ class UnionType implements Serializable
      * @param list<Type> $type_list a list of unique types
      * @param list<Type> $other_type_list a list of unique types
      * @return list<Type> a list of the unique types from both lists
+     * @phan-pure
      */
     private static function mergeUniqueTypes(array $type_list, array $other_type_list) : array
     {
@@ -5588,6 +5589,7 @@ class UnionType implements Serializable
 
     /**
      * Returns the union type resulting from applying the `++`/`--` operator to an expression with union type.
+     * TODO: Compute the real type set
      */
     public function getTypeAfterIncOrDec() : UnionType
     {

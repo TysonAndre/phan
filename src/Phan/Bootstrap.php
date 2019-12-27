@@ -32,8 +32,14 @@ const LATEST_KNOWN_PHP_AST_VERSION = '1.0.5';
  * Dump instructions on how to install php-ast
  */
 function phan_output_ast_installation_instructions() : void {
-    $ini_path = php_ini_loaded_file() ?: '(php.ini path could not be determined)';
-    $extension_dir = ini_get('extension_dir') ?: '(extension directory could not be determined)';
+    $ini_path = php_ini_loaded_file() ?: '(php.ini path could not be determined - try creating one at ' . dirname(PHP_BINARY) . '\\php.ini as a new empty file, or one based on php.ini.development or php.ini.production)';
+    $configured_extension_dir = ini_get('extension_dir');
+    $extension_dir = $configured_extension_dir ?: '(extension directory could not be determined)';
+    $extension_dir = "'$extension_dir'";
+    $new_extension_dir = dirname(PHP_BINARY) . '\\ext';
+    if (!is_dir((string)$configured_extension_dir)) {
+        $extension_dir .= ' (extension directory does not exist and may need to be changed)';
+    }
     if (DIRECTORY_SEPARATOR === '\\') {
         if (PHP_VERSION_ID < 70500 || !preg_match('/[a-zA-Z]/', PHP_VERSION)) {
             fprintf(STDERR, PHP_EOL . "Windows users can download php-ast from https://windows.php.net/downloads/pecl/releases/ast/%s/php_ast-%s-%s-%s-%s-%s.zip" . PHP_EOL,
@@ -45,8 +51,11 @@ function phan_output_ast_installation_instructions() : void {
                 PHP_INT_SIZE == 4 ? 'x86' : 'x64'
             );
             fwrite(STDERR, "(if that link doesn't work, check https://windows.php.net/downloads/pecl/releases/ast/ )" . PHP_EOL);
-            fwrite(STDERR, "To install php-ast, add php_ast.dll from the zip to '$extension_dir'," . PHP_EOL);
-            fwrite(STDERR, "Then, enable php-ast by adding the following line to your php.ini file at '$ini_path'" . PHP_EOL . PHP_EOL);
+            fwrite(STDERR, "To install php-ast, add php_ast.dll from the zip to $extension_dir," . PHP_EOL);
+            fwrite(STDERR, "Then, enable php-ast by adding the following lines to your php.ini file at '$ini_path'" . PHP_EOL . PHP_EOL);
+            if (!is_dir((string)$configured_extension_dir) && is_dir($new_extension_dir)) {
+                fwrite(STDERR, "extension_dir=$new_extension_dir" . PHP_EOL);
+            }
             fwrite(STDERR, "extension=php_ast.dll" . PHP_EOL . PHP_EOL);
         }
     } else {
@@ -114,6 +123,7 @@ $found_autoloader = false;
 foreach ([
     dirname(__DIR__, 2) . '/vendor/autoload.php', // autoloader is in this project (we're in src/Phan and want vendor/autoload.php)
     dirname(__DIR__, 5) . '/vendor/autoload.php', // autoloader is in parent project (we're in vendor/phan/phan/src/Phan/Bootstrap.php and want autoload.php
+    dirname(__DIR__, 4) . '/autoload.php',        // autoloader is in parent project (we're in non-standard-vendor/phan/phan/src/Phan/Bootstrap.php and want non-standard-vendor/autoload.php
     ] as $file) {
     if (file_exists($file)) {
         require_once($file);

@@ -452,6 +452,7 @@ return [
         'ast'         => '.phan/internal_stubs/ast.phan_php',
         'ctype'       => '.phan/internal_stubs/ctype.phan_php',
         'igbinary'    => '.phan/internal_stubs/igbinary.phan_php',
+        'mbstring'    => '.phan/internal_stubs/mbstring.phan_php',
         'pcntl'       => '.phan/internal_stubs/pcntl.phan_php',
         'posix'       => '.phan/internal_stubs/posix.phan_php',
         'readline'    => '.phan/internal_stubs/readline.phan_php',
@@ -544,6 +545,8 @@ return [
         'RedundantAssignmentPlugin',
         // These are specific to Phan's coding style
         'StrictComparisonPlugin',
+        // Warn about `$var == SOME_INT_OR_STRING_CONST` due to unintuitive behavior such as `0 == 'a'`
+        '.phan/plugins/StrictLiteralComparisonPlugin.php',
 
         ////////////////////////////////////////////////////////////////////////
         // End plugins for Phan's self-analysis

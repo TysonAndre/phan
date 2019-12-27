@@ -696,6 +696,26 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     }
 
     /**
+     * These types are either types which create variables,
+     * or types which will be checked in other parts of Phan
+     */
+    private const SKIP_VAR_CHECK_TYPES = [
+        ast\AST_ARG_LIST       => true,  // may be a reference
+        ast\AST_ARRAY_ELEM     => true,  // [$x, $y] = expr() is an AST_ARRAY_ELEM. visitArray() checks the right-hand side.
+        ast\AST_ASSIGN_OP      => true,  // checked in visitAssignOp
+        ast\AST_ASSIGN_REF     => true,  // Creates by reference?
+        ast\AST_ASSIGN         => true,  // checked in visitAssign
+        ast\AST_DIM            => true,  // should be checked elsewhere, as part of check for array access to non-array/string
+        ast\AST_EMPTY          => true,  // TODO: Enable this in the future?
+        ast\AST_GLOBAL         => true,  // global $var;
+        ast\AST_ISSET          => true,  // TODO: Enable this in the future?
+        ast\AST_PARAM_LIST     => true,  // this creates the variable
+        ast\AST_STATIC         => true,  // static $var;
+        ast\AST_STMT_LIST      => true,  // ;$var; (Implicitly creates the variable. Already checked to emit PhanNoopVariable)
+        ast\AST_USE_ELEM       => true,  // may be a reference, checked elsewhere
+    ];
+
+    /**
      * @param Node $node
      * A node to parse
      *
@@ -707,29 +727,9 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     {
         $this->analyzeNoOp($node, Issue::NoopVariable);
         $parent_node = \end($this->parent_node_list);
-        if ($parent_node instanceof Node) {
+        if ($parent_node instanceof Node && !($node->flags & PhanAnnotationAdder::FLAG_IGNORE_UNDEF)) {
             $parent_kind = $parent_node->kind;
-            /**
-             * These types are either types which create variables,
-             * or types which will be checked in other parts of Phan
-             */
-            static $skip_var_check_types = [
-                ast\AST_ARG_LIST       => true,  // may be a reference
-                ast\AST_ARRAY_ELEM     => true,  // [$X, $y] = expr() is an AST_ARRAY_ELEM. visitArray() checks the right-hand side.
-                ast\AST_ASSIGN_OP      => true,  // checked in visitAssignOp
-                ast\AST_ASSIGN_REF     => true,  // Creates by reference?
-                ast\AST_ASSIGN         => true,  // checked in visitAssign
-                ast\AST_DIM            => true,  // should be checked elsewhere, as part of check for array access to non-array/string
-                ast\AST_EMPTY          => true,  // TODO: Enable this in the future?
-                ast\AST_GLOBAL         => true,  // global $var;
-                ast\AST_ISSET          => true,  // TODO: Enable this in the future?
-                ast\AST_PARAM_LIST     => true,  // this creates the variable
-                ast\AST_STATIC         => true,  // static $var;
-                ast\AST_STMT_LIST      => true,  // ;$var; (Implicitly creates the variable. Already checked to emit PhanNoopVariable)
-                ast\AST_USE_ELEM       => true,  // may be a reference, checked elsewhere
-            ];
-
-            if (!\array_key_exists($parent_kind, $skip_var_check_types)) {
+            if (!\array_key_exists($parent_kind, self::SKIP_VAR_CHECK_TYPES)) {
                 $this->checkForUndeclaredVariable($node);
             }
         }
@@ -1106,6 +1106,22 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             if ($old_type === $new_type) {
                 return $this->context;
             }
+            if (!$this->context->isInLoop()) {
+                try {
+                    $value = $old_type->asSingleScalarValueOrNull();
+                    if (\is_numeric($value)) {
+                        if ($node->kind === ast\AST_POST_DEC || $node->kind === ast\AST_PRE_DEC) {
+                            @--$value;
+                        } else {
+                            @++$value;
+                        }
+                        // TODO: Compute the real type set.
+                        $new_type = Type::fromObject($value)->asPHPDocUnionType();
+                    }
+                } catch (\Throwable $_) {
+                    // ignore
+                }
+            }
             try {
                 $variable = (new ContextNode($this->code_base, $this->context, $var))->getVariableStrict();
             } catch (IssueException $_) {
@@ -1116,8 +1132,21 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             $variable = clone($variable);
             $variable->setUnionType($new_type);
             $this->context->addScopeVariable($variable);
+            return $this->context;
         }
-        return $this->context;
+        // Treat expr++ like expr -= -1 and expr-- like expr -= 1.
+        // Use `-` to avoid false positives about array operations.
+        // (This isn't 100% accurate for invalid types)
+        $new_node = new Node(
+            ast\AST_ASSIGN_OP,
+            ast\flags\BINARY_SUB,
+            [
+                'var'  => $var,
+                'expr' => ($node->kind === ast\AST_POST_DEC || $node->kind === ast\AST_PRE_DEC) ? 1 : -1,
+            ],
+            $node->lineno
+        );
+        return (new AssignOperatorAnalysisVisitor($this->code_base, $this->context))->visitBinarySub($new_node);
     }
 
     /**
@@ -2339,8 +2368,8 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         $class_node = $node->children['class'];
         if (!($class_node instanceof Node)) {
             $static_class = (string)$class_node;
-        } elseif ($node->children['class']->kind == ast\AST_NAME) {
-            $static_class = (string)$node->children['class']->children['name'];
+        } elseif ($class_node->kind === ast\AST_NAME) {
+            $static_class = (string)$class_node->children['name'];
         }
 
         $method = $this->getStaticMethodOrEmitIssue($node, $method_name);
@@ -3399,7 +3428,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      */
     private function createPassByReferenceArgumentInCall(FunctionInterface $method, Node $argument, Parameter $parameter, ?Parameter $real_parameter) : void
     {
-        if ($argument->kind == ast\AST_VAR) {
+        if ($argument->kind === ast\AST_VAR) {
             // We don't do anything with the new variable; just create it
             // if it doesn't exist
             try {
@@ -3423,8 +3452,8 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             } catch (NodeException $_) {
                 return;
             }
-        } elseif ($argument->kind == ast\AST_STATIC_PROP
-            || $argument->kind == ast\AST_PROP
+        } elseif ($argument->kind === ast\AST_STATIC_PROP
+            || $argument->kind === ast\AST_PROP
         ) {
             $property_name = $argument->children['prop'];
             if ($property_name instanceof Node) {
@@ -3440,7 +3469,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                         $this->code_base,
                         $this->context,
                         $argument
-                    ))->getOrCreateProperty($property_name, $argument->kind == ast\AST_STATIC_PROP);
+                    ))->getOrCreateProperty($property_name, $argument->kind === ast\AST_STATIC_PROP);
                     $property->setHasWriteReference();
                 } catch (IssueException $exception) {
                     Issue::maybeEmitInstance(
@@ -3503,7 +3532,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                         $code_base,
                         $context,
                         $argument
-                    ))->getOrCreateProperty($property_name, $argument->kind == ast\AST_STATIC_PROP);
+                    ))->getOrCreateProperty($property_name, $argument->kind === ast\AST_STATIC_PROP);
                     $variable->addReference($context);
                 } catch (IssueException $exception) {
                     Issue::maybeEmitInstance(
@@ -4007,7 +4036,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         }
 
         $variable = null;
-        if ($argument->kind == ast\AST_VAR) {
+        if ($argument->kind === ast\AST_VAR) {
             try {
                 $variable = (new ContextNode(
                     $this->code_base,

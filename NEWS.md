@@ -3,15 +3,27 @@ Phan NEWS
 ??? ?? 2019, Phan 2.4.6 (dev)
 -----------------------
 
+New features(CLI, Configs):
++ Add more detailed instructions for installing dependencies new php installations on Windows without a php.ini
+
 New Features(Analysis)
 + Improve inferred array shapes for multi-dimensional assignments or conditions on arrays
   (e.g. `$x['first']['second'] = expr` or `if (cond($x['first']['second']))`) (#1510, #3569)
 + Infer that array offsets are no longer possibly undefined after conditions such as `if (!is_null($x['offset']))`
 + Improve worst-case runtime when merging union types with many types (#3587)
++ Handle being installed in a non-standard composer directory name (i.e. not `vendor`) (mentioned in #1612)
++ Improve analysis of assignment operators. (#3597)
++ Infer `$x op= expr` and `++`/`--` operators have a literal value when possible, outside of loops. (#3250, #3248)
++ Move `PhanUndeclaredInterface` and `PhanUndeclaredTrait` warnings to the line number of the `use`/`implements`. (#2159)
++ Don't emit `PhanUndeclaredGlobalVariable` for the left side of `??`/`??=` in the global scope (#3601)
+
+Plugins:
++ Add `StrictLiteralComparisonPlugin` to warn about loose equality comparisons of constant string/int to other values. (#2310)
 
 Bug fixes:
 + Fix false positive PhanTypePossiblyInvalidDimOffset seen after
   other array fields get added to an array shape by assignment or condition (#3579, #3569)
++ Properly extract the value of binary integer literals and binary/hex/octal float literals in the polyfill/fallback parser. (#3586)
 
 Dec 10 2019, Phan 2.4.5
 -----------------------

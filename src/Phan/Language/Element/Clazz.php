@@ -1174,7 +1174,7 @@ class Clazz extends AddressableElement
                     if ($method->isStatic()) {
                         continue;
                     }
-                    if ($method->getNumberOfParameters() == 0) {
+                    if ($method->getNumberOfParameters() === 0) {
                         continue;
                     }
                     $node = $method->getNode()->children['stmts'] ?? null;
@@ -2335,6 +2335,22 @@ class Clazz extends AddressableElement
         foreach ($this->mixin_types as $type) {
             $this->importMixin($code_base, $type);
         }
+    }
+
+    public function getLinenoOfAncestorReference(FullyQualifiedClassName $fqsen) : int
+    {
+        $class_line = $this->getFileRef()->getLineNumberStart();
+        foreach ($this->interface_fqsen_list as $i => $interface_fqsen) {
+            if ($interface_fqsen === $fqsen) {
+                return $this->interface_fqsen_lineno[$i] ?? $class_line;
+            }
+        }
+        foreach ($this->trait_fqsen_list as $i => $trait_fqsen) {
+            if ($trait_fqsen === $fqsen) {
+                return $this->trait_fqsen_lineno[$i] ?? $class_line;
+            }
+        }
+        return $class_line;
     }
 
     /**

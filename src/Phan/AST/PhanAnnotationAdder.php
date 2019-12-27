@@ -30,6 +30,7 @@ class PhanAnnotationAdder
 {
     const PHAN_NODE_FLAGS = 'phan_nf';
 
+    const FLAG_INITIALIZES = 1 << 28;
     const FLAG_IGNORE_NULLABLE = 1 << 29;
     const FLAG_IGNORE_UNDEF = 1 << 30;
 
@@ -97,13 +98,23 @@ class PhanAnnotationAdder
     {
         /**
          * @param Node $node
-         * @return void
          */
         $binary_op_handler = static function (Node $node) : void {
             if ($node->flags === flags\BINARY_COALESCE) {
                 $inner_node = $node->children['left'];
                 if ($inner_node instanceof Node) {
                     self::markNode($inner_node, self::FLAG_IGNORE_NULLABLE_AND_UNDEF);
+                }
+            }
+        };
+        /**
+         * @param Node $node a node of kind ast\AST_ASSIGN_OP
+         */
+        $assign_op_handler = static function (Node $node) : void {
+            if ($node->flags === flags\BINARY_COALESCE) {
+                $inner_node = $node->children['var'];
+                if ($inner_node instanceof Node) {
+                    self::markNode($inner_node, self::FLAG_IGNORE_NULLABLE_AND_UNDEF | self::FLAG_INITIALIZES);
                 }
             }
         };
@@ -160,6 +171,7 @@ class PhanAnnotationAdder
 
         self::$closures_for_kind = [
             ast\AST_BINARY_OP => $binary_op_handler,
+            ast\AST_ASSIGN_OP => $assign_op_handler,
             ast\AST_DIM => $dim_handler,
             ast\AST_PROP => $prop_handler,
             ast\AST_EMPTY => $ignore_nullable_and_undef_expr_handler,
