@@ -1,22 +1,52 @@
 Phan NEWS
 
-??? ?? 2019, Phan 2.4.6 (dev)
+??? ?? 2020, Phan 2.4.7 (dev)
+-----------------------
+
+New features(CLI, Configs):
++ Add an environment variable `PHAN_NO_UTF8=1` to always avoid UTF-8 in progress bars.
+  This may help with terminals or logs that have issues with UTF-8 output.
+  Error messages will continue to include UTF-8 when part of the error.
+
+New Features(Analysis):
++ Infer that merging defined variables with possibly undefined variables is also possibly undefined. (#1942)
++ Add a fallback when some types of conditional check results in a empty union type in a loop:
+  If all types assigned to the variable in a loop in a function are known,
+  then try applying the condition to the union of those types. (#3614)
+  (This approach was chosen because it needs to run only once per function)
++ Infer that assignment operations (e.g. `+=`) create variables if they were undefined.
++ Properly infer that class constants that weren't literal int/float/strings have real type sets in their union types.
++ Normalize union types of generic array elements after fetching `$x[$offset]`.
+  (e.g. change `bool|false|null` to `?bool`)
++ Normalize union types of result of `??` operator.
+
+Bug fixes:
++ Fix a crash analyzing assignment operations on `$GLOBALS` such as `$GLOBALS['var'] += expr;` (#3615)
++ Fix false positive `Phan[Possibly]UndeclaredGlobalVariable` after conditions such as `assert($var instanceof MyClass` when the variable was not assigned to within the file or previously analyzed files. (#3616)
+
+Plugins:
++ Make Phan use the real type set of the return value of the function being analyzed when plugins return a union type without a real type set.
+
+Maintenance:
++ Infer that `explode()` is possibly the empty list when `$limit` is possibly negative. (#3617)
+
+Dec 29 2019, Phan 2.4.6
 -----------------------
 
 New features(CLI, Configs):
 + Add more detailed instructions for installing dependencies new php installations on Windows without a php.ini
++ Handle being installed in a non-standard composer directory name (i.e. not `vendor`) (mentioned in #1612)
 
-New Features(Analysis)
+New Features(Analysis):
 + Improve inferred array shapes for multi-dimensional assignments or conditions on arrays
   (e.g. `$x['first']['second'] = expr` or `if (cond($x['first']['second']))`) (#1510, #3569)
 + Infer that array offsets are no longer possibly undefined after conditions such as `if (!is_null($x['offset']))`
 + Improve worst-case runtime when merging union types with many types (#3587)
-+ Handle being installed in a non-standard composer directory name (i.e. not `vendor`) (mentioned in #1612)
 + Improve analysis of assignment operators. (#3597)
 + Infer `$x op= expr` and `++`/`--` operators have a literal value when possible, outside of loops. (#3250, #3248)
 + Move `PhanUndeclaredInterface` and `PhanUndeclaredTrait` warnings to the line number of the `use`/`implements`. (#2159)
 + Don't emit `PhanUndeclaredGlobalVariable` for the left side of `??`/`??=` in the global scope (#3601)
-+ More consistently infer that variables are possibly undefined if they are not defined in all branches.
++ More consistently infer that variables are possibly undefined if they are not defined in all branches. (#1345, #1942)
 + Add new issue types for possibly undeclared variables: `PhanPossiblyUndeclaredVariable` and `PhanPossiblyUndeclaredGlobalVariable`.
 
 Plugins:

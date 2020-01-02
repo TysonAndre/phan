@@ -17,11 +17,13 @@ use Phan\IssueFixSuggester;
 use Phan\Language\Context;
 use Phan\Language\Element\Variable;
 use Phan\Language\FQSEN;
+use Phan\Language\Scope\GlobalScope;
 use Phan\Language\Type;
 use Phan\Language\Type\ArrayType;
 use Phan\Language\Type\FloatType;
 use Phan\Language\Type\IntType;
 use Phan\Language\Type\MixedType;
+use Phan\Language\Type\NullType;
 use Phan\Language\Type\ScalarType;
 use Phan\Language\Type\StringType;
 use Phan\Language\UnionType;
@@ -116,22 +118,28 @@ class AssignOperatorAnalysisVisitor extends FlagVisitorImplementation
             );
             $variable->setUnionType($get_type($variable->getUnionType()));
             return $this->context->withScopeVariable($variable);
-        } else {
-            if (Variable::isHardcodedVariableInScopeWithName($variable_name, $this->context->isInGlobalScope())) {
-                return $this->context;
-            }
-            // no such variable exists, warn about this
-            // TODO: Add Suggestions
-            Issue::maybeEmitWithParameters(
-                $this->code_base,
-                $this->context,
-                Issue::UndeclaredVariableAssignOp,
-                $node->lineno,
-                [$variable_name],
-                IssueFixSuggester::suggestVariableTypoFix($this->code_base, $this->context, $variable_name)
-            );
         }
-        return $this->context;
+
+        if (Variable::isHardcodedVariableInScopeWithName($variable_name, $this->context->isInGlobalScope())) {
+            return $this->context;
+        }
+        // no such variable exists, warn about this
+        Issue::maybeEmitWithParameters(
+            $this->code_base,
+            $this->context,
+            Issue::UndeclaredVariableAssignOp,
+            $node->lineno,
+            [$variable_name],
+            IssueFixSuggester::suggestVariableTypoFix($this->code_base, $this->context, $variable_name)
+        );
+        // Then create the variable
+        $variable = new Variable(
+            $this->context,
+            $variable_name,
+            $get_type(NullType::instance(false)->asPHPDocUnionType()),
+            0
+        );
+        return $this->context->withScopeVariable($variable);
     }
 
     /**
@@ -161,7 +169,21 @@ class AssignOperatorAnalysisVisitor extends FlagVisitorImplementation
             if (Variable::isHardcodedVariableInScopeWithName($variable_name, $this->context->isInGlobalScope())) {
                 if ($variable_name === 'GLOBALS') {
                     if (\is_string($dim_node)) {
-                        return $this->updateTargetDimWithType(new Node(ast\AST_VAR, 0, ['name' => $dim_node], $node->lineno), $get_type);
+                        $assign_op_node = new Node(ast\AST_ASSIGN_OP, 0, [
+                            'var' => new Node(ast\AST_VAR, 0, ['name' => $dim_node], $node->lineno),
+                            'expr' => $assign_op_node->children['expr'],
+                        ], $assign_op_node->lineno);
+                        if ($this->context->isInGlobalScope()) {
+                            return $this->updateTargetWithType($assign_op_node, $get_type);
+                        }
+                        // TODO: Could handle using both `global $x` and `$GLOBALS['x']` in the same function (low priority)
+
+                        // Modify the global scope
+                        (new self(
+                            $this->code_base,
+                            $this->context->withScope(new GlobalScope())
+                        ))->updateTargetWithType($assign_op_node, $get_type);
+                        // fall through and return the context still inside of the function
                     }
                     return $this->context;
                 }

@@ -239,7 +239,6 @@ final class BlockExitStatusChecker extends KindVisitorImplementation
 
     /**
      * @return int the corresponding status code
-     * @suppress PhanTypeMismatchArgumentNullable
      */
     public function visitSwitchList(Node $node) : int
     {
@@ -481,7 +480,7 @@ final class BlockExitStatusChecker extends KindVisitorImplementation
     }
 
     /**
-     * @param Node|string|int|float $constant_ast
+     * @param ?(Node|string|int|float) $constant_ast
      */
     private static function computeTriggerErrorStatusCodeForConstant($constant_ast) : int
     {

@@ -667,6 +667,7 @@ class UnionTypeVisitor extends AnalysisVisitor
         // TODO: Validate that there aren't any duplicates
         if (\count($node->children) === 1) {
             // Might be possible due to the polyfill in the future.
+            // @phan-suppress-next-line PhanTypeMismatchArgumentNullable
             return $this->__invoke($node->children[0]);
         }
         $types = [];
@@ -1597,6 +1598,7 @@ class UnionTypeVisitor extends AnalysisVisitor
 
         // If we have generics, we're all set
         if (!$generic_types->isEmpty()) {
+            $generic_types = $generic_types->asNormalizedTypes();
             if (!($node->flags & self::FLAG_IGNORE_NULLABLE) && $union_type->containsNullable()) {
                 $this->emitIssue(
                     Issue::TypeArraySuspiciousNullable,
@@ -2157,7 +2159,7 @@ class UnionTypeVisitor extends AnalysisVisitor
             }
             if ($node->flags & PhanAnnotationAdder::FLAG_IGNORE_UNDEF) {
                 if (!$this->context->isInGlobalScope()) {
-                    if ($this->should_catch_issue_exception && !(($node->flags & PhanAnnotationAdder::FLAG_INITIALIZES) && $this->context->isInLoop()) ) {
+                    if ($this->should_catch_issue_exception && !(($node->flags & PhanAnnotationAdder::FLAG_INITIALIZES) && $this->context->isInLoop())) {
                         // Warn about `$var ??= expr;`, except when it's done in a loop.
                         $this->emitIssueWithSuggestion(
                             Variable::chooseIssueForUndeclaredVariable($this->context, $variable_name),
@@ -2800,6 +2802,7 @@ class UnionTypeVisitor extends AnalysisVisitor
      */
     public function visitAssign(Node $node) : UnionType
     {
+        // XXX typed properties/references will change the type of the result from the right hand side
         return self::unionTypeFromNode(
             $this->code_base,
             $this->context,

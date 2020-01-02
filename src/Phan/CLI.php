@@ -64,7 +64,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    const PHAN_VERSION = '2.4.6-dev';
+    const PHAN_VERSION = '2.4.7-dev';
 
     /**
      * List of short flags passed to getopt
@@ -1310,7 +1310,8 @@ EOT;
             }
             exit($exit_code);
         }
-        self::printHelpSection(<<<EOB
+        self::printHelpSection(
+            <<<EOB
  -f, --file-list <filename>
   A file containing a list of PHP files to be analyzed
 
@@ -1534,7 +1535,8 @@ EOB
             $forbid_color
         );
         if ($usage_type === UsageException::PRINT_EXTENDED) {
-            self::printHelpSection(<<<EOB
+            self::printHelpSection(
+                <<<EOB
 
 Extended help:
  -a, --dump-ast
@@ -2302,10 +2304,11 @@ EOB
                         $buf .= str_repeat(" ", self::PROGRESS_WIDTH - $mod);
                     }
                     // @phan-suppress-next-line PhanPluginPrintfVariableFormatString
-                    $buf .= " " . \sprintf("%" . strlen((string)(int)$count) . "d / %d (%3d%%) %.0fMB" . PHP_EOL,
+                    $buf .= " " . \sprintf(
+                        "%" . strlen((string)(int)$count) . "d / %d (%3d%%) %.0fMB" . PHP_EOL,
                         $offset ?? 0,
                         (int)$count,
-                        100*$p,
+                        100 * $p,
                         $memory
                     );
                 }
@@ -2324,7 +2327,6 @@ EOB
                     if ($mod) {
                         $buf .= str_repeat(" ", self::PROGRESS_WIDTH - $mod);
                     }
-                    // @phan-suppress-next-line PhanPluginPrintfVariableFormatString
                     $buf .= " " . \sprintf("%.0fMB" . PHP_EOL, $memory);
                 }
             }
@@ -2343,6 +2345,9 @@ EOB
      */
     public static function doesTerminalSupportUtf8() : bool
     {
+        if (getenv('PHAN_NO_UTF8')) {
+            return false;
+        }
         // TODO: Use PHP_OS_FAMILY once the minimum supported php version is 7.2 or higher.
         if (\DIRECTORY_SEPARATOR === '\\') {
             if (!\function_exists('sapi_windows_cp_is_utf8') || !\sapi_windows_cp_is_utf8()) {

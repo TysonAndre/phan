@@ -14,6 +14,7 @@ use Phan\Analysis\ConditionVisitor\NotEqualsCondition;
 use Phan\Analysis\ConditionVisitor\NotIdenticalCondition;
 use Phan\AST\ASTReverter;
 use Phan\AST\ContextNode;
+use Phan\AST\PhanAnnotationAdder;
 use Phan\AST\UnionTypeVisitor;
 use Phan\BlockAnalysisVisitor;
 use Phan\CodeBase;
@@ -126,23 +127,59 @@ trait ConditionVisitorUtil
                 }
                 return $contains_truthy;
             },
-            static function (UnionType $union_type) : UnionType {
-                static $default_empty;
-                if ($default_empty === null) {
-                    $default_empty = UnionType::fromFullyQualifiedRealString("?0|?''|?'0'|?0.0|?array{}|?false");
-                }
+            function (UnionType $union_type) use ($var_node, $context) : UnionType {
                 $result = $union_type->nonTruthyClone();
                 if ($result->isEmpty()) {
-                    return $default_empty;
+                    return $this->getFalseyTypesFallback($var_node, $context);
                 }
                 if (!$result->hasRealTypeSet()) {
-                    return $result->withRealTypeSet($default_empty->getRealTypeSet());
+                    return $result->withRealTypeSet($this->getFalseyTypesFallback($var_node, $context)->getRealTypeSet());
                 }
                 return $result;
             },
             $suppress_issues,
             $check_empty
         );
+    }
+
+    final protected function getFalseyTypesFallback(Node $var_node, Context $context) : UnionType
+    {
+        static $default_empty;
+        if (\is_null($default_empty)) {
+            $default_empty = UnionType::fromFullyQualifiedRealString("?0|?''|?'0'|?0.0|?array{}|?false");
+        }
+        $fallback_type = $this->getTypesFallback($var_node, $context);
+        if (!\is_object($fallback_type)) {
+            return $default_empty;
+        }
+        $new_fallback = $fallback_type->nonTruthyClone();
+        if ($new_fallback->isEmpty()) {
+            return $default_empty;
+        }
+        return $new_fallback;
+    }
+
+    final protected function getTypesFallback(Node $var_node, Context $context) : ?UnionType
+    {
+        if ($var_node->kind !== ast\AST_VAR) {
+            return null;
+        }
+        $var_name = $var_node->children['name'];
+        if (!is_string($var_name)) {
+            return null;
+        }
+        if (!$context->getScope()->isInFunctionLikeScope()) {
+            return null;
+        }
+        if (!$context->isInLoop()) {
+            return null;
+        }
+        $function = $context->getFunctionLikeInScope($this->code_base);
+        $result = $function->getVariableTypeFallbackMap($this->code_base)[$var_name] ?? null;
+        if ($result && !$result->isEmpty()) {
+            return $result;
+        }
+        return null;
     }
 
     // Remove any types which are definitely falsey from that variable (NullType, FalseType)
@@ -157,8 +194,16 @@ trait ConditionVisitorUtil
                 }
                 return $type->containsFalsey();
             },
-            static function (UnionType $type) : UnionType {
-                return $type->nonFalseyClone();
+            function (UnionType $type) use ($var_node, $context) : UnionType {
+                $result = $type->nonFalseyClone();
+                if (!$result->isEmpty()) {
+                    return $result;
+                }
+                $fallback = $this->getTypesFallback($var_node, $context);
+                if (!$fallback) {
+                    return $result;
+                }
+                return $fallback->nonFalseyClone();
             },
             $suppress_issues,
             false
@@ -255,8 +300,16 @@ trait ConditionVisitorUtil
             static function (UnionType $type) : bool {
                 return $type->containsNullableOrUndefined();
             },
-            static function (UnionType $type) : UnionType {
-                return $type->nonNullableClone()->withIsPossiblyUndefined(false);
+            function (UnionType $type) use ($var_node, $context) : UnionType {
+                $result = $type->nonNullableClone()->withIsPossiblyUndefined(false);
+                if (!$result->isEmpty()) {
+                    return $result;
+                }
+                $fallback = $this->getTypesFallback($var_node, $context);
+                if (!$fallback) {
+                    return $result;
+                }
+                return $fallback->nonNullableClone();
             },
             $suppress_issues,
             false
@@ -377,7 +430,7 @@ trait ConditionVisitorUtil
             static function (UnionType $union_type) use ($cb) : bool {
                 return $union_type->hasTypeMatchingCallback($cb);
             },
-            static function (UnionType $union_type) use ($cb) : UnionType {
+            function (UnionType $union_type) use ($cb, $var_node, $context) : UnionType {
                 $has_nullable = false;
                 foreach ($union_type->getTypeSet() as $type) {
                     if ($cb($type)) {
@@ -391,7 +444,28 @@ trait ConditionVisitorUtil
                     }
                     return $union_type->nullableClone();
                 }
-                return $union_type;
+                if (!$union_type->isEmpty()) {
+                    return $union_type;
+                }
+
+                // repeat for the fallback
+                $fallback = $this->getTypesFallback($var_node, $context);
+                if (!$fallback) {
+                    return $union_type;
+                }
+                foreach ($fallback->getTypeSet() as $type) {
+                    if ($cb($type)) {
+                        $fallback = $fallback->withoutType($type);
+                        $has_nullable = $has_nullable || $type->isNullable();
+                    }
+                }
+                if ($has_nullable) {
+                    if ($fallback->isEmpty()) {
+                        return NullType::instance(false)->asPHPDocUnionType();
+                    }
+                    return $fallback->nullableClone();
+                }
+                return $fallback;
             },
             false,
             false
@@ -406,8 +480,16 @@ trait ConditionVisitorUtil
             static function (UnionType $type) : bool {
                 return $type->containsFalse();
             },
-            static function (UnionType $type) : UnionType {
-                return $type->nonFalseClone();
+            function (UnionType $type) use ($var_node, $context) : UnionType {
+                $result = $type->nonFalseClone();
+                if (!$result->isEmpty()) {
+                    return $result;
+                }
+                $fallback = $this->getTypesFallback($var_node, $context);
+                if (!$fallback) {
+                    return $result;
+                }
+                return $fallback->nonFalseClone();
             },
             false,
             false
@@ -422,8 +504,16 @@ trait ConditionVisitorUtil
             static function (UnionType $type) : bool {
                 return $type->containsTrue();
             },
-            static function (UnionType $type) : UnionType {
-                return $type->nonTrueClone();
+            function (UnionType $type) use ($var_node, $context) : UnionType {
+                $result = $type->nonTrueClone();
+                if (!$result->isEmpty()) {
+                    return $result;
+                }
+                $fallback = $this->getTypesFallback($var_node, $context);
+                if (!$fallback) {
+                    return $result;
+                }
+                return $fallback->nonTrueClone();
             },
             false,
             false
@@ -675,7 +765,6 @@ trait ConditionVisitorUtil
                         continue 2;
                     }
                 }
-
             }
             $combined_real_types[] = $type;
         }
@@ -1004,7 +1093,10 @@ trait ConditionVisitorUtil
             if (\is_string($name)) {
                 $name = \strtolower($name);
                 if ($name === 'get_class') {
-                    return $condition->analyzeClassCheck($this, $var_node->children['args']->children[0] ?? null, $expr_node);
+                    $arg = $var_node->children['args']->children[0] ?? null;
+                    if (!\is_null($arg)) {
+                        return $condition->analyzeClassCheck($this, $arg, $expr_node);
+                    }
                 }
                 return $condition->analyzeCall($this, $var_node, $expr_node);
             }
@@ -1180,15 +1272,28 @@ trait ConditionVisitorUtil
                 $context->addScopeVariable($variable);
                 return $variable;
             }
-            if (!($is_in_global_scope && Config::getValue('ignore_undeclared_variables_in_global_scope'))) {
-                throw new IssueException(
-                    Issue::fromType(Variable::chooseIssueForUndeclaredVariable($context, $variable_name))(
-                        $context->getFile(),
-                        $var_node->lineno ?? 0,
-                        [$variable_name],
-                        IssueFixSuggester::suggestVariableTypoFix($this->code_base, $context, $variable_name)
-                    )
-                );
+            if (!($var_node->flags & PhanAnnotationAdder::FLAG_IGNORE_UNDEF)) {
+                if ($is_in_global_scope) {
+                    if (!Config::getValue('ignore_undeclared_variables_in_global_scope')) {
+                        Issue::maybeEmitWithParameters(
+                            $this->code_base,
+                            $context,
+                            Variable::chooseIssueForUndeclaredVariable($context, $variable_name),
+                            $var_node->lineno,
+                            [$variable_name],
+                            IssueFixSuggester::suggestVariableTypoFix($this->code_base, $context, $variable_name)
+                        );
+                    }
+                } else {
+                    throw new IssueException(
+                        Issue::fromType(Variable::chooseIssueForUndeclaredVariable($context, $variable_name))(
+                            $context->getFile(),
+                            $var_node->lineno,
+                            [$variable_name],
+                            IssueFixSuggester::suggestVariableTypoFix($this->code_base, $context, $variable_name)
+                        )
+                    );
+                }
             }
             $variable = new Variable(
                 $context,
