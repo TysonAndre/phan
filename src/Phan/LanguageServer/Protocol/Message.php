@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Phan\LanguageServer\Protocol;
@@ -34,7 +35,7 @@ class Message
         $parts = \explode("\r\n", $msg);
         $obj->body = MessageBody::parse(\array_pop($parts));
         foreach ($parts as $line) {
-            if ($line) {
+            if ($line !== '') {
                 $pair = \explode(': ', $line);
                 $obj->headers[$pair[0]] = $pair[1];
             }

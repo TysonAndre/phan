@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Phan\Tests\LanguageServer;
 
@@ -6,6 +8,7 @@ use Exception;
 use InvalidArgumentException;
 use Phan\LanguageServer\Server\TextDocument;
 use Phan\LanguageServer\Server\Workspace;
+use Phan\Library\StringUtil;
 use Phan\Tests\BaseTest;
 use phpDocumentor\Reflection\DocBlockFactory;
 use phpDocumentor\Reflection\Types\ContextFactory;
@@ -20,7 +23,7 @@ use ReflectionClass;
  */
 final class DocBlockTest extends BaseTest
 {
-    public function testAllCommentsValid() : void
+    public function testAllCommentsValid(): void
     {
         $doc_block_factory = DocBlockFactory::createInstance();
         $context_factory = new ContextFactory();
@@ -36,7 +39,7 @@ final class DocBlockTest extends BaseTest
                     continue;
                 }
                 $comment = $method->getDocComment();
-                if (!$comment) {
+                if (!StringUtil::isNonZeroLengthString($comment)) {
                     continue;
                 }
                 try {

@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Phan;
 
@@ -19,6 +21,7 @@ use Phan\Output\IgnoredFilesFilterInterface;
 use Phan\Output\IssueCollectorInterface;
 use Phan\Output\IssuePrinterInterface;
 use Phan\Plugin\ConfigPluginSet;
+
 use function array_combine;
 use function array_filter;
 use function array_flip;
@@ -44,6 +47,7 @@ use function sort;
 use function sprintf;
 use function str_replace;
 use function var_export;
+
 use const EXIT_FAILURE;
 use const EXIT_SUCCESS;
 use const JSON_PRETTY_PRINT;
@@ -70,7 +74,7 @@ class Phan implements IgnoredFilesFilterInterface
     /**
      * @return IssueCollectorInterface used to gather issues to be printed (or used) once analysis is finished
      */
-    public static function getIssueCollector() : IssueCollectorInterface
+    public static function getIssueCollector(): IssueCollectorInterface
     {
         return self::$issue_collector;
     }
@@ -81,7 +85,7 @@ class Phan implements IgnoredFilesFilterInterface
      */
     public static function setIssueCollector(
         IssueCollectorInterface $issue_collector
-    ) : void {
+    ): void {
         self::$issue_collector = $issue_collector;
     }
 
@@ -91,7 +95,7 @@ class Phan implements IgnoredFilesFilterInterface
      *
      * @param list<IssueInstance> $issues
      */
-    private static function collectSerializedResults(array $issues) : void
+    private static function collectSerializedResults(array $issues): void
     {
         $collector = self::getIssueCollector();
         foreach ($issues as $issue) {
@@ -122,7 +126,7 @@ class Phan implements IgnoredFilesFilterInterface
     public static function analyzeFileList(
         CodeBase $code_base,
         Closure $file_path_lister
-    ) : bool {
+    ): bool {
         if (Config::getValue('dump_parsed_file_list') === true) {
             // If --dump-parsed-file-list is provided,
             // print the files in the order they would be parsed.
@@ -295,7 +299,7 @@ class Phan implements IgnoredFilesFilterInterface
         return self::finishAnalyzingRemainingStatements($code_base, $request, $analyze_file_path_list, $temporary_file_mapping);
     }
 
-    private static function checkForOptionsConflictingWithServerModes() : void
+    private static function checkForOptionsConflictingWithServerModes(): void
     {
         if (Config::isIssueFixingPluginEnabled()) {
             fwrite(STDERR, "Cannot use --automatic-fix in daemon mode or with the language server\n");
@@ -323,7 +327,7 @@ class Phan implements IgnoredFilesFilterInterface
         ?Request $request,
         array $analyze_file_path_list,
         array $temporary_file_mapping
-    ) : bool {
+    ): bool {
         try {
             // With parsing complete, we need to tell the code base to
             // start hydrating any requested elements on their way out.
@@ -374,7 +378,7 @@ class Phan implements IgnoredFilesFilterInterface
             // analysis
             $analyze_file_path_list = array_values(array_filter(
                 $analyze_file_path_list,
-                static function (string $file_path) : bool {
+                static function (string $file_path): bool {
                     return !self::isExcludedAnalysisFile($file_path);
                 }
             ));
@@ -403,7 +407,7 @@ class Phan implements IgnoredFilesFilterInterface
             /**
              * This worker takes a file and analyzes it
              */
-            $analysis_worker = static function (int $i, string $file_path, int $file_count) use ($code_base, $temporary_file_mapping, $request) : void {
+            $analysis_worker = static function (int $i, string $file_path, int $file_count) use ($code_base, $temporary_file_mapping, $request): void {
                 CLI::progress('analyze', ($i + 1) / $file_count, $file_path, $i + 1, $file_count);
                 Analysis::analyzeFile($code_base, $file_path, $request, $temporary_file_mapping[$file_path] ?? null);
             };
@@ -433,7 +437,7 @@ class Phan implements IgnoredFilesFilterInterface
                 // files up among a given number of child processes.
                 $pool = new ForkPool(
                     $process_file_list_map,
-                    static function () : void {
+                    static function (): void {
                         // Remove any issues that were collected prior to forking
                         // to prevent duplicate issues in the output.
                         self::getIssueCollector()->reset();
@@ -442,7 +446,7 @@ class Phan implements IgnoredFilesFilterInterface
                     /**
                      * @return list<IssueInstance> the list of collected issues from calls to collectIssue()
                      */
-                    static function () use ($code_base) : array {
+                    static function () use ($code_base): array {
                         // This closure is run once, after running analysis_worker on each input.
                         // If there are any plugins defining finalizeProcess(), run those.
                         ConfigPluginSet::instance()->finalizeProcess($code_base);
@@ -535,7 +539,7 @@ class Phan implements IgnoredFilesFilterInterface
     public static function expandedFileList(
         CodeBase $code_base,
         array $file_path_list
-    ) : array {
+    ): array {
 
         $file_count = count($file_path_list);
 
@@ -567,7 +571,7 @@ class Phan implements IgnoredFilesFilterInterface
      */
     public static function isExcludedAnalysisFile(
         string $file_path
-    ) : bool {
+    ): bool {
         $include_analysis_file_list = Config::getValue('include_analysis_file_list');
         if ($include_analysis_file_list) {
             return !in_array($file_path, $include_analysis_file_list, true);
@@ -587,7 +591,7 @@ class Phan implements IgnoredFilesFilterInterface
     /**
      * Emit all collected issues
      */
-    private static function display() : void
+    private static function display(): void
     {
         $collector = self::$issue_collector;
 
@@ -610,7 +614,7 @@ class Phan implements IgnoredFilesFilterInterface
      * Save json encoded function&method signature to a map.
      * @return int - Exit code for process
      */
-    private static function dumpSignaturesToFile(CodeBase $code_base, string $filename) : int
+    private static function dumpSignaturesToFile(CodeBase $code_base, string $filename): int
     {
         $encoded_signatures = json_encode($code_base->exportFunctionAndMethodSet(), JSON_PRETTY_PRINT);
         if (!file_put_contents($filename, $encoded_signatures)) {
@@ -620,7 +624,7 @@ class Phan implements IgnoredFilesFilterInterface
         return EXIT_SUCCESS;
     }
 
-    private static function printMemoryUsageSummary() : void
+    private static function printMemoryUsageSummary(): void
     {
         $memory = memory_get_usage() / 1024 / 1024;
         $peak   = memory_get_peak_usage() / 1024 / 1024;
@@ -632,7 +636,7 @@ class Phan implements IgnoredFilesFilterInterface
      */
     public static function setPrinter(
         IssuePrinterInterface $printer
-    ) : void {
+    ): void {
         self::$printer = $printer;
     }
 
@@ -641,7 +645,7 @@ class Phan implements IgnoredFilesFilterInterface
      *
      * @return bool True if filename is ignored during analysis
      */
-    public function isFilenameIgnored(string $filename) : bool
+    public function isFilenameIgnored(string $filename): bool
     {
         return self::isExcludedAnalysisFile($filename);
     }
@@ -649,7 +653,7 @@ class Phan implements IgnoredFilesFilterInterface
     /**
      * Logs slow php options to stdout
      */
-    private static function checkForSlowPHPOptions() : void
+    private static function checkForSlowPHPOptions(): void
     {
         static $did_check = false;
         if ($did_check) {
@@ -676,7 +680,7 @@ class Phan implements IgnoredFilesFilterInterface
      * Loads configured stubs for internal PHP extensions.
      * @throws InvalidArgumentException if the stubs or stub config is invalid
      */
-    private static function loadConfiguredPHPExtensionStubs(CodeBase $code_base) : void
+    private static function loadConfiguredPHPExtensionStubs(CodeBase $code_base): void
     {
         $stubs = Config::getValue('autoload_internal_extension_signatures');
         foreach ($stubs ?: [] as $extension_name => $path_to_extension) {

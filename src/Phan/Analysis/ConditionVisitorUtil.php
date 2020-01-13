@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Phan\Analysis;
 
@@ -29,10 +31,13 @@ use Phan\Language\FQSEN\FullyQualifiedClassName;
 use Phan\Language\Type;
 use Phan\Language\Type\ArrayShapeType;
 use Phan\Language\Type\FalseType;
+use Phan\Language\Type\IntType;
+use Phan\Language\Type\IterableType;
 use Phan\Language\Type\LiteralIntType;
 use Phan\Language\Type\LiteralStringType;
 use Phan\Language\Type\LiteralTypeInterface;
 use Phan\Language\Type\MixedType;
+use Phan\Language\Type\NonZeroIntType;
 use Phan\Language\Type\NullType;
 use Phan\Language\Type\ResourceType;
 use Phan\Language\Type\ScalarType;
@@ -41,6 +46,7 @@ use Phan\Language\Type\TrueType;
 use Phan\Language\UnionType;
 use Phan\Library\StringUtil;
 use Phan\Parse\ParseVisitor;
+
 use function is_int;
 use function is_string;
 
@@ -71,7 +77,7 @@ trait ConditionVisitorUtil
      * Note that Phan can't know some scalars are not an int/string/float, since 0/""/"0"/0.0/[] are empty.
      * (Remove arrays anyway)
      */
-    final protected function removeTruthyFromVariable(Node $var_node, Context $context, bool $suppress_issues, bool $check_empty) : Context
+    final protected function removeTruthyFromVariable(Node $var_node, Context $context, bool $suppress_issues, bool $check_empty): Context
     {
         return $this->updateVariableWithConditionalFilter(
             $var_node,
@@ -79,55 +85,60 @@ trait ConditionVisitorUtil
             /**
              * @suppress PhanUndeclaredProperty did_check_redundant_condition
              */
-            function (UnionType $type) use ($var_node, $context, $suppress_issues) : bool {
+            function (UnionType $type) use ($var_node, $context, $suppress_issues): bool {
                 $contains_truthy = $type->containsTruthy();
-                if (!$suppress_issues && Config::getValue('redundant_condition_detection') && $type->hasRealTypeSet()) {
-                    // Here, we only perform the redundant condition checks on whichever ran first, to avoid warning about both impossible and redundant conditions
-                    if (isset($var_node->did_check_redundant_condition)) {
-                        return $contains_truthy;
+                if (!$suppress_issues) {
+                    if (Config::getValue('redundant_condition_detection') && $type->hasRealTypeSet()) {
+                        // Here, we only perform the redundant condition checks on whichever ran first, to avoid warning about both impossible and redundant conditions
+                        if (isset($var_node->did_check_redundant_condition)) {
+                            return $contains_truthy;
+                        }
+                        $var_node->did_check_redundant_condition = true;
+                        // Here, we only perform the redundant condition checks on the ConditionVisitor to avoid warning about both impossible and redundant conditions
+                        // for the same expression
+                        if ($contains_truthy) {
+                            if (!$type->getRealUnionType()->containsFalsey()) {
+                                RedundantCondition::emitInstance(
+                                    $var_node,
+                                    $this->code_base,
+                                    $context,
+                                    Issue::ImpossibleCondition,
+                                    [
+                                        ASTReverter::toShortString($var_node),
+                                        $type->getRealUnionType(),
+                                        'falsey',
+                                    ],
+                                    static function (UnionType $type): bool {
+                                        return !$type->containsFalsey();
+                                    }
+                                );
+                            }
+                        } else {
+                            if (!$type->getRealUnionType()->containsTruthy()) {
+                                RedundantCondition::emitInstance(
+                                    $var_node,
+                                    $this->code_base,
+                                    $context,
+                                    Issue::RedundantCondition,
+                                    [
+                                        ASTReverter::toShortString($var_node),
+                                        $type->getRealUnionType(),
+                                        'falsey',
+                                    ],
+                                    static function (UnionType $type): bool {
+                                        return !$type->containsTruthy();
+                                    }
+                                );
+                            }
+                        }
                     }
-                    $var_node->did_check_redundant_condition = true;
-                    // Here, we only perform the redundant condition checks on the ConditionVisitor to avoid warning about both impossible and redundant conditions
-                    // for the same expression
-                    if ($contains_truthy) {
-                        if (!$type->getRealUnionType()->containsFalsey()) {
-                            RedundantCondition::emitInstance(
-                                $var_node,
-                                $this->code_base,
-                                $context,
-                                Issue::ImpossibleCondition,
-                                [
-                                    ASTReverter::toShortString($var_node),
-                                    $type->getRealUnionType(),
-                                    'falsey',
-                                ],
-                                static function (UnionType $type) : bool {
-                                    return !$type->containsFalsey();
-                                }
-                            );
-                        }
-                    } else {
-                        if (!$type->getRealUnionType()->containsTruthy()) {
-                            RedundantCondition::emitInstance(
-                                $var_node,
-                                $this->code_base,
-                                $context,
-                                Issue::RedundantCondition,
-                                [
-                                    ASTReverter::toShortString($var_node),
-                                    $type->getRealUnionType(),
-                                    'falsey',
-                                ],
-                                static function (UnionType $type) : bool {
-                                    return !$type->containsTruthy();
-                                }
-                            );
-                        }
+                    if (Config::getValue('error_prone_truthy_condition_detection')) {
+                        $this->checkErrorProneTruthyCast($var_node, $context, $type);
                     }
                 }
                 return $contains_truthy;
             },
-            function (UnionType $union_type) use ($var_node, $context) : UnionType {
+            function (UnionType $union_type) use ($var_node, $context): UnionType {
                 $result = $union_type->nonTruthyClone();
                 if ($result->isEmpty()) {
                     return $this->getFalseyTypesFallback($var_node, $context);
@@ -142,7 +153,7 @@ trait ConditionVisitorUtil
         );
     }
 
-    final protected function getFalseyTypesFallback(Node $var_node, Context $context) : UnionType
+    final protected function getFalseyTypesFallback(Node $var_node, Context $context): UnionType
     {
         static $default_empty;
         if (\is_null($default_empty)) {
@@ -159,7 +170,7 @@ trait ConditionVisitorUtil
         return $new_fallback;
     }
 
-    final protected function getTypesFallback(Node $var_node, Context $context) : ?UnionType
+    final protected function getTypesFallback(Node $var_node, Context $context): ?UnionType
     {
         if ($var_node->kind !== ast\AST_VAR) {
             return null;
@@ -183,22 +194,29 @@ trait ConditionVisitorUtil
     }
 
     // Remove any types which are definitely falsey from that variable (NullType, FalseType)
-    final protected function removeFalseyFromVariable(Node $var_node, Context $context, bool $suppress_issues) : Context
+    final protected function removeFalseyFromVariable(Node $var_node, Context $context, bool $suppress_issues): Context
     {
         return $this->updateVariableWithConditionalFilter(
             $var_node,
             $context,
-            function (UnionType $type) use ($context, $var_node, $suppress_issues) : bool {
-                if (!$suppress_issues && Config::getValue('redundant_condition_detection') && $type->hasRealTypeSet()) {
-                    $this->checkRedundantOrImpossibleTruthyCondition($var_node, $context, $type->getRealUnionType(), false);
+            function (UnionType $type) use ($context, $var_node, $suppress_issues): bool {
+                if (!$suppress_issues) {
+                    if (Config::getValue('redundant_condition_detection') && $type->hasRealTypeSet()) {
+                        $this->checkRedundantOrImpossibleTruthyCondition($var_node, $context, $type->getRealUnionType(), false);
+                    }
+                    if (Config::getValue('error_prone_truthy_condition_detection')) {
+                        $this->checkErrorProneTruthyCast($var_node, $context, $type);
+                    }
                 }
-                return $type->containsFalsey();
+                foreach ($type->getRealTypeSet() as $single_type) {
+                    if ($single_type->isPossiblyFalsey()) {
+                        return true;
+                    }
+                }
+                return $type->containsFalsey() || !$type->hasRealTypeSet();
             },
-            function (UnionType $type) use ($var_node, $context) : UnionType {
+            function (UnionType $type) use ($var_node, $context): UnionType {
                 $result = $type->nonFalseyClone();
-                if (!$result->isEmpty()) {
-                    return $result;
-                }
                 $fallback = $this->getTypesFallback($var_node, $context);
                 if (!$fallback) {
                     return $result;
@@ -214,10 +232,65 @@ trait ConditionVisitorUtil
      * Warn about a scalar expression literal node that is always truthy or always falsey, in a place expecting a condition.
      * @param int|string|float $node
      */
-    public function warnRedundantOrImpossibleScalar($node) : void
+    public function warnRedundantOrImpossibleScalar($node): void
     {
         // TODO: Add LiteralFloatType so that this can consistently warn about floats
         $this->checkRedundantOrImpossibleTruthyCondition($node, $this->context, null, false);
+    }
+
+    /**
+     * Check if the provided node has a comparison to truthy that's error prone.
+     *
+     * E.g. checking if an object|int is truthy - A more appropriate check may be is_object()
+     *
+     * @suppress PhanUndeclaredProperty did_check_redundant_condition
+     */
+    private function checkErrorProneTruthyCast(Node $node, Context $context, UnionType $union_type): void
+    {
+        // Here, we only perform the redundant condition checks on whichever ran first, to avoid warning about both impossible and redundant conditions
+        if (isset($node->did_check_error_prone_truthy)) {
+            return;
+        }
+        $node->did_check_error_prone_truthy = true;
+        $has_array_or_object = false;
+        $has_falsey = false;
+        $has_truthy = false;
+        $has_string = false;
+        foreach ($union_type->getTypeSet() as $type) {
+            if ($type->isObject() || $type instanceof IterableType) {
+                $has_array_or_object = true;
+                continue;
+            }
+            if ($type->isPossiblyTruthy()) {
+                $has_truthy = true;
+                $has_falsey = $has_falsey || $type->withIsNullable(false)->isPossiblyFalsey();
+                if (\get_class($type) === StringType::class) {
+                    $has_string = true;
+                }
+            } else {
+                $has_falsey = $has_falsey || !($type instanceof NullType || $type instanceof FalseType);
+            }
+        }
+        if ($has_truthy && $has_falsey && $has_array_or_object) {
+            Issue::maybeEmit(
+                $this->code_base,
+                $context,
+                Issue::SuspiciousTruthyCondition,
+                $node->lineno,
+                ASTReverter::toShortString($node),
+                $union_type
+            );
+        }
+        if ($has_string) {
+            Issue::maybeEmit(
+                $this->code_base,
+                $context,
+                Issue::SuspiciousTruthyString,
+                $node->lineno,
+                ASTReverter::toShortString($node),
+                $union_type
+            );
+        }
     }
 
     /**
@@ -225,7 +298,7 @@ trait ConditionVisitorUtil
      * @param Node|string|int|float $node
      * @suppress PhanUndeclaredProperty did_check_redundant_condition
      */
-    public function checkRedundantOrImpossibleTruthyCondition($node, Context $context, ?UnionType $type, bool $is_negated) : void
+    public function checkRedundantOrImpossibleTruthyCondition($node, Context $context, ?UnionType $type, bool $is_negated): void
     {
         if ($node instanceof Node) {
             // Here, we only perform the redundant condition checks on whichever ran first, to avoid warning about both impossible and redundant conditions
@@ -261,7 +334,7 @@ trait ConditionVisitorUtil
                     $type->getRealUnionType(),
                     $is_negated ? 'falsey' : 'truthy'
                 ],
-                static function (UnionType $type) : bool {
+                static function (UnionType $type): bool {
                     return !$type->containsTruthy();
                 }
             );
@@ -276,7 +349,7 @@ trait ConditionVisitorUtil
                     $type->getRealUnionType(),
                     $is_negated ? 'falsey' : 'truthy'
                 ],
-                static function (UnionType $type) : bool {
+                static function (UnionType $type): bool {
                     return !$type->containsFalsey();
                 }
             );
@@ -287,20 +360,20 @@ trait ConditionVisitorUtil
      * overridden in subclasses
      * @param Node|mixed $_
      */
-    protected function chooseIssueForUnconditionallyTrue(bool $is_negated, $_) : string
+    protected function chooseIssueForUnconditionallyTrue(bool $is_negated, $_): string
     {
         return $is_negated ? Issue::ImpossibleCondition : Issue::RedundantCondition;
     }
 
-    final protected function removeNullFromVariable(Node $var_node, Context $context, bool $suppress_issues) : Context
+    final protected function removeNullFromVariable(Node $var_node, Context $context, bool $suppress_issues): Context
     {
         return $this->updateVariableWithConditionalFilter(
             $var_node,
             $context,
-            static function (UnionType $type) : bool {
+            static function (UnionType $type): bool {
                 return $type->containsNullableOrUndefined();
             },
-            function (UnionType $type) use ($var_node, $context) : UnionType {
+            function (UnionType $type) use ($var_node, $context): UnionType {
                 $result = $type->nonNullableClone()->withIsPossiblyUndefined(false);
                 if (!$result->isEmpty()) {
                     return $result;
@@ -320,9 +393,9 @@ trait ConditionVisitorUtil
      * Returns the type after removing all types that are empty or don't support property or array access
      * @param 1|2|3|4 $access_type ConditionVisitor::ACCESS_IS_*
      */
-    public static function asTypeSupportingAccess(UnionType $type, int $access_type) : UnionType
+    public static function asTypeSupportingAccess(UnionType $type, int $access_type): UnionType
     {
-        $type = $type->asMappedListUnionType(/** @return list<Type> */ static function (Type $type) use ($access_type) : array {
+        $type = $type->asMappedListUnionType(/** @return list<Type> */ static function (Type $type) use ($access_type): array {
             if ($access_type === ConditionVisitor::ACCESS_IS_OBJECT) {
                 if (!$type->isPossiblyObject()) {
                     return [];
@@ -364,13 +437,13 @@ trait ConditionVisitorUtil
     /**
      * Remove empty types not supporting 0 or more levels of array/property access from the variable.
      */
-    final protected function removeTypesNotSupportingAccessFromVariable(Node $var_node, Context $context, int $access_type) : Context
+    final protected function removeTypesNotSupportingAccessFromVariable(Node $var_node, Context $context, int $access_type): Context
     {
         return $this->updateVariableWithConditionalFilter(
             $var_node,
             $context,
-            static function (UnionType $type) use ($access_type) : bool {
-                return $type->hasTypeMatchingCallback(static function (Type $type) use ($access_type) : bool {
+            static function (UnionType $type) use ($access_type): bool {
+                return $type->hasPhpdocOrRealTypeMatchingCallback(static function (Type $type) use ($access_type): bool {
                     if ($type->isPossiblyFalsey()) {
                         return true;
                     }
@@ -389,7 +462,7 @@ trait ConditionVisitorUtil
                     return false;
                 });
             },
-            static function (UnionType $type) use ($access_type) : UnionType {
+            static function (UnionType $type) use ($access_type): UnionType {
                 return self::asTypeSupportingAccess($type, $access_type);
             },
             true,
@@ -405,32 +478,32 @@ trait ConditionVisitorUtil
         Context $context,
         $value,
         bool $strict_equality
-    ) : Context {
+    ): Context {
         if (!is_int($value) && !is_string($value)) {
             return $context;
         }
         if ($strict_equality) {
             if (is_int($value)) {
-                $cb = static function (Type $type) use ($value) : bool {
+                $cb = static function (Type $type) use ($value): bool {
                     return $type instanceof LiteralIntType && $type->getValue() === $value;
                 };
             } else { // string
-                $cb = static function (Type $type) use ($value) : bool {
+                $cb = static function (Type $type) use ($value): bool {
                     return $type instanceof LiteralStringType && $type->getValue() === $value;
                 };
             }
         } else {
-            $cb = static function (Type $type) use ($value) : bool {
+            $cb = static function (Type $type) use ($value): bool {
                 return $type instanceof LiteralTypeInterface && $type->getValue() == $value;
             };
         }
         return $this->updateVariableWithConditionalFilter(
             $var_node,
             $context,
-            static function (UnionType $union_type) use ($cb) : bool {
-                return $union_type->hasTypeMatchingCallback($cb);
+            static function (UnionType $union_type) use ($cb): bool {
+                return $union_type->hasPhpdocOrRealTypeMatchingCallback($cb);
             },
-            function (UnionType $union_type) use ($cb, $var_node, $context) : UnionType {
+            function (UnionType $union_type) use ($cb, $var_node, $context): UnionType {
                 $has_nullable = false;
                 foreach ($union_type->getTypeSet() as $type) {
                     if ($cb($type)) {
@@ -472,15 +545,15 @@ trait ConditionVisitorUtil
         );
     }
 
-    final protected function removeFalseFromVariable(Node $var_node, Context $context) : Context
+    final protected function removeFalseFromVariable(Node $var_node, Context $context): Context
     {
         return $this->updateVariableWithConditionalFilter(
             $var_node,
             $context,
-            static function (UnionType $type) : bool {
+            static function (UnionType $type): bool {
                 return $type->containsFalse();
             },
-            function (UnionType $type) use ($var_node, $context) : UnionType {
+            function (UnionType $type) use ($var_node, $context): UnionType {
                 $result = $type->nonFalseClone();
                 if (!$result->isEmpty()) {
                     return $result;
@@ -496,15 +569,15 @@ trait ConditionVisitorUtil
         );
     }
 
-    final protected function removeTrueFromVariable(Node $var_node, Context $context) : Context
+    final protected function removeTrueFromVariable(Node $var_node, Context $context): Context
     {
         return $this->updateVariableWithConditionalFilter(
             $var_node,
             $context,
-            static function (UnionType $type) : bool {
+            static function (UnionType $type): bool {
                 return $type->containsTrue();
             },
-            function (UnionType $type) use ($var_node, $context) : UnionType {
+            function (UnionType $type) use ($var_node, $context): UnionType {
                 $result = $type->nonTrueClone();
                 if (!$result->isEmpty()) {
                     return $result;
@@ -539,7 +612,7 @@ trait ConditionVisitorUtil
         Closure $filter_union_type_cb,
         bool $suppress_issues,
         bool $check_empty
-    ) : Context {
+    ): Context {
         try {
             // Get the variable we're operating on
             $variable = $this->getVariableFromScope($var_node, $context);
@@ -589,7 +662,7 @@ trait ConditionVisitorUtil
         Closure $filter_union_type_cb,
         bool $suppress_issues,
         bool $check_empty
-    ) : Context {
+    ): Context {
         $var_node = $node->children['expr'];
         if (!($var_node instanceof Node)) {
             return $context;
@@ -643,7 +716,7 @@ trait ConditionVisitorUtil
      *
      * @param Node|string|int|float $node
      */
-    public static function isThisVarNode($node) : bool
+    public static function isThisVarNode($node): bool
     {
         return $node instanceof Node && $node->kind === ast\AST_VAR &&
             $node->children['name'] === 'this';
@@ -661,7 +734,7 @@ trait ConditionVisitorUtil
         Closure $should_filter_cb,
         Closure $filter_union_type_cb,
         bool $unused_suppress_issues
-    ) : Context {
+    ): Context {
         if (!self::isThisVarNode($node->children['expr'])) {
             return $context;
         }
@@ -671,7 +744,7 @@ trait ConditionVisitorUtil
         }
         return $this->modifyPropertyOfThisSimple(
             $node,
-            static function (UnionType $type) use ($should_filter_cb, $filter_union_type_cb) : UnionType {
+            static function (UnionType $type) use ($should_filter_cb, $filter_union_type_cb): UnionType {
                 if (!$should_filter_cb($type)) {
                     return $type;
                 }
@@ -687,9 +760,9 @@ trait ConditionVisitorUtil
         UnionType $new_union_type,
         bool $suppress_issues,
         bool $is_weak_type_assertion
-    ) : Context {
+    ): Context {
         if ($var_node->kind === ast\AST_PROP) {
-            return $this->modifyPropertySimple($var_node, function (UnionType $old_type) use ($new_union_type, $is_weak_type_assertion) : UnionType {
+            return $this->modifyPropertySimple($var_node, function (UnionType $old_type) use ($new_union_type, $is_weak_type_assertion): UnionType {
                 if ($is_weak_type_assertion) {
                     return $this->combineTypesAfterWeakEqualityCheck($old_type, $new_union_type);
                 } else {
@@ -730,7 +803,7 @@ trait ConditionVisitorUtil
         return $context;
     }
 
-    protected function combineTypesAfterWeakEqualityCheck(UnionType $old_union_type, UnionType $new_union_type) : UnionType
+    protected function combineTypesAfterWeakEqualityCheck(UnionType $old_union_type, UnionType $new_union_type): UnionType
     {
         // TODO: Be more precise about these checks - e.g. forbid anything such as stdClass == false in the new type
         if (!$old_union_type->hasRealTypeSet()) {
@@ -775,7 +848,7 @@ trait ConditionVisitorUtil
         return $new_union_type;
     }
 
-    protected function combineTypesAfterStrictEqualityCheck(UnionType $old_union_type, UnionType $new_union_type) : UnionType
+    protected function combineTypesAfterStrictEqualityCheck(UnionType $old_union_type, UnionType $new_union_type): UnionType
     {
         // TODO: Be more precise about these checks - e.g. forbid anything such as stdClass == false in the new type
         if (!$new_union_type->hasRealTypeSet()) {
@@ -820,7 +893,7 @@ trait ConditionVisitorUtil
         Node $var_node,
         $expr,
         Context $context = null
-    ) : Context {
+    ): Context {
         $context = $context ?? $this->context;
         try {
             $expr_type = UnionTypeVisitor::unionTypeFromLiteralOrConstant($this->code_base, $context, $expr);
@@ -843,7 +916,7 @@ trait ConditionVisitorUtil
         Node $var_node,
         $expr,
         Context $context = null
-    ) : Context {
+    ): Context {
         $context = $context ?? $this->context;
         try {
             $expr_type = UnionTypeVisitor::unionTypeFromLiteralOrConstant($this->code_base, $context, $expr);
@@ -867,11 +940,11 @@ trait ConditionVisitorUtil
         Node $var_node,
         $expr,
         int $flags
-    ) : Context {
+    ): Context {
         $context = $this->context;
         $var_name = $var_node->children['name'] ?? null;
         // Don't analyze variables such as $$a
-        if (\is_string($var_name) && $var_name) {
+        if (\is_string($var_name)) {
             try {
                 $expr_type = UnionTypeVisitor::unionTypeFromLiteralOrConstant($this->code_base, $context, $expr);
                 if (!$expr_type) {
@@ -891,7 +964,7 @@ trait ConditionVisitorUtil
                 $variable = clone($variable);
 
                 // TODO: Filter out nullable types
-                $union_type = $variable->getUnionType()->makeFromFilter(static function (Type $type) use ($expr_value, $flags) : bool {
+                $union_type = $variable->getUnionType()->makeFromFilter(static function (Type $type) use ($expr_value, $flags): bool {
                     // @phan-suppress-next-line PhanAccessMethodInternal
                     return $type->canSatisfyComparison($expr_value, $flags);
                 });
@@ -900,6 +973,20 @@ trait ConditionVisitorUtil
                     if (!Type::performComparison(null, $expr_value, $flags)) {
                         // E.g. $x > 0 will remove the type null.
                         $union_type = $union_type->nonNullableClone();
+                    }
+                }
+                if ($union_type->hasPhpdocOrRealTypeMatchingCallback(static function (Type $type): bool {
+                    return \get_class($type) === IntType::class;
+                })) {
+                    // @phan-suppress-next-line PhanAccessMethodInternal
+                    if (!Type::performComparison(0, $expr_value, $flags)) {
+                        // E.g. $x > 0 will convert int to non-zero-int
+                        $union_type = $union_type->asMappedUnionType(static function (Type $type): Type {
+                            if (\get_class($type) === IntType::class) {
+                                return NonZeroIntType::instance($type->isNullable());
+                            }
+                            return $type;
+                        });
                     }
                 }
                 $variable->setUnionType($union_type);
@@ -927,7 +1014,7 @@ trait ConditionVisitorUtil
         Node $var_node,
         $expr,
         Context $context = null
-    ) : Context {
+    ): Context {
         $context = $context ?? $this->context;
         try {
             if ($expr instanceof Node) {
@@ -959,12 +1046,13 @@ trait ConditionVisitorUtil
      * @param Node|int|float|string $expr
      * @return Context - Context after inferring type from an expression such as `if ($x != 'literal')`
      * @suppress PhanUnreferencedPublicMethod referenced in ConditionVisitorInterface
+     * @suppress PhanSuspiciousTruthyCondition, PhanSuspiciousTruthyString didn't implement special handling of `if ($x != [...])`
      */
     final public function updateVariableToBeNotEqual(
         Node $var_node,
         $expr,
         Context $context = null
-    ) : Context {
+    ): Context {
         $context = $context ?? $this->context;
 
         $var_name = $var_node->children['name'] ?? null;
@@ -993,8 +1081,6 @@ trait ConditionVisitorUtil
                         return $this->removeFalseyFromVariable($var_node, $context, false);
                     }
                     return $this->removeFalseFromVariable($var_node, $context);
-                } elseif ($expr == null) {
-                    $context = $this->removeNullFromVariable($var_node, $context, false);
                 } elseif ($expr == true) {  // e.g. 1, "1", -1
                     return $this->removeTrueFromVariable($var_node, $context);
                 }
@@ -1010,7 +1096,7 @@ trait ConditionVisitorUtil
      * @param Node|int|float|string $right
      * @return Context - Context after inferring type from the negation of a condition such as `if ($x !== false)`
      */
-    protected function analyzeAndUpdateToBeIdentical($left, $right) : Context
+    protected function analyzeAndUpdateToBeIdentical($left, $right): Context
     {
         return $this->analyzeBinaryConditionPattern(
             $left,
@@ -1024,7 +1110,7 @@ trait ConditionVisitorUtil
      * @param Node|int|float|string $right
      * @return Context - Context after inferring type from the negation of a condition such as `if ($x != false)`
      */
-    public function analyzeAndUpdateToBeEqual($left, $right) : Context
+    public function analyzeAndUpdateToBeEqual($left, $right): Context
     {
         return $this->analyzeBinaryConditionPattern(
             $left,
@@ -1038,7 +1124,7 @@ trait ConditionVisitorUtil
      * @param Node|int|float|string $right
      * @return Context - Context after inferring type from an expression such as `if ($x !== false)`
      */
-    protected function analyzeAndUpdateToBeNotIdentical($left, $right) : Context
+    protected function analyzeAndUpdateToBeNotIdentical($left, $right): Context
     {
         return $this->analyzeBinaryConditionPattern(
             $left,
@@ -1052,7 +1138,7 @@ trait ConditionVisitorUtil
      * @param Node|int|float|string $right
      * @param BinaryCondition $condition
      */
-    protected function analyzeBinaryConditionPattern($left, $right, BinaryCondition $condition) : Context
+    protected function analyzeBinaryConditionPattern($left, $right, BinaryCondition $condition): Context
     {
         if ($left instanceof Node) {
             $result = $this->analyzeBinaryConditionSide($left, $right, $condition);
@@ -1075,7 +1161,7 @@ trait ConditionVisitorUtil
      * @param BinaryCondition $condition
      * @suppress PhanPartialTypeMismatchArgument
      */
-    private function analyzeBinaryConditionSide(Node $var_node, $expr_node, BinaryCondition $condition) : ?Context
+    private function analyzeBinaryConditionSide(Node $var_node, $expr_node, BinaryCondition $condition): ?Context
     {
         '@phan-var ConditionVisitorUtil|ConditionVisitorInterface $this';
         $kind = $var_node->kind;
@@ -1131,7 +1217,7 @@ trait ConditionVisitorUtil
      * @param Node|string|int|float|bool $expr_node
      * @suppress PhanUnreferencedPublicMethod referenced in ConditionVisitorInterface
      */
-    public function analyzeClassAssertion($object_node, $expr_node) : ?Context
+    public function analyzeClassAssertion($object_node, $expr_node): ?Context
     {
         if (!($object_node instanceof Node)) {
             return null;
@@ -1174,7 +1260,7 @@ trait ConditionVisitorUtil
 
         $var_name = $object_node->children['name'] ?? null;
         // Don't analyze variables such as $$a
-        if (!(\is_string($var_name) && $var_name)) {
+        if (!\is_string($var_name)) {
             return null;
         }
         try {
@@ -1204,7 +1290,7 @@ trait ConditionVisitorUtil
      * @param Node|int|float|string $right
      * @return Context - Context after inferring type from an expression such as `if ($x == 'literal')`
      */
-    protected function analyzeAndUpdateToBeNotEqual($left, $right) : Context
+    protected function analyzeAndUpdateToBeNotEqual($left, $right): Context
     {
         return $this->analyzeBinaryConditionPattern(
             $left,
@@ -1218,7 +1304,7 @@ trait ConditionVisitorUtil
      * @param Node|int|float|string $right
      * @return Context - Context after inferring type from a comparison expression such as `if ($x['field'] > 0)`
      */
-    protected function analyzeAndUpdateToBeCompared($left, $right, int $flags) : Context
+    protected function analyzeAndUpdateToBeCompared($left, $right, int $flags): Context
     {
         return $this->analyzeBinaryConditionPattern(
             $left,
@@ -1234,7 +1320,7 @@ trait ConditionVisitorUtil
      * @throws IssueException if variable is undeclared and not ignored.
      * @see UnionTypeVisitor::visitVar()
      */
-    final public function getVariableFromScope(Node $var_node, Context $context) : ?Variable
+    final public function getVariableFromScope(Node $var_node, Context $context): ?Variable
     {
         if ($var_node->kind !== ast\AST_VAR) {
             return null;
@@ -1312,7 +1398,7 @@ trait ConditionVisitorUtil
     /**
      * @param array<mixed,?(Node|string|int|float)> $args
      */
-    final protected static function isArgumentListWithVarAsFirstArgument(array $args) : bool
+    final protected static function isArgumentListWithVarAsFirstArgument(array $args): bool
     {
         if (\count($args) >= 1) {
             $arg = $args[0];
@@ -1324,16 +1410,17 @@ trait ConditionVisitorUtil
 
     /**
      * Fetches the function name. Does not check for function uses or namespaces.
+     * @param Node $node a node of kind ast\AST_CALL
      * @return ?string (null if function name could not be found)
      */
-    final public static function getFunctionName(Node $node) : ?string
+    final public static function getFunctionName(Node $node): ?string
     {
         $expr = $node->children['expr'];
         if (!($expr instanceof Node)) {
             return null;
         }
         $raw_function_name = $expr->children['name'] ?? null;
-        if (!(\is_string($raw_function_name) && $raw_function_name)) {
+        if (!\is_string($raw_function_name)) {
             return null;
         }
         return $raw_function_name;
@@ -1342,7 +1429,7 @@ trait ConditionVisitorUtil
     /**
      * Generate a union type by excluding matching types in $excluded_type from $affected_type
      */
-    public static function excludeMatchingTypes(CodeBase $code_base, UnionType $affected_type, UnionType $excluded_type) : UnionType
+    public static function excludeMatchingTypes(CodeBase $code_base, UnionType $affected_type, UnionType $excluded_type): UnionType
     {
         if ($affected_type->isEmpty() || $excluded_type->isEmpty()) {
             return $affected_type;
@@ -1364,7 +1451,7 @@ trait ConditionVisitorUtil
         if ($excluded_type->isEmpty()) {
             return $affected_type;
         }
-        return $affected_type->makeFromFilter(static function (Type $type) use ($code_base, $excluded_type) : bool {
+        return $affected_type->makeFromFilter(static function (Type $type) use ($code_base, $excluded_type): bool {
             return $type instanceof MixedType || !$type->asExpandedTypes($code_base)->canCastToUnionType($excluded_type);
         });
     }
@@ -1374,7 +1461,7 @@ trait ConditionVisitorUtil
      * This is needed by subclasses of BinaryCondition.
      * @suppress PhanUnreferencedPublicMethod
      */
-    public function getCodeBase() : CodeBase
+    public function getCodeBase(): CodeBase
     {
         return $this->code_base;
     }
@@ -1384,7 +1471,7 @@ trait ConditionVisitorUtil
      * This is needed by subclasses of BinaryCondition.
      * @suppress PhanUnreferencedPublicMethod phan has issues with dead code detection with traits and interfaces
      */
-    public function getContext() : Context
+    public function getContext(): Context
     {
         return $this->context;
     }
@@ -1396,7 +1483,7 @@ trait ConditionVisitorUtil
      * @param Context $context
      * @param list<mixed> $args
      */
-    protected function modifyComplexExpression($node, Closure $type_modification_callback, Context $context, array $args) : Context
+    protected function modifyComplexExpression($node, Closure $type_modification_callback, Context $context, array $args): Context
     {
         for (;;) {
             if (!$node instanceof Node) {
@@ -1461,7 +1548,7 @@ trait ConditionVisitorUtil
      * @param Context $context
      * @param list<mixed> $args
      */
-    protected function modifyComplexDimExpression(Node $node, Closure $type_modification_callback, Context $context, array $args) : Context
+    protected function modifyComplexDimExpression(Node $node, Closure $type_modification_callback, Context $context, array $args): Context
     {
         $var_name = $this->getVarNameOfDimNode($node->children['expr']);
         if (!is_string($var_name)) {
@@ -1472,7 +1559,7 @@ trait ConditionVisitorUtil
         $field_variable = new Variable($context, "__phan", $old_field_type, 0);
         $type_modification_callback($this->code_base, $context, $field_variable, $args);
         $new_field_type = $field_variable->getUnionType();
-        if ($new_field_type->isEqualTo($old_field_type)) {
+        if ($new_field_type->isIdenticalTo($old_field_type)) {
             return $context;
         }
         // Treat if (is_array($x['field'])) similarly to `$x['field'] = some_function_returning_array()
@@ -1501,7 +1588,7 @@ trait ConditionVisitorUtil
      * @param Context $context
      * @param list<mixed> $args
      */
-    protected function modifyPropertyOfThis(Node $node, Closure $type_modification_callback, Context $context, array $args) : Context
+    protected function modifyPropertyOfThis(Node $node, Closure $type_modification_callback, Context $context, array $args): Context
     {
         $property_name = $node->children['prop'];
         if (!is_string($property_name)) {
@@ -1512,8 +1599,7 @@ trait ConditionVisitorUtil
         $property_variable = new Variable($context, "__phan", $old_property_type, 0);
         $type_modification_callback($this->code_base, $context, $property_variable, $args);
         $new_property_type = $property_variable->getUnionType();
-        if ($new_property_type->isEqualTo($old_property_type)) {
-            // This didn't change anything
+        if ($new_property_type->isIdenticalTo($old_property_type)) {
             return $context;
         }
         return $context->withThisPropertySetToTypeByName($property_name, $new_property_type);
@@ -1527,7 +1613,7 @@ trait ConditionVisitorUtil
      *        Given a union type, returns the resulting union type.
      * @param Context $context
      */
-    protected function modifyPropertyOfThisSimple(Node $node, Closure $type_mapping_callback, Context $context) : Context
+    protected function modifyPropertyOfThisSimple(Node $node, Closure $type_mapping_callback, Context $context): Context
     {
         $property_name = $node->children['prop'];
         if (!is_string($property_name)) {
@@ -1536,7 +1622,7 @@ trait ConditionVisitorUtil
         // Give the property a type and compute the new type
         $old_property_type = UnionTypeVisitor::unionTypeFromNode($this->code_base, $context, $node);
         $new_property_type = $type_mapping_callback($old_property_type);
-        if ($new_property_type->isEqualTo($old_property_type)) {
+        if ($new_property_type->isIdenticalTo($old_property_type)) {
             // This didn't change anything
             return $context;
         }
@@ -1550,7 +1636,7 @@ trait ConditionVisitorUtil
      *        Given a union type, returns the resulting union type.
      * @param Context $context
      */
-    protected function modifyPropertySimple(Node $node, Closure $type_mapping_callback, Context $context) : Context
+    protected function modifyPropertySimple(Node $node, Closure $type_mapping_callback, Context $context): Context
     {
         if (!self::isThisVarNode($node->children['expr'])) {
             return $context;
@@ -1562,7 +1648,7 @@ trait ConditionVisitorUtil
      * @param Node|string|int|float $node
      * @return ?string the name of the variable in a chain of field accesses such as $varName['field'][$i]
      */
-    private static function getVarNameOfDimNode($node) : ?string
+    private static function getVarNameOfDimNode($node): ?string
     {
         // Loop to support getting the var name in is_array($x['field'][0])
         while (true) {

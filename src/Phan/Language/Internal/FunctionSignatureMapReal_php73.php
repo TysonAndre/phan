@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 /**
@@ -15,6 +16,7 @@ declare(strict_types=1);
  * This was then manually patched (see the commit history)
  * - Add is_real signatures (including for invalid argument counts)
  */
+
 return [
 '_' => '?false|?string',
 'abs' => '?false|?float|?int',
@@ -218,7 +220,7 @@ return [
 'dns_get_mx' => '?bool',
 'dns_get_record' => '?list<array>|?false',
 'doubleval' => '?float',
-'each' => '?array|?false',
+'each' => '?array{0:int|string,1:mixed}|?false',
 'error_log' => '?bool',
 'error_reporting' => '?int',
 'escapeshellarg' => '?string',

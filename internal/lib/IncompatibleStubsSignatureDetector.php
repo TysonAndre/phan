@@ -16,6 +16,7 @@ use Phan\Language\Element\Property;
 use Phan\Language\FQSEN\FullyQualifiedClassName;
 use Phan\Language\FQSEN\FullyQualifiedFunctionName;
 use Phan\Language\FQSEN\FullyQualifiedMethodName;
+use Phan\Library\StringUtil;
 use Phan\Output\Collector\BufferingCollector;
 use Phan\Phan;
 
@@ -59,7 +60,7 @@ class IncompatibleStubsSignatureDetector extends IncompatibleSignatureDetectorBa
      * Check that this extracts the correct signature types from the folder.
      * @suppress PhanPluginMixedKeyNoKey
      */
-    public function selfTest() : void
+    public function selfTest(): void
     {
         $failures = 0;
         $failures += $this->expectFunctionLikeSignaturesMatch('strlen', ['int', 'string' => 'string']);
@@ -75,7 +76,7 @@ class IncompatibleStubsSignatureDetector extends IncompatibleSignatureDetectorBa
     /**
      * @param array<int|string,string> $expected the Phan signature information in the stubs
      */
-    private function expectFunctionLikeSignaturesMatch(string $function_name, array $expected) : int
+    private function expectFunctionLikeSignaturesMatch(string $function_name, array $expected): int
     {
         $actual = $this->parseFunctionLikeSignature($function_name);
         if ($expected !== $actual) {
@@ -91,7 +92,7 @@ class IncompatibleStubsSignatureDetector extends IncompatibleSignatureDetectorBa
     /**
      * @return array<int,string>
      */
-    private function getFileList() : array
+    private function getFileList(): array
     {
         $iterator = new \CallbackFilterIterator(
             new \RecursiveIteratorIterator(
@@ -100,7 +101,7 @@ class IncompatibleStubsSignatureDetector extends IncompatibleSignatureDetectorBa
                     \RecursiveDirectoryIterator::FOLLOW_SYMLINKS
                 )
             ),
-            static function (SplFileInfo $file_info) : bool {
+            static function (SplFileInfo $file_info): bool {
                 if ($file_info->getExtension() !== 'php') {
                     return false;
                 }
@@ -122,7 +123,7 @@ class IncompatibleStubsSignatureDetector extends IncompatibleSignatureDetectorBa
     /**
      * Initialize the stub information to write by parsing the folder with Phan.
      */
-    public function initStubs() : void
+    public function initStubs(): void
     {
         if ($this->initialized) {
             return;
@@ -154,7 +155,7 @@ class IncompatibleStubsSignatureDetector extends IncompatibleSignatureDetectorBa
      * @return ?array<mixed,string>
      * @throws FQSENException if signature map is invalid
      */
-    public function parseMethodSignature(string $class_name, string $method_name) : ?array
+    public function parseMethodSignature(string $class_name, string $method_name): ?array
     {
         $this->initStubs();
         if ($class_name[0] !== '\\') {
@@ -183,7 +184,7 @@ class IncompatibleStubsSignatureDetector extends IncompatibleSignatureDetectorBa
      * @return ?array<mixed,string>
      * @throws FQSENException if $function_name is invalid
      */
-    public function parseFunctionSignature(string $function_name) : ?array
+    public function parseFunctionSignature(string $function_name): ?array
     {
         $this->initStubs();
         $function_fqsen = FullyQualifiedFunctionName::fromFullyQualifiedString($function_name);
@@ -201,9 +202,9 @@ class IncompatibleStubsSignatureDetector extends IncompatibleSignatureDetectorBa
      * @return array<string,array<int|string,string>>
      * @override
      */
-    protected function getAvailableGlobalFunctionSignatures() : array
+    protected function getAvailableGlobalFunctionSignatures(): array
     {
-        return $this->memoize(__METHOD__, /** @return array<string,array<int|string,string>> */ function () : array {
+        return $this->memoize(__METHOD__, /** @return array<string,array<int|string,string>> */ function (): array {
             $code_base = $this->code_base;
             $function_name_map = [];
             foreach ($code_base->getFunctionMap() as $func) {
@@ -222,9 +223,9 @@ class IncompatibleStubsSignatureDetector extends IncompatibleSignatureDetectorBa
      * @return array<string,array<int|string,string>>
      * @override
      */
-    protected function getAvailableMethodSignatures() : array
+    protected function getAvailableMethodSignatures(): array
     {
-        return $this->memoize(__METHOD__, /** @return array<string,array<int|string,string>> */ function () : array {
+        return $this->memoize(__METHOD__, /** @return array<string,array<int|string,string>> */ function (): array {
             $code_base = $this->code_base;
             $function_name_map = [];
             foreach ($code_base->getMethodSet() as $method) {
@@ -242,9 +243,9 @@ class IncompatibleStubsSignatureDetector extends IncompatibleSignatureDetectorBa
     /**
      * @return array<string,string>
      */
-    protected function getAvailablePropertyPHPDocSummaries() : array
+    protected function getAvailablePropertyPHPDocSummaries(): array
     {
-        return $this->memoize(__METHOD__, /** @return array<string,string> */ function () : array {
+        return $this->memoize(__METHOD__, /** @return array<string,string> */ function (): array {
             $code_base = $this->code_base;
             $map = [];
             $classes = array_merge(
@@ -263,7 +264,7 @@ class IncompatibleStubsSignatureDetector extends IncompatibleSignatureDetectorBa
                     $description = (string)MarkupDescription::extractDescriptionFromDocComment($property, null);
                     $description = preg_replace('(^`@var [^`]*`\s*)', '', $description);
                     $description = self::removeBoilerplateFromDescription($description);
-                    if (!$description) {
+                    if (strlen($description) === 0) {
                         continue;
                     }
                     $property_name = ltrim((string)$property->getFQSEN(), "\\");
@@ -281,9 +282,9 @@ class IncompatibleStubsSignatureDetector extends IncompatibleSignatureDetectorBa
     /**
      * @return array<string,string>
      */
-    protected function getAvailableClassPHPDocSummaries() : array
+    protected function getAvailableClassPHPDocSummaries(): array
     {
-        return $this->memoize(__METHOD__, /** @return array<string,string> */ function () : array {
+        return $this->memoize(__METHOD__, /** @return array<string,string> */ function (): array {
             $code_base = $this->code_base;
             $map = [];
             $classes = array_merge(
@@ -297,7 +298,7 @@ class IncompatibleStubsSignatureDetector extends IncompatibleSignatureDetectorBa
                 }
                 $description = (string)MarkupDescription::extractDescriptionFromDocComment($class, null);
                 $description = self::removeBoilerplateFromDescription($description);
-                if (!$description) {
+                if (strlen($description) === 0) {
                     continue;
                 }
                 $class_name = ltrim((string)$class->getFQSEN(), "\\");
@@ -314,7 +315,7 @@ class IncompatibleStubsSignatureDetector extends IncompatibleSignatureDetectorBa
     /**
      * Removes boilerplate such as minimum PHP versions from summary text
      */
-    public static function removeBoilerplateFromDescription(string $description) : string
+    public static function removeBoilerplateFromDescription(string $description): string
     {
         return preg_replace('@\((PECL|PHP|No version information)[^)]*\)\s*<br/>\s*@im', '', $description);
     }
@@ -322,9 +323,9 @@ class IncompatibleStubsSignatureDetector extends IncompatibleSignatureDetectorBa
     /**
      * @return array<string,string>
      */
-    protected function getAvailableConstantPHPDocSummaries() : array
+    protected function getAvailableConstantPHPDocSummaries(): array
     {
-        return $this->memoize(__METHOD__, /** @return array<string,string> */ function () : array {
+        return $this->memoize(__METHOD__, /** @return array<string,string> */ function (): array {
             $code_base = $this->code_base;
             $map = [];
             foreach ($code_base->getGlobalConstantMap() as $const) {
@@ -333,7 +334,7 @@ class IncompatibleStubsSignatureDetector extends IncompatibleSignatureDetectorBa
                 }
                 $description = (string)MarkupDescription::extractDescriptionFromDocComment($const, null);
                 $description = self::removeBoilerplateFromDescription($description);
-                if (!$description) {
+                if (strlen($description) === 0) {
                     continue;
                 }
                 $const_name = ltrim((string)$const->getFQSEN(), "\\");
@@ -353,7 +354,7 @@ class IncompatibleStubsSignatureDetector extends IncompatibleSignatureDetectorBa
                     $description = preg_replace('(^`@var [^`]*`\s*)', '', $description);
 
                     $description = self::removeBoilerplateFromDescription($description);
-                    if (!$description) {
+                    if (strlen($description) === 0) {
                         continue;
                     }
 
@@ -374,9 +375,9 @@ class IncompatibleStubsSignatureDetector extends IncompatibleSignatureDetectorBa
      *
      * @return array<string,string>
      */
-    protected function getAvailableMethodPHPDocSummaries() : array
+    protected function getAvailableMethodPHPDocSummaries(): array
     {
-        return $this->memoize(__METHOD__, /** @return array<string,string> */ function () : array {
+        return $this->memoize(__METHOD__, /** @return array<string,string> */ function (): array {
             $code_base = $this->code_base;
             $function_name_map = [];
             foreach ($code_base->getMethodSet() as $method) {
@@ -385,7 +386,7 @@ class IncompatibleStubsSignatureDetector extends IncompatibleSignatureDetectorBa
                 }
                 $description = (string)MarkupDescription::extractDescriptionFromDocComment($method, null);
                 $description = self::removeBoilerplateFromDescription($description);
-                if (!$description) {
+                if (strlen($description) === 0) {
                     continue;
                 }
                 $function_name = $method->getClassFQSEN()->getNamespacedName() . '::' . $method->getName();
@@ -400,7 +401,7 @@ class IncompatibleStubsSignatureDetector extends IncompatibleSignatureDetectorBa
                     throw new AssertionError('expected $function to be a Func');
                 }
                 $description = MarkupDescription::extractDescriptionFromDocComment($function, null);
-                if (!$description) {
+                if (!StringUtil::isNonZeroLengthString($description)) {
                     continue;
                 }
                 $function_name = ltrim((string)$function->getFQSEN(), "\\");

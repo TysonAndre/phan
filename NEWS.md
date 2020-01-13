@@ -9,6 +9,9 @@ New features(CLI, Configs):
   Error messages will continue to include UTF-8 when part of the error.
 + Allow `phan --init` to complete even if composer.json has no configured `autoload` directories,
   as long as at least one directory or file was configured.
++ Add a setting `error_prone_truthy_condition_detection` that can be enabled to warn about error-prone truthiness/falsiness checks.  New issue types:
+  - `PhanSuspiciousTruthyCondition` (e.g. for `if ($x)` where `$x` is `object|int`)
+  - `PhanSuspiciousTruthyString` (e.g. for `?string` - `'0'` is also falsey in PHP)
 
 New Features(Analysis):
 + Infer that merging defined variables with possibly undefined variables is also possibly undefined. (#1942)
@@ -21,6 +24,11 @@ New Features(Analysis):
 + Normalize union types of generic array elements after fetching `$x[$offset]`.
   (e.g. change `bool|false|null` to `?bool`)
 + Normalize union types of result of `??` operator.
++ Fix false positives in redundant condition detection for the real types of array accesses. (#3638)
++ Support the `non-empty-string` type in phpdoc comments (neither `''` nor `'0'`).
+  Warn about redundant/impossible checks of `non-empty-string`.
++ Support the `non-zero-int` type in phpdoc comments. Infer it in real types and warn about redundant checks for zero/truthiness.
++ Support the the `non-empty-mixed` in phpdoc comments and in inferences.
 
 Bug fixes:
 + Fix a crash analyzing assignment operations on `$GLOBALS` such as `$GLOBALS['var'] += expr;` (#3615)
@@ -31,6 +39,10 @@ Plugins:
 
 Maintenance:
 + Infer that `explode()` is possibly the empty list when `$limit` is possibly negative. (#3617)
++ Make Phan's code follow more PSR-12 style guidelines
+  (`<?php` on its own line, `function(): T` instead of `function() : T`, declare visibility for class constants)
++ Internal: Check if strings are non-zero length in Phan's implementation instead of checking for variable truthiness.
+  (`'0'` is falsey)
 
 Dec 29 2019, Phan 2.4.6
 -----------------------

@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Phan\Plugin\Internal;
 
@@ -77,7 +79,7 @@ final class BaselineSavingPlugin extends PluginV3 implements
         int $lineno,
         array $parameters,
         ?Suggestion $suggestion
-    ) : bool {
+    ): bool {
         $file_path = $context->getFile();
         if (Phan::isExcludedAnalysisFile($file_path)) {
             // Phan might call Issue::maybeEmit on code in vendor.
@@ -104,18 +106,18 @@ final class BaselineSavingPlugin extends PluginV3 implements
     public function getIssueSuppressionList(
         CodeBase $unused_code_base,
         string $unused_file_path
-    ) : array {
+    ): array {
         return [];
     }
 
-    public function finalizeProcess(CodeBase $unused_code_base) : void
+    public function finalizeProcess(CodeBase $unused_code_base): void
     {
         \fwrite(\STDERR, "Saving a new issue baseline to '$this->baseline_path'\nSubsequent Phan runs can read from this file with --load-baseline='$this->baseline_path' to ignore pre-existing issues.\n");
         $contents = $this->generateAllBaselineContents();
         \file_put_contents($this->baseline_path, $contents);
     }
 
-    private function generateAllBaselineContents() : string
+    private function generateAllBaselineContents(): string
     {
         $contents = <<<'EOT'
 <?php
@@ -135,7 +137,7 @@ EOT;
         return $contents;
     }
 
-    private static function roundSuppressCount(int $count) : int
+    private static function roundSuppressCount(int $count): int
     {
         if ($count <= 10) {
             return $count;
@@ -146,7 +148,7 @@ EOT;
         return $count - $count % 10;
     }
 
-    private static function getSuppressCountLabel(int $count) : string
+    private static function getSuppressCountLabel(int $count): string
     {
         if ($count <= 10) {
             return (string)$count;
@@ -161,7 +163,7 @@ EOT;
      * This is useful for checking if issues that you don't want in your project
      * have been added into a large baseline.
      */
-    private function generateSuppressIssueSummary() : string
+    private function generateSuppressIssueSummary(): string
     {
         $entries = [];
         foreach ($this->suppressions_by_type as $issueType => $hashes) {
@@ -173,17 +175,16 @@ EOT;
                 \sprintf("    // %s : %s %s\n", $issueType, $count_name, $count !== 1 ? "occurrences" : "occurrence"),
             ];
         }
+        if (!$entries) {
+            return "    // This baseline has no suppressions\n";
+        }
         // Sort by most common issues first, breaking ties by the name of the issue.
         \sort($entries);
         $result = "    // # Issue statistics:\n";
         foreach ($entries as [2 => $entry_text]) {
             $result .= $entry_text;
         }
-        if ($result) {
-            $result .= "\n";
-        } else {
-            $result .= "    // This baseline has no suppressions\n";
-        }
+        $result .= "\n";
         return $result;
     }
 
@@ -193,7 +194,7 @@ EOT;
      * This is useful for checking if issues that you don't want in your project
      * have been added into a large baseline.
      */
-    private function generateSuppressFileEntries() : string
+    private function generateSuppressFileEntries(): string
     {
         $result = '';
         $result .= "    // Currently, file_suppressions are the only supported suppressions\n";
@@ -202,7 +203,7 @@ EOT;
         foreach ($this->suppressions_by_file as $fileName => $type_set) {
             $types = \array_map('strval', \array_keys($type_set));
             \usort($types, 'strcmp');
-            $result .= "        '$fileName' => [" . \implode(', ', \array_map(static function (string $type) : string {
+            $result .= "        '$fileName' => [" . \implode(', ', \array_map(static function (string $type): string {
                 return "'" . $type . "'";
             }, $types)) . "],\n";
         }

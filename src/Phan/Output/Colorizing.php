@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Phan\Output;
@@ -10,6 +11,7 @@ use Phan\Language\Element\UnaddressableTypedElement;
 use Phan\Language\FQSEN;
 use Phan\Language\Type;
 use Phan\Language\UnionType;
+use Phan\Library\StringUtil;
 
 /**
  * Contains utilities for colorizing Phan's issue messages (and colorized CLI output in general)
@@ -18,7 +20,7 @@ use Phan\Language\UnionType;
  */
 class Colorizing
 {
-    const STYLES = [
+    public const STYLES = [
         'none'             => '0',  // Alias of 'reset'
         'reset'            => '0',  // Use 'reset' for the absence of color.
         'bold'             => '1',
@@ -64,12 +66,12 @@ class Colorizing
         'bg_white'         => '107',
     ];
 
-    const ESC_PATTERN = "\033[%sm";
-    const ESC_RESET = "\033[0m";
+    private const ESC_PATTERN = "\033[%sm";
+    private const ESC_RESET = "\033[0m";
 
     // NOTE: Keep sorted and in sync with Issue::UNCOLORED_FORMAT_STRING_FOR_TEMPLATE
     // By using 'color_scheme' in .phan/config.php, these settings can be overridden
-    const DEFAULT_COLOR_FOR_TEMPLATE = [
+    public const DEFAULT_COLOR_FOR_TEMPLATE = [
         'CLASS'         => 'green',
         'CLASSLIKE'     => 'green',
         'CODE'          => 'light_magenta',
@@ -115,10 +117,10 @@ class Colorizing
     public static function colorizeTemplate(
         string $template,
         array $template_parameters
-    ) : string {
+    ): string {
         $i = 0;
         /** @param list<string> $matches */
-        return \preg_replace_callback('/(\$?){([A-Z_]+)}|%[sdf]/', static function (array $matches) use ($template, $template_parameters, &$i) : string {
+        return \preg_replace_callback('/(\$?){([A-Z_]+)}|%[sdf]/', static function (array $matches) use ($template, $template_parameters, &$i): string {
             $j = $i++;
             if ($j >= \count($template_parameters)) {
                 \error_log("Missing argument for colorized output ($template), offset $j");
@@ -135,7 +137,7 @@ class Colorizing
             }
             $prefix = $matches[1];
             $template = $matches[2];
-            if ($prefix) {
+            if (StringUtil::isNonZeroLengthString($prefix)) {
                 $arg = $prefix . $arg;
             }
             return self::colorizeField($template, $arg);
@@ -147,7 +149,7 @@ class Colorizing
      * @param int|string|float|FQSEN|Type|UnionType $arg (Argument for format string, e.g. a type name, method fqsen, line number, etc.)
      * @return string - Colorized for Unix terminals.
      */
-    public static function colorizeField(string $template_type, $arg) : string
+    public static function colorizeField(string $template_type, $arg): string
     {
         $fmt_directive = Issue::UNCOLORED_FORMAT_STRING_FOR_TEMPLATE[$template_type] ?? null;
         if ($fmt_directive === null) {
@@ -180,7 +182,7 @@ class Colorizing
      * Compute the color codes (separated by `;`) for the color names.
      * @param string $color one or more comma separated color names without spaces (e.g. 'none', 'light_gray')
      */
-    public static function computeColorCode(string $color) : ?string
+    public static function computeColorCode(string $color): ?string
     {
         $color_codes = [];
         foreach (\explode(',', $color) as $color_component) {
@@ -196,7 +198,7 @@ class Colorizing
     /**
      * Wrap this section of text in the specified color.
      */
-    public static function colorizeTextWithColorCode(string $color_code, string $text) : string
+    public static function colorizeTextWithColorCode(string $color_code, string $text): string
     {
         if ($color_code === '0') {
             return $text;
@@ -207,7 +209,7 @@ class Colorizing
     /**
      * @return ?string - null if there is no valid color
      */
-    private static function colorForTemplate(string $template_type) : ?string
+    private static function colorForTemplate(string $template_type): ?string
     {
         if (self::$color_scheme === null) {
             self::initColorScheme();
@@ -218,7 +220,7 @@ class Colorizing
     /**
      * @internal
      */
-    const COLOR_SCHEMES = [
+    public const COLOR_SCHEMES = [
         'code' => \Phan\Output\ColorScheme\Code::class,
         'default' => self::class,
         'eclipse_dark' => \Phan\Output\ColorScheme\EclipseDark::class,
@@ -230,7 +232,7 @@ class Colorizing
      * @param string $name the name of the color scheme
      * @return ?array<string,string> maps the template names to their comma separated color codes.
      */
-    public static function loadColorScheme(string $name) : ?array
+    public static function loadColorScheme(string $name): ?array
     {
         if (\array_key_exists($name, self::COLOR_SCHEMES)) {
             return \constant(self::COLOR_SCHEMES[$name] . '::DEFAULT_COLOR_FOR_TEMPLATE');
@@ -241,10 +243,11 @@ class Colorizing
     /**
      * Initialize the color scheme, merging it with Config::color_scheme
      */
-    private static function initColorScheme() : void
+    private static function initColorScheme(): void
     {
         self::$color_scheme = self::DEFAULT_COLOR_FOR_TEMPLATE;
         $env_color_scheme = \getenv('PHAN_COLOR_SCHEME');
+        // @phan-suppress-next-line PhanSuspiciousTruthyString allow 0 to be equal to unset.
         if ($env_color_scheme) {
             $data = self::loadColorScheme($env_color_scheme);
             if ($data) {
@@ -269,7 +272,7 @@ class Colorizing
     /**
      * Used to reset the chosen color scheme in tests.
      */
-    public static function resetColorScheme() : void
+    public static function resetColorScheme(): void
     {
         self::$color_scheme = null;
     }

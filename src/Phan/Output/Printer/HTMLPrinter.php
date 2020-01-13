@@ -1,10 +1,13 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Phan\Output\Printer;
 
 use Phan\Config;
 use Phan\Issue;
 use Phan\IssueInstance;
+use Phan\Library\StringUtil;
 use Phan\Output\HTML;
 use Phan\Output\IssuePrinterInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -20,7 +23,7 @@ final class HTMLPrinter implements IssuePrinterInterface
     /** @var OutputInterface an output that pylint formatted issues can be written to. */
     private $output;
 
-    public function print(IssueInstance $instance) : void
+    public function print(IssueInstance $instance): void
     {
         $issue = $instance->getIssue();
         $message = HTML::htmlTemplate(
@@ -49,14 +52,14 @@ final class HTMLPrinter implements IssuePrinterInterface
             $inner_html .= HTML::htmlTemplate(" ({DETAILS})", ["at column $column"]);
         }
         $suggestion = $instance->getSuggestionMessage();
-        if ($suggestion) {
+        if (StringUtil::isNonZeroLengthString($suggestion)) {
             $inner_html .= HTML::htmlTemplate(" ({SUGGESTION})", [$suggestion]);
         }
 
         $this->output->writeln("<p>$inner_html</p>");
     }
 
-    public function configureOutput(OutputInterface $output) : void
+    public function configureOutput(OutputInterface $output): void
     {
         $this->output = $output;
     }

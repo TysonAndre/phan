@@ -1,10 +1,13 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Phan\Output\Printer;
 
 use AssertionError;
 use Phan\Issue;
 use Phan\IssueInstance;
+use Phan\Library\StringUtil;
 use Phan\Output\BufferedPrinterInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
@@ -21,7 +24,7 @@ class JSONPrinter implements BufferedPrinterInterface
     /** @var list<array<string,mixed>> the issue data to be JSON encoded. */
     protected $messages = [];
 
-    public function print(IssueInstance $instance) : void
+    public function print(IssueInstance $instance): void
     {
         $issue = $instance->getIssue();
         $message = [
@@ -45,14 +48,14 @@ class JSONPrinter implements BufferedPrinterInterface
             $message['location']['lines']['begin_column'] = $instance->getColumn();
         }
         $suggestion = $instance->getSuggestionMessage();
-        if ($suggestion) {
+        if (StringUtil::isNonZeroLengthString($suggestion)) {
             $message['suggestion'] = $suggestion;
         }
         $this->messages[] = $message;
     }
 
     /** flush printer buffer */
-    public function flush() : void
+    public function flush(): void
     {
         // NOTE: Need to use OUTPUT_RAW for JSON.
         // Otherwise, error messages such as "...Unexpected << (T_SL)" don't get formatted properly (They get escaped into unparsable JSON)
@@ -64,7 +67,7 @@ class JSONPrinter implements BufferedPrinterInterface
         $this->messages = [];
     }
 
-    public function configureOutput(OutputInterface $output) : void
+    public function configureOutput(OutputInterface $output): void
     {
         $this->output = $output;
     }

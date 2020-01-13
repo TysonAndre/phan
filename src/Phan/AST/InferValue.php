@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Phan\AST;
 
@@ -49,8 +51,10 @@ class InferValue
                 case flags\BINARY_DIV:
                     return $left / $right;
                 case flags\BINARY_BOOL_AND:
+                    // @phan-suppress-next-line PhanSuspiciousTruthyString this is deliberate
                     return $left && $right;
                 case flags\BINARY_BOOL_OR:
+                    // @phan-suppress-next-line PhanSuspiciousTruthyString this is deliberate
                     return $left || $right;
                 case flags\BINARY_BOOL_XOR:
                     return $left xor $right;

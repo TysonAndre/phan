@@ -1,9 +1,12 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Phan\Output\Printer;
 
 use Phan\Issue;
 use Phan\IssueInstance;
+use Phan\Library\StringUtil;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
@@ -15,7 +18,7 @@ class CapturingJSONPrinter extends JSONPrinter
     /** @var list<array<string,mixed>> the issue data to be JSON encoded. */
     protected $messages = [];
 
-    public function print(IssueInstance $instance) : void
+    public function print(IssueInstance $instance): void
     {
         $issue = $instance->getIssue();
         $message = [
@@ -39,25 +42,25 @@ class CapturingJSONPrinter extends JSONPrinter
             $message['location']['lines']['begin_column'] = $instance->getColumn();
         }
         $suggestion = $instance->getSuggestionMessage();
-        if ($suggestion) {
+        if (StringUtil::isNonZeroLengthString($suggestion)) {
             $message['suggestion'] = $suggestion;
         }
         $this->messages[] = $message;
     }
 
     /** flush printer buffer */
-    public function flush() : void
+    public function flush(): void
     {
         // Deliberately a no-op
     }
 
-    public function configureOutput(OutputInterface $_) : void
+    public function configureOutput(OutputInterface $_): void
     {
         // Deliberately a no-op.
     }
 
     /** @return list<array<string,mixed>> the issue data to be JSON encoded. */
-    public function getIssues() : array
+    public function getIssues(): array
     {
         return $this->messages;
     }

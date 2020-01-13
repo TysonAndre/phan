@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Phan\Language\Element;
 
@@ -6,6 +8,7 @@ use Exception;
 use Phan\CodeBase;
 use Phan\Language\Element\Comment\Builder;
 use Phan\Language\UnionType;
+use Phan\Library\StringUtil;
 
 use function count;
 
@@ -23,12 +26,12 @@ class MarkupDescription
     public static function buildForElement(
         AddressableElementInterface $element,
         CodeBase $code_base
-    ) : string {
+    ): string {
         // TODO: Use the doc comments of the ancestors if unavailable or if (at)inheritDoc is used.
         $markup = $element->getMarkupDescription();
         $result = "```php\n$markup\n```";
         $extracted_doc_comment = self::extractDescriptionFromDocCommentOrAncestor($element, $code_base);
-        if ($extracted_doc_comment) {
+        if (StringUtil::isNonZeroLengthString($extracted_doc_comment)) {
             $result .= "\n\n" . $extracted_doc_comment;
         }
 
@@ -40,7 +43,7 @@ class MarkupDescription
      * @param array<string,T> $signatures
      * @return array<string,T>
      */
-    private static function signaturesToLower(array $signatures) : array
+    private static function signaturesToLower(array $signatures): array
     {
         $result = [];
         foreach ($signatures as $fqsen => $summary) {
@@ -52,7 +55,7 @@ class MarkupDescription
     /**
      * Eagerly load all of the hover signatures into memory before potentially forking.
      */
-    public static function eagerlyLoadAllDescriptionMaps() : void
+    public static function eagerlyLoadAllDescriptionMaps(): void
     {
         if (!\extension_loaded('pcntl')) {
             // There's no forking, so descriptions will always be available after the first time they're loaded.
@@ -69,7 +72,7 @@ class MarkupDescription
      * @return array<string,string> mapping lowercase function/method FQSENs to short summaries.
      * @internal - The data format may change
      */
-    public static function loadFunctionDescriptionMap() : array
+    public static function loadFunctionDescriptionMap(): array
     {
         static $descriptions = null;
         if (\is_array($descriptions)) {
@@ -82,7 +85,7 @@ class MarkupDescription
      * @return array<string,string> mapping lowercase constant/class constant FQSENs to short summaries.
      * @internal - The data format may change
      */
-    public static function loadConstantDescriptionMap() : array
+    public static function loadConstantDescriptionMap(): array
     {
         static $descriptions = null;
         if (\is_array($descriptions)) {
@@ -95,7 +98,7 @@ class MarkupDescription
      * @return array<string,string> mapping class FQSENs to short summaries.
      * @internal - The data format may change
      */
-    public static function loadClassDescriptionMap() : array
+    public static function loadClassDescriptionMap(): array
     {
         static $descriptions = null;
         if (\is_array($descriptions)) {
@@ -108,7 +111,7 @@ class MarkupDescription
      * @return array<string,string> mapping property FQSENs to short summaries.
      * @internal - The data format may change
      */
-    public static function loadPropertyDescriptionMap() : array
+    public static function loadPropertyDescriptionMap(): array
     {
         static $descriptions = null;
         if (\is_array($descriptions)) {
@@ -127,9 +130,9 @@ class MarkupDescription
         AddressableElementInterface $element,
         CodeBase $code_base,
         array &$checked_class_fqsens = []
-    ) : ?string {
+    ): ?string {
         $extracted_doc_comment = self::extractDescriptionFromDocComment($element, $code_base);
-        if ($extracted_doc_comment) {
+        if (StringUtil::isNonZeroLengthString($extracted_doc_comment)) {
             return $extracted_doc_comment;
         }
         if ($element instanceof ClassElement) {
@@ -155,7 +158,7 @@ class MarkupDescription
         ClassElement $element,
         CodeBase $code_base,
         array &$checked_class_fqsens = []
-    ) : ?string {
+    ): ?string {
         if (!$element->isOverride() && $element->getRealDefiningFQSEN() === $element->getFQSEN()) {
             return null;
         }
@@ -168,10 +171,9 @@ class MarkupDescription
             }
 
             $extracted_doc_comment = self::extractDescriptionFromDocCommentOrAncestor($ancestor_element, $code_base, $checked_class_fqsens);
-            if ($extracted_doc_comment) {
+            if (StringUtil::isNonZeroLengthString($extracted_doc_comment)) {
                 return $extracted_doc_comment;
             }
-            $extracted_doc_comment = self::extractDescriptionFromDocCommentOfAncestorOfClassElement($ancestor_element, $code_base, $checked_class_fqsens);
         }
         return null;
     }
@@ -183,9 +185,9 @@ class MarkupDescription
     public static function extractDescriptionFromDocComment(
         AddressableElementInterface $element,
         CodeBase $code_base = null
-    ) : ?string {
+    ): ?string {
         $extracted_doc_comment = self::extractDescriptionFromDocCommentRaw($element);
-        if ($extracted_doc_comment) {
+        if (StringUtil::isNonZeroLengthString($extracted_doc_comment)) {
             return $extracted_doc_comment;
         }
 
@@ -200,7 +202,7 @@ class MarkupDescription
                 }
                 $key = \strtolower(\ltrim((string)$fqsen, '\\'));
                 $result = self::loadFunctionDescriptionMap()[$key] ?? null;
-                if ($result) {
+                if (StringUtil::isNonZeroLengthString($result)) {
                     return $result;
                 }
                 if ($code_base && $element instanceof Method) {
@@ -208,7 +210,7 @@ class MarkupDescription
                         if (\strtolower($element->getName()) === '__construct') {
                             $class = $element->getClass($code_base);
                             $class_description = self::extractDescriptionFromDocComment($class, $code_base);
-                            if ($class_description) {
+                            if (StringUtil::isNonZeroLengthString($class_description)) {
                                 return "Construct an instance of `{$class->getFQSEN()}`.\n\n$class_description";
                             }
                         }
@@ -235,10 +237,10 @@ class MarkupDescription
         return null;
     }
 
-    private static function extractDescriptionFromDocCommentRaw(AddressableElementInterface $element) : ?string
+    private static function extractDescriptionFromDocCommentRaw(AddressableElementInterface $element): ?string
     {
         $doc_comment = $element->getDocComment();
-        if (!$doc_comment) {
+        if (!StringUtil::isNonZeroLengthString($doc_comment)) {
             return null;
         }
         $comment_category = null;
@@ -250,16 +252,16 @@ class MarkupDescription
             $comment_category = Comment::ON_FUNCTION;
         }
         $extracted_doc_comment = self::extractDocComment($doc_comment, $comment_category, $element->getUnionType());
-        return $extracted_doc_comment ?: null;
+        return StringUtil::isNonZeroLengthString($extracted_doc_comment) ? $extracted_doc_comment : null;
     }
 
     /**
      * @return array<string,string> information about the param tags
      */
-    public static function extractParamTagsFromDocComment(AddressableElementInterface $element, bool $with_param_details = true) : array
+    public static function extractParamTagsFromDocComment(AddressableElementInterface $element, bool $with_param_details = true): array
     {
         $doc_comment = $element->getDocComment();
-        if (!$doc_comment) {
+        if (!\is_string($doc_comment)) {
             return [];
         }
         if (\strpos($doc_comment, '@param') === false) {
@@ -316,7 +318,7 @@ class MarkupDescription
      *
      * @return string simplified version of the doc comment, with leading `*` on lines preserved.
      */
-    public static function getDocCommentWithoutWhitespace(string $doc_comment) : string
+    public static function getDocCommentWithoutWhitespace(string $doc_comment): string
     {
         // Trim the start and the end of the doc comment.
         //
@@ -343,7 +345,7 @@ class MarkupDescription
      * @return string markup string
      * @internal
      */
-    public static function extractDocComment(string $doc_comment, int $comment_category = null, UnionType $element_type = null, bool $remove_type = false) : string
+    public static function extractDocComment(string $doc_comment, int $comment_category = null, UnionType $element_type = null, bool $remove_type = false): string
     {
         // Trim the start and the end of the doc comment.
         //
@@ -416,7 +418,7 @@ class MarkupDescription
      * Remove leading * and spaces (and trailing spaces) from the provided line of text.
      * This is useful for trimming raw doc comment lines
      */
-    public static function trimLine(string $line) : string
+    public static function trimLine(string $line): string
     {
         $line = \rtrim($line);
         $pos = \strpos($line, '*');
@@ -465,7 +467,7 @@ class MarkupDescription
      * @param list<string> $lines
      * @return list<string>
      */
-    private static function trimLeadingWhitespace(array $lines) : array
+    private static function trimLeadingWhitespace(array $lines): array
     {
         if (count($lines) === 0) {
             return [];

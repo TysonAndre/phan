@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Phan\AST;
 
@@ -21,9 +23,11 @@ use Phan\Language\Context;
 use Phan\Library\Cache;
 use Phan\Library\DiskCache;
 use Phan\Library\FileCacheEntry;
+use Phan\Library\StringUtil;
 use Phan\Phan;
 use Phan\Plugin\ConfigPluginSet;
 use Throwable;
+
 use function error_clear_last;
 use function error_get_last;
 use function error_reporting;
@@ -44,7 +48,7 @@ class Parser
      *
      * @return ?Cache<ParseResult>
      */
-    private static function maybeGetCache(CodeBase $code_base) : ?Cache
+    private static function maybeGetCache(CodeBase $code_base): ?Cache
     {
         if ($code_base->getExpectChangesToFileContents()) {
             return null;
@@ -59,7 +63,7 @@ class Parser
      * @return Cache<ParseResult>
      * @suppress PhanPartialTypeMismatchReturn
      */
-    private static function getCache() : Cache
+    private static function getCache(): Cache
     {
         return self::$cache ?? self::$cache = self::makeNewCache();
     }
@@ -67,14 +71,14 @@ class Parser
     /**
      * @return DiskCache<ParseResult>
      */
-    private static function makeNewCache() : DiskCache
+    private static function makeNewCache(): DiskCache
     {
         $igbinary_version = \phpversion('igbinary') ?: '';
         $use_igbinary = \version_compare($igbinary_version, '2.0.5') >= 0;
 
         $user = \getenv('USERNAME') ?: \getenv('USER');
         $directory = \sys_get_temp_dir() . '/phan';
-        if ($user) {
+        if (StringUtil::isNonZeroLengthString($user)) {
             $directory .= "-$user";
         }
         return new DiskCache($directory, '-ast', ParseResult::class, $use_igbinary);
@@ -101,7 +105,7 @@ class Parser
         string $file_path,
         string $file_contents,
         bool $suppress_parse_errors
-    ) : Node {
+    ): Node {
         try {
             // This will choose the parser to use based on the config and $file_path
             // (For "Go To Definition", one of the files will have a slower parser which records the requested AST node)
@@ -120,7 +124,7 @@ class Parser
     }
 
 
-    private static function parseCodeHandlingDeprecation(CodeBase $code_base, Context $context, string $file_contents, string $file_path) : Node
+    private static function parseCodeHandlingDeprecation(CodeBase $code_base, Context $context, string $file_contents, string $file_path): Node
     {
         global $__no_echo_phan_errors;
         // Suppress errors such as "declare(encoding=...) ignored because Zend multibyte feature is turned off by settings" (#1076)
@@ -129,7 +133,7 @@ class Parser
         // and those errors might mess up language servers, etc. if ever printed to stdout
         $original_error_reporting = error_reporting();
         error_reporting($original_error_reporting & ~\E_COMPILE_WARNING);
-        $__no_echo_phan_errors = static function (int $errno, string $errstr, string $unused_errfile, int $errline) use ($code_base, $context) : bool {
+        $__no_echo_phan_errors = static function (int $errno, string $errstr, string $unused_errfile, int $errline) use ($code_base, $context): bool {
             if ($errno === \E_DEPRECATED && \preg_match('/Version.*is deprecated/i', $errstr)) {
                 return false;
             }
@@ -187,7 +191,7 @@ class Parser
         string $file_contents,
         bool $suppress_parse_errors,
         Error $native_parse_error
-    ) : Node {
+    ): Node {
         if (!$suppress_parse_errors) {
             self::emitSyntaxErrorForNativeParseError($code_base, $context, $file_path, new FileCacheEntry($file_contents), $native_parse_error);
         }
@@ -233,7 +237,7 @@ class Parser
         string $file_path,
         FileCacheEntry $file_cache_entry,
         Error $native_parse_error
-    ) : void {
+    ): void {
         // Try to get the raw diagnostics by reference.
         // For efficiency, reuse the last result if this was called multiple times in a row.
         $line = $native_parse_error->getLine();
@@ -260,7 +264,7 @@ class Parser
     private static function guessErrorColumnUsingTokens(
         FileCacheEntry $file_cache_entry,
         Error $native_parse_error
-    ) : int {
+    ): int {
         if (!\function_exists('token_get_all')) {
             return 0;
         }
@@ -316,7 +320,7 @@ class Parser
      * @param list<array{0:int,1:string,2:int}|string> $tokens
      * @return int the 1-based line number, or 0 on failure
      */
-    private static function computeColumnForTokenAtIndex(array $tokens, int $i, int $desired_line) : int
+    private static function computeColumnForTokenAtIndex(array $tokens, int $i, int $desired_line): int
     {
         if ($i <= 0) {
             return 1;
@@ -351,7 +355,7 @@ class Parser
         string $file_path,
         FileCacheEntry $file_cache_entry,
         Error $native_parse_error
-    ) : int {
+    ): int {
         $file_contents = $file_cache_entry->getContents();
         static $last_file_contents = null;
         static $errors = [];
@@ -406,7 +410,7 @@ class Parser
      * @param list<Diagnostic> &$errors @phan-output-reference
      * @throws ParseException
      */
-    public static function parseCodePolyfill(CodeBase $code_base, Context $context, string $file_path, string $file_contents, bool $suppress_parse_errors, ?Request $request, array &$errors = []) : Node
+    public static function parseCodePolyfill(CodeBase $code_base, Context $context, string $file_path, string $file_contents, bool $suppress_parse_errors, ?Request $request, array &$errors = []): Node
     {
         $converter = self::createConverter($file_path, $file_contents, $request);
         $converter->setPHPVersionId(Config::get_closest_target_php_version_id());
@@ -471,7 +475,7 @@ class Parser
     /**
      * @param array<string,mixed> $error
      */
-    private static function handleWarningFromPolyfill(CodeBase $code_base, Context $context, array $error) : void
+    private static function handleWarningFromPolyfill(CodeBase $code_base, Context $context, array $error): void
     {
         if (\in_array($error['type'], [\E_DEPRECATED, \E_COMPILE_WARNING], true) &&
             \basename($error['file']) === 'PhpTokenizer.php') {
@@ -488,7 +492,7 @@ class Parser
     /**
      * Remove the leading #!/path/to/interpreter/of/php from a CLI script, if any was found.
      */
-    public static function removeShebang(string $file_contents) : string
+    public static function removeShebang(string $file_contents): string
     {
         if (\substr($file_contents, 0, 2) !== "#!") {
             return $file_contents;
@@ -517,7 +521,7 @@ class Parser
         return "<?php\n?>" . $rest;
     }
 
-    private static function shouldUsePolyfill(string $file_path, Request $request = null) : bool
+    private static function shouldUsePolyfill(string $file_path, Request $request = null): bool
     {
         if (Config::getValue('use_polyfill_parser')) {
             return true;
@@ -529,13 +533,13 @@ class Parser
     }
 
 
-    private static function createConverter(string $file_path, string $file_contents, Request $request = null) : TolerantASTConverter
+    private static function createConverter(string $file_path, string $file_contents, Request $request = null): TolerantASTConverter
     {
         if ($request && $request->shouldUseMappingPolyfill($file_path)) {
             // TODO: Rename to something better
             $converter = new TolerantASTConverterWithNodeMapping(
                 $request->getTargetByteOffset($file_contents),
-                static function (Node $node) : void {
+                static function (Node $node): void {
                     // @phan-suppress-next-line PhanAccessMethodInternal
                     ConfigPluginSet::instance()->prepareNodeSelectionPluginForNode($node);
                 }
@@ -553,7 +557,7 @@ class Parser
      * Get a string representation of the AST kind value.
      * @suppress PhanAccessMethodInternal
      */
-    public static function getKindName(int $kind) : string
+    public static function getKindName(int $kind): string
     {
         static $use_native = null;
         $use_native = ($use_native ?? self::shouldUseNativeAST());
@@ -565,7 +569,7 @@ class Parser
     }
 
     // TODO: Refactor and make more code use this check
-    private static function shouldUseNativeAST() : bool
+    private static function shouldUseNativeAST(): bool
     {
         if (\PHP_VERSION_ID >= 70400) {
             $min_version = '1.0.2';

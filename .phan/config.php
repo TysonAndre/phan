@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use Phan\Issue;
@@ -25,6 +26,7 @@ use Phan\Issue;
  * of the phan executable or a path passed in via the CLI
  * '-d' flag.
  */
+
 return [
     // Supported values: `'5.6'`, `'7.0'`, `'7.1'`, `'7.2'`, `'7.3'`, `'7.4'`, `null`.
     // If this is set to `null`,
@@ -216,6 +218,11 @@ return [
     // This has some false positives involving loops,
     // variables set in branches of loops, and global variables.
     'redundant_condition_detection' => true,
+
+    // Set to true in order to attempt to detect error-prone truthiness/falsiness checks.
+    //
+    // This is not suitable for all codebases.
+    'error_prone_truthy_condition_detection' => true,
 
     // Enable this to warn about harmless redundant use for classes and namespaces such as `use Foo\bar` in namespace Foo.
     //
