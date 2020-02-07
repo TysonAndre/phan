@@ -1,5 +1,17 @@
 Phan NEWS
 
+??? ?? 2020, Phan 2.4.9 (dev)
+-----------------------
+
+Bug fixes:
++ Fix false positive PhanParamSuspiciousOrder for `preg_replace_callback` (#3680)
+
+Jan 25 2020, Phan 2.4.8
+-----------------------
+
+Bug fixes:
++ Fix bug introduced in 2.4.7 where there were more false positives when `--no-progress-bar` was used. (#3677)
+
 Jan 22 2020, Phan 2.4.7
 -----------------------
 
