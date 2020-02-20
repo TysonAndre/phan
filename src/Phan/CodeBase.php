@@ -289,6 +289,15 @@ class CodeBase
     }
 
     /**
+     * Returns true if hydration of elements is enabled.
+     * This is called after the parse phase is finished.
+     */
+    public function shouldHydrateRequestedElements(): bool
+    {
+        return $this->should_hydrate_requested_elements;
+    }
+
+    /**
      * @return list<string> - The list of files which are successfully parsed.
      * This changes whenever the file list is reloaded from disk.
      * This also includes files which don't declare classes or functions or globals,
@@ -1455,13 +1464,11 @@ class CodeBase
                     $reflection_function = new \ReflectionFunction($name);
                     $function->setIsDeprecated($reflection_function->isDeprecated());
                     $real_return_type = UnionType::fromReflectionType($reflection_function->getReturnType());
-                    if ($real_return_type->isEmpty()) {
-                        if (Config::getValue('assume_real_types_for_internal_functions')) {
-                            // @phan-suppress-next-line PhanAccessMethodInternal
-                            $real_type_string = UnionType::getLatestRealFunctionSignatureMap(Config::get_closest_target_php_version_id())[$name] ?? null;
-                            if (\is_string($real_type_string)) {
-                                $real_return_type = UnionType::fromStringInContext($real_type_string, new Context(), Type::FROM_TYPE);
-                            }
+                    if (Config::getValue('assume_real_types_for_internal_functions')) {
+                        // @phan-suppress-next-line PhanAccessMethodInternal
+                        $real_type_string = UnionType::getLatestRealFunctionSignatureMap(Config::get_closest_target_php_version_id())[$name] ?? null;
+                        if (\is_string($real_type_string)) {
+                            $real_return_type = UnionType::fromStringInContext($real_type_string, new Context(), Type::FROM_TYPE);
                         }
                     }
                     if (!$real_return_type->isEmpty()) {

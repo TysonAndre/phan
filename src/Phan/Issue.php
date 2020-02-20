@@ -62,6 +62,8 @@ class Issue
     public const UndeclaredClassStaticProperty = 'PhanUndeclaredClassStaticProperty';
     public const UndeclaredClosureScope    = 'PhanUndeclaredClosureScope';
     public const UndeclaredConstant        = 'PhanUndeclaredConstant';
+    // Sadly, PhanUndeclaredClassConstant already exists and means the class is undeclared
+    public const UndeclaredConstantOfClass = 'PhanUndeclaredConstantOfClass';
     public const UndeclaredMagicConstant   = 'PhanUndeclaredMagicConstant';
     public const UndeclaredExtendedClass   = 'PhanUndeclaredExtendedClass';
     public const UndeclaredFunction        = 'PhanUndeclaredFunction';
@@ -442,6 +444,7 @@ class Issue
     public const RedefinedUsedTrait            = 'PhanRedefinedUsedTrait';
     public const RedefinedInheritedInterface   = 'PhanRedefinedInheritedInterface';
     public const RedefinedExtendedClass        = 'PhanRedefinedExtendedClass';
+    public const RedefinedClassReference       = 'PhanRedefinedClassReference';
 
     // Issue::CATEGORY_ACCESS
     public const AccessPropertyPrivate     = 'PhanAccessPropertyPrivate';
@@ -495,7 +498,7 @@ class Issue
     public const CompatibleKeyedArrayAssignPHP70    = 'PhanCompatibleKeyedArrayAssignPHP70';
     public const CompatibleVoidTypePHP70            = 'PhanCompatibleVoidTypePHP70';
     public const CompatibleIterableTypePHP70        = 'PhanCompatibleIterableTypePHP70';
-    public const CompatibleObjectTypePHP71          = 'PhanCompatibleNullableTypePHP71';
+    public const CompatibleObjectTypePHP71          = 'PhanCompatibleObjectTypePHP71';
     public const CompatibleUseVoidPHP70             = 'PhanCompatibleUseVoidPHP70';
     public const CompatibleUseIterablePHP71         = 'PhanCompatibleUseIterablePHP71';
     public const CompatibleUseObjectPHP71           = 'PhanCompatibleUseObjectPHP71';
@@ -510,6 +513,8 @@ class Issue
     public const CompatibleTypedProperty            = 'PhanCompatibleTypedProperty';
     public const CompatibleDefaultEqualsNull        = 'PhanCompatibleDefaultEqualsNull';
     public const CompatiblePHP8PHP4Constructor      = 'PhanCompatiblePHP8PHP4Constructor';
+    public const CompatibleScalarTypePHP56          = 'PhanCompatibleScalarTypePHP56';
+    public const CompatibleAnyReturnTypePHP56       = 'PhanCompatibleAnyReturnTypePHP56';
 
     // Issue::CATEGORY_GENERIC
     public const TemplateTypeConstant       = 'PhanTemplateTypeConstant';
@@ -1015,6 +1020,14 @@ class Issue
                 11011
             ),
             new Issue(
+                self::UndeclaredConstantOfClass,
+                self::CATEGORY_UNDEFINED,
+                self::SEVERITY_CRITICAL,
+                "Reference to undeclared class constant {CONST}",
+                self::REMEDIATION_B,
+                11053
+            ),
+            new Issue(
                 self::UndeclaredFunction,
                 self::CATEGORY_UNDEFINED,
                 self::SEVERITY_CRITICAL,
@@ -1406,7 +1419,7 @@ class Issue
             new Issue(
                 self::TypeMismatchArgument,
                 self::CATEGORY_TYPE,
-                self::SEVERITY_CRITICAL,
+                self::SEVERITY_NORMAL,
                 'Argument {INDEX} (${PARAMETER}) is {TYPE} but {FUNCTIONLIKE} takes {TYPE} defined at {FILE}:{LINE}',
                 self::REMEDIATION_B,
                 10003
@@ -1414,7 +1427,7 @@ class Issue
             new Issue(
                 self::TypeMismatchArgumentReal,
                 self::CATEGORY_TYPE,
-                self::SEVERITY_NORMAL,
+                self::SEVERITY_CRITICAL,
                 'Argument {INDEX} (${PARAMETER}) is {TYPE}{DETAILS} but {FUNCTIONLIKE} takes {TYPE}{DETAILS} defined at {FILE}:{LINE}',
                 self::REMEDIATION_B,
                 10140
@@ -1879,7 +1892,7 @@ class Issue
                 self::TypeInvalidInstanceof,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                'Found an instanceof class name of type {TYPE}, but class name must be a valid object or a string',
+                'Found an instanceof class name {CODE} of type {TYPE}, but class name must be a valid object or a string',
                 self::REMEDIATION_B,
                 10029
             ),
@@ -1943,7 +1956,7 @@ class Issue
                 self::TypeExpectedObject,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                'Expected an object instance but saw expression with type {TYPE}',
+                'Expected an object instance but saw expression {CODE} with type {TYPE}',
                 self::REMEDIATION_B,
                 10036
             ),
@@ -1951,7 +1964,7 @@ class Issue
                 self::TypeExpectedObjectOrClassName,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                'Expected an object instance or the name of a class but saw expression with type {TYPE}',
+                'Expected an object instance or the name of a class but saw expression {CODE} with type {TYPE}',
                 self::REMEDIATION_B,
                 10037
             ),
@@ -1959,7 +1972,7 @@ class Issue
                 self::TypeExpectedObjectPropAccess,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_CRITICAL,
-                'Expected an object instance when accessing an instance property, but saw an expression with type {TYPE}',
+                'Expected an object instance when accessing an instance property, but saw an expression {CODE} with type {TYPE}',
                 self::REMEDIATION_B,
                 10038
             ),
@@ -1967,7 +1980,7 @@ class Issue
                 self::TypeExpectedObjectStaticPropAccess,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                'Expected an object instance or a class name when accessing a static property, but saw an expression with type {TYPE}',
+                'Expected an object instance or a class name when accessing a static property, but saw an expression {CODE} with type {TYPE}',
                 self::REMEDIATION_B,
                 10039
             ),
@@ -1975,7 +1988,7 @@ class Issue
                 self::TypeExpectedObjectPropAccessButGotNull,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                'Expected an object instance when accessing an instance property, but saw an expression with type {TYPE}',
+                'Expected an object instance when accessing an instance property, but saw an expression {CODE} with type {TYPE}',
                 self::REMEDIATION_B,
                 10040
             ),
@@ -3899,9 +3912,17 @@ class Issue
                 self::RedefinedExtendedClass,
                 self::CATEGORY_REDEFINE,
                 self::SEVERITY_NORMAL,
-                "{CLASS} extends {CLASS} declared at {FILE}:{LINE} which is also declared at {FILE}:{LINE}. This may lead to confusing errors.",
+                "{CLASS} extends {CLASS} declared at {FILE}:{LINE} which is also declared at {FILE}:{LINE}. This may lead to confusing errors. It may be possible to exclude the class that isn't used with exclude_file_list.",
                 self::REMEDIATION_B,
                 8009
+            ),
+            new Issue(
+                self::RedefinedClassReference,
+                self::CATEGORY_REDEFINE,
+                self::SEVERITY_NORMAL,
+                "Saw reference to {CLASS} declared at {FILE}:{LINE} which is also declared at {FILE}:{LINE}. This may lead to confusing errors. It may be possible to exclude the class that isn't used with exclude_file_list. In addition to normal ways to suppress issues, this issue type can be suppressed on either of the class definitions if it is impractical to exclude one file.",
+                self::REMEDIATION_B,
+                8012
             ),
             new Issue(
                 self::RedefineClassConstant,
@@ -4387,6 +4408,22 @@ class Issue
                 "In PHP 8.0, using a default ({CODE}) that resolves to null will no longer cause the parameter ({PARAMETER}) to be nullable",
                 self::REMEDIATION_B,
                 3023
+            ),
+            new Issue(
+                self::CompatibleScalarTypePHP56,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_NORMAL,
+                "In PHP 5.6, scalar types such as {TYPE} in type signatures are treated like class names",
+                self::REMEDIATION_B,
+                3024
+            ),
+            new Issue(
+                self::CompatibleAnyReturnTypePHP56,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_NORMAL,
+                "In PHP 5.6, return types ({TYPE}) are not supported",
+                self::REMEDIATION_B,
+                3025
             ),
 
             // Issue::CATEGORY_GENERIC
@@ -4941,6 +4978,12 @@ class Issue
     public static function emitInstance(
         IssueInstance $issue_instance
     ): void {
+        if (Phan::isExcludedAnalysisFile($issue_instance->getFile())) {
+            return;
+        }
+        if (ConfigPluginSet::instance()->onEmitIssue($issue_instance)) {
+            return;
+        }
         Phan::getIssueCollector()->collectIssue($issue_instance);
     }
 

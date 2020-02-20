@@ -69,7 +69,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    public const PHAN_VERSION = '2.4.9-dev';
+    public const PHAN_VERSION = '2.5.0';
 
     /**
      * List of short flags passed to getopt
@@ -443,7 +443,7 @@ class CLI
                             }
                         }
                         throw new UsageException(
-                            "Unable to read file $file_path",
+                            "Unable to read --file-list of $file_path",
                             EXIT_FAILURE,
                             null,
                             true
@@ -1516,7 +1516,7 @@ $init_help
 
   Paths such as .phan/baseline.php, .phan/baseline_deadcode.php, etc. are recommended.
 
- -B, -load-baseline <path/to/baseline.php>
+ -B, --load-baseline <path/to/baseline.php>
   Loads a baseline of pre-existing issues to suppress.
 
   (For best results, the baseline should be generated with the same/similar
@@ -1929,9 +1929,15 @@ EOB
                 if (!in_array($file_info->getExtension(), $file_extensions, true)) {
                     return false;
                 }
-                if (!$file_info->isFile() || !$file_info->isReadable()) {
+                if (!$file_info->isFile()) {
+                    // Handle symlinks to invalid real paths
+                    $file_path = $file_info->getRealPath() ?: $file_info->__toString();
+                    CLI::printErrorToStderr("Unable to read file $file_path: SplFileInfo->isFile() is false for SplFileInfo->getType() == " . \var_export(@$file_info->getType(), true) . "\n");
+                    return false;
+                }
+                if (!$file_info->isReadable()) {
                     $file_path = $file_info->getRealPath();
-                    CLI::printErrorToStderr("Unable to read file $file_path\n");
+                    CLI::printErrorToStderr("Unable to read file $file_path: SplFileInfo->isReadable() is false, getPerms()=" . \sprintf("%o(octal)", @$file_info->getPerms()) . "\n");
                     return false;
                 }
 

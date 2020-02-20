@@ -18,3 +18,5 @@ nohup.out
 .idea/
 src_copy
 phpspy.*
+.phpunit.result.cache
+errors.txt

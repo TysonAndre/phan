@@ -607,6 +607,7 @@ class ContextNode
                 $this->emitIssue(
                     $custom_issue_type ?? ($expected_type_categories === self::CLASS_LIST_ACCEPT_OBJECT_OR_CLASS_NAME ? Issue::TypeExpectedObjectOrClassName : Issue::TypeExpectedObject),
                     $this->node->lineno ?? $this->context->getLineNumberStart(),
+                    ASTReverter::toShortString($this->node),
                     (string)$union_type->asNonLiteralType()
                 );
             } elseif ($expected_type_categories === self::CLASS_LIST_ACCEPT_OBJECT_OR_CLASS_NAME) {
@@ -1914,7 +1915,7 @@ class ContextNode
         if ($class_fqsen) {
             $class_constant_fqsen = FullyQualifiedClassConstantName::make($class_fqsen, $constant_name);
             throw new IssueException(
-                Issue::fromType(Issue::UndeclaredConstant)(
+                Issue::fromType(Issue::UndeclaredConstantOfClass)(
                     $this->context->getFile(),
                     $node->lineno,
                     [ "$class_fqsen::$constant_name" ],

@@ -764,4 +764,34 @@ final class UnionTypeTest extends BaseTest
         }
         $this->assertSame('', $errors);
     }
+
+    public function testIntersectionTypeFallback(): void
+    {
+        $type = self::makePHPDocUnionType('MyClass&MyInterfaceUTT');
+        $this->assertSame(2, $type->typeCount());
+        $this->assertSame('\MyClass|\MyInterfaceUTT', (string)$type);
+    }
+
+    public function testIntersectionTypeInArrayFallback(): void
+    {
+        $type = self::makePHPDocUnionType('(MyClass&MyInterfaceUTT)[]');
+        $this->assertSame(2, $type->typeCount());
+        $this->assertSame('\MyClass[]|\MyInterfaceUTT[]', (string)$type);
+    }
+    public function testIntersectionTypeInShapeFallback(): void
+    {
+        $type = self::makePHPDocUnionType('array{keyName:MyClass&MyInterfaceUTT,other:array}');
+        $this->assertSame(1, $type->typeCount());
+        $this->assertSame('array{keyName:\MyClass|\MyInterfaceUTT,other:array}', (string)$type);
+        $array_shape_type = $type->getTypeSet()[0];
+        $this->assertInstanceof(ArrayShapeType::class, $array_shape_type);
+        $this->assertSame(2, \count($array_shape_type->getFieldTypes()));
+    }
+
+    public function testIntersectionTypeInAngleBracketsFallback(): void
+    {
+        $type = self::makePHPDocUnionType('list<\MyClass&NS\MyInterfaceUTT>');
+        $this->assertSame(2, $type->typeCount());
+        $this->assertSame('list<\MyClass>|list<\NS\MyInterfaceUTT>', (string)$type);
+    }
 }

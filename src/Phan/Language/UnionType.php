@@ -90,7 +90,7 @@ class UnionType implements Serializable
     // phpcs:ignore Generic.NamingConventions.UpperCaseConstantName
     public const union_type_regex =
         Type::type_regex
-        . '(\s*\|\s*' . Type::type_regex . ')*';
+        . '(\s*[|&]\s*' . Type::type_regex . ')*';
 
     /**
      * @var string
@@ -103,7 +103,7 @@ class UnionType implements Serializable
     // phpcs:ignore Generic.NamingConventions.UpperCaseConstantName
     public const union_type_regex_or_this =
         Type::type_regex_or_this
-        . '(\s*\|\s*' . Type::type_regex_or_this . ')*';
+        . '(\s*[|&]\s*' . Type::type_regex_or_this . ')*';
 
     /**
      * @var list<Type> This is an immutable list of unique types.
@@ -501,7 +501,7 @@ class UnionType implements Serializable
     private static function extractTypeParts(string $type_string): array
     {
         $parts = [];
-        foreach (\explode('|', $type_string) as $part) {
+        foreach (\preg_split('@[|&]@', $type_string) as $part) {
             $parts[] = \trim($part);
         }
 
@@ -2954,9 +2954,52 @@ class UnionType implements Serializable
                     "Cannot find class $class_fqsen"
                 );
             }
+            $class = $code_base->getClassByFQSEN($class_fqsen);
+            if (!$class->isPHPInternal() && $code_base->hasClassWithFQSEN($class_fqsen->withAlternateId(1))) {
+                self::emitRedefinedClassReferenceWarning($code_base, $context, $class_fqsen);
+            }
 
-            yield $code_base->getClassByFQSEN($class_fqsen);
+            yield $class;
         }
+    }
+
+    /**
+     * Warn about both "$class_fqsen" and the first alternate existing.
+     *
+     * TODO: Make callers such as ContextNode->asClassList() check if the reference is 'self' and don't emit this if it is?
+     */
+    public static function emitRedefinedClassReferenceWarning(
+        CodeBase $code_base,
+        Context $context,
+        FullyQualifiedClassName $class_fqsen
+    ): void {
+        $class = $code_base->getClassByFQSENWithoutHydrating($class_fqsen);
+        if ($class->isPHPInternal() || $class->hasSuppressIssue(Issue::RedefinedClassReference)) {
+            // already checked if $class was internal.
+            return;
+        }
+
+        $other_fqsen = $class_fqsen->withAlternateId($class_fqsen->getAlternateId() ? 0 : 1);
+        if (!$code_base->hasClassWithFQSEN($other_fqsen)) {
+            return;
+        }
+        $other_class = $code_base->getClassByFQSENWithoutHydrating($other_fqsen);
+
+        if ($other_class->isPHPInternal() || $other_class->hasSuppressIssue(Issue::RedefinedClassReference)) {
+            // already checked if $class was internal.
+            return;
+        }
+        Issue::maybeEmit(
+            $code_base,
+            $context,
+            Issue::RedefinedClassReference,
+            $context->getLineNumberStart(),
+            $class_fqsen,
+            $class->getContext()->getFile(),
+            $class->getContext()->getLineNumberStart(),
+            $other_class->getContext()->getFile(),
+            $other_class->getContext()->getLineNumberStart()
+        );
     }
 
     /**
