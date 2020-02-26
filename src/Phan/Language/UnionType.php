@@ -1005,7 +1005,7 @@ class UnionType implements Serializable
             }
         }
 
-        return $has_template ? UnionType::of($concrete_type_list, []) : $this;
+        return $has_template ? UnionType::of($concrete_type_list, $this->real_type_set) : $this;
     }
 
     /**
@@ -2994,7 +2994,7 @@ class UnionType implements Serializable
             $context,
             Issue::RedefinedClassReference,
             $context->getLineNumberStart(),
-            $class_fqsen,
+            $class_fqsen->withAlternateId(0),
             $class->getContext()->getFile(),
             $class->getContext()->getLineNumberStart(),
             $other_class->getContext()->getFile(),
@@ -5885,6 +5885,9 @@ class UnionType implements Serializable
         $representation = $this->__toString();
         if ($this->real_type_set) {
             $representation .= "(real=" . $this->getRealUnionType()->__toString() . ")";
+        }
+        if ($representation === '') {
+            return '(empty union type)';
         }
         return $representation;
     }

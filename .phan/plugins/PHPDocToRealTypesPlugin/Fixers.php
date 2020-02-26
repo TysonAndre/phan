@@ -9,6 +9,7 @@ use Microsoft\PhpParser\FunctionLike;
 use Microsoft\PhpParser\Node\Expression\AnonymousFunctionCreationExpression;
 use Microsoft\PhpParser\Node\MethodDeclaration;
 use Microsoft\PhpParser\Node\Statement\FunctionDeclaration;
+use Microsoft\PhpParser\Token;
 use Phan\AST\TolerantASTConverter\NodeUtils;
 use Phan\CodeBase;
 use Phan\IssueInstance;
@@ -68,7 +69,7 @@ class Fixers
         }
         // @phan-suppress-next-line PhanUndeclaredProperty
         $close_bracket = $declaration->anonymousFunctionUseClause->closeParen ?? $declaration->closeParen;
-        if (!$close_bracket) {
+        if (!$close_bracket instanceof Token) {
             return null;
         }
         // get the byte where the `)` of the argument list ends

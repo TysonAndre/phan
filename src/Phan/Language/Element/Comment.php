@@ -311,8 +311,9 @@ class Comment
         switch ($key) {
             case 'param':
                 foreach ($value as $parameter) {
+                    '@phan-var CommentParameter $parameter';
                     $name = $parameter->getName();
-                    if ($name) {
+                    if ($name !== '') {
                         // Add it to the named map
                         // TODO: could check that @phan-param is compatible with the original @param
                         $this->parameter_map[$name] = $parameter;
@@ -331,8 +332,9 @@ class Comment
                 return;
             case 'property':
                 foreach ($value as $property) {
+                    '@phan-var CommentProperty $property';
                     $name = $property->getName();
-                    if ($name) {
+                    if ($name !== '') {
                         // Override or add the entry in the named map
                         $this->magic_property_map[$name] = $property;
                     }
@@ -340,9 +342,10 @@ class Comment
                 return;
             case 'method':
                 foreach ($value as $method) {
+                    '@phan-var CommentMethod $method';
                     $name = $method->getName();
-                    if ($name) {
-                        // Override or add the entry in the named map
+                    if ($name !== '') {
+                        // Override or add the entry in the named map (probably always has a name)
                         $this->magic_method_map[$name] = $method;
                     }
                 }
@@ -726,7 +729,7 @@ class Comment
             $string  .= " * @var $variable\n";
         }
 
-        foreach ($this->parameter_list as $parameter) {
+        foreach (array_merge($this->parameter_map, $this->parameter_list) as $parameter) {
             $string  .= " * @param $parameter\n";
         }
 

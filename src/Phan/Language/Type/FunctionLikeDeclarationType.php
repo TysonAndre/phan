@@ -83,6 +83,7 @@ abstract class FunctionLikeDeclarationType extends Type implements FunctionInter
     /**
      * @param list<ClosureDeclarationParameter> $params
      * @param UnionType $return_type
+     * @suppress PhanPluginUnknownObjectMethodCall TODO: Figure out how the type is getting overridden in PostOrderAnalysisVisitor->analyzeCallToFunctionLike
      */
     public function __construct(FileRef $file_ref, array $params, UnionType $return_type, bool $returns_reference, bool $is_nullable)
     {
@@ -124,7 +125,7 @@ abstract class FunctionLikeDeclarationType extends Type implements FunctionInter
             }
             $return_type = $this->return_type;
             $return_type_string = $return_type->__toString();
-            if ($return_type->typeCount() >= 2) {
+            if ($return_type->typeCount() >= 2 || \substr($return_type_string, -1) === ']') {
                 $return_type_string = "($return_type_string)";
             }
             return ($this->is_nullable ? '?' : '') . static::NAME . '(' . \implode(',', $parts) . '):' . $return_type_string;
@@ -366,7 +367,7 @@ abstract class FunctionLikeDeclarationType extends Type implements FunctionInter
     }
 
     /**
-     * @phan-return \Generator<FunctionLikeDeclarationType>
+     * @phan-return \Generator<static>
      * @override
      */
     public function alternateGenerator(CodeBase $_): Generator
