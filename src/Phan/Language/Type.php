@@ -3354,9 +3354,12 @@ class Type
 
         // Test to see if this (or any ancestor types) can cast to the given union type.
         $expanded_types = $this_resolved->asExpandedTypes($code_base);
-        return $expanded_types->canCastToUnionType(
-            $union_type
-        );
+        foreach ($expanded_types->getTypeSet() as $type) {
+            if ($type->isSubtypeOfAnyTypeInSet($union_type->getTypeSet())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -3940,6 +3943,19 @@ class Type
             }
         }
         return false;
+    }
+
+    /**
+     * Convert `\MyClass<T>` and `\MyClass<\OtherClass>` to just `\MyClass`.
+     *
+     * TODO: Override in subclasses such as generic arrays, generic iterables, and array shapes.
+     */
+    public function eraseTemplatesRecursive(): Type
+    {
+        if (!$this->template_parameter_type_list) {
+            return $this;
+        }
+        return static::fromType($this, []);
     }
 
     /**

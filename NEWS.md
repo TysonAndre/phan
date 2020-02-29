@@ -10,6 +10,9 @@ New features(CLI, Configs):
   Phan infers additional type information for properties, return types, etc. while analyzing,
   and this will help it detect more potential errors.
   (on the first run, it would analyze files before some of those types were inferred)
++ Add a CLI option `--analyze-all-files` to analyze all files, ignoring `exclude_analysis_file_list`.
+  This is potentially useful if third party dependencies are missing type information (also see `--analyze-twice`).
++ Add `--dump-analyzed-file-list` to dump all files Phan would analyze to stdout.
 
 New features(Analysis):
 + Support parsing php 8.0 union types (and the static return type) in the polyfill. (#3419, #3634)
@@ -18,7 +21,11 @@ New features(Analysis):
 + Infer key and element types from `iterator_to_array()`
 
 Plugins:
-+ Add `UnknownClassElementAccessPlugin` to warn about cases where Phan can't infer which class a method is being called on.
++ Add `UnknownClassElementAccessPlugin` to warn about cases where Phan can't infer which class an instance method is being called on.
+  (To work correctly, this plugin requires that Phan use a single analysis process)
++ Add `MoreSpecificElementTypePlugin` to warn about functions/methods where the phpdoc/actual return type is vaguer than the types that are actually returned by a method.
+  This is a work in progress, and has a lot of false positives.
+  (To work correctly, this plugin requires that Phan use a single analysis process)
 
 Bug fixes:
 + Fix bug causing phan to fail to properly recursively analyze parameters of inherited methods (#3740)
@@ -28,6 +35,7 @@ Bug fixes:
 + Don't include both `.` and `vendor/x/y/` when initializing Phan configs with settings such as `--init --init-analyze-dir=.` (#3699)
 + Be more consistent about resolving `static` in generators and template types.
 + Infer the iterable value type for `Generator<V>`. It was previously only inferred when there were 2 or more template args in phpdoc.
++ Don't let less specific type signatures such as `@param object $x` override the real type signature of `MyClass $x` (#3749)
 
 Feb 20 2020, Phan 2.5.0
 -----------------------

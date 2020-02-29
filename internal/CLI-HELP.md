@@ -234,6 +234,12 @@ Usage: ./phan [options] [files...]
   (For best results, the baseline should be generated with the same/similar
   environment and settings as those used to run Phan)
 
+ --analyze-twice
+  Runs the analyze phase twice. Because Phan gathers additional type information for properties, return types, etc. during analysis,
+  this may emit a more complete list of issues.
+
+  This cannot be used with --processes <int>.
+
  -v, --version
   Print Phan's version number
 
@@ -252,6 +258,9 @@ Extended help:
   Emit a newline-separated list of files Phan would parse to stdout.
   This is useful to verify that options such as exclude_file_regex are
   properly set up, or to run other checks on the files Phan would parse.
+
+ --dump-analyzed-file-list
+  Emit a newline-separated list of files Phan would analyze to stdout.
 
  --dump-signatures-file <filename>
   Emit JSON serialized signatures to the given file.
@@ -281,6 +290,11 @@ Extended help:
  --absolute-path-issue-messages
   Emit issues with their absolute paths instead of relative paths.
   This does not affect files mentioned within the issue.
+
+ --analyze-all-files
+  Ignore the --exclude-directory-list <dir_list> flag and `exclude_analysis_directory_list` config settings and analyze all files that were parsed.
+  This is slow, but useful when third-party files being parsed have incomplete type information.
+  Also see --analyze-twice.
 
  --constant-variable-detection
   Emit issues for variables that could be replaced with literals or constants.

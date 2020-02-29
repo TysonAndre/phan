@@ -10,16 +10,28 @@ use \Phan\Issue;
  * @see src/Phan/Config.php
  * See Config for all configurable options.
  *
- * This is a config file which tests all built in plugins,
- * in addition to testing backwards compatibility checks and dead code detection.
+ * This is a config file which tests Phan's ability to infer and report missing types.
  */
 return [
-    'target_php_version' => '7.1',
+    'target_php_version' => '7.3',
+
+    // If enabled, Phan will act as though it's certain of real return types of a subset of internal functions,
+    // even if those return types aren't available in reflection (real types were taken from php 8.0-dev).
+    //
+    // Note that in php 7 and earlier, php would return null or false if the argument types or counts were incorrect.
+    // As a result, enabling this setting may result in false positives for `--redundant-condition-detection`.
+    'assume_real_types_for_internal_functions' => true,
+
+    // Set to true in order to attempt to detect redundant and impossible conditions.
+    //
+    // This has some false positives involving loops,
+    // variables set in branches of loops, and global variables.
+    'redundant_condition_detection' => true,
 
     // If true, missing properties will be created when
     // they are first seen. If false, we'll report an
     // error message.
-    'allow_missing_properties' => false,
+    'allow_missing_properties' => true,
 
     // Allow null to be cast as any type and for any
     // type to be cast to null.
@@ -53,33 +65,12 @@ return [
     // (For self-analysis, Phan has a large number of suppressions and file-level suppressions, due to \ast\Node being difficult to type check)
     'strict_return_checking' => true,
 
-    // If true, seemingly undeclared variables in the global
-    // scope will be ignored. This is useful for projects
-    // with complicated cross-file globals that you have no
-    // hope of fixing.
-    'ignore_undeclared_variables_in_global_scope' => true,
-
-    // Backwards Compatibility Checking
-    // Check for $$var[] and $foo->$bar['baz'] and Foo::$bar['baz']() and $this->$bar['baz']
-    'backward_compatibility_checks' => false,
-
-    // If enabled, check all methods that override a
-    // parent method to make sure its signature is
-    // compatible with the parent's. This check
-    // can add quite a bit of time to the analysis.
-    'analyze_signature_compatibility' => true,
-
     // Test dead code detection
     'dead_code_detection' => true,
 
-    // TODO: Test unused variable detection
     'unused_variable_detection' => true,
 
-    'globals_type_map' => ['test_global_exception' => 'Exception', 'test_global_error' => '\\Error'],
-
-    'quick_mode' => false,
-
-    'generic_types_enabled' => true,
+    'redundant_condition_detection' => true,
 
     'guess_unknown_parameter_type_using_default' => true,
 
@@ -96,7 +87,7 @@ return [
 
     'directory_list' => ['src'],
 
-    'analyzed_file_extensions' => ['php', 'php_crash'],
+    'analyzed_file_extensions' => ['php'],
 
     // Set this to true to enable the plugins that Phan uses to infer more accurate literal return types of `implode`, `implode`, and many other functions.
     //
@@ -106,41 +97,35 @@ return [
     // This is a unit test of Phan itself, so don't cache it because the polyfill implementation may change before the next release.
     'cache_polyfill_asts' => false,
 
-    'plugin_config' => [
-        'php_native_syntax_check_max_processes' => 4,
-        'unused_suppression_ignore_list' => ['Unused-Issue-In-Config'],
-        'possibly_static_method_ignore_regex' => '/^(?!(PSM|function_))/',
-        'infer_pure_methods' => true,
-    ],
-
     // A list of plugin files to execute
     // (Execute all of them.)
     // FooName is shorthand for /path/to/phan/.phan/plugins/FooName.php.
     'plugins' => [
-        __DIR__ . '/../../../.phan/plugins/AlwaysReturnPlugin.php',  // This is testing the plugin locator, use old syntax
-        '../../.phan/plugins/DemoPlugin.php',  // Test behavior of the plugin locator.
+        'AlwaysReturnPlugin',
         'DollarDollarPlugin',
         'DuplicateArrayKeyPlugin',
-        'InvalidVariableIssetPlugin',
         'InvokePHPNativeSyntaxCheckPlugin',
-        'NonBoolBranchPlugin',
-        'NonBoolInLogicalArithPlugin',
         'NumericalComparisonPlugin',
         'PregRegexCheckerPlugin',
         'PrintfCheckerPlugin',
         'UnreachableCodePlugin',
         'UnusedSuppressionPlugin',
         'UseReturnValuePlugin',
-        'SleepCheckerPlugin',
         'DuplicateExpressionPlugin',
-        'SuspiciousParamOrderPlugin',
         'WhitespacePlugin',
-        'InlineHTMLPlugin',
-        'PossiblyStaticMethodPlugin',
-        'EmptyStatementListPlugin',
-        'StrictComparisonPlugin',
-        'LoopVariableReusePlugin',
-        'RedundantAssignmentPlugin',
+        'UnknownElementTypePlugin',
+        'AvoidableGetterPlugin',
+        //
         'UnknownClassElementAccessPlugin',
     ],
+
+    // Set this to false to emit `PhanUndeclaredFunction` issues for internal functions that Phan has signatures for,
+    // but aren't available in the codebase, or from Reflection.
+    // (may lead to false positives if an extension isn't loaded)
+    //
+    // If this is true(default), then Phan will not warn.
+    //
+    // Even when this is false, Phan will still infer return values and check parameters of internal functions
+    // if Phan has the signatures.
+    'ignore_undeclared_functions_with_known_signatures' => false,
 ];

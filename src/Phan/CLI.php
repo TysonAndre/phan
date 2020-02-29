@@ -85,6 +85,7 @@ class CLI
     public const GETOPT_LONG_OPTIONS = [
         'absolute-path-issue-messages',
         'allow-polyfill-parser',
+        'analyze-all-files',
         'assume-real-types-for-internal-functions',
         'automatic-fix',
         'backward-compatibility-checks',
@@ -102,6 +103,7 @@ class CLI
         'directory:',
         'disable-cache',
         'disable-plugins',
+        'dump-analyzed-file-list',
         'dump-ast',
         'dump-parsed-file-list',
         'dump-signatures-file:',
@@ -174,6 +176,11 @@ class CLI
         'use-fallback-parser',
         'version',
     ];
+
+    /**
+     * @internal
+     */
+    public const DUMP_ANALYZED = 'dump_analyzed';
 
     /**
      * @var OutputInterface used for outputting the formatted issue messages.
@@ -535,6 +542,9 @@ class CLI
                 case 'dump-parsed-file-list':
                     Config::setValue('dump_parsed_file_list', true);
                     break;
+                case 'dump-analyzed-file-list':
+                    Config::setValue('dump_parsed_file_list', self::DUMP_ANALYZED);
+                    break;
                 case 'dump-signatures-file':
                     Config::setValue('dump_signatures_file', $value);
                     break;
@@ -805,6 +815,7 @@ class CLI
                 case 'C':
                 case 'color':
                 case 'no-color':
+                case 'analyze-all-files':
                     // Handled before processing the CLI flag `--help`
                     break;
                 case 'save-baseline':
@@ -835,7 +846,6 @@ class CLI
                 default:
                     // All of phan's long options are currently at least 2 characters long.
                     $key_repr = strlen($key) >= 2 ? "--$key" : "-$key";
-                    echo "Checking $key\n";
                     if ($value === false && in_array($key . ':', self::GETOPT_LONG_OPTIONS, true)) {
                         throw new UsageException("Missing required argument value for '$key_repr'", EXIT_FAILURE);
                     }
@@ -885,6 +895,9 @@ class CLI
                 $this->file_list_in_config,
                 array_slice($argv, 1)
             );
+        }
+        if (isset($opts['analyze-all-files'])) {
+            Config::setValue('exclude_analysis_directory_list', []);
         }
 
         $this->recomputeFileList();
@@ -1531,7 +1544,7 @@ $init_help
   environment and settings as those used to run Phan)
 
  --analyze-twice
-  Runs the analyze phase twice. Because phan gathers additional type information for properties, return types, etc. during analysis,
+  Runs the analyze phase twice. Because Phan gathers additional type information for properties, return types, etc. during analysis,
   this may emit a more complete list of issues.
 
   This cannot be used with --processes <int>.
@@ -1563,6 +1576,9 @@ Extended help:
   This is useful to verify that options such as exclude_file_regex are
   properly set up, or to run other checks on the files Phan would parse.
 
+ --dump-analyzed-file-list
+  Emit a newline-separated list of files Phan would analyze to stdout.
+
  --dump-signatures-file <filename>
   Emit JSON serialized signatures to the given file.
   This uses a method signature format similar to FunctionSignatureMap.php.
@@ -1591,6 +1607,11 @@ Extended help:
  --absolute-path-issue-messages
   Emit issues with their absolute paths instead of relative paths.
   This does not affect files mentioned within the issue.
+
+ --analyze-all-files
+  Ignore the --exclude-directory-list <dir_list> flag and `exclude_analysis_directory_list` config settings and analyze all files that were parsed.
+  This is slow, but useful when third-party files being parsed have incomplete type information.
+  Also see --analyze-twice.
 
  --constant-variable-detection
   Emit issues for variables that could be replaced with literals or constants.
@@ -2294,6 +2315,17 @@ EOB
         if (strlen($buf) > 0) {
             fwrite(STDERR, $buf);
         }
+    }
+
+    /**
+     * Reset the long progress state to the initial state.
+     *
+     * Useful for --analyze-twice
+     */
+    public static function resetLongProgressState(): void
+    {
+        self::$current_progress_offset_long_progress = 0;
+        self::$current_progress_state_long_progress = null;
     }
 
     private static function renderLongProgress(string $msg, float $p, float $memory, ?int $offset, ?int $count): string
