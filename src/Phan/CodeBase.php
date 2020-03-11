@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Phan;
 
+use ArrayObject;
 use AssertionError;
 use Closure;
 use Exception;
@@ -604,7 +605,20 @@ class CodeBase
         // Create a deep copy of this CodeBase
         $clone = clone($this);
         // make a deep copy of the NamespaceMapEntry objects within parsed_namespace_maps
-        $clone->parsed_namespace_maps = \unserialize(\serialize($clone->parsed_namespace_maps));
+        // NOTE: It is faster to *create* the clone if this used unserialize(serialize(parsed_namespace_maps).
+        // However, it is 10 times slower once you include the time needed to garbage collect the data in the copies, because strings in values are brand new copies in unserialize().
+        // It is also likely to require more memory.
+        $clone->parsed_namespace_maps = $this->parsed_namespace_maps;
+        foreach ($clone->parsed_namespace_maps as &$map_for_file) {
+            foreach ($map_for_file as &$map_for_namespace_id) {
+                foreach ($map_for_namespace_id as &$map_for_use_type) {
+                    foreach ($map_for_use_type as &$entry) {
+                        $entry = clone($entry);
+                    }
+                }
+            }
+        }
+
         /** @var list<?Closure()> */
         $callbacks = [];
         // Create callbacks to restore classes
@@ -1109,6 +1123,8 @@ class CodeBase
 
     /**
      * @return array<string,list<Method>>
+     * @deprecated
+     * @suppress PhanUnreferencedPublicMethod
      */
     public function getMethodsGroupedByDefiningFQSEN(): array
     {
@@ -1119,6 +1135,33 @@ class CodeBase
             $methods_by_defining_fqsen[$defining_fqsen][] = $method;
             if ($real_defining_fqsen !== $defining_fqsen) {
                 $methods_by_defining_fqsen[$real_defining_fqsen][] = $method;
+            }
+        }
+        return $methods_by_defining_fqsen;
+    }
+
+    /**
+     * @return Map<FullyQualifiedMethodName,ArrayObject<Method>>
+     */
+    public function getMethodsMapGroupedByDefiningFQSEN(): Map
+    {
+        $methods_by_defining_fqsen = new Map();
+        '@phan-var Map<FullyQualifiedMethodName,ArrayObject<Method>> $methods_by_defining_fqsen';
+        foreach ($this->method_set as $method) {
+            $defining_fqsen = $method->getDefiningFQSEN();
+            $real_defining_fqsen = $method->getRealDefiningFQSEN();
+            // Older php versions have issues with ?? on SplObjectStorage
+            if ($methods_by_defining_fqsen->offsetExists($defining_fqsen)) {
+                $methods_by_defining_fqsen->offsetGet($defining_fqsen)->append($method);
+            } else {
+                $methods_by_defining_fqsen->offsetSet($defining_fqsen, new ArrayObject([$method]));
+            }
+            if ($real_defining_fqsen !== $defining_fqsen) {
+                if ($methods_by_defining_fqsen->offsetExists($real_defining_fqsen)) {
+                    $methods_by_defining_fqsen->offsetGet($real_defining_fqsen)->append($method);
+                } else {
+                    $methods_by_defining_fqsen->offsetSet($real_defining_fqsen, new ArrayObject([$method]));
+                }
             }
         }
         return $methods_by_defining_fqsen;

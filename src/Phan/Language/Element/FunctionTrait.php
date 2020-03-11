@@ -346,6 +346,9 @@ trait FunctionTrait
         if ($this instanceof Method && $this->isOverriddenByAnother()) {
             return false;
         }
+        if ($this->getPhanFlags() & Flags::HARDCODED_RETURN_TYPE) {
+            return false;
+        }
         $return_type = $this->getUnionType();
         // expect that $return_type has at least one type if isReturnTypeUndefined is false.
         foreach ($return_type->getTypeSet() as $type) {
@@ -1850,6 +1853,9 @@ trait FunctionTrait
      * Gets the original union type of this function/method.
      *
      * This is populated the first time it is called.
+     *
+     * NOTE: Phan also infers union types from the overridden methods.
+     * This doesn't attempt to account for that.
      */
     public function getOriginalReturnType(): UnionType
     {

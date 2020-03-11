@@ -1,6 +1,17 @@
 Phan NEWS
 
-??? ?? 2020, Phan 2.5.1 (dev)
+??? ?? 2020, Phan 2.6.1 (dev)
+-----------------------
+
+New features(CLI, Configs):
++ Add a `--dump-ctags=basic` flag to dump a `tags` file in the project root directory. (https://linux.die.net/man/1/ctags)
+  This is different from `tool/make_ctags_for_phan_project` - it has no external dependencies.
+
+New features(Analysis):
++ Infer that the real type set of the key in `foreach ($arrayVar as $key => ...)` is definitely an `int|string`
+  in places where Phan previously inferred the empty union type, improving redundant condition detection. (#3789)
+
+Mar 07 2020, Phan 2.6.0
 -----------------------
 
 New features(CLI, Configs):
@@ -16,8 +27,13 @@ New features(CLI, Configs):
 + Add `allow_overriding_vague_return_types` to allow Phan to add inferred return types to functions/closures/methods declared with `@return mixed` or `@return object`.
   This is disabled by default.
 
+  When this is enabled, it can be disabled for individual methods by adding `@phan-hardcode-return-type` to the comment of the method.
+  (if the method has any type declarations such as `@return mixed`)
+
   Previously, Phan would only add inferred return types if there was no return type declaration.
   (also see `--analyze-twice`)
++ Also emit the code fragment for the argument in question in the `PhanTypeMismatchArgument` family of issue messages (#3779)
++ Render a few more AST node kinds in code fragments in issue messages.
 
 New features(Analysis):
 + Support parsing php 8.0 union types (and the static return type) in the polyfill. (#3419, #3634)
@@ -37,9 +53,12 @@ New features(Analysis):
 Plugins:
 + Add `UnknownClassElementAccessPlugin` to warn about cases where Phan can't infer which class an instance method is being called on.
   (To work correctly, this plugin requires that Phan use a single analysis process)
-+ Add `MoreSpecificElementTypePlugin` to warn about functions/methods where the phpdoc/actual return type is vaguer than the types that are actually returned by a method.
++ Add `MoreSpecificElementTypePlugin` to warn about functions/methods where the phpdoc/actual return type is vaguer than the types that are actually returned by a method. (#3751)
   This is a work in progress, and has a lot of false positives.
   (To work correctly, this plugin requires that Phan use a single analysis process)
++ Fix crash in `PrintfCheckerPlugin` when analyzing code where `fprintf()` was passed an array instead of a format string.
++ Emit `PhanTypeMissingReturnReal` instead of `PhanTypeMissingReturn` when there is a real return type signature. (#3716)
++ Fix bug running `InvokePHPNativeSyntaxCheckPlugin` on Windows when PHP binary is in a path containing spaces. (#3766)
 
 Bug fixes:
 + Fix bug causing Phan to fail to properly recursively analyze parameters of inherited methods (#3740)
@@ -52,8 +71,12 @@ Bug fixes:
 + Don't let less specific type signatures such as `@param object $x` override the real type signature of `MyClass $x` (#3749)
 + Support PHP 7.4's `??=` null coalescing assignment operator in the polyfill.
 + Fix crash analyzing invalid nodes such as `2 = $x` in `RedundantAssignmentPlugin`.
++ Fix crash inferring type of `isset ? 2 : 3` with `--use-fallback-parser` (#3767)
 + Fix false positive unreferenced method warnings for methods from traits
   when the methods were referenced in base classes or interfaces of classes using those traits.
+
+Language Server/Daemon mode:
++ Various performance improvements for the language server/daemon with or without pcntl (#3758, #3769, #3771)
 
 Feb 20 2020, Phan 2.5.0
 -----------------------

@@ -1303,8 +1303,32 @@ class UnionType implements Serializable
     public function hasCommonType(UnionType $union_type): bool
     {
         $other_type_set = $union_type->type_set;
+        if (\count($other_type_set) > 4 && \count($this->type_set) > 4) {
+            return $this->hasCommonTypeSetCheck($other_type_set);
+        }
         foreach ($this->type_set as $type) {
             if (\in_array($type, $other_type_set, true)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Check if $this->type_set and $other_type_list have any types in common.
+     * For two union types with 10 types, this takes at most 20 operations instead of 100 operations.
+     *
+     * @param list<Type> $other_type_list
+     */
+    private function hasCommonTypeSetCheck(array $other_type_list): bool
+    {
+        $type_set = [];
+        // Avoid worst-case quadratic runtime
+        foreach ($this->type_set as $type) {
+            $type_set[\spl_object_id($type)] = true;
+        }
+        foreach ($other_type_list as $type) {
+            if (\array_key_exists(\spl_object_id($type), $type_set)) {
                 return true;
             }
         }
@@ -3768,19 +3792,31 @@ class UnionType implements Serializable
             }
             // TODO: Instead of coercing string to int here, update the real type when the array is assigned to,
             // if the string is a non-literal.
-            if ($type instanceof ArrayType) {
-                foreach ($key_union_type->getTypeSet() as $key_type) {
-                    if ($key_type instanceof StringType) {
-                        // Numeric literals such as `'0'` cast to 0 when inserted as array keys.
-                        $new_real_type_builder->addType(IntType::instance(false));
-                        break;
+            //
+            // Note that array shapes with 0 elements do not have types. (tests/files/src/0461_array_key_exists.php)
+            if ($type instanceof ArrayType && $type->isPossiblyTruthy()) {
+                if ($key_union_type->isEmpty()) {
+                    $key_union_type = UnionType::fromFullyQualifiedPHPDocString('int|string');
+                } else {
+                    foreach ($key_union_type->getTypeSet() as $key_type) {
+                        if ($key_type instanceof StringType && $key_type->isPossiblyNumeric()) {
+                            // Numeric literals such as `'0'` cast to 0 when inserted as array keys.
+                            $new_real_type_builder->addType(IntType::instance(false));
+                            break;
+                        }
                     }
                 }
             }
             $new_real_type_builder->addUnionType($key_union_type);
         }
+        $type_set = $new_type_builder->getTypeSet();
+        $real_type_set = $new_real_type_builder->getTypeSet();
+        if (!$type_set && $real_type_set) {
+            $type_set = UnionType::typeSetFromString('mixed');
+        }
 
-        return UnionType::of($new_type_builder->getTypeSet(), $new_real_type_builder->getTypeSet());
+        $result = UnionType::of($type_set, $real_type_set);
+        return $result;
     }
 
     /**
