@@ -96,12 +96,14 @@ _phan() {
 -B
 --load-baseline
 --analyze-twice
+--analyze-all-files
 -h
 --help
 -v
 --version
 --extended-help
 --dump-ast
+--dump-ctags
 -a
 --dump-analyzed-file-list
 --dump-parsed-file-list
@@ -163,7 +165,7 @@ _phan() {
             return 0
             ;;
         --minimum-severity | -y)
-            COMPREPLY=( $(compgen -W "0 5 10" -- "${cur}" ) )
+            COMPREPLY=( $(compgen -W "0 5 10 low normal high" -- "${cur}" ) )
             return 0
             ;;
         --color-scheme)

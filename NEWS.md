@@ -1,6 +1,33 @@
 Phan NEWS
 
-??? ?? 2020, Phan 2.6.1 (dev)
+??? ?? 2020, Phan 2.6.2 (dev)
+-----------------------
+
+New features(CLI, Configs):
++ Sort output of `--dump-ctags=basic` by element type before sorting by file name (#3811)
+  (e.g. make class and global function declarations the first tag type for a tag name)
++ Colorize the output of `phan_client` by default for the default and text output modes. (#3808)
+  Add `phan --no-color` option to disable colors.
++ Warn about invalid CLI flags in `phan_client` (#3776)
++ Support representing more AST node types in issue messages. (#3783)
++ Make some issue messages easier to read (#3745, #3636)
++ Allow using `--minimum-severity=critical` instead of `--minimum-severity=10` (#3715)
++ Use better placeholders for parameter default types than `null` in issue messages and hover text (#3736)
+
+New features(Analysis):
++ Improve analysis of php 7.4 typed properties.
+  Support extracting their real union types from Reflection information.
+  Infer the existence of properties that are not in `ReflectionClass->getPropertyDefaults()`
+  due to being uninitialized by default.
++ Emit `PhanAbstractStaticMethodCall*` when calling an abstract static method statically. (#3799)
+
+Language Server/Daemon mode:
++ Catch exception seen when printing debug info about not being able to parse a file.
+
+Miscellaneous:
++ PHP 8.0-dev compatibility fixes, analysis for some new functions of PHP 8.0-dev.
+
+Mar 13 2020, Phan 2.6.1
 -----------------------
 
 New features(CLI, Configs):
@@ -10,6 +37,12 @@ New features(CLI, Configs):
 New features(Analysis):
 + Infer that the real type set of the key in `foreach ($arrayVar as $key => ...)` is definitely an `int|string`
   in places where Phan previously inferred the empty union type, improving redundant condition detection. (#3789)
+
+Bug fixes:
++ Fix a crash in `phan --dead-code-detection` when a trait defines a real method and phpdoc `@method` of the same name (#3796)
+
+Miscellaneous:
++ Also allow `netresearch/jsonmapper@^2.0` as a dependency when enforcing the minimum allowed version (#3801)
 
 Mar 07 2020, Phan 2.6.0
 -----------------------

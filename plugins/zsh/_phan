@@ -36,6 +36,7 @@ _arguments \
 	'(--save-baseline)--save-baseline=[a path to save a baseline with pre-existing issues to]:file:_files' \
 	'(--load-baseline -B)'{--load-baseline=,-B+}'[a path to a baseline with pre-existing issues to read from]:file:_files' \
 	'(--analyze-twice)--analyze-twice[run the analysis phase twice]' \
+	'(--analyze-all-files)--analyze-all-files[ignore config settings to exclude files from analysis]' \
 	'(--init-no-composer)--init-no-composer[don'\''t require a composer installation when initializing]' \
 	'(--init-overwrite)--init-overwrite[allow phan --init to override the existing .phan/config.php file]' \
 	'(--color --no-color -C)'{--color,-C}'[add colors to phan'\''s output]' \
@@ -49,7 +50,7 @@ _arguments \
 	'(--quick -q)'{-q,--quick}'[quick mode]' \
 	'(--target-php-version)--target-php-version=[php version to check codebase for compatibility with]:version:(7.0 7.1 7.2 7.3 7.4 8.0 native)' \
 	'(--ignore-undeclared -i)'{--ignore-undeclared,-i}'[ignore undeclared functions and classes]' \
-	'(--minimum-severity -y)'{--minimum-severity=,-y+}'[minimum severity level to report (low=0,normal=5,critical=10)]:severity:(0 5 10)' \
+	'(--minimum-severity -y)'{--minimum-severity=,-y+}'[minimum severity level to report (low=0,normal=5,critical=10)]:severity:(0 5 10 low normal critical)' \
 	'(--parent-constructor-required -c)'{--parent-constructor-required,-c}'[list of classes requiring parent::__construct to be called]' \
 	'(--dead-code-detection -x)'{--dead-code-detection,-x}'[emit issues for elements that are probably never referenced]' \
 	'(--unused-variable-detection -u)'{--unused-variable-detection,-u}'[emit issues for unused variables, parameters, and closure use variables]' \
@@ -75,6 +76,7 @@ _arguments \
 	'(--version -v)'{-v,--version}'[show version]' \
 	'(--extended-help)--extended-help[show extended help]' \
 	'(--dump-ast -a)'{--dump-ast,-a}'[dump an AST for each file rather than analyze]' \
+	'(--dump-ctags)--dump-ctags=[dump a tags file in the project root directory]:type:(basic)' \
 	'(--dump-analyzed-file-list)--dump-analyzed-file-list[emit a newline-separated list of files Phan would analyze to stdout]' \
 	'(--dump-parsed-file-list)--dump-parsed-file-list[emit a newline-separated list of files Phan would parse to stdout]' \
 	'(--dump-signatures-file)--dump-signatures-file=[emit JSON serialized signatures to the given file]:file:_files' \

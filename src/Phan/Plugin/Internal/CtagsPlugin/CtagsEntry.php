@@ -12,6 +12,7 @@ use Phan\Language\FQSEN;
 use Phan\Language\FQSEN\FullyQualifiedClassElement;
 use Phan\Language\FQSEN\FullyQualifiedClassName;
 use Phan\Library\FileCache;
+use Phan\Phan;
 
 use function is_string;
 use function strlen;
@@ -103,7 +104,8 @@ class CtagsEntry
     /**
      * Escape a code fragment for the ctags file format.
      */
-    public static function escapeFragment(string $fragment): string {
+    public static function escapeFragment(string $fragment): string
+    {
         $escaped = \str_replace(['\\', '/', "\0"], ['\\\\', '\/', '\\0'], $fragment);
         return '/^' . $escaped . '$/;"';
     }
@@ -127,10 +129,39 @@ class CtagsEntry
     public static function generateScopeLabelForNamespace(string $namespace): ?string
     {
         $namespace = \ltrim($namespace, "\\");
-        if (strlen($namespace) > 0)  {
+        if (strlen($namespace) > 0) {
             return "namespace:$namespace";
         }
         return null;
     }
-}
 
+    /**
+     * Key for ordering tags by strcmp
+     */
+    public function getOrderKey(): string
+    {
+        $is_analyzed_order = Phan::isExcludedAnalysisFile($this->context->getFile()) ? "1" : "0";
+        switch ($this->kind) {
+            case self::KIND_CLASS:
+                $type_order = "0";
+                break;
+            case self::KIND_FUNCTION:
+                if (\preg_match('/^class:/', $this->scope ?? '')) {
+                    $type_order = "3";
+                } else {
+                    $type_order = "1";
+                }
+                break;
+            case self::KIND_CONSTANT:
+                $type_order = "2";
+                break;
+            case self::KIND_PROPERTY:
+                $type_order = "4";
+                break;
+            default:
+                $type_order = "9";
+                break;
+        }
+        return $is_analyzed_order . "\0" . $type_order;
+    }
+}

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Phan;
 
 use AssertionError;
+use Exception;
 use InvalidArgumentException;
 use Phan\Config\Initializer;
 use Phan\Daemon\ExitException;
@@ -28,6 +29,7 @@ use Phan\Output\PrinterFactory;
 use Phan\Plugin\ConfigPluginSet;
 use Phan\Plugin\Internal\MethodSearcherPlugin;
 use ReflectionExtension;
+use SplFileInfo;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Output\StreamOutput;
@@ -42,8 +44,8 @@ use function in_array;
 use function is_array;
 use function is_resource;
 use function is_string;
-use function strcasecmp;
 use function str_repeat;
+use function strcasecmp;
 use function strlen;
 
 use const DIRECTORY_SEPARATOR;
@@ -70,7 +72,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    public const PHAN_VERSION = '2.6.1-dev';
+    public const PHAN_VERSION = '2.6.2-dev';
 
     /**
      * List of short flags passed to getopt
@@ -273,8 +275,16 @@ class CLI
                 $key = $parts[0];
                 $value = $parts[1] ?? '';  // php getopt() treats --processes and --processes= the same way
                 $key = \preg_replace('/^--?/', '', $key);
-                if ($value === '' && in_array($key . ':', self::GETOPT_LONG_OPTIONS, true)) {
-                    throw new UsageException("Missing required value for '$arg'", EXIT_FAILURE);
+                if ($value === '') {
+                    if (in_array($key . ':', self::GETOPT_LONG_OPTIONS, true)) {
+                        throw new UsageException("Missing required value for '$arg'", EXIT_FAILURE);
+                    }
+                    if (strlen($key) === 1 && strlen($parts[0]) === 2) {
+                        // @phan-suppress-next-line PhanParamSuspiciousOrder this is deliberate
+                        if (\strpos(self::GETOPT_SHORT_OPTIONS, "$key:") !== false) {
+                            throw new UsageException("Missing required value for '-$key'", EXIT_FAILURE);
+                        }
+                    }
                 }
                 throw new UsageException("Unknown option '$arg'" . self::getFlagSuggestionString($key), EXIT_FAILURE);
             }
@@ -623,7 +633,16 @@ class CLI
                     break;
                 case 'y':
                 case 'minimum-severity':
-                    $minimum_severity = (int)$value;
+                    $minimum_severity = \strtolower($value);
+                    if ($minimum_severity === 'low') {
+                        $minimum_severity = Issue::SEVERITY_LOW;
+                    } elseif ($minimum_severity === 'normal') {
+                        $minimum_severity = Issue::SEVERITY_NORMAL;
+                    } elseif ($minimum_severity === 'critical') {
+                        $minimum_severity = Issue::SEVERITY_CRITICAL;
+                    } else {
+                        $minimum_severity = (int)$minimum_severity;
+                    }
                     break;
                 case 'target-php-version':
                     Config::setValue('target_php_version', $value);
@@ -1435,7 +1454,7 @@ $init_help
 
  -y, --minimum-severity <level>
   Minimum severity level (low=0, normal=5, critical=10) to report.
-  Defaults to 0.
+  Defaults to `--minimum-severity 0` (i.e. `--minimum-severity low`)
 
  -c, --parent-constructor-required
   Comma-separated list of classes that require
@@ -1825,7 +1844,7 @@ EOB
             return \preg_quote(\rtrim($option, ':'));
         }, self::GETOPT_LONG_OPTIONS)) . '))([^\w-]|$))';
         $section = \preg_replace_callback($long_flag_regex, $colorize_flag_cb, $section);
-        $short_flag_regex = '((\s|\b)(-[' . \str_replace(':', '', self::GETOPT_SHORT_OPTIONS) . '])([^\w-]))';
+        $short_flag_regex = '((\s|\b|\')(-[' . \str_replace(':', '', self::GETOPT_SHORT_OPTIONS) . '])([^\w-]))';
 
         $section = \preg_replace_callback($short_flag_regex, $colorize_flag_cb, $section);
 
@@ -1962,42 +1981,47 @@ EOB
 
             $exclude_file_regex = Config::getValue('exclude_file_regex');
             $filter_folder_or_file = /** @param mixed $unused_key */ static function (\SplFileInfo $file_info, $unused_key, \RecursiveIterator $iterator) use ($file_extensions, $exclude_file_regex): bool {
-                if (\in_array($file_info->getBaseName(), ['.', '..'], true)) {
-                    // Exclude '.' and '..'
-                    return false;
-                }
-                if ($file_info->isDir()) {
-                    if (!$iterator->hasChildren()) {
+                try {
+                    if (\in_array($file_info->getBaseName(), ['.', '..'], true)) {
+                        // Exclude '.' and '..'
                         return false;
                     }
-                    // Compare exclude_file_regex against the relative path of the folder within the project
-                    // (E.g. src/subfolder/)
-                    if ($exclude_file_regex && self::isPathMatchedByRegex($exclude_file_regex, $file_info->getPathname() . '/')) {
-                        // E.g. for phan itself, excludes vendor/psr/log/Psr/Log/Test and vendor/symfony/console/Tests
+                    if ($file_info->isDir()) {
+                        if (!$iterator->hasChildren()) {
+                            return false;
+                        }
+                        // Compare exclude_file_regex against the relative path of the folder within the project
+                        // (E.g. src/subfolder/)
+                        if ($exclude_file_regex && self::isPathMatchedByRegex($exclude_file_regex, $file_info->getPathname() . '/')) {
+                            // E.g. for phan itself, excludes vendor/psr/log/Psr/Log/Test and vendor/symfony/console/Tests
+                            return false;
+                        }
+
+                        return true;
+                    }
+
+                    if (!in_array($file_info->getExtension(), $file_extensions, true)) {
+                        return false;
+                    }
+                    if (!$file_info->isFile()) {
+                        // Handle symlinks to invalid real paths
+                        $file_path = $file_info->getRealPath() ?: $file_info->__toString();
+                        CLI::printErrorToStderr("Unable to read file $file_path: SplFileInfo->isFile() is false for SplFileInfo->getType() == " . \var_export(self::getSplFileInfoType($file_info), true) . "\n");
+                        return false;
+                    }
+                    if (!$file_info->isReadable()) {
+                        $file_path = $file_info->getRealPath();
+                        CLI::printErrorToStderr("Unable to read file $file_path: SplFileInfo->isReadable() is false, getPerms()=" . \sprintf("%o(octal)", @$file_info->getPerms()) . "\n");
                         return false;
                     }
 
-                    return true;
-                }
-
-                if (!in_array($file_info->getExtension(), $file_extensions, true)) {
-                    return false;
-                }
-                if (!$file_info->isFile()) {
-                    // Handle symlinks to invalid real paths
-                    $file_path = $file_info->getRealPath() ?: $file_info->__toString();
-                    CLI::printErrorToStderr("Unable to read file $file_path: SplFileInfo->isFile() is false for SplFileInfo->getType() == " . \var_export(@$file_info->getType(), true) . "\n");
-                    return false;
-                }
-                if (!$file_info->isReadable()) {
-                    $file_path = $file_info->getRealPath();
-                    CLI::printErrorToStderr("Unable to read file $file_path: SplFileInfo->isReadable() is false, getPerms()=" . \sprintf("%o(octal)", @$file_info->getPerms()) . "\n");
-                    return false;
-                }
-
-                // Compare exclude_file_regex against the relative path within the project
-                // (E.g. src/foo.php)
-                if ($exclude_file_regex && self::isPathMatchedByRegex($exclude_file_regex, $file_info->getPathname())) {
+                    // Compare exclude_file_regex against the relative path within the project
+                    // (E.g. src/foo.php)
+                    if ($exclude_file_regex && self::isPathMatchedByRegex($exclude_file_regex, $file_info->getPathname())) {
+                        return false;
+                    }
+                } catch (Exception $e) {
+                    CLI::printErrorToStderr(\sprintf("Unexpected error checking if %s should be parsed: %s %s\n", $file_info->getPathname(), \get_class($e), $e->getMessage()));
                     return false;
                 }
 
@@ -2014,7 +2038,7 @@ EOB
             );
 
             $file_list = \array_keys(\iterator_to_array($iterator));
-        } catch (\Exception $exception) {
+        } catch (Exception $exception) {
             CLI::printWarningToStderr("Caught exception while listing files in '$directory_name': {$exception->getMessage()}\n");
         }
 
@@ -2027,6 +2051,15 @@ EOB
         }
         \uksort($normalized_file_list, 'strcmp');
         return \array_values($normalized_file_list);
+    }
+
+    private static function getSplFileInfoType(SplFileInfo $info): string
+    {
+        try {
+            return @$info->getType();
+        } catch (Exception $e) {
+            return "(unknown: {$e->getMessage()})";
+        }
     }
 
     /**
