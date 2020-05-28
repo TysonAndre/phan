@@ -8,6 +8,7 @@ use AssertionError;
 use ast;
 use ast\Node;
 use Phan\AST\ArrowFunc;
+use Phan\AST\ASTReverter;
 use Phan\AST\ContextNode;
 use Phan\AST\UnionTypeVisitor;
 use Phan\BlockAnalysisVisitor;
@@ -460,7 +461,8 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
                 if (!($use instanceof Node) || $use->kind !== ast\AST_CLOSURE_VAR) {
                     $this->emitIssue(
                         Issue::VariableUseClause,
-                        $node->lineno
+                        $node->lineno,
+                        ASTReverter::toShortString($use)
                     );
                     continue;
                 }
@@ -684,6 +686,7 @@ class PreOrderAnalysisVisitor extends ScopeVisitor
                 $this->emitIssue(
                     Issue::TypeMismatchReturn,
                     $node->lineno,
+                    '(a Generator due to existence of yield statements)',
                     '\\Generator',
                     $func->getNameForIssue(),
                     (string)$func_return_type

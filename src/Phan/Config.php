@@ -53,7 +53,7 @@ class Config
      * New features increment minor versions, and bug fixes increment patch versions.
      * @suppress PhanUnreferencedPublicClassConstant
      */
-    public const PHAN_PLUGIN_VERSION = '3.0.0';
+    public const PHAN_PLUGIN_VERSION = '3.1.0';
 
     /**
      * @var string|null
@@ -236,6 +236,11 @@ class Config
         // [php7cc (no longer maintained)](https://github.com/sstalle/php7cc)
         // and [php7mar](https://github.com/Alexia/php7mar),
         // which have different backwards compatibility checks.
+        //
+        // If you are still using versions of php older than 5.6,
+        // `PHP53CompatibilityPlugin` may be worth looking into if you are not running
+        // syntax checks for php 5.3 through another method such as
+        // `InvokePHPNativeSyntaxCheckPlugin` (see .phan/plugins/README.md).
         'backward_compatibility_checks' => true,
 
         // A set of fully qualified class-names for which
@@ -815,6 +820,10 @@ class Config
         // NOTE: it is strongly recommended to enable this via the `--use-polyfill-parser` or `--force-polyfill-parser`
         // since this may result in strange error messages for invalid files (e.g. if parsed but not analyzed).
         'use_polyfill_parser' => false,
+
+        // Keep a reference to the original tolerant-php-parser node in the generated php-ast Node.
+        // This is extremely memory intensive, and only recommended if a Phan plugin is used for code reformatting, style checks, etc.
+        '__parser_keep_original_node' => false,
 
         // Path to a Unix socket for a daemon to listen to files to analyze. Use command line option instead.
         'daemonize_socket' => false,

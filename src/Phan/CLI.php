@@ -36,17 +36,25 @@ use Symfony\Component\Console\Output\StreamOutput;
 use Symfony\Component\Console\Terminal;
 
 use function array_map;
+use function array_merge;
 use function array_slice;
+use function array_unique;
+use function array_values;
 use function count;
+use function escapeshellarg;
 use function fwrite;
 use function getenv;
 use function in_array;
 use function is_array;
+use function is_executable;
 use function is_resource;
 use function is_string;
+use function min;
+use function shell_exec;
 use function str_repeat;
 use function strcasecmp;
 use function strlen;
+use function trim;
 
 use const DIRECTORY_SEPARATOR;
 use const EXIT_FAILURE;
@@ -72,7 +80,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    public const PHAN_VERSION = '2.6.2-dev';
+    public const PHAN_VERSION = '3.0.1-dev';
 
     /**
      * List of short flags passed to getopt
@@ -118,6 +126,7 @@ class CLI
         'file-list:',
         'file-list-only:',
         'force-polyfill-parser',
+        'force-polyfill-parser-with-original-tokens',
         'help',
         'help-annotations',
         'ignore-undeclared',
@@ -153,6 +162,7 @@ class CLI
         'markdown-issue-messages',
         'memory-limit:',
         'minimum-severity:',
+        'native-syntax-check:',
         'no-color',
         'no-progress-bar',
         'output:',
@@ -363,6 +373,7 @@ class CLI
             \printf("Phan %s\n", self::PHAN_VERSION);
             throw new ExitException('', EXIT_SUCCESS);
         }
+        self::restartWithoutProblematicExtensions();
         $this->warnSuspiciousShortOptions($argv);
 
         // Determine the root directory of the project from which
@@ -669,6 +680,15 @@ class CLI
                 case 'language-server-min-diagnostics-delay-ms':
                     Config::setValue('language_server_min_diagnostics_delay_ms', (float)$value);
                     break;
+                case 'native-syntax-check':
+                    if ($value === '') {
+                        throw new UsageException(\sprintf("Invalid arguments to --native-syntax-check: args=%s\n", StringUtil::jsonEncode($value)), EXIT_FAILURE);
+                    }
+                    if (!is_array($value)) {
+                        $value = [$value];
+                    }
+                    self::addPHPBinariesForSyntaxCheck($value);
+                    break;
                 case 'disable-cache':
                     Config::setValue('cache_polyfill_asts', false);
                     break;
@@ -681,10 +701,7 @@ class CLI
                     if (!is_array($value)) {
                         $value = [$value];
                     }
-                    Config::setValue(
-                        'plugins',
-                        \array_unique(\array_merge(Config::getValue('plugins'), $value))
-                    );
+                    self::addPlugins($value);
                     break;
                 case 'use-fallback-parser':
                     Config::setValue('use_fallback_parser', true);
@@ -826,8 +843,12 @@ class CLI
                 case 'force-polyfill-parser':
                     Config::setValue('use_polyfill_parser', true);
                     break;
+                case 'force-polyfill-parser-with-original-tokens':
+                    Config::setValue('use_polyfill_parser', true);
+                    Config::setValue('__parser_keep_original_node', true);
+                    break;
                 case 'memory-limit':
-                    if (\preg_match('@^([1-9][0-9]*)([KMG])?$@', $value, $match)) {
+                    if (\preg_match('@^([1-9][0-9]*)([KMG])?$@S', $value, $match)) {
                         \ini_set('memory_limit', $value);
                     } else {
                         fwrite(STDERR, "Invalid --memory-limit '$value', ignoring\n");
@@ -892,7 +913,6 @@ class CLI
             }
         }
         self::ensureASTParserExists();
-        self::restartWithoutProblematicExtensions();
         self::checkPluginsExist();
         self::checkValidFileConfig();
         if (\is_null($progress_bar)) {
@@ -947,6 +967,50 @@ class CLI
     }
 
     /**
+     * @param list<string> $plugins plugins to add to the plugin list
+     */
+    private static function addPlugins(array $plugins): void
+    {
+        Config::setValue(
+            'plugins',
+            \array_unique(\array_merge(Config::getValue('plugins'), $plugins))
+        );
+    }
+
+    /**
+     * @param list<string> $binaries - various binaries, such as 'php72' and '/usr/bin/php'
+     * @throws UsageException
+     */
+    private static function addPHPBinariesForSyntaxCheck(array $binaries): void
+    {
+        $resolved_binaries = [];
+        foreach ($binaries as $binary) {
+            if ($binary === '') {
+                throw new UsageException(\sprintf("Invalid arguments to --native-syntax-check: args=%s\n", StringUtil::jsonEncode($binaries)), EXIT_FAILURE);
+            }
+            if (DIRECTORY_SEPARATOR === '\\') {
+                $cmd = 'where ' . escapeshellarg($binary);
+            } else {
+                $cmd = 'command -v ' . escapeshellarg($binary);
+            }
+            $resolved = (string) trim((string) shell_exec($cmd));
+            if ($resolved === '') {
+                throw new UsageException(\sprintf("Could not find PHP binary for --native-syntax-check: arg=%s\n", StringUtil::jsonEncode($binary)), EXIT_FAILURE);
+            }
+            if (!is_executable($resolved)) {
+                throw new UsageException(\sprintf("PHP binary for --native-syntax-check is not executable: arg=%s\n", StringUtil::jsonEncode($binary)), EXIT_FAILURE);
+            }
+            $resolved_binaries[] = $resolved;
+        }
+        self::addPlugins(['InvokePHPNativeSyntaxCheckPlugin']);
+        $plugin_config = Config::getValue('plugin_config') ?: [];
+        $old_resolved_binaries = $plugin_config['php_native_syntax_check_binaries'] ?? [];
+        $resolved_binaries = array_values(array_unique(array_merge($old_resolved_binaries, $resolved_binaries)));
+        $plugin_config['php_native_syntax_check_binaries'] = $resolved_binaries;
+        Config::setValue('plugin_config', $plugin_config);
+    }
+
+    /**
      * @param list<string> $argv
      */
     private static function warnSuspiciousShortOptions(array $argv): void
@@ -956,7 +1020,7 @@ class CLI
             $opt_set['-' . \rtrim($opt, ':')] = true;
         }
         foreach (array_slice($argv, 1) as $arg) {
-            $arg = \preg_replace('/=.*$/', '', $arg);
+            $arg = \preg_replace('/=.*$/S', '', $arg);
             if (\array_key_exists($arg, $opt_set)) {
                 self::printHelpSection(
                     "WARNING: Saw suspicious CLI arg '$arg' (did you mean '-$arg')\n",
@@ -1626,6 +1690,15 @@ Extended help:
   NOTE: This is a work in progress and limited to a small subset of issues
   (e.g. unused imports on their own line)
 
+ --force-polyfill-parser-with-original-tokens
+  Force tracking the original tolerant-php-parser and tokens in every node
+  generated by the polyfill as `\$node->tolerant_ast_node`, where possible.
+  This is slower and more memory intensive.
+  Official or third-party plugins implementing functionality such as
+  `--automatic-fix` may end up requiring this,
+  because the original tolerant-php-parser node contains the original formatting
+  and token locations.
+
  --find-signature <paramUnionType1->paramUnionType2->returnUnionType>
   Find a signature in the analyzed codebase that is similar to the argument.
   See `tool/phoogle` for examples.
@@ -1729,6 +1802,14 @@ Extended help:
   Sets a minimum delay between publishing diagnostics (i.e. Phan issues) to the language client.
   This can be increased to work around race conditions in clients processing Phan issues (e.g. if your editor/IDE shows outdated diagnostics)
   Defaults to 0. (no delay)
+
+ --native-syntax-check </path/to/php_binary>
+  If php_binary (e.g. `php72`, `/usr/bin/php`) can be found in `\$PATH`, enables `InvokePHPNativeSyntaxCheckPlugin`
+  and adds `php_binary` (resolved using `\$PATH`) to the `php_native_syntax_check_binaries` array of `plugin_config`
+  (treated here as initially being the empty array)
+  Phan exits if any php binary could not be found.
+
+  This can be repeated to run native syntax checks with multiple php versions.
 
  --require-config-exists
   Exit immediately with an error code if `.phan/config.php` does not exist.
@@ -1889,6 +1970,9 @@ EOB
             return '';
         } elseif ($key === '') {
             return '';
+        } elseif (strlen($key) > 255) {
+            // levenshtein refuses to compute for longer strings
+            return '';
         }
         // include short options in case a typo is made like -aa instead of -a
         $known_flags = \array_merge(self::GETOPT_LONG_OPTIONS, $short_options);
@@ -1980,7 +2064,7 @@ EOB
             }
 
             $exclude_file_regex = Config::getValue('exclude_file_regex');
-            $filter_folder_or_file = /** @param mixed $unused_key */ static function (\SplFileInfo $file_info, $unused_key, \RecursiveIterator $iterator) use ($file_extensions, $exclude_file_regex): bool {
+            $filter_folder_or_file = /** @param mixed $unused_key */ static function (SplFileInfo $file_info, $unused_key, \RecursiveIterator $iterator) use ($file_extensions, $exclude_file_regex): bool {
                 try {
                     if (\in_array($file_info->getBaseName(), ['.', '..'], true)) {
                         // Exclude '.' and '..'
@@ -2354,7 +2438,20 @@ EOB
         } else {
             $progress_bar .= str_repeat("\u{2591}", $rest);
         }
-        return $progress_bar;
+        return self::colorizeProgressBarSegment($progress_bar);
+    }
+
+    private static function colorizeProgressBarSegment(string $segment): string
+    {
+        if ($segment === '') {
+            return '';
+        }
+        $progress_bar_color = $_ENV['PHAN_COLOR_PROGRESS_BAR'] ?? '';
+        if ($progress_bar_color !== '' && CLI::supportsColor(STDERR)) {
+            $progress_bar_color = Colorizing::STYLES[\strtolower($progress_bar_color)] ?? $progress_bar_color;
+            return Colorizing::colorizeTextWithColorCode($progress_bar_color, $segment);
+        }
+        return $segment;
     }
 
     /**
@@ -2406,14 +2503,22 @@ EOB
             self::$current_progress_state_long_progress = $msg;
             self::$current_progress_offset_long_progress = 0;
         }
+        if (self::doesTerminalSupportUtf8()) {
+            $chr = "\u{2591}";
+        } else {
+            $chr = ".";
+        }
         if (in_array($msg, ['analyze', 'parse'], true)) {
             while (self::$current_progress_offset_long_progress < $offset) {
-                self::$current_progress_offset_long_progress++;
-                if (self::doesTerminalSupportUtf8()) {
-                    $buf .= "\u{2591}";
-                } else {
-                    $buf .= ".";
+                $old_mod = self::$current_progress_offset_long_progress % self::PROGRESS_WIDTH;
+                $len = (int) min($offset - self::$current_progress_offset_long_progress, self::PROGRESS_WIDTH - $old_mod);
+                if (!$len) {
+                    // impossible
+                    break;
                 }
+
+                $buf .= self::colorizeProgressBarSegment(str_repeat($chr, $len));
+                self::$current_progress_offset_long_progress += $len;
                 $mod = self::$current_progress_offset_long_progress % self::PROGRESS_WIDTH;
                 if ($mod === 0 || self::$current_progress_offset_long_progress === $count) {
                     if ($mod) {
@@ -2431,19 +2536,11 @@ EOB
             }
         } else {
             $offset = (int)($p * self::PROGRESS_WIDTH);
-            while (self::$current_progress_offset_long_progress < $offset) {
-                self::$current_progress_offset_long_progress++;
-                if (self::doesTerminalSupportUtf8()) {
-                    $buf .= "\u{2591}";
-                } else {
-                    $buf .= ".";
-                }
-                $mod = self::$current_progress_offset_long_progress % self::PROGRESS_WIDTH;
-                if ($mod === 0 || self::$current_progress_offset_long_progress === $count) {
-                    if ($mod) {
-                        $buf .= str_repeat(" ", self::PROGRESS_WIDTH - $mod);
-                    }
-                    $buf .= " " . \sprintf("%.0fMB" . PHP_EOL, $memory);
+            if (self::$current_progress_offset_long_progress < $offset) {
+                $buf .= self::colorizeProgressBarSegment(str_repeat($chr, $offset - self::$current_progress_offset_long_progress));
+                self::$current_progress_offset_long_progress = $offset;
+                if (self::$current_progress_offset_long_progress === self::PROGRESS_WIDTH) {
+                    $buf .= ' ' . \sprintf("%.0fMB" . PHP_EOL, $memory);
                 }
             }
         }
@@ -2598,7 +2695,7 @@ EOB
             // NOTE: We haven't loaded the autoloader yet, so these issue messages can't be colorized.
             \fprintf(
                 STDERR,
-                "ERROR: Phan 2.x requires php-ast 1.0.1+ because it depends on AST version 70. php-ast '%s' is installed." . PHP_EOL,
+                "ERROR: Phan 3.x requires php-ast 1.0.1+ because it depends on AST version 70. php-ast '%s' is installed." . PHP_EOL,
                 $ast_version
             );
             require_once __DIR__ . '/Bootstrap.php';
@@ -2645,11 +2742,18 @@ EOT
             }
         }
         if (self::shouldRestartToExclude('uopz')) {
+            // NOTE: uopz seems to cause instability when used and switched from enabled to disabled.
+            //
+            // TODO create and link to stubs if https://github.com/krakjoe/uopz/issues/123 is completed.
             $extensions_to_disable[] = 'uopz';
             fwrite(
                 STDERR,
-                "[info] Restarting with uopz disabled, it can cause unpredictable behavior." . PHP_EOL .
-                "[info] Set the environment variable PHAN_ALLOW_UOPZ to 1 to disable this message and to allow uopz." . PHP_EOL
+                <<<EOT
+[info] Restarting with uopz disabled, it can cause unpredictable behavior.
+[info] Set the environment variable PHAN_ALLOW_UOPZ to 1 to disable this message and to allow uopz.
+[info] If you are not using uopz to debug Phan, removing uopz from php.ini or setting the ini setting uopz.disable=1 is recommended before running Phan.
+
+EOT
             );
         }
         if (self::shouldRestartToExclude('grpc') && self::willUseMultipleProcesses()) {

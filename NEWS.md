@@ -1,6 +1,128 @@
 Phan NEWS
 
-??? ?? 2020, Phan 2.6.2 (dev)
+??? ?? 2020, Phan 3.0.1 (dev)
+-----------------------
+
+New features(Analysis):
++ Support analysis of php 8.0's `mixed` type (#3899)
+  New issue types: `PhanCompatibleMixedType`, `PhanCompatibleUseMixed`.
++ Treat `static` and `false` like real types and emit more severe issues in all php versions.
+
+Miscellaneous:
++ Check for keys that are too long when computing levenshtein distances (when Phan suggests alternatives).
+
+Plugins:
++ Add `AnalyzeLiteralStatementCapability` for plugins to analyze no-op string literals (#3911)
++ In `PregRegexCheckerPlugin`, warn if `$` allows an optional newline before the end of the string
+  when configuration includes `['plugin_config' => ['regex_warn_if_newline_allowed_at_end' => true]]`) (#3915)
+
+Bug fixes:
++ Fix false positive `PhanTypeMismatchPropertyDefault` involving php 7.4 typed properties with no default
+  and generic comments (#3917)
+
+May 09 2020, Phan 3.0.0
+-----------------------
+
+New features(CLI, Config):
++ Support `PHAN_COLOR_PROGRESS_BAR` as an environment variable to set the color of the progress bar.
+  Ansi color names (e.g. `light_blue`) or color codes (e.g. `94`) can be used. (See src/Phan/Output/Colorizing.php)
+
+New features(Analysis):
++ Infer that `foreach` keys and values of possibly empty iterables are possibly undefined after the end of a loop. (#3898)
++ Allow using the polyfill parser to parse internal stubs. (#3902)
+  (To support newer syntax such as union types, trailing commas in parameter lists, etc.)
+
+May 02 2020, Phan 3.0.0-RC2
+-----------------------
+
+Fix published GitHub release tag (used `master` instead of `v3`).
+
+May 02 2020, Phan 3.0.0-RC1
+-----------------------
+
+Backwards incompatible changes:
++ Drop PHP 7.1 support.  PHP 7.1 reached its end of life for security support in December 2019.
+  Many of Phan's dependencies no longer publish releases supporting php 7.1,
+  which will likely become a problem running Phan with future 8.x versions
+  (e.g. in the published phar releases).
++ Drop PluginV2 support (which was deprecated in Phan 2) in favor of PluginV3.
++ Remove deprecated classes and helper methods.
+
+??? ?? 2020, Phan 2.7.3 (dev)
+-----------------------
+
+Bug fixes:
++ Fix handling of windows path separators in `phan_client`
++ Fix a crash when emitting `PhanCompatibleAnyReturnTypePHP56` or `PhanCompatibleScalarTypePHP56` for methods with no parameters.
+
+May 02 2020, Phan 2.7.2
+-----------------------
+
+New features(CLI, Config):
++ Add a `--native-syntax-check=/path/to/php` option to enable `InvokePHPNativeSyntaxCheckPlugin`
+  and add that php binary to the `php_native_syntax_check_binaries` array of `plugin_config`
+  (treated here as initially being the empty array if not configured).
+
+  This CLI flag can be repeated to run PHP's native syntax checks with multiple php binaries.
+
+New features(Analysis):
++ Emit `PhanTypeInvalidThrowStatementNonThrowable` when throwing expressions that can't cast to `\Throwable`. (#3853)
++ Include the relevant expression in more issue messages for type errors. (#3844)
++ Emit `PhanNoopSwitchCases` when a switch statement contains only the default case.
++ Warn about unreferenced private methods of the same name as methods in ancestor classes, in dead code detection.
++ Warn about useless loops. Phan considers loops useless when the following conditions hold:
+
+  1. Variables defined within the loop aren't used outside of the loop
+     (requires `unused_variable_detection` to be enabled whether or not there are actually variables)
+  2. It's likely that the statements within the loop have no side effects
+     (this is only inferred for a subset of expressions in code)
+
+     (Enabling the plugin `UseReturnValuePlugin` (and optionally `'plugin_config' => ['infer_pure_methods' = true]`) helps detect if function calls are useless)
+  3. The code is in a functionlike scope.
+
+  New issue types: `PhanSideEffectFreeForeachBody`, `PhanSideEffectFreeForBody`, `PhanSideEffectFreeWhileBody`, `PhanSideEffectFreeDoWhileBody`
++ Infer that previous conditions are negated when analyzing the cases of a switch statement (#3866)
++ Support using `throw` as an expression, for PHP 8.0 (#3849)
+  (e.g. `is_string($arg) || throw new InvalidArgumentException()`)
+  Emit `PhanCompatibleThrowException` when `throw` is used as an expression instead of a statement.
+
+Plugins:
++ Emit `PhanPluginDuplicateCatchStatementBody` in `DuplicateExpressionPlugin` when a catch statement has the same body and variable name as an adjacent catch statement.
+  (This should be suppressed in projects that support php 7.0 or older)
++ Add `PHP53CompatibilityPlugin` as a demo plugin to catch common incompatibilities with PHP 5.3. (#915)
+  New issue types: `PhanPluginCompatibilityArgumentUnpacking`, `PhanPluginCompatibilityArgumentUnpacking`, `PhanPluginCompatibilityArgumentUnpacking`
++ Add `DuplicateConstantPlugin` to warn about duplicate constant names (`define('X', value)` or `const X = value`) in the same statement list.
+  This is only recommended in projects with files with too many global constants to track manually.
+
+Bug Fixes:
++ Fix a bug causing FQSEN names or namespaces to be converted to lowercase even if they were never lowercase in the codebase being analyzed (#3583)
+
+Miscellaneous:
++ Replace `PhanTypeInvalidPropertyDefaultReal` with `TypeMismatchPropertyDefault` (emitted instead of `TypeMismatchProperty`)
+  and `TypeMismatchPropertyDefaultReal` (#3068)
++ Speed up `ASTHasher` for floats and integers (affects code such as `DuplicateExpressionPlugin`)
++ Call `uopz_allow_exit(true)` if uopz is enabled when initializing Phan. (#3880)
+  Running Phan with `uopz` is recommended against (unless debugging Phan itself), because `uopz` causes unpredictable behavior.
+  Use stubs or internal stubs instead.
+
+Apr 11 2020, Phan 2.7.1
+-----------------------
+
+New features(CLI, Configs):
++ Improve the output of `tool/make_stubs`. Use better defaults than `null`.
+  Render `unknown` for unknown defaults in `tool/make_stubs` and Phan's issue messages.
+  (`default` is a reserved keyword used in switch statements)
+
+Bug Fixes:
++ Work around unintentionally using `symfony/polyfill-72` for `spl_object_id` instead of Phan's polyfill.
+  The version used caused issues on 32-bit php 7.1 installations, and a slight slowdown in php 7.1.
+
+Plugins:
++ PHP 8.0-dev compatibility fixes for `InvokePHPNativeSyntaxCheckPlugin` on Windows.
++ Infer that some new functions in PHP 8.0-dev should be used in `UseReturnValuePlugin`
++ Emit the line and expression of the duplicated array key or switch case (#3837)
+
+Apr 01 2020, Phan 2.7.0
 -----------------------
 
 New features(CLI, Configs):
@@ -13,6 +135,10 @@ New features(CLI, Configs):
 + Make some issue messages easier to read (#3745, #3636)
 + Allow using `--minimum-severity=critical` instead of `--minimum-severity=10` (#3715)
 + Use better placeholders for parameter default types than `null` in issue messages and hover text (#3736)
++ Release `phantasm`, a prototype tool for assembling information about a codebase and aggressively optimizing it.
+  Currently, the only feature is replacing class constants with their values, when safe to do so.
+  More features (e.g. inlining methods, aggressively optimizing out getters/setters, etc.) are planned for the future.
+  See `tool/phantasm --help` for usage.
 
 New features(Analysis):
 + Improve analysis of php 7.4 typed properties.
@@ -20,12 +146,18 @@ New features(Analysis):
   Infer the existence of properties that are not in `ReflectionClass->getPropertyDefaults()`
   due to being uninitialized by default.
 + Emit `PhanAbstractStaticMethodCall*` when calling an abstract static method statically. (#3799)
++ Emit `PhanUndeclaredClassReference` instead of `PhanUndeclaredClassConstant` for `MissingClass::class`.
 
 Language Server/Daemon mode:
 + Catch exception seen when printing debug info about not being able to parse a file.
++ Warn when Phan's language server dependencies were installed for php 7.2+
+  but the language server gets run in php 7.1. (phpdocumentor/reflection-docblock 5.0 requires php 7.2)
++ Immediately return cached hover text when the client repeats an identical hover request. (#3252)
 
 Miscellaneous:
 + PHP 8.0-dev compatibility fixes, analysis for some new functions of PHP 8.0-dev.
++ Add `symfony/polyfill-php72` dependency so that symfony 5 will work better in php 7.1.
+  The next Phan major release will drop support for php 7.1.
 
 Mar 13 2020, Phan 2.6.1
 -----------------------

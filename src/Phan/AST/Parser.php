@@ -15,6 +15,7 @@ use Phan\AST\TolerantASTConverter\ParseException;
 use Phan\AST\TolerantASTConverter\ParseResult;
 use Phan\AST\TolerantASTConverter\ShimFunctions;
 use Phan\AST\TolerantASTConverter\TolerantASTConverter;
+use Phan\AST\TolerantASTConverter\TolerantASTConverterPreservingOriginal;
 use Phan\AST\TolerantASTConverter\TolerantASTConverterWithNodeMapping;
 use Phan\CodeBase;
 use Phan\Config;
@@ -117,9 +118,7 @@ class Parser
                 return self::parseCodePolyfill($code_base, $context, $file_path, $file_contents, $suppress_parse_errors, $request);
             }
             return self::parseCodeHandlingDeprecation($code_base, $context, $file_contents, $file_path);
-        } catch (ParseError $native_parse_error) {
-            return self::handleParseError($code_base, $context, $file_path, $file_contents, $suppress_parse_errors, $native_parse_error, $request);
-        } catch (CompileError $native_parse_error) {
+        } catch (CompileError | ParseError $native_parse_error) {
             return self::handleParseError($code_base, $context, $file_path, $file_contents, $suppress_parse_errors, $native_parse_error, $request);
         }
     }
@@ -195,12 +194,14 @@ class Parser
         Error $native_parse_error,
         ?Request $request = null
     ): Node {
-        if (!$suppress_parse_errors) {
-            self::emitSyntaxErrorForNativeParseError($code_base, $context, $file_path, new FileCacheEntry($file_contents), $native_parse_error, $request);
-        }
-        if (!Config::getValue('use_fallback_parser')) {
-            // By default, don't try to re-parse files with syntax errors.
-            throw $native_parse_error;
+        if ($file_path !== 'internal') {
+            if (!$suppress_parse_errors) {
+                self::emitSyntaxErrorForNativeParseError($code_base, $context, $file_path, new FileCacheEntry($file_contents), $native_parse_error, $request);
+            }
+            if (!Config::getValue('use_fallback_parser')) {
+                // By default, don't try to re-parse files with syntax errors.
+                throw $native_parse_error;
+            }
         }
 
         // If there's a parse error in a file that's excluded from analysis, give up on parsing it.
@@ -279,7 +280,7 @@ class Parser
         $message = $native_parse_error->getMessage();
         if (!\preg_match("/ unexpected '(.+)' \((T_\w+)\)/", $message, $matches)) {
             if (!\preg_match("/ unexpected '(.+)', expecting/", $message, $matches)) {
-                if (!\preg_match("/ unexpected '(.+)'$/", $message, $matches)) {
+                if (!\preg_match("/ unexpected '(.+)'$/S", $message, $matches)) {
                     return 0;
                 }
             }
@@ -560,6 +561,9 @@ class Parser
                 return $converter;
             }
             return new CachingTolerantASTConverter();
+        }
+        if (Config::getValue('__parser_keep_original_node')) {
+            return new TolerantASTConverterPreservingOriginal();
         }
 
         return new TolerantASTConverter();

@@ -159,6 +159,25 @@ class ASTReverter
             ast\AST_ARG_LIST => static function (Node $node): string {
                 return '(' . implode(', ', \array_map('self::toShortString', $node->children)) . ')';
             },
+            ast\AST_PARAM_LIST => static function (Node $node): string {
+                return '(' . implode(', ', \array_map('self::toShortString', $node->children)) . ')';
+            },
+            ast\AST_PARAM => static function (Node $node): string {
+                $str = '$' . $node->children['name'];
+                if ($node->flags & ast\flags\PARAM_VARIADIC) {
+                    $str = "...$str";
+                }
+                if ($node->flags & ast\flags\PARAM_REF) {
+                    $str = "&$str";
+                }
+                if (isset($node->children['type'])) {
+                    $str = ASTReverter::toShortString($node->children['type']) . ' ' . $str;
+                }
+                if (isset($node->children['default'])) {
+                    $str .= ' = ' . ASTReverter::toShortString($node->children['default']);
+                }
+                return $str;
+            },
             ast\AST_EXPR_LIST => static function (Node $node): string {
                 return implode(', ', \array_map('self::toShortString', $node->children));
             },
@@ -205,6 +224,9 @@ class ASTReverter
                     default:
                         return (string)$result;
                 }
+            },
+            ast\AST_NAME_LIST => static function (Node $node): string {
+                return implode('|', \array_map('self::toShortString', $node->children));
             },
             ast\AST_ARRAY => static function (Node $node): string {
                 $parts = [];
@@ -332,6 +354,7 @@ class ASTReverter
                 );
             },
             ast\AST_NEW => static function (Node $node): string {
+                // TODO: add parenthesis in case this is used as (new X())->method(), or properties, but only when necessary
                 return \sprintf(
                     'new %s%s',
                     self::toShortString($node->children['class']),
@@ -394,6 +417,25 @@ class ASTReverter
                     }
                 }
                 return '"' . implode('', $parts) . '"';
+            },
+            // Slightly better short placeholders than (unknown)
+            ast\AST_CLOSURE => static function (Node $_): string {
+                return '(function)';
+            },
+            ast\AST_ARROW_FUNC => static function (Node $_): string {
+                return '(fn)';
+            },
+            ast\AST_RETURN => static function (Node $node): string {
+                return \sprintf(
+                    'return %s;',
+                    self::toShortString($node->children['expr'])
+                );
+            },
+            ast\AST_THROW => static function (Node $node): string {
+                return \sprintf(
+                    '(throw %s)',
+                    self::toShortString($node->children['expr'])
+                );
             },
             // TODO: AST_SHELL_EXEC, AST_ENCAPS_LIST(in shell_exec or double quotes)
         ];

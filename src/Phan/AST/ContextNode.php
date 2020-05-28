@@ -57,10 +57,6 @@ use function strcasecmp;
 use function strpos;
 use function strtolower;
 
-if (!\function_exists('spl_object_id')) {
-    require_once __DIR__ . '/../../spl_object_id.php';
-}
-
 /**
  * Methods for an AST node in context
  * @phan-file-suppress PhanPartialTypeMismatchArgument, PhanTypeMismatchArgumentNullable
@@ -477,21 +473,6 @@ class ContextNode
         return (string)$name_node;
     }
 
-    /**
-     * @return UnionType the union type of the class for this class node. (Typically has just one Type, but only for kind \ast\AST_NAME)
-     * @throws FQSENException if class union type is invalid
-     * @deprecated call UnionTypeVisitor::unionTypeFromClassNode
-     * @suppress PhanUnreferencedPublicMethod
-     */
-    public function getClassUnionType(): UnionType
-    {
-        return UnionTypeVisitor::unionTypeFromClassNode(
-            $this->code_base,
-            $this->context,
-            $this->node
-        );
-    }
-
     // Constants for getClassList() API
     public const CLASS_LIST_ACCEPT_ANY = 0;
     public const CLASS_LIST_ACCEPT_OBJECT = 1;
@@ -596,7 +577,15 @@ class ContextNode
 
         // TODO: Should this check that count($class_list) > 0 instead? Or just always check?
         if (\count($class_list) === 0 && $expected_type_categories !== self::CLASS_LIST_ACCEPT_ANY) {
-            if (!$union_type->hasTypeMatchingCallback(static function (Type $type) use ($expected_type_categories): bool {
+            if (!$union_type->hasTypeMatchingCallback(function (Type $type) use ($expected_type_categories): bool {
+                if ($this->node instanceof Node) {
+                    if ($this->node->kind === ast\AST_NAME) {
+                        return $type->isObjectWithKnownFQSEN();
+                    }
+                    if ($this->node->kind === ast\AST_TYPE) {
+                        return $this->node->flags !== ast\flags\TYPE_STATIC;
+                    }
+                }
                 return $type->isObject() || ($type instanceof MixedType) || ($expected_type_categories === self::CLASS_LIST_ACCEPT_OBJECT_OR_CLASS_NAME && $type instanceof StringType);
             })) {
                 if ($custom_issue_type === Issue::TypeExpectedObjectPropAccess) {
@@ -1541,7 +1530,7 @@ class ContextNode
         // If the class isn't found, we'll get the message elsewhere
         if ($class_fqsen) {
             $suggestion = null;
-            if ($class) {
+            if (isset($class)) {
                 $suggestion = IssueFixSuggester::suggestSimilarProperty($this->code_base, $this->context, $class, $property_name, $is_static);
             }
 
@@ -1628,6 +1617,7 @@ class ContextNode
 
             // For instance properties, ignore it,
             // because we'll create our own property
+            // @phan-suppress-next-line PhanPluginDuplicateCatchStatementBody
         } catch (UnanalyzableException $exception) {
             if ($is_static) {
                 throw $exception;
@@ -1855,6 +1845,16 @@ class ContextNode
             ))->getClassList(false, self::CLASS_LIST_ACCEPT_OBJECT_OR_CLASS_NAME);
         } catch (CodeBaseException $exception) {
             $exception_fqsen = $exception->getFQSEN();
+            if ($constant_name === 'class') {
+                throw new IssueException(
+                    Issue::fromType(Issue::UndeclaredClassReference)(
+                        $this->context->getFile(),
+                        $node->lineno,
+                        [(string)$exception_fqsen],
+                        IssueFixSuggester::suggestSimilarClassForGenericFQSEN($this->code_base, $this->context, $exception_fqsen)
+                    )
+                );
+            }
             throw new IssueException(
                 Issue::fromType(Issue::UndeclaredClassConstant)(
                     $this->context->getFile(),

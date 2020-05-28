@@ -265,9 +265,6 @@ class Type
      * (numeric not supported yet)
      */
     public const _soft_internal_type_set = [
-        'false'     => true,
-        'mixed'     => true,
-        'object'    => true,
         'resource'  => true,
         'scalar'    => true,
         'true'      => true,
@@ -884,23 +881,6 @@ class Type
     }
 
     /**
-     * Creates a type for the ReflectionType of a parameter, return value, etc.
-     * @phan-side-effect-free
-     * @deprecated - use UnionType::fromReflectionType to prepare for php 8
-     * @suppress PhanUnreferencedPublicMethod
-     */
-    public static function fromReflectionType(
-        \ReflectionType $reflection_type
-    ): Type {
-
-        return self::fromStringInContext(
-            self::stringFromReflectionType($reflection_type),
-            new Context(),
-            Type::FROM_TYPE
-        );
-    }
-
-    /**
      * @param string $fully_qualified_string
      * A fully qualified type name
      *
@@ -964,7 +944,7 @@ class Type
         $template_parameter_type_name_list = $tuple->_2;
         $is_nullable = $tuple->_3;
         $shape_components = $tuple->_4;
-        if (\preg_match('/^(' . self::noncapturing_literal_regex . ')$/', $type_name)) {
+        if (\preg_match('/^(' . self::noncapturing_literal_regex . ')$/S', $type_name)) {
             return self::fromEscapedLiteralScalar($type_name);
         }
         if (\is_array($shape_components)) {
@@ -1357,7 +1337,7 @@ class Type
         $shape_components = $tuple->_4;
 
 
-        if (\preg_match('/^(' . self::noncapturing_literal_regex . ')$/', $type_name)) {
+        if (\preg_match('/^(' . self::noncapturing_literal_regex . ')$/S', $type_name)) {
             return self::fromEscapedLiteralScalar($type_name);
         }
 
@@ -1721,17 +1701,6 @@ class Type
     protected $singleton_real_union_type;
 
     /**
-     * A UnionType representing this and only this type (from phpdoc or real types)
-     *
-     * @deprecated use self::asPHPDocUnionType()
-     * @suppress PhanUnreferencedPublicMethod, PhanAccessReadOnlyProperty
-     */
-    public function asUnionType(): UnionType
-    {
-        return $this->singleton_union_type ?? ($this->singleton_union_type = new UnionType([$this], true, []));
-    }
-
-    /**
      * @return UnionType
      * A UnionType representing this and only this type (from phpdoc or real types)
      * @see asRealUnionType() if you are certain this is the real type of the expression.
@@ -1804,29 +1773,9 @@ class Type
     }
 
     /**
-     * Is this nullable?
-     * @deprecated use isNullable
-     * @suppress PhanUnreferencedPublicMethod
-     */
-    final public function getIsNullable(): bool
-    {
-        return $this->isNullable();
-    }
-
-    /**
      * Returns true if this has some possibly falsey values
      */
     public function isPossiblyFalsey(): bool
-    {
-        return $this->is_nullable;
-    }
-
-    /**
-     * Returns true if this has some possibly falsey values
-     * @deprecated
-     * @suppress PhanUnreferencedPublicMethod
-     */
-    final public function getIsPossiblyFalsey(): bool
     {
         return $this->is_nullable;
     }
@@ -1840,31 +1789,11 @@ class Type
     }
 
     /**
-     * Returns true if this is guaranteed to be falsey
-     * @deprecated use isAlwaysFalsey
-     * @suppress PhanUnreferencedPublicMethod
-     */
-    final public function getIsAlwaysFalsey(): bool
-    {
-        return $this->isAlwaysFalsey();
-    }
-
-    /**
      * Returns true if this is possibly truthy.
      */
     public function isPossiblyTruthy(): bool
     {
         return true;  // overridden in various types. This base class (Type) is implicitly the type of an object, which is always truthy.
-    }
-
-    /**
-     * Returns true if this is possibly truthy.
-     * @deprecated use isPossiblyTruthy
-     * @suppress PhanUnreferencedPublicMethod
-     */
-    final public function getIsPossiblyTruthy(): bool
-    {
-        return $this->isPossiblyTruthy();
     }
 
     /**
@@ -1881,16 +1810,6 @@ class Type
     }
 
     /**
-     * Returns true if this is guaranteed to be truthy.
-     * @deprecated use isAlwaysTruthy
-     * @suppress PhanUnreferencedPublicMethod
-     */
-    final public function getIsAlwaysTruthy(): bool
-    {
-        return $this->isAlwaysTruthy();
-    }
-
-    /**
      * Returns true for types such as `mixed`, `bool`, `false`
      */
     public function isPossiblyFalse(): bool
@@ -1899,31 +1818,11 @@ class Type
     }
 
     /**
-     * Returns true for types such as `mixed`, `bool`, `false`
-     * @deprecated use isPossiblyFalse
-     * @suppress PhanUnreferencedPublicMethod
-     */
-    final public function getIsPossiblyFalse(): bool
-    {
-        return $this->isPossiblyFalse();
-    }
-
-    /**
      * Returns true for non-nullable `FalseType`
      */
     public function isAlwaysFalse(): bool
     {
         return false;  // overridden in FalseType
-    }
-
-    /**
-     * Returns true for non-nullable `FalseType`
-     * @deprecated
-     * @suppress PhanUnreferencedPublicMethod
-     */
-    final public function getIsAlwaysFalse(): bool
-    {
-        return $this->isAlwaysFalse();
     }
 
     /**
@@ -1936,31 +1835,11 @@ class Type
     }
 
     /**
-     * Returns true if this could include the type `true`
-     * @deprecated use isPossiblyTrue
-     * @suppress PhanUnreferencedPublicMethod
-     */
-    final public function getIsPossiblyTrue(): bool
-    {
-        return $this->isPossiblyTrue();
-    }
-
-    /**
      * Returns true for non-nullable `TrueType`
      */
     public function isAlwaysTrue(): bool
     {
         return false;
-    }
-
-    /**
-     * Returns true for non-nullable `TrueType`
-     * @deprecated
-     * @suppress PhanUnreferencedPublicMethod
-     */
-    final public function getIsAlwaysTrue(): bool
-    {
-        return $this->isAlwaysTrue();
     }
 
     /**
@@ -1972,31 +1851,11 @@ class Type
     }
 
     /**
-     * Returns true for FalseType, TrueType, and BoolType
-     * @deprecated use isInBoolFamily
-     * @suppress PhanUnreferencedPublicMethod
-     */
-    final public function getIsInBoolFamily(): bool
-    {
-        return $this->isInBoolFamily();
-    }
-
-    /**
      * Returns true if this type may satisfy `is_numeric()`
      */
     public function isPossiblyNumeric(): bool
     {
         return false;
-    }
-
-    /**
-     * Returns true if this type may satisfy `is_numeric()`
-     * @deprecated use isPossiblyNumeric
-     * @suppress PhanUnreferencedPublicMethod
-     */
-    final public function getIsPossiblyNumeric(): bool
-    {
-        return $this->isPossiblyNumeric();
     }
 
     /**
@@ -2146,7 +2005,7 @@ class Type
     ): bool {
         // Note: While 'self' and 'parent' are case-insensitive, '$this' is case-sensitive
         // Not sure if that should extend to phpdoc.
-        return \preg_match('/^\\\\?([sS][eE][lL][fF]|[pP][aA][rR][eE][nN][tT]|\$this)$/', $type_string) > 0;
+        return \preg_match('/^\\\\?([sS][eE][lL][fF]|[pP][aA][rR][eE][nN][tT]|\$this)$/S', $type_string) > 0;
     }
 
     /**
@@ -2164,7 +2023,7 @@ class Type
     ): bool {
         // Note: While 'self' and 'parent' are case-insensitive, '$this' is case-sensitive
         // Not sure if that should extend to phpdoc.
-        return \preg_match('/^\\\\?([sS][tT][aA][tT][iI][cC]|\\$this)$/', $type_string) > 0;
+        return \preg_match('/^\\\\?([sS][tT][aA][tT][iI][cC]|\\$this)$/S', $type_string) > 0;
     }
 
     /**
@@ -3630,7 +3489,7 @@ class Type
         $result = [];
         foreach (self::extractNameList($shape_component_string) as $shape_component) {
             // Because these can be nested, there may be more than one ':'. Only consider the first.
-            if (preg_match('/^(' . self::shape_key_regex . ')\s*:\s*(.*)$/', $shape_component, $parts)) {
+            if (preg_match('/^(' . self::shape_key_regex . ')\s*:\s*(.*)$/S', $shape_component, $parts)) {
                 $field_name = $parts[1];
                 $field_value = \trim($parts[2]);
                 if ($field_value === '') {

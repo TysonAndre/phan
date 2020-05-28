@@ -136,7 +136,7 @@ class UseReturnValuePlugin extends PluginV3 implements PostAnalyzeNodeCapability
             if ($unused_count > 0 && $used_percentage >= $threshold_percentage) {
                 $percentage_string = \number_format($used_percentage, 2);
                 foreach ($counter->unused_locations as $key => $context) {
-                    if (!\preg_match('/:(\d+)$/', $key, $matches)) {
+                    if (!\preg_match('/:(\d+)$/S', $key, $matches)) {
                         \fprintf(\STDERR, "Failed to extract line number from %s\n", $key);
                         continue;
                     }
@@ -350,6 +350,7 @@ class UseReturnValuePlugin extends PluginV3 implements PostAnalyzeNodeCapability
     'expm1' => true,
     'exp' => true,
     'extension_loaded' => true,
+    'fdiv' => true,
     'feof' => true,
     'ffi::addr' => true,
     'ffi::alignof' => true,
@@ -397,6 +398,7 @@ class UseReturnValuePlugin extends PluginV3 implements PostAnalyzeNodeCapability
     'get_class' => true,
     'getcwd' => true,
     'getdate' => true,
+    'get_debug_type' => true,
     'get_declared_classes' => true,
     'get_declared_interfaces' => true,
     'get_declared_traits' => true,
@@ -413,6 +415,7 @@ class UseReturnValuePlugin extends PluginV3 implements PostAnalyzeNodeCapability
     'get_object_vars' => true,
     'get_parent_class' => true,
     'getrandmax' => true,
+    'get_resource_id' => true,
     'get_resource_type' => true,
     'gettext' => true,
     'gettype' => true,
@@ -626,6 +629,10 @@ class UseReturnValuePlugin extends PluginV3 implements PostAnalyzeNodeCapability
     'php_sapi_name' => true,
     'php_uname' => true,
     'phpversion' => true,
+    'phptoken::getall' => true,
+    'phptoken::gettokenname' => true,
+    'phptoken::is' => true,
+    'phptoken::isignorable' => true,
     'pi' => true,
     'popen' => true,
     'posix_isatty' => true,
@@ -633,6 +640,7 @@ class UseReturnValuePlugin extends PluginV3 implements PostAnalyzeNodeCapability
     'preg_filter' => true,
     'preg_grep' => true,
     'preg_last_error' => true,
+    'preg_last_error_msg' => true,
     'preg_quote' => true,
     'preg_replace_callback' => true,  // TODO: Handle w_count for preg_replace*, preg_filter
     'preg_replace_callback_array' => true,
@@ -708,11 +716,13 @@ class UseReturnValuePlugin extends PluginV3 implements PostAnalyzeNodeCapability
     'reflectionparameter::allowsnull' => true,
     'reflectionparameter::getclass' => true,
     'reflectionparameter::getdefaultvalue' => true,
+    'reflectionparameter::getdefaultvalueconstantname' => true,
     'reflectionparameter::getname' => true,
     'reflectionparameter::gettype' => true,
     'reflectionparameter::hastype' => true,
     'reflectionparameter::isarray' => true,
     'reflectionparameter::isdefaultvalueavailable' => true,
+    'reflectionparameter::isdefaultvalueconstant' => true,
     'reflectionparameter::isoptional' => true,
     'reflectionparameter::ispassedbyreference' => true,
     'reflectionparameter::isvariadic' => true,
@@ -771,6 +781,9 @@ class UseReturnValuePlugin extends PluginV3 implements PostAnalyzeNodeCapability
     'strcasecmp' => true,
     'strchr' => true,
     'strcmp' => true,
+    'str_contains' => true,
+    'str_ends_with' => true,
+    'str_starts_with' => true,
     'strcoll' => true,
     'strcspn' => true,
     'stream_context_create' => true,
@@ -842,11 +855,15 @@ class UseReturnValuePlugin extends PluginV3 implements PostAnalyzeNodeCapability
     'utf8_encode' => true,
     'version_compare' => true,
     'vsprintf' => true,
+    'weakreference::create' => true,
+    'weakreference::get' => true,
     'wordwrap' => true,
     'xml_get_error_code' => true,
     'xml_parser_create' => true,
     'xmlreader::getattribute' => true,
     'ziparchive::getfromname' => true,
+    'ziparchive::iscompressionmethodsupported' => true,
+    'ziparchive::isencryptionmethodsupported' => true,
     'ziparchive::locatename' => true,
     'zlib_decode' => true,
     'zlib_encode' => true,

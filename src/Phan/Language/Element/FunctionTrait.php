@@ -389,32 +389,12 @@ trait FunctionTrait
     }
 
     /**
-     * True if this method returns a value
-     * @deprecated use hasReturn
-     * @suppress PhanUnreferencedPublicMethod
-     */
-    final public function getHasReturn(): bool
-    {
-        return $this->hasReturn();
-    }
-
-    /**
      * @return bool
      * True if this method yields any value(i.e. it is a \Generator)
      */
     public function hasYield(): bool
     {
         return $this->getPhanFlagsHasState(Flags::HAS_YIELD);
-    }
-
-    /**
-     * True if this method yields any value(i.e. it is a \Generator)
-     * @deprecated use hasYield
-     * @suppress PhanUnreferencedPublicMethod
-     */
-    final public function getHasYield(): bool
-    {
-        return $this->hasYield();
     }
 
     /**
@@ -549,7 +529,7 @@ trait FunctionTrait
     public function setParameterList(array $parameter_list): void
     {
         $this->parameter_list = $parameter_list;
-        if ($this->parameter_list_hash === null) {
+        if (\is_null($this->parameter_list_hash)) {
             $this->initParameterListInfo();
         }
     }
@@ -1787,7 +1767,7 @@ trait FunctionTrait
      */
     public function getCommentParamAssertionClosure(CodeBase $code_base): ?Closure
     {
-        if (!$this->comment) {
+        if (!\is_object($this->comment)) {
             return null;
         }
         $param_assertion_map = $this->comment->getParamAssertionMap();
@@ -1812,8 +1792,8 @@ trait FunctionTrait
      */
     public function getRealParameterStubText(): string
     {
-        return \implode(', ', \array_map(static function (Parameter $parameter): string {
-            return $parameter->toStubString();
+        return \implode(', ', \array_map(function (Parameter $parameter): string {
+            return $parameter->toStubString($this->isPHPInternal());
         }, $this->getRealParameterList()));
     }
 

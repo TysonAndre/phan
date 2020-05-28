@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Phan\Tests;
 
-use Phan\CodeBase;
 use Phan\Config;
 use Phan\Language\Type;
 use Phan\Library\StringUtil;
@@ -23,20 +22,9 @@ use function strlen;
  * - a src/ folder with analyzed PHP files, and
  * - the expected/ folder of expected error (template) lines for the corresponding files.
  */
-abstract class AbstractPhanFileTest extends BaseTest implements CodeBaseAwareTestInterface
+abstract class AbstractPhanFileTest extends CodeBaseAwareTest
 {
     public const EXPECTED_SUFFIX = '.expected';
-
-    /** @var CodeBase represents the known state of the test code base we're analyzing. */
-    private $code_base;
-
-    /**
-     * @suppress PhanPossiblyNullTypeMismatchProperty
-     */
-    public function setCodeBase(CodeBase $code_base = null): void
-    {
-        $this->code_base = $code_base;
-    }
 
     /**
      * @return array<mixed,array{0:list<string>,1:string}> Array of <filename => [filename]>
@@ -93,7 +81,7 @@ abstract class AbstractPhanFileTest extends BaseTest implements CodeBaseAwareTes
             \scandir($source_dir) ?: [],
             static function (string $filename): bool {
                 // Ignore directories and hidden files.
-                return !in_array($filename, ['.', '..'], true) && \substr($filename, 0, 1) !== '.' && \preg_match('@\.php$@', $filename);
+                return !in_array($filename, ['.', '..'], true) && \substr($filename, 0, 1) !== '.' && \preg_match('@\.php$@S', $filename);
             }
         );
 
@@ -182,23 +170,6 @@ abstract class AbstractPhanFileTest extends BaseTest implements CodeBaseAwareTes
 
         $output = $stream->fetch();
 
-        // Uncomment to save the output back to the expected
-        // output. This should be done for error message
-        // text changes and only if you promise to be careful.
-        /*
-        $saved_output = $output;
-        $test_file_elements= explode('/', $test_file_list[0]);
-        $test_file_name = array_pop($test_file_elements);
-        $saved_output = preg_replace('/[^ :\n]*\/' . $test_file_name . '/', '%s', $saved_output);
-        $saved_output = preg_replace('/closure_[^\(]*\(/', 'closure_%s(', $saved_output);
-        if (!empty($saved_output) && strlen($saved_output) > 0) {
-            $saved_output .= "\n";
-        }
-        file_put_contents($expected_file_path, $saved_output);
-        $expected_output =
-            trim(file_get_contents($expected_file_path));
-        */
-
         $output    = \preg_replace('/\r\n/', "\n", $output);
 
         $wanted_re = \preg_replace('/\r\n/', "\n", $expected_output);
@@ -255,9 +226,24 @@ abstract class AbstractPhanFileTest extends BaseTest implements CodeBaseAwareTes
                 // Then run `for file in tests/**/*.expected*.new; do mv $file ${file/\.new/}; done`
                 // to copy all of the tests
                 $suggested_re = \preg_replace('@\./tests/\S*\.php([78]\d*)?@', '%s', $output);
+                $suggested_re = \preg_replace('/closure_[^\(]*\(/', 'closure_%s(', $suggested_re);
                 \file_put_contents($expected_file_path . '.new', $suggested_re);
             }
         }
+        // Uncomment to save the output back to the expected
+        // output. This should be done for error message
+        // text changes and only if you promise to be careful.
+        /*
+        if (!\preg_match($wanted_re_full, $output)) {
+            $saved_output = $output;
+            $test_file_elements = \explode('/', $test_file_list[0]);
+            $test_file_name = \array_pop($test_file_elements);
+            $saved_output = \preg_replace('/[^ :\n]*\/' . $test_file_name . '/', '%s', $saved_output);
+            $saved_output = \preg_replace('/closure_[^\(]*\(/', 'closure_%s(', $saved_output);
+            \file_put_contents($expected_file_path, $saved_output);
+        }
+         */
+
         $this->assertRegExp(
             $wanted_re_full,
             $output,

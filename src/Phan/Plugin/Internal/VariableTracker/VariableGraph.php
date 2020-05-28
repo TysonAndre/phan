@@ -59,6 +59,8 @@ final class VariableGraph
 
     public const IS_REFERENCE_OR_GLOBAL_OR_STATIC = self::IS_REFERENCE | self::IS_GLOBAL | self::IS_STATIC;
 
+    public const USE_ID_FOR_SHARED_STATE = -1;
+
     public function __construct()
     {
     }
@@ -224,5 +226,29 @@ final class VariableGraph
     private function markBitForVariableName(string $name, int $bit): void
     {
         $this->variable_types[$name] = (($this->variable_types[$name] ?? 0) | $bit);
+    }
+
+    /**
+     * @return associative-array<int,associative-array<int,true>>
+     * Returns the combination of all def-use sets for all node ids.
+     * Marks globals, references, and static variables as used with the placeholder of -1
+     */
+    public function computeCombinedDefUses(): array
+    {
+        $combined_def_use_map = [];
+        foreach ($this->def_uses as $var_name => $def_use_map) {
+            $is_used_by_shared_state = (($this->variable_types[$var_name] ?? 0) & self::IS_REFERENCE_OR_GLOBAL_OR_STATIC) !== 0;
+            foreach ($def_use_map as $def_id => $use_set) {
+                if (isset($combined_def_use_map[$def_id])) {
+                    $combined_def_use_map[$def_id] += $use_set;
+                } else {
+                    $combined_def_use_map[$def_id] = $use_set;
+                }
+                if ($is_used_by_shared_state) {
+                    $combined_def_use_map[$def_id][self::USE_ID_FOR_SHARED_STATE] = true;
+                }
+            }
+        }
+        return $combined_def_use_map;
     }
 }

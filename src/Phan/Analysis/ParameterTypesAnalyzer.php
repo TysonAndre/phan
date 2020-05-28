@@ -81,7 +81,7 @@ class ParameterTypesAnalyzer
         // Look at each parameter to make sure their types
         // are valid
         $is_optional_seen = false;
-        foreach ($method->getParameterList() as $parameter) {
+        foreach ($method->getParameterList() as $i => $parameter) {
             $union_type = $parameter->getUnionType();
 
             if ($parameter->isOptional()) {
@@ -92,7 +92,9 @@ class ParameterTypesAnalyzer
                         $code_base,
                         $method->getContext(),
                         Issue::ParamReqAfterOpt,
-                        $parameter->getFileRef()->getLineNumberStart()
+                        $parameter->getFileRef()->getLineNumberStart(),
+                        '(' . $parameter->toStubString() . ')',
+                        '(' . $method->getParameterList()[$i - 1]->toStubString() . ')'
                     );
                 }
             }
@@ -254,6 +256,14 @@ class ParameterTypesAnalyzer
                         $real_parameter->getFileRef()->getLineNumberStart(),
                         (string)$type
                     );
+                } elseif ($type_class === MixedType::class) {
+                    Issue::maybeEmit(
+                        $code_base,
+                        $method->getContext(),
+                        Issue::CompatibleMixedType,
+                        $real_parameter->getFileRef()->getLineNumberStart(),
+                        (string)$type
+                    );
                 }
             }
         }
@@ -265,7 +275,7 @@ class ParameterTypesAnalyzer
                         $code_base,
                         $method->getContext(),
                         Issue::CompatibleAnyReturnTypePHP56,
-                        $real_parameter->getFileRef()->getLineNumberStart(),
+                        $method->getFileRef()->getLineNumberStart(),
                         (string)$method->getRealReturnType()
                     );
                 }
@@ -304,7 +314,7 @@ class ParameterTypesAnalyzer
                             $code_base,
                             $method->getContext(),
                             Issue::CompatibleScalarTypePHP56,
-                            $real_parameter->getFileRef()->getLineNumberStart(),
+                            $method->getFileRef()->getLineNumberStart(),
                             (string)$type
                         );
                     }
@@ -315,6 +325,14 @@ class ParameterTypesAnalyzer
                     $code_base,
                     $method->getContext(),
                     Issue::CompatibleObjectTypePHP71,
+                    $method->getFileRef()->getLineNumberStart(),
+                    (string)$type
+                );
+            } elseif ($type_class === MixedType::class) {
+                Issue::maybeEmit(
+                    $code_base,
+                    $method->getContext(),
+                    Issue::CompatibleMixedType,
                     $method->getFileRef()->getLineNumberStart(),
                     (string)$type
                 );
@@ -594,7 +612,7 @@ class ParameterTypesAnalyzer
                 // Check for the presence of real types first, warn if the override has a type but the original doesn't.
                 $o_real_parameter = $o_real_parameter_list[$i] ?? null;
                 $real_parameter = $real_parameter_list[$i] ?? null;
-                if ($o_real_parameter !== null && $real_parameter !== null && !$real_parameter->getUnionType()->isEmpty() && $o_real_parameter->getUnionType()->isEmpty()) {
+                if ($o_real_parameter !== null && $real_parameter !== null && !$real_parameter->getUnionType()->isEmptyOrMixed() && $o_real_parameter->getUnionType()->isEmptyOrMixed()) {
                     $signatures_match = false;
                     break;
                 }
@@ -636,7 +654,7 @@ class ParameterTypesAnalyzer
         // The return type should be stricter than or identical to the overridden union type.
         // E.g. there is no issue if the overridden return type is empty.
         // See https://github.com/phan/phan/issues/1397
-        if (!$o_return_union_type->isEmpty()) {
+        if (!$o_return_union_type->isEmptyOrMixed()) {
             if (!$method->getUnionType()->asExpandedTypes($code_base)->canCastToUnionType(
                 $o_return_union_type
             )) {
@@ -830,9 +848,9 @@ class ParameterTypesAnalyzer
             // Either 0 or both of the params must have types for the signatures to be compatible.
             $o_parameter_union_type = $o_parameter->getUnionType();
             $parameter_union_type = $parameter->getUnionType();
-            if ($parameter_union_type->isEmpty() != $o_parameter_union_type->isEmpty()) {
-                if ($parameter_union_type->isEmpty()) {
-                    if (Config::getValue('allow_method_param_type_widening') === false) {
+            if ($parameter_union_type->isEmptyOrMixed() != $o_parameter_union_type->isEmpty()) {
+                if ($parameter_union_type->isEmptyOrMixed()) {
+                    if ($parameter_union_type->isEmpty() && Config::getValue('allow_method_param_type_widening') === false) {
                         $is_possibly_compatible = false;
                         self::emitSignatureRealMismatchIssue(
                             $code_base,
@@ -867,7 +885,7 @@ class ParameterTypesAnalyzer
             // If both have types, make sure they are identical.
             // Non-nullable param types can be substituted with the nullable equivalents.
             // E.g. A::foo(?int $x) can override BaseClass::foo(int $x)
-            if (!$parameter_union_type->isEmpty()) {
+            if (!$parameter_union_type->isEmptyOrMixed()) {
                 if (!$o_parameter_union_type->isEqualTo($parameter_union_type) &&
                     !($parameter_union_type->containsNullable() && $o_parameter_union_type->isEqualTo($parameter_union_type->nonNullableClone()))
                 ) {

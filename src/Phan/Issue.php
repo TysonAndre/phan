@@ -139,6 +139,7 @@ class Issue
     public const TypeInvalidExpressionArrayDestructuring = 'PhanTypeInvalidExpressionArrayDestructuring';
     public const TypeInvalidThrowsNonObject             = 'PhanTypeInvalidThrowsNonObject';
     public const TypeInvalidThrowsNonThrowable          = 'PhanTypeInvalidThrowsNonThrowable';
+    public const TypeInvalidThrowStatementNonThrowable          = 'PhanTypeInvalidThrowStatementNonThrowable';
     public const TypeInvalidThrowsIsTrait               = 'PhanTypeInvalidThrowsIsTrait';
     public const TypeInvalidThrowsIsInterface           = 'PhanTypeInvalidThrowsIsInterface';
     public const TypeMagicVoidWithReturn                = 'PhanTypeMagicVoidWithReturn';
@@ -223,7 +224,8 @@ class Issue
     public const TypeInvalidStaticPropertyName = 'PhanTypeInvalidStaticPropertyName';
     public const TypeErrorInInternalCall = 'PhanTypeErrorInInternalCall';
     public const TypeErrorInOperation = 'PhanTypeErrorInOperation';
-    public const TypeInvalidPropertyDefaultReal    = 'PhanTypeInvalidPropertyDefaultReal';
+    public const TypeMismatchPropertyDefault        = 'PhanTypeMismatchPropertyDefault';
+    public const TypeMismatchPropertyDefaultReal    = 'PhanTypeMismatchPropertyDefaultReal';
     public const TypeMismatchPropertyReal          = 'PhanTypeMismatchPropertyReal';
     public const TypeMismatchPropertyRealByRef     = 'PhanTypeMismatchPropertyRealByRef';
     public const TypeMismatchPropertyByRef         = 'PhanTypeMismatchPropertyByRef';
@@ -361,6 +363,7 @@ class Issue
     public const NoopTernary                   = 'PhanNoopTernary';
     public const NoopNew                       = 'PhanNoopNew';
     public const NoopNewNoSideEffects          = 'PhanNoopNewNoSideEffects';
+    public const NoopSwitchCases               = 'PhanNoopSwitchCases';
     public const UnreachableCatch              = 'PhanUnreachableCatch';
     public const UnreferencedClass             = 'PhanUnreferencedClass';
     public const UnreferencedFunction          = 'PhanUnreferencedFunction';
@@ -416,6 +419,10 @@ class Issue
     public const UnusedVariableValueOfForeachWithKey   = 'PhanUnusedVariableValueOfForeachWithKey';  // has higher false positive rates than UnusedVariable
     public const EmptyForeach                          = 'PhanEmptyForeach';
     public const EmptyForeachBody                      = 'PhanEmptyForeachBody';
+    public const SideEffectFreeForeachBody             = 'PhanSideEffectFreeForeachBody';
+    public const SideEffectFreeForBody                 = 'PhanSideEffectFreeForBody';
+    public const SideEffectFreeWhileBody               = 'PhanSideEffectFreeWhileBody';
+    public const SideEffectFreeDoWhileBody             = 'PhanSideEffectFreeDoWhileBody';
     public const EmptyYieldFrom                        = 'PhanEmptyYieldFrom';
     public const UselessBinaryAddRight                 = 'PhanUselessBinaryAddRight';
     public const SuspiciousBinaryAddLists              = 'PhanSuspiciousBinaryAddLists';
@@ -503,9 +510,11 @@ class Issue
     public const CompatibleVoidTypePHP70            = 'PhanCompatibleVoidTypePHP70';
     public const CompatibleIterableTypePHP70        = 'PhanCompatibleIterableTypePHP70';
     public const CompatibleObjectTypePHP71          = 'PhanCompatibleObjectTypePHP71';
+    public const CompatibleMixedType                = 'PhanCompatibleMixedType';
     public const CompatibleUseVoidPHP70             = 'PhanCompatibleUseVoidPHP70';
     public const CompatibleUseIterablePHP71         = 'PhanCompatibleUseIterablePHP71';
     public const CompatibleUseObjectPHP71           = 'PhanCompatibleUseObjectPHP71';
+    public const CompatibleUseMixed                 = 'PhanCompatibleUseMixed';
     public const CompatibleMultiExceptionCatchPHP70 = 'PhanCompatibleMultiExceptionCatchPHP70';
     public const CompatibleNegativeStringOffset     = 'PhanCompatibleNegativeStringOffset';
     public const CompatibleAutoload                 = 'PhanCompatibleAutoload';
@@ -521,6 +530,7 @@ class Issue
     public const CompatibleAnyReturnTypePHP56       = 'PhanCompatibleAnyReturnTypePHP56';
     public const CompatibleUnionType                = 'PhanCompatibleUnionType';
     public const CompatibleStaticType               = 'PhanCompatibleStaticType';
+    public const CompatibleThrowExpression          = 'PhanCompatibleThrowExpression';
 
     // Issue::CATEGORY_GENERIC
     public const TemplateTypeConstant       = 'PhanTemplateTypeConstant';
@@ -794,7 +804,7 @@ class Issue
                 self::InvalidWriteToTemporaryExpression,
                 self::CATEGORY_SYNTAX,
                 self::SEVERITY_CRITICAL,
-                "Cannot use temporary expression (of type {TYPE}) in write context",
+                "Cannot use temporary expression ({CODE} of type {TYPE}) in write context",
                 self::REMEDIATION_A,
                 17003
             ),
@@ -875,7 +885,7 @@ class Issue
                 self::SyntaxMixedKeyNoKeyArrayDestructuring,
                 self::CATEGORY_SYNTAX,
                 self::SEVERITY_CRITICAL,
-                'Cannot mix keyed and unkeyed array entries in array destructuring assignments',
+                'Cannot mix keyed and unkeyed array entries in array destructuring assignments ({CODE})',
                 self::REMEDIATION_A,
                 17013
             ),
@@ -1370,7 +1380,7 @@ class Issue
                 self::TypeMismatchProperty,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                "Assigning {TYPE} to property but {PROPERTY} is {TYPE}",
+                "Assigning {CODE} of type {TYPE} to property but {PROPERTY} is {TYPE}",
                 self::REMEDIATION_B,
                 10001
             ),
@@ -1378,7 +1388,7 @@ class Issue
                 self::PartialTypeMismatchProperty,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                "Assigning {TYPE} to property but {PROPERTY} is {TYPE} ({TYPE} is incompatible)",
+                "Assigning {CODE} of type {TYPE} to property but {PROPERTY} is {TYPE} ({TYPE} is incompatible)",
                 self::REMEDIATION_B,
                 10063
             ),
@@ -1386,7 +1396,7 @@ class Issue
                 self::PossiblyNullTypeMismatchProperty,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                "Assigning {TYPE} to property but {PROPERTY} is {TYPE} ({TYPE} is incompatible)",
+                "Assigning {CODE} of type {TYPE} to property but {PROPERTY} is {TYPE} ({TYPE} is incompatible)",
                 self::REMEDIATION_B,
                 10064
             ),
@@ -1394,7 +1404,7 @@ class Issue
                 self::PossiblyFalseTypeMismatchProperty,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                "Assigning {TYPE} to property but {PROPERTY} is {TYPE} ({TYPE} is incompatible)",
+                "Assigning {CODE} of type {TYPE} to property but {PROPERTY} is {TYPE} ({TYPE} is incompatible)",
                 self::REMEDIATION_B,
                 10065
             ),
@@ -1498,7 +1508,7 @@ class Issue
                 self::TypeMismatchGeneratorYieldValue,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                "Yield statement has a value with type {TYPE} but {FUNCTIONLIKE} is declared to yield values of type {TYPE} in {TYPE}",
+                "Yield statement has a value {CODE} with type {TYPE} but {FUNCTIONLIKE} is declared to yield values of type {TYPE} in {TYPE}",
                 self::REMEDIATION_B,
                 10067
             ),
@@ -1506,7 +1516,7 @@ class Issue
                 self::TypeMismatchGeneratorYieldKey,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                "Yield statement has a key with type {TYPE} but {FUNCTIONLIKE} is declared to yield keys of type {TYPE} in {TYPE}",
+                "Yield statement has a key {CODE} with type {TYPE} but {FUNCTIONLIKE} is declared to yield keys of type {TYPE} in {TYPE}",
                 self::REMEDIATION_B,
                 10068
             ),
@@ -1514,7 +1524,7 @@ class Issue
                 self::TypeInvalidYieldFrom,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_CRITICAL,
-                "Yield from statement was passed an invalid expression of type {TYPE} (expected Traversable/array)",
+                "Yield from statement was passed an invalid expression {CODE} of type {TYPE} (expected Traversable/array)",
                 self::REMEDIATION_B,
                 10069
             ),
@@ -1570,7 +1580,7 @@ class Issue
                 self::TypeMismatchReturn,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                "Returning type {TYPE} but {FUNCTIONLIKE} is declared to return {TYPE}",
+                "Returning {CODE} of type {TYPE} but {FUNCTIONLIKE} is declared to return {TYPE}",
                 self::REMEDIATION_B,
                 10005
             ),
@@ -1578,7 +1588,7 @@ class Issue
                 self::TypeMismatchReturnNullable,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                "Returning type {TYPE} but {FUNCTIONLIKE} is declared to return {TYPE} (expected returned value to be non-nullable)",
+                "Returning {CODE} of type {TYPE} but {FUNCTIONLIKE} is declared to return {TYPE} (expected returned value to be non-nullable)",
                 self::REMEDIATION_B,
                 10107
             ),
@@ -1586,7 +1596,7 @@ class Issue
                 self::TypeMismatchReturnReal,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_CRITICAL,
-                "Returning type {TYPE}{DETAILS} but {FUNCTIONLIKE} is declared to return {TYPE}{DETAILS}",
+                "Returning {CODE} of type {TYPE}{DETAILS} but {FUNCTIONLIKE} is declared to return {TYPE}{DETAILS}",
                 self::REMEDIATION_B,
                 10138
             ),
@@ -1594,7 +1604,7 @@ class Issue
                 self::PartialTypeMismatchReturn,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                "Returning type {TYPE} but {FUNCTIONLIKE} is declared to return {TYPE} ({TYPE} is incompatible)",
+                "Returning {CODE} of type {TYPE} but {FUNCTIONLIKE} is declared to return {TYPE} ({TYPE} is incompatible)",
                 self::REMEDIATION_B,
                 10060
             ),
@@ -1602,7 +1612,7 @@ class Issue
                 self::PossiblyNullTypeReturn,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                "Returning type {TYPE} but {FUNCTIONLIKE} is declared to return {TYPE} ({TYPE} is incompatible)",
+                "Returning {CODE} of type {TYPE} but {FUNCTIONLIKE} is declared to return {TYPE} ({TYPE} is incompatible)",
                 self::REMEDIATION_B,
                 10061
             ),
@@ -1610,7 +1620,7 @@ class Issue
                 self::PossiblyFalseTypeReturn,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                "Returning type {TYPE} but {FUNCTIONLIKE} is declared to return {TYPE} ({TYPE} is incompatible)",
+                "Returning {CODE} of type {TYPE} but {FUNCTIONLIKE} is declared to return {TYPE} ({TYPE} is incompatible)",
                 self::REMEDIATION_B,
                 10062
             ),
@@ -1682,7 +1692,7 @@ class Issue
                 self::TypeArraySuspicious,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                "Suspicious array access to {TYPE}",
+                "Suspicious array access to {CODE} of type {TYPE}",
                 self::REMEDIATION_B,
                 10009
             ),
@@ -1690,7 +1700,7 @@ class Issue
                 self::TypeArrayUnsetSuspicious,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                "Suspicious attempt to unset an offset of a value of type {TYPE}",
+                "Suspicious attempt to unset an offset of a value {CODE} of type {TYPE}",
                 self::REMEDIATION_B,
                 10048
             ),
@@ -2042,7 +2052,7 @@ class Issue
                 self::TypeArraySuspiciousNullable,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                "Suspicious array access to nullable {TYPE}",
+                "Suspicious array access to {CODE} of nullable type {TYPE}",
                 self::REMEDIATION_B,
                 10045
             ),
@@ -2050,7 +2060,7 @@ class Issue
                 self::TypeArraySuspiciousNull,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                "Suspicious array access to null",
+                "Suspicious array access to {CODE} of type null",
                 self::REMEDIATION_B,
                 10136
             ),
@@ -2058,7 +2068,7 @@ class Issue
                 self::TypeInvalidDimOffset,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                "Invalid offset {SCALAR} of array type {TYPE}",
+                "Invalid offset {SCALAR} of {CODE} of array type {TYPE}",
                 self::REMEDIATION_B,
                 10046
             ),
@@ -2066,7 +2076,7 @@ class Issue
                 self::TypePossiblyInvalidDimOffset,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                "Possibly invalid offset {SCALAR} of array type {TYPE}",
+                "Possibly invalid offset {SCALAR} of {CODE} of array type {TYPE}",
                 self::REMEDIATION_B,
                 10154
             ),
@@ -2074,7 +2084,7 @@ class Issue
                 self::TypeInvalidDimOffsetArrayDestructuring,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                "Invalid offset {SCALAR} of array type {TYPE} in an array destructuring assignment",
+                "Invalid offset {SCALAR} of {CODE} of array type {TYPE} in an array destructuring assignment",
                 self::REMEDIATION_B,
                 10047
             ),
@@ -2090,7 +2100,7 @@ class Issue
                 self::TypeInvalidExpressionArrayDestructuring,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                "Invalid value of type {TYPE} in an array destructuring assignment, expected {TYPE}",
+                "Invalid value {CODE} of type {TYPE} in an array destructuring assignment, expected {TYPE}",
                 self::REMEDIATION_B,
                 10077
             ),
@@ -2098,7 +2108,7 @@ class Issue
                 self::TypeSuspiciousEcho,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                "Suspicious argument {TYPE} for an echo/print statement",
+                "Suspicious argument {CODE} of type {TYPE} for an echo/print statement",
                 self::REMEDIATION_B,
                 10049
             ),
@@ -2134,6 +2144,14 @@ class Issue
                 "@throws annotation of {FUNCTIONLIKE} has suspicious class type {TYPE}, which does not extend Error/Exception",
                 self::REMEDIATION_B,
                 10053
+            ),
+            new Issue(
+                self::TypeInvalidThrowStatementNonThrowable,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "{FUNCTIONLIKE} can throw {CODE} of type {TYPE} here which can't cast to {TYPE}",
+                self::REMEDIATION_B,
+                10158
             ),
             new Issue(
                 self::TypeSuspiciousStringExpression,
@@ -2368,18 +2386,26 @@ class Issue
                 10110
             ),
             new Issue(
-                self::TypeInvalidPropertyDefaultReal,
+                self::TypeMismatchPropertyDefaultReal,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_CRITICAL,
-                "Default value for {TYPE} \${PROPERTY} can't be {TYPE}",
+                "Default value for {TYPE} \${PROPERTY} can't be {CODE} of type {TYPE}",
                 self::REMEDIATION_B,
                 10108
+            ),
+            new Issue(
+                self::TypeMismatchPropertyDefault,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Default value for {TYPE} \${PROPERTY} can't be {CODE} of type {TYPE} based on phpdoc types",
+                self::REMEDIATION_B,
+                10159
             ),
             new Issue(
                 self::TypeMismatchPropertyReal,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_CRITICAL,
-                "Assigning {TYPE} to property but {PROPERTY} is {TYPE}",
+                "Assigning {CODE} of type {TYPE} to property but {PROPERTY} is {TYPE}",
                 self::REMEDIATION_B,
                 10137
             ),
@@ -2387,7 +2413,7 @@ class Issue
                 self::TypeMismatchPropertyRealByRef,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                "{TYPE} may end up assigned to property {PROPERTY} of type {TYPE} by reference at {FILE}:{LINE}",
+                "{CODE} of type {TYPE} may end up assigned to property {PROPERTY} of type {TYPE} by reference at {FILE}:{LINE}",
                 self::REMEDIATION_B,
                 10150
             ),
@@ -2395,7 +2421,7 @@ class Issue
                 self::TypeMismatchPropertyByRef,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_LOW,
-                "{TYPE} may end up assigned to property {PROPERTY} of type {TYPE} by reference at {FILE}:{LINE}",
+                "{CODE} of type {TYPE} may end up assigned to property {PROPERTY} of type {TYPE} by reference at {FILE}:{LINE}",
                 self::REMEDIATION_B,
                 10151
             ),
@@ -2603,7 +2629,7 @@ class Issue
                 self::DivisionByZero,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                'Attempting to divide a value by a divisor of {CODE} of type {TYPE}',
+                'Saw {CODE} with a divisor of type {TYPE}',
                 self::REMEDIATION_B,
                 10145
             ),
@@ -2611,7 +2637,7 @@ class Issue
                 self::ModuloByZero,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                'Attempting to modulo a value with a modulus of {CODE} of type {TYPE}',
+                'Saw {CODE} with modulus of type {TYPE}',
                 self::REMEDIATION_B,
                 10146
             ),
@@ -2619,7 +2645,7 @@ class Issue
                 self::PowerOfZero,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_LOW,
-                'Attempting to exponentiate a value to a power of {CODE} of type {TYPE} (the result will always be 1)',
+                'Saw {CODE} exponentiating to a power of type {TYPE} (the result will always be 1)',
                 self::REMEDIATION_B,
                 10147
             ),
@@ -2636,7 +2662,7 @@ class Issue
                 self::VariableUseClause,
                 self::CATEGORY_VARIABLE,
                 self::SEVERITY_NORMAL,
-                "Non-variables not allowed within use clause",
+                "Non-variables ({CODE}) not allowed within use clause",
                 self::REMEDIATION_B,
                 12000
             ),
@@ -2662,7 +2688,7 @@ class Issue
                 self::AbstractStaticMethodCall,
                 self::CATEGORY_STATIC,
                 self::SEVERITY_CRITICAL,
-                "Potentially calling an abstract static method {METHOD}",
+                "Potentially calling an abstract static method {METHOD} in {CODE}",
                 self::REMEDIATION_B,
                 9002
             ),
@@ -2670,7 +2696,7 @@ class Issue
                 self::AbstractStaticMethodCallInStatic,
                 self::CATEGORY_STATIC,
                 self::SEVERITY_CRITICAL,
-                "Potentially calling an abstract static method {METHOD} with static:: (the calling static method's class scope may be an abstract class)",
+                "Potentially calling an abstract static method {METHOD} with static:: in {CODE} (the calling static method's class scope may be an abstract class)",
                 self::REMEDIATION_B,
                 9003
             ),
@@ -2678,7 +2704,7 @@ class Issue
                 self::AbstractStaticMethodCallInTrait,
                 self::CATEGORY_STATIC,
                 self::SEVERITY_CRITICAL,
-                "Potentially calling an abstract static method {METHOD} on a trait, if the caller's method is called on the trait instead of a concrete class using the trait",
+                "Potentially calling an abstract static method {METHOD} on a trait in {CODE}, if the caller's method is called on the trait instead of a concrete class using the trait",
                 self::REMEDIATION_B,
                 9004
             ),
@@ -2788,7 +2814,7 @@ class Issue
                 self::ParamReqAfterOpt,
                 self::CATEGORY_PARAMETER,
                 self::SEVERITY_LOW,
-                "Required argument follows optional",
+                'Required parameter {PARAMETER} follows optional {PARAMETER}',
                 self::REMEDIATION_B,
                 7000
             ),
@@ -3251,7 +3277,7 @@ class Issue
                 self::NoopEmpty,
                 self::CATEGORY_NOOP,
                 self::SEVERITY_LOW,
-                "Unused result of an empty(expr) check",
+                "Unused result of an empty({CODE}) check",
                 self::REMEDIATION_B,
                 6051
             ),
@@ -3259,7 +3285,7 @@ class Issue
                 self::NoopIsset,
                 self::CATEGORY_NOOP,
                 self::SEVERITY_LOW,
-                "Unused result of an isset(expr) check",
+                "Unused result of an isset({CODE}) check",
                 self::REMEDIATION_B,
                 6052
             ),
@@ -3267,7 +3293,7 @@ class Issue
                 self::NoopCast,
                 self::CATEGORY_NOOP,
                 self::SEVERITY_LOW,
-                "Unused result of a ({TYPE})(expr) cast",
+                "Unused result of a ({TYPE})({CODE}) cast",
                 self::REMEDIATION_B,
                 6053
             ),
@@ -3624,6 +3650,38 @@ class Issue
                 6086
             ),
             new Issue(
+                self::SideEffectFreeForeachBody,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_LOW,
+                'Saw a foreach loop which probably has no side effects',
+                self::REMEDIATION_B,
+                6089
+            ),
+            new Issue(
+                self::SideEffectFreeForBody,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_LOW,
+                'Saw a for loop which probably has no side effects',
+                self::REMEDIATION_B,
+                6090
+            ),
+            new Issue(
+                self::SideEffectFreeWhileBody,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_LOW,
+                'Saw a while loop which probably has no side effects',
+                self::REMEDIATION_B,
+                6091
+            ),
+            new Issue(
+                self::SideEffectFreeDoWhileBody,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_LOW,
+                'Saw a do-while loop which probably has no side effects',
+                self::REMEDIATION_B,
+                6092
+            ),
+            new Issue(
                 self::EmptyYieldFrom,
                 self::CATEGORY_NOOP,
                 self::SEVERITY_LOW,
@@ -3870,6 +3928,14 @@ class Issue
                 'Empty closure',
                 self::REMEDIATION_B,
                 6078
+            ),
+            new Issue(
+                self::NoopSwitchCases,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_LOW,
+                'This switch statement only has the default case',
+                self::REMEDIATION_B,
+                6088
             ),
 
             // Issue::CATEGORY_REDEFINE
@@ -4319,6 +4385,14 @@ class Issue
                 3007
             ),
             new Issue(
+                self::CompatibleMixedType,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_CRITICAL,
+                "Type '{TYPE}' refers to any value starting in PHP 8.0. In PHP 7.4 and earlier, it refers to a class/interface with the name 'mixed'",
+                self::REMEDIATION_B,
+                3029
+            ),
+            new Issue(
                 self::CompatibleUseVoidPHP70,
                 self::CATEGORY_COMPATIBLE,
                 self::SEVERITY_CRITICAL,
@@ -4343,6 +4417,14 @@ class Issue
                 3010
             ),
             new Issue(
+                self::CompatibleUseMixed,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_CRITICAL,
+                "Using '{TYPE}' as mixed will be a syntax error in PHP 8.0 (mixed becomes a native type that accepts any value).",
+                self::REMEDIATION_B,
+                3030
+            ),
+            new Issue(
                 self::CompatibleMultiExceptionCatchPHP70,
                 self::CATEGORY_COMPATIBLE,
                 self::SEVERITY_CRITICAL,
@@ -4358,11 +4440,10 @@ class Issue
                 self::REMEDIATION_B,
                 3012
             ),
-            // TODO: Increase the severity when PHP 8.0 alphas are released
             new Issue(
                 self::CompatibleAutoload,
                 self::CATEGORY_COMPATIBLE,
-                self::SEVERITY_NORMAL,
+                self::SEVERITY_CRITICAL,
                 "Declaring an autoloader with function __autoload() was deprecated in PHP 7.2 and will become a fatal error in PHP 8.0. Use spl_autoload_register() instead (supported since PHP 5.1).",
                 self::REMEDIATION_B,
                 3013
@@ -4478,6 +4559,14 @@ class Issue
                 "Cannot use static return types before php 8.0",
                 self::REMEDIATION_B,
                 3027
+            ),
+            new Issue(
+                self::CompatibleThrowExpression,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_NORMAL,
+                "Cannot use throw as an expression before php 8.0 in {CODE}",
+                self::REMEDIATION_B,
+                3028
             ),
 
             // Issue::CATEGORY_GENERIC
@@ -4682,7 +4771,7 @@ class Issue
                 self::ThrowTypeAbsent,
                 self::CATEGORY_COMMENT,
                 self::SEVERITY_LOW,
-                "{FUNCTIONLIKE} can throw {TYPE} here, but has no '@throws' declarations for that class",
+                "{FUNCTIONLIKE} can throw {CODE} of type {TYPE} here, but has no '@throws' declarations for that class",
                 self::REMEDIATION_A,
                 16011
             ),
@@ -4698,7 +4787,7 @@ class Issue
                 self::ThrowTypeMismatch,
                 self::CATEGORY_COMMENT,
                 self::SEVERITY_LOW,
-                "{FUNCTIONLIKE} throws {TYPE}, but it only has declarations of '@throws {TYPE}'",
+                "{FUNCTIONLIKE} throws {CODE} of type {TYPE} here, but it only has declarations of '@throws {TYPE}'",
                 self::REMEDIATION_A,
                 16013
             ),

@@ -217,16 +217,6 @@ final class EmptyUnionType extends UnionType
     }
 
     /**
-     * @return bool
-     * True if this type has a type referencing the
-     * class context 'static' or 'self'.
-     */
-    public function hasStaticOrSelfType(): bool
-    {
-        return false;
-    }
-
-    /**
      * @return UnionType
      * A new UnionType with any references to 'static' resolved
      * in the given context.
@@ -325,6 +315,14 @@ final class EmptyUnionType extends UnionType
      * @return bool - True if not empty and at least one type is NullType or nullable.
      */
     public function containsNullable(): bool
+    {
+        return false;
+    }
+
+    /**
+     * @return bool - True if not empty and at least one type is NullType or mixed.
+     */
+    public function containsNullableOrMixed(): bool
     {
         return false;
     }
@@ -492,6 +490,15 @@ final class EmptyUnionType extends UnionType
      * True if this Union has no types
      */
     public function isEmpty(): bool
+    {
+        return true;
+    }
+
+    /**
+     * @return bool
+     * True if this Union has no types or is the mixed type
+     */
+    public function isEmptyOrMixed(): bool
     {
         return true;
     }

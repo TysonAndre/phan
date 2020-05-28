@@ -82,6 +82,8 @@ This plugin is able to resolve literals, global constants, and class constants a
 
 - **PhanPluginInvalidPregRegex**: The provided regex is invalid, according to PHP.
 - **PhanPluginInvalidPregRegexReplacement**: The replacement string template of `preg_replace` refers to a match group that doesn't exist. (e.g. `preg_replace('/x(a)/', 'y$2', $strVal)`)
+- **PhanPluginRegexDollarAllowsNewline**: `Call to {FUNCTION} used \'$\' in {STRING_LITERAL}, which allows a newline character \'\n\' before the end of the string. Add S to qualifiers to forbid the newline, m to match any newline, or suppress this issue if this is deliberate`
+  (This issue type is specific to coding style, and only checked for when configuration includes `['plugin_config' => ['regex_warn_if_newline_allowed_at_end' => true]]`)
 
 #### PrintfCheckerPlugin
 
@@ -150,6 +152,10 @@ Configuration settings can be added to `.phan/config.php`:
 
 If you wish to make sure that analyzed files would be accepted by those PHP versions
 (Requires that php72, php70, and php56 be locatable with the `$PATH` environment variable)
+
+As of Phan 2.7.2, it is also possible to locally configure the PHP binary (or binaries) to run syntax checks with.
+e.g. `phan --native-syntax-check php --native-syntax-check /usr/bin/php7.4` would run checks both with `php` (resolved with `$PATH`)
+and the absolute path `/usr/bin/php7.4`. (see `phan --extended-help`)
 
 #### UseReturnValuePlugin.php
 
@@ -384,6 +390,9 @@ that are likely to be a bug. (e.g. `expr1 == expr`)
 - **PhanPluginDuplicateConditionalNullCoalescing**: `"isset(X) ? X : Y" can usually be simplified to "X ?? Y" in PHP 7. The duplicated expression X was {CODE}`
 - **PhanPluginBothLiteralsBinaryOp**: `Suspicious usage of a binary operator where both operands are literals. Expression: {CODE} {OPERATOR} {CODE} (result is {CODE})` (e.g. warns about `null == 'a literal` in `$x ?? null == 'a literal'`)
 - **PhanPluginDuplicateConditionalUnnecessary**: `"X ? Y : Y" results in the same expression Y no matter what X evaluates to. Y was {CODE}`
+- **PhanPluginDuplicateCatchStatementBody**: `The implementation of catch({CODE}) and catch({CODE}) are identical, and can be combined if the application only needs to supports php 7.1 and newer`
+
+  Note that equivalent catch statements may be deliberate or a coding style choice, and this plugin does not check for TODOs.
 
 #### WhitespacePlugin.php
 
@@ -495,6 +504,27 @@ Note that this is not emitted for empty statement lists in functions or methods 
 Checks for complex variable access expressions `$$x`, which may be hard to read, and make the variable accesses hard/impossible to analyze.
 
 - **PhanPluginDollarDollar**: Warns about the use of $$x, ${(expr)}, etc.
+
+#### PHP53CompatibilityPlugin.php
+
+Catches common incompatibilities from PHP 5.3 to 5.6.
+**This plugin does not aim to be comprehensive - read the guides on https://www.php.net/manual/en/appendices.php if you need to migrate from php versions older than 5.6**
+
+`InvokePHPNativeSyntaxCheckPlugin` with `'php_native_syntax_check_binaries' => [PHP_BINARY, '/path/to/php53']` in the `'plugin_config'` is a better but slower way to check that syntax used does not cause errors in PHP 5.3.
+
+`backward_compatibility_checks` should also be enabled if migrating a project from php 5 to php 7.
+
+Emitted issue types:
+
+- **PhanPluginCompatibilityShortArray**: `Short arrays ({CODE}) require support for php 5.4+`
+- **PhanPluginCompatibilityArgumentUnpacking**: `Argument unpacking ({CODE}) requires support for php 5.6+`
+- **PhanPluginCompatibilityVariadicParam**: `Variadic functions ({CODE}) require support for php 5.6+`
+
+#### DuplicateConstantPlugin.php
+
+Checks for duplicate constant names for calls to `define()` or `const X =` within the same statement list.
+
+- **PhanPluginDuplicateConstant**: `Constant {CONST} was previously declared at line {LINE} - the previous declaration will be used instead`
 
 #### AvoidableGetterPlugin.php
 

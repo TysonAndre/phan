@@ -8,7 +8,6 @@ use AssertionError;
 use InvalidArgumentException;
 use Phan\Exception\FQSENException;
 use Phan\Language\Context;
-use Phan\Language\FQSEN;
 
 /**
  * A Fully-Qualified Class Name
@@ -75,7 +74,7 @@ abstract class FullyQualifiedClassElement extends AbstractFQSEN
     ) {
         $name = static::canonicalName($name);
 
-        $key = $fully_qualified_class_name . '::' . $name . ',' . $alternate_id .
+        $key = $fully_qualified_class_name->__toString() . '::' . $name . ',' . $alternate_id .
                '|' . static::class;
 
         static $cache = [];
@@ -91,7 +90,7 @@ abstract class FullyQualifiedClassElement extends AbstractFQSEN
      * Get the canonical (non-alternate) FQSEN associated
      * with this FQSEN
      */
-    public function getCanonicalFQSEN(): FQSEN
+    public function getCanonicalFQSEN()
     {
         $fully_qualified_class_name = $this->fully_qualified_class_name->getCanonicalFQSEN();
         if (!$this->alternate_id && $fully_qualified_class_name === $this->fully_qualified_class_name) {

@@ -854,6 +854,7 @@ class UnionTypeVisitor extends AnalysisVisitor
         // For the shorthand $a ?: $b, the cond node will be the truthy value.
         // Note: an ast node will never be null(can be unset), it will be a const AST node with the name null.
         $true_node = $node->children['true'] ?? $cond_node;
+        $false_node = $node->children['false'];
 
         // Rarely, a conditional will always be true or always be false.
         if ($cond_truthiness !== null) {
@@ -916,8 +917,12 @@ class UnionTypeVisitor extends AnalysisVisitor
                 $false_type = UnionTypeVisitor::unionTypeFromNode(
                     $this->code_base,
                     $false_context,
-                    $node->children['false']
+                    $false_node
                 );
+                if ($false_node instanceof Node && $false_node->kind === ast\AST_THROW) {
+                    return $true_type->nonFalseyClone();
+                }
+
                 $true_type_is_empty = $true_type->isEmpty();
                 if (!$false_type->isEmpty()) {
                     // E.g. `foo() ?: 2` where foo is nullable or possibly false.
@@ -960,6 +965,12 @@ class UnionTypeVisitor extends AnalysisVisitor
             $false_context,
             $node->children['false']
         );
+        if ($false_node instanceof Node && $false_node->kind === ast\AST_THROW) {
+            return $true_type;
+        }
+        if ($true_node instanceof Node && $true_node->kind === ast\AST_THROW) {
+            return $false_type;
+        }
 
         // Add the type for the 'true' side to the 'false' side
         $union_type = $true_type->withUnionType($false_type);
@@ -1503,16 +1514,14 @@ class UnionTypeVisitor extends AnalysisVisitor
             $class_node
         );
         // TODO: Unify UnionTypeVisitor, AssignmentVisitor, and PostOrderAnalysisVisitor
-        if (!$type->isEmpty() && !$type->hasObjectTypes()) {
-            if ($class_node->kind !== \ast\AST_NAME &&
-                    !$type->canCastToUnionType(StringType::instance(false)->asPHPDocUnionType())
-            ) {
+        if (!$type->isEmpty() && $type->objectTypesWithKnownFQSENs()->isEmpty()) {
+            if ($class_node->kind === \ast\AST_NAME || !$type->hasStringType()) {
                 Issue::maybeEmit(
                     $code_base,
                     $context,
                     Issue::TypeInvalidInstanceof,
                     $context->getLineNumberStart(),
-                    ASTReverter::toShortString($node),
+                    ASTReverter::toShortString($class_node),
                     (string)$type
                 );
             }
@@ -1584,6 +1593,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                         Issue::TypePossiblyInvalidDimOffset,
                         $node->lineno,
                         ASTReverter::toShortString($node->children['dim']),
+                        ASTReverter::toShortString($node->children['expr']),
                         $union_type
                     );
                     if ($treat_undef_as_nullable || Config::getValue('convert_possibly_undefined_offset_to_nullable')) {
@@ -1614,6 +1624,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                 $this->emitIssue(
                     Issue::TypeArraySuspiciousNullable,
                     $node->lineno,
+                    ASTReverter::toShortString($node->children['expr']),
                     (string)$union_type
                 );
             }
@@ -1671,7 +1682,8 @@ class UnionTypeVisitor extends AnalysisVisitor
             if (!($node->flags & self::FLAG_IGNORE_NULLABLE)) {
                 $this->emitIssue(
                     Issue::TypeArraySuspiciousNull,
-                    $node->lineno
+                    $node->lineno,
+                    ASTReverter::toShortString($node->children['expr'])
                 );
             }
             if ($union_type->getRealUnionType()->isNull()) {
@@ -1724,14 +1736,15 @@ class UnionTypeVisitor extends AnalysisVisitor
                         return $element_types;
                     }
                 }
-            } catch (CodeBaseException $_) {
-            } catch (RecursionDepthException $_) {
+            } catch (CodeBaseException | RecursionDepthException $_) {
+                // ignore
             }
 
             if (!$union_type->hasArrayLike() && !$union_type->hasMixedType()) {
                 $this->emitIssue(
                     Issue::TypeArraySuspicious,
                     $node->lineno,
+                    ASTReverter::toShortString($node->children['expr']),
                     (string)$union_type
                 );
                 return $element_types;
@@ -1740,6 +1753,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                 $this->emitIssue(
                     Issue::TypeArraySuspiciousNullable,
                     $node->lineno,
+                    ASTReverter::toShortString($node->children['expr']),
                     (string)$union_type
                 );
             }
@@ -1791,6 +1805,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                 $node->children['dim']->lineno ?? $node->lineno,
                 [
                     $dim_type,
+                    ASTReverter::toShortString($node->children['expr']),
                     (string)$union_type
                 ]
             )
@@ -1846,6 +1861,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                         $dim_node->lineno ?? $node->lineno,
                         [
                             is_scalar($dim_value) ? StringUtil::jsonEncode($dim_value) : ASTReverter::toShortString($dim_value),
+                            ASTReverter::toShortString($node->children['expr']),
                             (string)$union_type
                         ]
                     )
@@ -1874,7 +1890,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                     Issue::fromType(Issue::TypeInvalidDimOffset)(
                         $this->context->getFile(),
                         $dim_node->lineno ?? $node->lineno,
-                        [StringUtil::jsonEncode($dim_value), (string)$union_type]
+                        [StringUtil::jsonEncode($dim_value), ASTReverter::toShortString($node->children['expr']), (string)$union_type]
                     )
                 );
                 if ($this->should_catch_issue_exception) {
@@ -2431,10 +2447,10 @@ class UnionTypeVisitor extends AnalysisVisitor
             // We might still be in the parse phase.
             // Throw the same IssueException that would be thrown in Phan 1 and let the caller decide how to handle this.
             $new_exception = new IssueException(
-                Issue::fromType(Issue::UndeclaredClassConstant)(
+                Issue::fromType(Issue::UndeclaredClassReference)(
                     $this->context->getFile(),
                     $node->lineno,
-                    ['class', (string)$exception_fqsen],
+                    [(string)$exception_fqsen],
                     IssueFixSuggester::suggestSimilarClassForGenericFQSEN($this->code_base, $this->context, $exception_fqsen)
                 )
             );
@@ -2459,7 +2475,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                 false
             );
         }
-        if (\is_string($name) && \strcasecmp($name, 'static') === 0 && (!$class || !$class->isFinal())) {
+        if (\is_string($name) && \strcasecmp($name, 'static') === 0 && (!isset($class) || !$class->isFinal())) {
             return UnionType::of($types, [ClassStringType::instance(false)]);
         }
         return UnionType::of($types, $types);
@@ -2591,10 +2607,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                 ["{$exception_fqsen}->{$property_name}"],
                 $suggestion
             );
-        } catch (UnanalyzableException $_) {
-            // Swallow it. There are some constructs that we
-            // just can't figure out.
-        } catch (NodeException $_) {
+        } catch (UnanalyzableException | NodeException $_) {
             // Swallow it. There are some constructs that we
             // just can't figure out.
         }
@@ -3037,6 +3050,18 @@ class UnionTypeVisitor extends AnalysisVisitor
         }
 
         return $this->context->getClassFQSEN()->asType()->asRealUnionType();
+    }
+
+    /*
+     * @param Node $node
+     * A node containing a throw expression.
+     *
+     * @return UnionType
+     * `void` is as close as possible to `no-return` or `never` for types currently available in Phan.
+     */
+    public function visitThrow(Node $_): UnionType
+    {
+        return VoidType::instance(false)->asRealUnionType();
     }
 
     private function classTypesForNonName(Node $node): UnionType

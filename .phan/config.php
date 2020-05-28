@@ -358,16 +358,16 @@ return [
         'plugins/codeclimate/engine',
         'tool/make_stubs',
         'tool/pdep',
+        'tool/phantasm',
         'tool/phoogle',
         'internal/dump_fallback_ast.php',
         'internal/dump_html_styles.php',
         'internal/extract_arg_info.php',
         'internal/internalsignatures.php',
+        'internal/line_deleter.php',
         'internal/package.php',
         'internal/reflection_completeness_check.php',
         'internal/sanitycheck.php',
-        'internal/update_wiki_config_types.php',
-        'internal/update_wiki_issue_types.php',
         'vendor/phpdocumentor/type-resolver/src/Types/ContextFactory.php',
         'vendor/phpdocumentor/reflection-docblock/src/DocBlockFactory.php',
         'vendor/phpdocumentor/reflection-docblock/src/DocBlock.php',
@@ -512,6 +512,10 @@ return [
 
         // Automatically infer which methods are pure (i.e. should have no side effects) in UseReturnValuePlugin.
         'infer_pure_methods' => true,
+
+        // Warn if newline is allowed before end of string for `$` (the default unless the `S` modifier (`PCRE_DOLLAR_ENDONLY`) is passed in).
+        // This is specific to coding styles.
+        'regex_warn_if_newline_allowed_at_end' => true,
     ],
 
     // A list of plugin files to execute

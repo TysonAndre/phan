@@ -14,10 +14,6 @@
         backupStaticAttributes="true"
         verbose="false">
 
-    <listeners>
-        <listener class="Phan\Tests\PhanTestListener"/>
-    </listeners>
-
     <php>
         <!-- Affects tests of CLI, etc. -->
         <env name="PHAN_ENABLE_COLOR_OUTPUT" value="" force="true" />
@@ -61,6 +57,7 @@
             <directory>tests/Phan/Analysis</directory>
             <directory>tests/Phan/AST</directory>
             <directory>tests/Phan/Exception</directory>
+            <directory>tests/Phan/Internal</directory>
             <directory>tests/Phan/LanguageServer</directory>
             <directory>tests/Phan/Library</directory>
             <directory>tests/Phan/Output</directory>

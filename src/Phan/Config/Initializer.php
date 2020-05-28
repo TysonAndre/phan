@@ -6,9 +6,12 @@ namespace Phan\Config;
 
 use ast\Node;
 use Closure;
+use CompileError;
 use Composer\Semver\Constraint\ConstraintInterface;
 use Composer\Semver\VersionParser;
+use ParseError;
 use Phan\AST\Parser;
+use Phan\AST\TolerantASTConverter\ParseException;
 use Phan\CLI;
 use Phan\CodeBase;
 use Phan\Config;
@@ -482,7 +485,7 @@ EOT;
                 }
                 $composer_lib_relative_path = \trim(\str_replace(\DIRECTORY_SEPARATOR, '/', $composer_lib_relative_path), '/');
 
-                $composer_lib_relative_path = \preg_replace('@(/+\.)+$@', '', $composer_lib_relative_path);
+                $composer_lib_relative_path = \preg_replace('@(/+\.)+$@S', '', $composer_lib_relative_path);
                 if (\is_dir($composer_lib_absolute_path)) {
                     $directory_list[] = \trim($composer_lib_relative_path, '/');
                 } elseif (\is_file($composer_lib_relative_path)) {
@@ -587,11 +590,7 @@ EOT;
                 return true;
             }
             return $node->kind !== \ast\AST_ECHO || !is_string($node->children['expr']);
-        } catch (\ParseError $_) {
-            return false;
-        } catch (\CompileError $_) {
-            return false;
-        } catch (\Phan\AST\TolerantASTConverter\ParseException $_) {
+        } catch (ParseError | CompileError | ParseException $_) {
             return false;
         }
     }
