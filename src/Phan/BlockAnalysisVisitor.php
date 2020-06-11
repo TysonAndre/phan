@@ -425,7 +425,8 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         if (\preg_match_all(self::PHAN_DEBUG_VAR_REGEX, $text, $matches, \PREG_SET_ORDER) > 0) {
             $has_known_annotations = true;
             foreach ($matches as $group) {
-                foreach (array_map('trim', explode(',', $group[1])) as $var_name) {
+                foreach (explode(',', $group[1]) as $var_name) {
+                    $var_name = \ltrim(\trim($var_name), '$');
                     if ($context->getScope()->hasVariableWithName($var_name)) {
                         $union_type_string = $context->getScope()->getVariableByName($var_name)->getUnionType()->getDebugRepresentation();
                     } else {
@@ -632,6 +633,14 @@ class BlockAnalysisVisitor extends AnalysisVisitor
             $node->lineno
         );
 
+        // Let any configured plugins do a pre-order
+        // analysis of the node.
+        ConfigPluginSet::instance()->preAnalyzeNode(
+            $this->code_base,
+            $context,
+            $node
+        );
+
         $init_node = $node->children['init'];
         if ($init_node instanceof Node) {
             $context = $this->analyzeAndGetUpdatedContext(
@@ -662,7 +671,24 @@ class BlockAnalysisVisitor extends AnalysisVisitor
             } finally {
                 \array_pop($this->parent_node_list);
             }
-            $always_iterates_at_least_once = $condition_subnode instanceof Node ? UnionTypeVisitor::checkCondUnconditionalTruthiness($condition_subnode) : (bool) $condition_subnode;
+            if ($condition_subnode instanceof Node) {
+                // Analyze the cond expression for its side effects and the code it contains,
+                // not the effect of the condition.
+                // e.g. `while ($x = foo())`
+                $context = $this->analyzeAndGetUpdatedContext(
+                    $context->withLineNumberStart($condition_subnode->lineno),
+                    $node,
+                    $condition_subnode
+                );
+                if (!$this->context->isInGlobalScope() && !$this->context->isInLoop()) {
+                    $condition_type = UnionTypeVisitor::unionTypeFromNode($this->code_base, $context, $condition_subnode);
+                    $always_iterates_at_least_once = !$condition_type->containsFalsey() && !$condition_type->isEmpty();
+                } else {
+                    $always_iterates_at_least_once = UnionTypeVisitor::checkCondUnconditionalTruthiness($condition_subnode);
+                }
+            } else {
+                $always_iterates_at_least_once = (bool)$condition_subnode;
+            }
         } else {
             $always_iterates_at_least_once = true;
         }
@@ -701,6 +727,14 @@ class BlockAnalysisVisitor extends AnalysisVisitor
                 BlockExitStatusChecker::willUnconditionallyProceed($stmts_node)
             ))->checkRedundantOrImpossibleTruthyCondition($condition_node, $context, null, false);
         }
+
+        // Give plugins a chance to analyze the loop condition now
+        ConfigPluginSet::instance()->analyzeLoopBeforeBody(
+            $this->code_base,
+            $context,
+            $node
+        );
+
         $context = $this->analyzeAndGetUpdatedContext(
             $context->withScope(
                 new BranchScope($context->getScope())
@@ -806,7 +840,12 @@ class BlockAnalysisVisitor extends AnalysisVisitor
                 $node,
                 $condition_node
             );
-            $always_iterates_at_least_once = UnionTypeVisitor::checkCondUnconditionalTruthiness($condition_node);
+            if (!$this->context->isInGlobalScope() && !$this->context->isInLoop()) {
+                $condition_type = UnionTypeVisitor::unionTypeFromNode($this->code_base, $context, $condition_node);
+                $always_iterates_at_least_once = !$condition_type->containsFalsey() && !$condition_type->isEmpty();
+            } else {
+                $always_iterates_at_least_once = UnionTypeVisitor::checkCondUnconditionalTruthiness($condition_node);
+            }
         } else {
             $always_iterates_at_least_once = (bool)$condition_node;
         }
@@ -840,6 +879,13 @@ class BlockAnalysisVisitor extends AnalysisVisitor
                 BlockExitStatusChecker::willUnconditionallyProceed($stmts_node)
             ))->checkRedundantOrImpossibleTruthyCondition($condition_node, $context, null, false);
         }
+
+        // Give plugins a chance to analyze the loop condition now
+        ConfigPluginSet::instance()->analyzeLoopBeforeBody(
+            $this->code_base,
+            $context,
+            $node
+        );
 
         $context = $this->analyzeAndGetUpdatedContext(
             $context->withScope(
@@ -954,6 +1000,14 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         if ($key_node instanceof Node) {
             $inner_context = $this->analyzeAndGetUpdatedContext($inner_context, $node, $key_node);
         }
+
+        // Give plugins a chance to analyze the loop condition now
+        ConfigPluginSet::instance()->analyzeLoopBeforeBody(
+            $code_base,
+            $inner_context,
+            $node
+        );
+
         $stmts_node = $node->children['stmts'];
         if ($stmts_node instanceof Node) {
             $inner_context = $this->analyzeAndGetUpdatedContext($inner_context, $node, $stmts_node);

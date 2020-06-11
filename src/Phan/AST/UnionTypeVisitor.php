@@ -24,6 +24,7 @@ use Phan\Exception\IssueException;
 use Phan\Exception\NodeException;
 use Phan\Exception\RecursionDepthException;
 use Phan\Exception\UnanalyzableException;
+use Phan\Exception\UnanalyzableMagicPropertyException;
 use Phan\Issue;
 use Phan\IssueFixSuggester;
 use Phan\Language\Context;
@@ -2607,7 +2608,10 @@ class UnionTypeVisitor extends AnalysisVisitor
                 ["{$exception_fqsen}->{$property_name}"],
                 $suggestion
             );
-        } catch (UnanalyzableException | NodeException $_) {
+        } catch (UnanalyzableMagicPropertyException $exception) {
+            $class = $exception->getClass();
+            return $class->getMethodByName($this->code_base, '__get')->getUnionType();
+        } catch (NodeException $_) {
             // Swallow it. There are some constructs that we
             // just can't figure out.
         }
@@ -2872,17 +2876,18 @@ class UnionTypeVisitor extends AnalysisVisitor
      */
     public function visitUnaryOp(Node $node): UnionType
     {
-        // Shortcut some easy operators
-        $flags = $node->flags;
-        if ($flags === \ast\flags\UNARY_BOOL_NOT) {
-            return BoolType::instance(false)->asRealUnionType();
-        }
-
         $result = self::unionTypeFromNode(
             $this->code_base,
             $this->context,
             $node->children['expr']
         );
+
+        // Shortcut some easy operators
+        $flags = $node->flags;
+        if ($flags === \ast\flags\UNARY_BOOL_NOT) {
+            return $result->applyUnaryNotOperator();
+        }
+
         if ($flags === \ast\flags\UNARY_MINUS) {
             $this->warnAboutInvalidUnaryOp(
                 $node,

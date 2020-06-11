@@ -42,6 +42,8 @@ use Phan\Language\Type\LiteralTypeInterface;
 use Phan\Language\Type\MixedType;
 use Phan\Language\Type\MultiType;
 use Phan\Language\Type\NonEmptyArrayInterface;
+use Phan\Language\Type\NonEmptyMixedType;
+use Phan\Language\Type\NonEmptyStringType;
 use Phan\Language\Type\NullType;
 use Phan\Language\Type\ObjectType;
 use Phan\Language\Type\ScalarType;
@@ -451,7 +453,7 @@ class UnionType implements Serializable
         foreach (self::extractTypeParts($type_string) as $type_name) {
             // Exclude empty type names
             // Exclude namespaces without type names (e.g. `\`, `\NS\`)
-            if ($type_name === '' || \preg_match('@\\\\[\[\]]*$@S', $type_name)) {
+            if ($type_name === '' || \preg_match('@\\\\[\[\]]*$@D', $type_name)) {
                 $parts[] = $type_name;
                 continue;
             }
@@ -910,7 +912,7 @@ class UnionType implements Serializable
         return UnionType::of(
             self::filterTypesInBoolFamily($this->type_set),
             self::filterTypesInBoolFamily($this->real_type_set)
-        );
+        )->asNormalizedTypes();
     }
 
     /**
@@ -924,10 +926,14 @@ class UnionType implements Serializable
             if ($type->isInBoolFamily()) {
                 $result[] = $type->withIsNullable(false);
             } elseif ($type instanceof MixedType) {
-                return [BoolType::instance(false)];
+                if ($type instanceof NonEmptyMixedType) {
+                    $result[] = TrueType::instance(false);
+                } else {
+                    return [BoolType::instance(false)];
+                }
             }
         }
-        return \count($result) === 1 ? $result : [BoolType::instance(false)];
+        return $result ?: [BoolType::instance(false)];
     }
 
     /**
@@ -3369,15 +3375,31 @@ class UnionType implements Serializable
      */
     public function intTypes(): UnionType
     {
-        return $this->makeFromFilter(static function (Type $type): bool {
-            // IntType and LiteralIntType
-            return $type instanceof IntType;
-        });
+        return UnionType::of(
+            self::castTypeListToInt($this->type_set),
+            self::castTypeListToInt($this->real_type_set)
+        );
+    }
+
+    /**
+     * @param Type[] $type_set
+     * @return list<Type>
+     */
+    private static function castTypeListToInt(array $type_set): array
+    {
+        $result = [];
+        foreach ($type_set as $type) {
+            if ($type instanceof IntType) {
+                $result[] = $type->withIsNullable(false);
+            } elseif ($type instanceof MixedType) {
+                $result[] = IntType::instance(false);
+            }
+        }
+        return $result;
     }
 
     /**
      * Returns the types for which is_float($x) would be true.
-     * Note that is_float($int) is false in PHP.
      *
      * @return UnionType
      * A UnionType with known float types kept, other types filtered out.
@@ -3387,9 +3409,27 @@ class UnionType implements Serializable
      */
     public function floatTypes(): UnionType
     {
-        return $this->makeFromFilter(static function (Type $type): bool {
-            return $type instanceof FloatType;
-        });
+        return UnionType::of(
+            self::castTypeListToFloat($this->type_set),
+            self::castTypeListToFloat($this->real_type_set)
+        );
+    }
+
+    /**
+     * @param Type[] $type_set
+     * @return list<Type>
+     */
+    private static function castTypeListToFloat(array $type_set): array
+    {
+        $result = [];
+        foreach ($type_set as $type) {
+            if ($type instanceof FloatType) {
+                $result[] = $type->withIsNullable(false);
+            } elseif ($type instanceof MixedType) {
+                $result[] = FloatType::instance(false);
+            }
+        }
+        return $result;
     }
 
     /**
@@ -3431,6 +3471,8 @@ class UnionType implements Serializable
                 $result[] = $type->withIsNullable(false);
             } elseif ($type instanceof CallableType) {
                 $result[] = CallableStringType::instance(false);
+            } elseif ($type instanceof MixedType) {
+                $result[] = $type instanceof NonEmptyMixedType ? NonEmptyStringType::instance(false) : StringType::instance(false);
             }
         }
         return $result;
@@ -3463,7 +3505,7 @@ class UnionType implements Serializable
         $is_possibly_string = false;
         foreach ($type_set as $type) {
             if ($type instanceof LiteralStringType) {
-                if (!\preg_match(FullyQualifiedClassName::VALID_CLASS_REGEX, $type->getValue()) && !\preg_match('/^\\\\?oci-(lob|collection)$/iS', $type->getValue())) {
+                if (!\preg_match(FullyQualifiedClassName::VALID_CLASS_REGEX, $type->getValue()) && !\preg_match('/^\\\\?oci-(lob|collection)$/iD', $type->getValue())) {
                     continue;
                 }
                 $result[] = $type->withIsNullable(false);
@@ -5446,6 +5488,44 @@ class UnionType implements Serializable
             }
         }
         return $type_set->withRealTypeSet(self::intOrStringTypeSet());
+    }
+
+    /**
+     * Returns the boolean negation of this type.
+     */
+    public function applyUnaryNotOperator(): UnionType
+    {
+        return UnionType::of(
+            self::applyUnaryNotOperatorToList($this->type_set),
+            self::applyUnaryNotOperatorToList($this->real_type_set)
+        );
+    }
+
+    /**
+     * @param Type[] $type_set
+     * @return list<Type>
+     */
+    private static function applyUnaryNotOperatorToList(array $type_set): array
+    {
+        $contains_falsey = false;
+        $contains_truthy = false;
+        foreach ($type_set as $type) {
+            if ($type->isPossiblyFalsey()) {
+                $contains_falsey = true;
+            }
+            if ($type->isPossiblyTruthy()) {
+                $contains_truthy = true;
+            }
+            if ($contains_falsey && $contains_truthy) {
+                return UnionType::typeSetFromString('bool');
+            }
+        }
+        if ($contains_truthy) {
+            return UnionType::typeSetFromString('false');
+        } elseif ($contains_falsey) {
+            return UnionType::typeSetFromString('true');
+        }
+        return UnionType::typeSetFromString('bool');
     }
 
     /** @return list<IntType|FloatType> */

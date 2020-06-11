@@ -80,7 +80,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    public const PHAN_VERSION = '3.0.1-dev';
+    public const PHAN_VERSION = '3.0.3-dev';
 
     /**
      * List of short flags passed to getopt
@@ -108,6 +108,7 @@ class CLI
         'daemonize-tcp-host:',
         'daemonize-tcp-port:',
         'dead-code-detection',
+        'dead-code-detection-prefer-false-positive',
         'debug',
         'debug-emitted-issues:',
         'debug-signal-handler',
@@ -812,6 +813,10 @@ class CLI
                 case 'dead-code-detection':
                     Config::setValue('dead_code_detection', true);
                     break;
+                case 'dead-code-detection-prefer-false-positive':
+                    Config::setValue('dead_code_detection', true);
+                    Config::setValue('dead_code_detection_prefer_false_negative', false);
+                    break;
                 case 'u':
                 case 'unused-variable-detection':
                     Config::setValue('unused_variable_detection', true);
@@ -848,7 +853,7 @@ class CLI
                     Config::setValue('__parser_keep_original_node', true);
                     break;
                 case 'memory-limit':
-                    if (\preg_match('@^([1-9][0-9]*)([KMG])?$@S', $value, $match)) {
+                    if (\preg_match('@^([1-9][0-9]*)([KMG])?$@D', $value, $match)) {
                         \ini_set('memory_limit', $value);
                     } else {
                         fwrite(STDERR, "Invalid --memory-limit '$value', ignoring\n");
@@ -1020,7 +1025,7 @@ class CLI
             $opt_set['-' . \rtrim($opt, ':')] = true;
         }
         foreach (array_slice($argv, 1) as $arg) {
-            $arg = \preg_replace('/=.*$/S', '', $arg);
+            $arg = \preg_replace('/=.*$/D', '', $arg);
             if (\array_key_exists($arg, $opt_set)) {
                 self::printHelpSection(
                     "WARNING: Saw suspicious CLI arg '$arg' (did you mean '-$arg')\n",
@@ -1729,6 +1734,11 @@ Extended help:
   (i.e. they are declared once (as a constant expression) and never modified).
   This is almost entirely false positives for most coding styles.
   Implies --unused-variable-detection
+
+ --dead-code-detection-prefer-false-positive
+  When performing dead code detection, prefer emitting false positives
+  (reporting dead code that is not actually dead) over false negatives
+  (failing to report dead code). This implies `--dead-code-detection`.
 
  --debug-emitted-issues={basic,verbose}
   Print backtraces of emitted issues which weren't suppressed to stderr.

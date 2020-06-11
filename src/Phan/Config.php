@@ -53,7 +53,7 @@ class Config
      * New features increment minor versions, and bug fixes increment patch versions.
      * @suppress PhanUnreferencedPublicClassConstant
      */
-    public const PHAN_PLUGIN_VERSION = '3.1.0';
+    public const PHAN_PLUGIN_VERSION = '3.2.0';
 
     /**
      * @var string|null
@@ -466,6 +466,9 @@ class Config
         // as variables (like `$class->$property` or
         // `$class->$method()`) in ways that we're unable
         // to make sense of.
+        //
+        // To more aggressively detect dead code,
+        // you may want to set `dead_code_detection_prefer_false_negative` to `false`.
         'dead_code_detection' => false,
 
         // Set to true in order to attempt to detect unused variables.

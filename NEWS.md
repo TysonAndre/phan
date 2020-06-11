@@ -1,6 +1,42 @@
 Phan NEWS
 
-??? ?? 2020, Phan 3.0.1 (dev)
+??? ?? 2020, Phan 3.0.3 (dev)
+-----------------------
+
+New features(Analysis):
++ Include the most generic types when conditions such as `is_string()` to union types containing `mixed` (#3947)
++ More aggressively infer that `while` and `for` loop bodies are executed at least once in functions outside of other loops (#3948)
++ Infer the union type of `!$expr` from the type of `$expr` (#3948)
+
+Bug fixes:
++ Fix `PhanDebugAnnotation` output for variables after the first one in `@phan-debug-var $a, $b` (#3943)
+
+Jun 07 2020, Phan 3.0.2
+-----------------------
+
+New features(CLI, Configs):
++ Add `--dead-code-detection-prefer-false-positive` to run dead code detection,
+  erring on the side of reporting potentially dead code even when it is possibly not dead.
+  (e.g. when methods of unknown objects are invoked, don't mark all methods with the same name as potentially used)
+
+New features(Analysis):
++ Fix false positive `PhanAbstractStaticMethodCall` (#3935)
+  Also, properly emit `PhanAbstractStaticMethodCall` for a variable containing a string class name.
+
+Plugins:
++ Fix incorrect check and suggestion for `PregRegexCheckerPlugin`'s warning if
+  `$` allows an optional newline before the end of the string when the configuration includes
+  `['plugin_config' => ['regex_warn_if_newline_allowed_at_end' => true]]`) (#3938)
++ Add `BeforeLoopBodyAnalysisCapability` for plugins to analyze loop conditions before the body (#3936)
++ Warn about suspicious param order for `str_contains`, `str_ends_with`, and `str_starts_with` in `SuspiciousParamOrderPlugin` (#3934)
+
+Bug fixes:
++ Don't report unreferenced class properties of internal stub files during dead code detection
+  (i.e. files in `autoload_internal_extension_signatures`).
++ Don't remove the leading directory separator when attempting to convert a file outside the project to a relative path.
+  (in cases where the directory is different but has the project's name as a prefix)
+
+Jun 04 2020, Phan 3.0.1
 -----------------------
 
 New features(Analysis):
@@ -11,6 +47,13 @@ New features(Analysis):
   (analyze more expression kinds, infer real types in more places)
 + Warn about unnecessary use of `expr ?? null`. (#3925)
   New issue types: `PhanCoalescingNeverUndefined`.
++ Support PHP 8.0 non-capturing catches (#3907)
+  New issue types: `PhanCompatibleNonCapturingCatch`.
++ Infer type of `$x->magicProp` from the signature of `__get`
++ Treat functions/methods that are only called by themselves as unreferenced during dead code detection.
++ Warn about `each()` being deprecated when the `target_php_version` is php 7.2+. (#2746)
+  This is special cased because PHP does not flag the function itself as deprecated in `ReflectionFunction`.
+  (PHP only emits the deprecation notice for `each()` once at runtime)
 
 Miscellaneous:
 + Check for keys that are too long when computing levenshtein distances (when Phan suggests alternatives).
@@ -19,10 +62,14 @@ Plugins:
 + Add `AnalyzeLiteralStatementCapability` for plugins to analyze no-op string literals (#3911)
 + In `PregRegexCheckerPlugin`, warn if `$` allows an optional newline before the end of the string
   when configuration includes `['plugin_config' => ['regex_warn_if_newline_allowed_at_end' => true]]`) (#3915)
++ In `SuspiciousParamOrderPlugin`, warn if an argument has a near-exact name match for a parameter at a different position (#3929)
+  E.g. warn about calling `foo($b)` or `foo(true, $this->A)` for `function foo($a = false, $b = false)`.
+  New issue types: `PhanPluginSuspiciousParamPosition`, `PhanPluginSuspiciousParamPositionInternal`
 
 Bug fixes:
 + Fix false positive `PhanTypeMismatchPropertyDefault` involving php 7.4 typed properties with no default
   and generic comments (#3917)
++ Don't remove leading directory separator when attempting to convert a file outside the project to a relative path.
 
 May 09 2020, Phan 3.0.0
 -----------------------
