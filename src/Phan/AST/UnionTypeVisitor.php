@@ -993,6 +993,33 @@ class UnionTypeVisitor extends AnalysisVisitor
     }
 
     /**
+     * Visit a node with kind `\ast\AST_MATCH`
+     *
+     * @param Node $node
+     * A node of the type indicated by the method name that we'd
+     * like to figure out the type that it produces.
+     *
+     * @return UnionType
+     * The set of types that are possibly produced by the
+     * given node
+     * @suppress PhanPossiblyUndeclaredProperty
+     */
+    public function visitMatch(Node $node): UnionType
+    {
+        // TODO: Support inferring the type from the conditional
+        $union_types = [];
+        foreach ($node->children['stmts']->children as $arm_node) {
+            if (!BlockExitStatusChecker::willUnconditionallyThrowOrReturn($arm_node)) {
+                $union_types[] = UnionTypeVisitor::unionTypeFromNode($this->code_base, clone($this->context), $arm_node->children['expr']);
+            }
+        }
+        if (!$union_types) {
+            return VoidType::instance(false)->asRealUnionType();
+        }
+        return UnionType::merge($union_types);
+    }
+
+    /**
      * Visit a node with kind `\ast\AST_ARRAY`
      *
      * @param Node $node

@@ -184,6 +184,63 @@ class DuplicateArrayKeyVisitor extends PluginAwarePostAnalysisVisitor
 
     /**
      * @param Node $node
+     * A match expressions's arms list (AST_MATCH_ARM_LIST) node to analyze
+     * @override
+     * @suppress PhanPossiblyUndeclaredProperty
+     */
+    public function visitMatchArmList(Node $node): void
+    {
+        $children = $node->children;
+        if (!$children) {
+            // This plugin will never emit errors if there are 0 elements.
+            return;
+        }
+
+        $arm_expr_constant_set = [];
+        foreach ($children as $arm_node) {
+            foreach ($arm_node->children['cond']->children ?? [] as $arm_expr_cond) {
+                if ($arm_expr_cond === null) {
+                    continue;  // This is `default:`. php --syntax-check already checks for duplicates.
+                }
+                $lineno = $arm_expr_cond->lineno ?? $arm_node->lineno;
+                // Skip array entries without literal keys. (Do it before resolving the key value)
+                if (is_object($arm_expr_cond)) {
+                    $original_cond = $arm_expr_cond;
+                    $arm_expr_cond = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $arm_expr_cond)->asSingleScalarValueOrNullOrSelf();
+                    if (is_object($arm_expr_cond)) {
+                        $arm_expr_cond = $original_cond;
+                    }
+                }
+                if (is_string($arm_expr_cond)) {
+                    $cond_key = "s$arm_expr_cond";
+                } elseif (is_int($arm_expr_cond)) {
+                    $cond_key = $arm_expr_cond;
+                } elseif (is_bool($arm_expr_cond)) {
+                    $cond_key = $arm_expr_cond ? "T" : "F";
+                } else {
+                    // TODO: This seems like it'd be flaky with ast\Node->flags and lineno?
+                    $cond_key = ASTHasher::hash($arm_expr_cond);
+                }
+                if (isset($arm_expr_constant_set[$cond_key])) {
+                    $normalized_arm_expr_cond = ASTReverter::toShortString($arm_expr_cond);
+                    $this->emitPluginIssue(
+                        $this->code_base,
+                        clone($this->context)->withLineNumberStart($lineno),
+                        'PhanPluginDuplicateArmExpression',
+                        "Duplicate switch arm expression({STRING_LITERAL}) detected in match expression - the later entry will be ignored in favor of expression {CODE} at line {LINE}.",
+                        [$normalized_arm_expr_cond, ASTReverter::toShortString($arm_expr_constant_set[$cond_key][0]), $arm_expr_constant_set[$cond_key][1]],
+                        Issue::SEVERITY_NORMAL,
+                        Issue::REMEDIATION_A,
+                        15071
+                    );
+                }
+                $arm_expr_constant_set[$cond_key] = [$arm_expr_cond, $arm_node->lineno];
+            }
+        }
+    }
+
+    /**
+     * @param Node $node
      * An array literal(AST_ARRAY) node to analyze
      * @override
      */

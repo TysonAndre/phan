@@ -409,6 +409,43 @@ class RedundantConditionVisitor extends PluginAwarePostAnalysisVisitor
         return RedundantCondition::chooseSpecificImpossibleOrRedundantIssueKind($node, $this->context, $issue_name);
     }
 
+    /**
+     * @suppress PhanPossiblyUndeclaredProperty
+     */
+    public function visitMatch(Node $node): void
+    {
+        ['cond' => $cond_node, 'stmts' => $stmts_node] = $node->children;
+        $cond_type = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $cond_node);
+        if (!$cond_type->hasRealTypeSet()) {
+            return;
+        }
+        $cond_type = $cond_type->getRealUnionType()->withStaticResolvedInContext($this->context);
+        $code_base = $this->code_base;
+        foreach ($stmts_node->children as $arm_node) {
+            foreach ($arm_node->children['cond']->children ?: [] as $arm_expr) {
+                $arm_expr_type = UnionTypeVisitor::unionTypeFromNode($code_base, $this->context, $arm_expr);
+                $arm_expr_type = $arm_expr_type->getRealUnionType()->withStaticResolvedInContext($this->context);
+                // @phan-suppress-next-line PhanPartialTypeMismatchArgument
+                if ($this->checkUselessScalarComparison($node, $cond_type, $arm_expr_type, $cond_node, $arm_expr, ast\flags\BINARY_IS_IDENTICAL)) {
+                    continue;
+                }
+                if (!$cond_type->hasAnyTypeOverlap($code_base, $arm_expr_type)) {
+                    $this->emitIssueForBinaryOp(
+                        $node,
+                        $cond_type,
+                        $arm_expr_type,
+                        Issue::ImpossibleTypeComparison,
+                        static function (UnionType $new_left_type, UnionType $new_right_type) use ($code_base): bool {
+                            return !$new_left_type->hasAnyTypeOverlap($code_base, $new_right_type);
+                        },
+                        $cond_node,
+                        $arm_expr
+                    );
+                }
+            }
+        }
+    }
+
     public function visitBinaryOp(Node $node): void
     {
         switch ($node->flags) {
