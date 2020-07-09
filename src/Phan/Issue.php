@@ -309,6 +309,7 @@ class Issue
     public const ParamTooFew               = 'PhanParamTooFew';
     public const ParamTooFewInternal       = 'PhanParamTooFewInternal';
     public const ParamTooFewCallable       = 'PhanParamTooFewCallable';
+    public const ParamTooFewInPHPDoc       = 'PhanParamTooFewInPHPDoc';
     public const ParamTooMany              = 'PhanParamTooMany';
     public const ParamTooManyUnpack        = 'PhanParamTooManyUnpack';
     public const ParamTooManyInternal      = 'PhanParamTooManyInternal';
@@ -2925,6 +2926,14 @@ class Issue
                 7044
             ),
             new Issue(
+                self::ParamTooFewInPHPDoc,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_LOW,
+                'Call with {COUNT} arg(s) to {FUNCTIONLIKE} which has phpdoc indicating it requires {COUNT} arg(s) (${PARAMETER} is mandatory) defined at {FILE}:{LINE}',
+                self::REMEDIATION_B,
+                7049
+            ),
+            new Issue(
                 self::ParamSpecial1,
                 self::CATEGORY_PARAMETER,
                 self::SEVERITY_NORMAL,
@@ -3999,7 +4008,7 @@ class Issue
                 self::ProvidingUnusedParameter,
                 self::CATEGORY_NOOP,
                 self::SEVERITY_LOW,
-                'Providing an unused optional parameter ${PARAMETER} to {FUNCTIONLIKE}',
+                'Providing an unused optional parameter ${PARAMETER} to {FUNCTIONLIKE} defined at {FILE}:{LINE}',
                 self::REMEDIATION_B,
                 6093
             ),
@@ -4007,7 +4016,7 @@ class Issue
                 self::ProvidingUnusedParameterOfClosure,
                 self::CATEGORY_NOOP,
                 self::SEVERITY_LOW,
-                'Providing an unused optional parameter ${PARAMETER} to {FUNCTIONLIKE}',
+                'Providing an unused optional parameter ${PARAMETER} to {FUNCTIONLIKE} defined at {FILE}:{LINE}',
                 self::REMEDIATION_B,
                 6094
             ),
