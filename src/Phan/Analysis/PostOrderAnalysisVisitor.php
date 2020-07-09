@@ -12,9 +12,9 @@ use Closure;
 use Exception;
 use Phan\AST\AnalysisVisitor;
 use Phan\AST\ASTReverter;
-use Phan\AST\ASTSimplifier;
 use Phan\AST\ContextNode;
 use Phan\AST\PhanAnnotationAdder;
+use Phan\AST\ScopeImpactCheckingVisitor;
 use Phan\AST\UnionTypeVisitor;
 use Phan\BlockAnalysisVisitor;
 use Phan\CodeBase;
@@ -142,7 +142,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             return $this->context;
         }
 
-        if ($right_type->isType(VoidType::instance(false))) {
+        if ($right_type->isVoidType()) {
             $this->emitIssue(
                 Issue::TypeVoidAssignment,
                 $node->lineno
@@ -807,7 +807,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         if ($this->isInNoOpPosition($node)) {
             if (\in_array($flags, [flags\BINARY_BOOL_AND, flags\BINARY_BOOL_OR, flags\BINARY_COALESCE], true)) {
                 // @phan-suppress-next-line PhanAccessMethodInternal
-                if (ASTSimplifier::isExpressionWithoutSideEffects($node->children['right'])) {
+                if (!ScopeImpactCheckingVisitor::hasPossibleImpact($this->code_base, $this->context, $node->children['right'])) {
                     $this->emitIssue(
                         Issue::NoopBinaryOperator,
                         $node->lineno,
@@ -835,6 +835,11 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             case flags\BINARY_SHIFT_RIGHT:
                 $this->analyzeBinaryShift($node);
                 break;
+            case flags\BINARY_BITWISE_OR:
+            case flags\BINARY_BITWISE_AND:
+            case flags\BINARY_BITWISE_XOR:
+                $this->analyzeBinaryBitwiseOp($node);
+                break;
         }
         return $this->context;
     }
@@ -855,12 +860,39 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         $this->warnAboutInvalidUnionType(
             $node,
             static function (Type $type): bool {
-                return $type instanceof IntType && !$type->isNullable();
+                return ($type instanceof IntType || $type instanceof MixedType) &&
+                    !$type->isNullable();
             },
             $left,
             $right,
             Issue::TypeInvalidLeftOperandOfIntegerOp,
             Issue::TypeInvalidRightOperandOfIntegerOp
+        );
+    }
+
+    private function analyzeBinaryBitwiseOp(Node $node): void
+    {
+        $left = UnionTypeVisitor::unionTypeFromNode(
+            $this->code_base,
+            $this->context,
+            $node->children['left']
+        );
+
+        $right = UnionTypeVisitor::unionTypeFromNode(
+            $this->code_base,
+            $this->context,
+            $node->children['right']
+        );
+        $this->warnAboutInvalidUnionType(
+            $node,
+            static function (Type $type): bool {
+                return ($type instanceof IntType || $type instanceof StringType || $type instanceof MixedType) &&
+                    !$type->isNullable();
+            },
+            $left,
+            $right,
+            Issue::TypeInvalidLeftOperandOfBitwiseOp,
+            Issue::TypeInvalidRightOperandOfBitwiseOp
         );
     }
 
@@ -1443,6 +1475,11 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         // Get the method/function/closure we're in
         $method = $context->getFunctionLikeInScope($code_base);
 
+        // Mark the method as returning something (even if void)
+        if (null !== $node->children['expr']) {
+            $method->setHasReturn(true);
+        }
+
         if ($method->returnsRef()) {
             $this->analyzeReturnsReference($method, $node);
         }
@@ -1529,11 +1566,6 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 // Add the new type to the set of values returned by the
                 // method
                 $method->setUnionType($method->getUnionType()->withUnionType($expression_type));
-            }
-
-            // Mark the method as returning something (even if void)
-            if (null !== $node->children['expr']) {
-                $method->setHasReturn(true);
             }
         }
 
@@ -1987,7 +2019,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     {
         if (!($node instanceof Node)) {
             if (null === $node) {
-                yield $return_lineno => [VoidType::instance(false)->asRealUnionType(), $node];
+                yield $return_lineno => [VoidType::instance(false)->asRealUnionType(), null];
                 return;
             }
             yield $return_lineno => [
@@ -2048,7 +2080,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         // Rarely, a conditional will always be true or always be false.
         if ($cond_truthiness !== null) {
             // TODO: Add no-op checks in another PR, if they don't already exist for conditional.
-            if ($cond_truthiness === true) {
+            if ($cond_truthiness) {
                 // The condition is unconditionally true
                 yield from $this->getReturnTypes($context, $true_node, $node->lineno);
                 return;
@@ -3114,7 +3146,8 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     public function visitConditional(Node $node): Context
     {
         if ($this->isInNoOpPosition($node)) {
-            if (ASTSimplifier::isExpressionWithoutSideEffects($node->children['true']) && ASTSimplifier::isExpressionWithoutSideEffects($node->children['false'])) {
+            if (!ScopeImpactCheckingVisitor::hasPossibleImpact($this->code_base, $this->context, $node->children['true']) &&
+                !ScopeImpactCheckingVisitor::hasPossibleImpact($this->code_base, $this->context, $node->children['false'])) {
                 $this->emitIssue(
                     Issue::NoopTernary,
                     $node->lineno
@@ -3876,11 +3909,17 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      *
      * @param list<Node|mixed> $arguments
      * An array of arguments to the callable, to analyze references.
+     *
+     * @param bool $erase_old_return_type
+     * Whether $method's old return type should be erased
+     * to use the newly inferred type based on $argument_types.
+     * (useful for array_map, etc)
      */
     public function analyzeCallableWithArgumentTypes(
         array $argument_types,
         FunctionInterface $method,
-        array $arguments = []
+        array $arguments = [],
+        bool $erase_old_return_type = false
     ): void {
         $method = $this->findDefiningMethod($method);
         if (!$method->needsRecursiveAnalysis()) {
@@ -3955,6 +3994,9 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             // Now that we know something about the parameters used
             // to call the method, we can reanalyze the method with
             // the types of the parameter
+            if ($erase_old_return_type) {
+                $method->setUnionType($method->getOriginalReturnType());
+            }
             $method->analyzeWithNewParams($method->getContext(), $this->code_base, $parameter_list);
         } finally {
             $method->setInternalScope($original_method_scope);
@@ -4226,7 +4268,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 }
             } else {
                 $parameter->addUnionType(
-                    $argument_type->withFlattenedArrayShapeOrLiteralTypeInstances()->withRealTypeSet($parameter->getNonVariadicUnionType()->getRealTypeSet())
+                    ($method instanceof Func && $method->isClosure() ? $argument_type : $argument_type->withFlattenedArrayShapeOrLiteralTypeInstances())->withRealTypeSet($parameter->getNonVariadicUnionType()->getRealTypeSet())
                 );
             }
         }
@@ -4374,7 +4416,12 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             case ast\AST_STMT_LIST:
                 return true;
             case ast\AST_EXPR_LIST:
-                return $node !== \end($parent_node->children) || $parent_node !== (\prev($this->parent_node_list)->children['cond'] ?? null);
+                if ($node !== \end($parent_node->children)) {
+                    return true;
+                }
+                // This is an expression list, but it's in the condition
+                // @phan-suppress-next-line PhanPossiblyUndeclaredProperty
+                return $parent_node !== (\prev($this->parent_node_list)->children['cond'] ?? null);
         }
         return false;
     }

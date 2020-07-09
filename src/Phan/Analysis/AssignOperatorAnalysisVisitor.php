@@ -570,6 +570,17 @@ class AssignOperatorAnalysisVisitor extends FlagVisitorImplementation
             // Expect int|string
 
             $right_type = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $node->children['expr']);
+
+            $this->warnAboutInvalidUnionType(
+                $node,
+                static function (Type $type): bool {
+                    return ($type instanceof IntType || $type instanceof StringType || $type instanceof MixedType) && !$type->isNullable();
+                },
+                $left_type,
+                $right_type,
+                Issue::TypeInvalidLeftOperandOfBitwiseOp,
+                Issue::TypeInvalidRightOperandOfBitwiseOp
+            );
             if (!$this->context->isInLoop()) {
                 if ($left_type->isNonNullNumberType() && $right_type->isNonNullNumberType()) {
                     return BinaryOperatorFlagVisitor::computeIntOrFloatOperationResult($node, $left_type, $right_type);
@@ -709,7 +720,7 @@ class AssignOperatorAnalysisVisitor extends FlagVisitorImplementation
         $this->warnAboutInvalidUnionType(
             $node,
             static function (Type $type): bool {
-                return $type instanceof IntType && !$type->isNullable();
+                return ($type instanceof IntType || $type instanceof MixedType) && !$type->isNullable();
             },
             $left,
             $right,

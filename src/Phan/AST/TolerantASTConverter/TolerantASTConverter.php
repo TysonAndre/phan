@@ -1995,7 +1995,7 @@ class TolerantASTConverter
             if (!($use instanceof PhpParser\Node\UseVariableName)) {
                 throw new AssertionError("Expected UseVariableName");
             }
-            $ast_uses[] = new ast\Node(ast\AST_CLOSURE_VAR, $use->byRef ? 1 : 0, ['name' => static::tokenToString($use->variableName)], self::getStartLine($use));
+            $ast_uses[] = new ast\Node(ast\AST_CLOSURE_VAR, $use->byRef ? ast\flags\CLOSURE_USE_REF : 0, ['name' => static::tokenToString($use->variableName)], self::getStartLine($use));
         }
         return new ast\Node(ast\AST_CLOSURE_USES, 0, $ast_uses, $ast_uses[0]->lineno ?? $line);
     }
@@ -2375,7 +2375,7 @@ class TolerantASTConverter
             if (!($case instanceof PhpParser\Node\CaseStatementNode)) {
                 continue;
             }
-            $case_line = static::getEndLine($case);
+            $case_line = static::getStartLine($case);
             $stmts[] = new ast\Node(
                 ast\AST_SWITCH_CASE,
                 0,
@@ -2807,7 +2807,7 @@ class TolerantASTConverter
                 ], self::getStartLine($item));
                 continue;
             }
-            $flags = $item->byRef ? flags\PARAM_REF : 0;
+            $flags = $item->byRef ? flags\ARRAY_ELEM_REF : 0;
             $element_key = $item->elementKey;
             $ast_items[] = new ast\Node(ast\AST_ARRAY_ELEM, $flags, [
                 'value' => static::phpParserNodeToAstNode($item->elementValue),

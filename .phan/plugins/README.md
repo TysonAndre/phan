@@ -540,6 +540,33 @@ or hurt the readability of code.
 
 This will also remove runtime type checks that were enforced by the getter's return type.
 
+#### ConstantVariablePlugin.php
+
+This plugin warns about using variables when they probably have only one possible scalar value (or the only inferred type is `null`).
+This may catch some logic errors such as `echo($result === null ? json_encode($result) : 'default')`, or indicate places where it may or may not be clearer to use the constant itself.
+Most of the reported issues will likely not be worth fixing, or be false positives due to references/loops.
+
+- **PhanPluginConstantVariableBool**: `Variable ${VARIABLE} is probably constant with a value of {TYPE}`
+- **PhanPluginConstantVariableNull**: `Variable ${VARIABLE} is probably constant with a value of {TYPE}`
+- **PhanPluginConstantVariableScalar**: `Variable ${VARIABLE} is probably constant with a value of {TYPE}`
+
+#### ShortArrayPlugin.php
+
+This suggests using shorter array syntaxes if supported by the `target_php_version`.
+
+- **PhanPluginLongArray**: `Should use [] instead of array()`
+- **PhanPluginLongArrayList**: `Should use [] instead of list()`
+
+#### RemoveDebugStatementPlugin.php
+
+This suggests removing debugging output statements such as `echo`, `print`, `printf`, fwrite(STDERR)`, `var_export()`, inline html, etc.
+This is only useful in applications or libraries that print output in only a few places, as a sanity check that debugging statements are not accidentally left in code.
+
+- **PhanPluginRemoveDebugEcho**: `Saw output expression/statement in {CODE}`
+- **PhanPluginRemoveDebugCall**: `Saw call to {FUNCTION} for debugging`
+
+Suppression comments can use the issue name `PhanPluginRemoveDebugAny` to suppress all issue types emitted by this plugin.
+
 ### 4. Demo plugins:
 
 These files demonstrate plugins for Phan.

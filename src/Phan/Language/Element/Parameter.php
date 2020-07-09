@@ -28,6 +28,7 @@ use Phan\Library\StringUtil;
 use Phan\Parse\ParseVisitor;
 
 use function is_string;
+use function preg_match;
 use function strlen;
 
 /**
@@ -70,6 +71,18 @@ class Parameter extends Variable
      * This gives better issue messages, hover text, and better output in tool/make_stubs
      */
     private $default_value_constant_name = null;
+
+    /**
+     * @var bool
+     * True if the default value was inferred from reflection
+     */
+    private $default_value_from_reflection = false;
+
+    /**
+     * @var bool
+     * True if the variable name or comment indicates the parameter is unused
+     */
+    private $should_warn_if_provided = false;
 
     /**
      * @return static
@@ -235,6 +248,7 @@ class Parameter extends Variable
                 if ($reflection_parameter->isDefaultValueConstant()) {
                     $parameter->default_value_constant_name = $reflection_parameter->getDefaultValueConstantName();
                 }
+                $parameter->default_value_from_reflection = true;
             } else {
                 if (!$parameter_type->isEmpty() && !$parameter_type->containsNullable()) {
                     $default_type = $parameter_type;
@@ -297,9 +311,10 @@ class Parameter extends Variable
         }
 
         // Create the skeleton parameter from what we know so far
+        $parameter_name = (string)$node->children['name'];
         $parameter = Parameter::create(
             (clone($context))->withLineNumberStart($node->lineno),
-            (string)$node->children['name'],
+            $parameter_name,
             $union_type,
             $node->flags
         );
@@ -310,6 +325,9 @@ class Parameter extends Variable
         // If there is a default value, store it and its type
         $default_node = $node->children['default'];
         if ($default_node !== null) {
+            if (preg_match('/^(_$|unused)/iD', $parameter_name)) {
+                $parameter->should_warn_if_provided = true;
+            }
             // Set the actual value of the default
             $parameter->setDefaultValue($default_node);
             try {
@@ -616,7 +634,7 @@ class Parameter extends Variable
             // then render the default as `default`, not `null`
             if ($is_internal) {
                 $union_type = $this->getNonVariadicUnionType();
-                if (!$union_type->isEmpty() && !$union_type->containsNullable()) {
+                if (!$this->default_value_from_reflection && !$union_type->isEmpty() && !$union_type->containsNullable()) {
                     return 'unknown';
                 }
             }
@@ -682,7 +700,7 @@ class Parameter extends Variable
                 // then render the default as `unknown`, not `null`
                 if ($is_internal) {
                     $union_type = $this->getNonVariadicUnionType();
-                    if (!$union_type->isEmpty() && !$union_type->containsNullable()) {
+                    if (!$this->default_value_from_reflection && !$union_type->isEmpty() && !$union_type->containsNullable()) {
                         $default_repr = 'unknown';
                     }
                 }
@@ -765,5 +783,34 @@ class Parameter extends Variable
     public function hasEmptyNonVariadicType(): bool
     {
         return self::getUnionType()->isEmpty();
+    }
+
+    /**
+     * Copy the information about default values from $other
+     */
+    public function copyDefaultValueFrom(Parameter $other): void
+    {
+        $this->default_value = $other->default_value;
+        $this->default_value_type = $other->default_value_type;
+        if ($other->default_value_from_reflection) {
+            $this->default_value_from_reflection = true;
+        }
+    }
+
+    /**
+     * Sets whether phan should warn if this parameter is provided
+     * @suppress PhanUnreferencedPublicMethod this may be set by phpdoc comments in the future.
+     */
+    public function setShouldWarnIfProvided(bool $should_warn_if_provided): void
+    {
+        $this->should_warn_if_provided = $this->hasDefaultValue() && $should_warn_if_provided;
+    }
+
+    /**
+     * Returns true if this should warn if the parameter is provided
+     */
+    public function shouldWarnIfProvided(): bool
+    {
+        return $this->should_warn_if_provided;
     }
 }

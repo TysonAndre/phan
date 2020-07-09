@@ -291,6 +291,8 @@ final class VariableTrackerVisitor extends AnalysisVisitor
                     // To reduce false positives, treat `;$x++;` as a redefinition, but not `foo($x++)`
                     self::$variable_graph->recordVariableDefinition($name, $node, $this->scope, null);
                     $this->scope->recordDefinition($name, $node);
+                } else {
+                    self::$variable_graph->recordVariableModification($name);
                 }
                 return $this->scope;
             }
@@ -538,7 +540,7 @@ final class VariableTrackerVisitor extends AnalysisVisitor
                 continue;
             }
 
-            if ($closure_use->flags & ast\flags\PARAM_REF) {
+            if ($closure_use->flags & ast\flags\CLOSURE_USE_REF) {
                 self::$variable_graph->recordVariableDefinition($name, $closure_use, $this->scope, null);
                 self::$variable_graph->markAsReference($name);
             } else {

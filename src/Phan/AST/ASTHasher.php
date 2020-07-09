@@ -56,7 +56,7 @@ class ASTHasher
                     return "\0\0\0\0\0\0\0\0\0\0\0\0" . \pack('N', $node);
                 }
             } elseif (is_float($node)) {
-                return "\0\0\0\0\0\0\0\1" . \pack('d', $node);
+                return "\0\0\0\0\0\0\0\1" . \pack('e', $node);
             } elseif (is_null($node)) {
                 return "\0\0\0\0\0\0\0\2\0\0\0\0\0\0\0\0";
             }
@@ -76,7 +76,7 @@ class ASTHasher
         $str = 'N' . $node->kind . ':' . ($node->flags & 0xfffff);
         foreach ($node->children as $key => $child) {
             // added in PhanAnnotationAdder
-            if ($key === 'phan_nf') {
+            if (\is_string($key) && \strncmp($key, 'phan', 4) === 0) {
                 continue;
             }
             $str .= self::hashKey($key);

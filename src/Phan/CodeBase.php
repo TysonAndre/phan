@@ -410,6 +410,7 @@ class CodeBase
         foreach ($const_name_list as $const_name) {
             // #1015 workaround for empty constant names ('' and '0').
             if (!\is_string($const_name)) {
+                // @phan-suppress-next-line PhanPluginRemoveDebugCall
                 \fprintf(STDERR, "Saw constant with non-string name of %s. There may be a bug in a PECL extension you are using (php -m will list those)\n", \var_export($const_name, true));
                 continue;
             }
@@ -432,6 +433,7 @@ class CodeBase
         if (\strncmp($const_name, "\x00apc_", 5) === 0) {
             return;
         }
+        // @phan-suppress-next-line PhanPluginRemoveDebugCall
         \fprintf(STDERR, "Failed to load global constant value for %s, continuing: %s\n", \var_export($const_name, true), $e->getMessage());
     }
 
@@ -1485,10 +1487,14 @@ class CodeBase
                 $canonical_fqsen,
                 $signature
             ) as $function) {
+                if ($name === 'each' && Config::get_closest_target_php_version_id() >= 70200) {
+                    $function->setIsDeprecated(true);
+                }
                 if ($found) {
                     $reflection_function = new \ReflectionFunction($name);
-                    $is_deprecated = $reflection_function->isDeprecated() || ($name === 'each' && Config::get_closest_target_php_version_id() >= 70200);
-                    $function->setIsDeprecated($is_deprecated);
+                    if ($reflection_function->isDeprecated()) {
+                        $function->setIsDeprecated(true);
+                    }
                     $real_return_type = UnionType::fromReflectionType($reflection_function->getReturnType());
                     if (Config::getValue('assume_real_types_for_internal_functions')) {
                         // @phan-suppress-next-line PhanAccessMethodInternal
@@ -1503,7 +1509,10 @@ class CodeBase
                         $function->setUnionType(UnionType::of($function->getUnionType()->getTypeSet() ?: $real_type_set, $real_type_set));
                     }
 
-                    $function->setRealParameterList(Parameter::listFromReflectionParameterList($reflection_function->getParameters()));
+                    $real_parameter_list = Parameter::listFromReflectionParameterList($reflection_function->getParameters());
+                    $function->setRealParameterList($real_parameter_list);
+                    // @phan-suppress-next-line PhanAccessMethodInternal
+                    $function->inheritRealParameterDefaults();
                 }
                 $this->addFunction($function);
                 $this->updatePluginsOnLazyLoadInternalFunction($function);

@@ -42,6 +42,7 @@ use Phan\Language\Type\LiteralTypeInterface;
 use Phan\Language\Type\MixedType;
 use Phan\Language\Type\MultiType;
 use Phan\Language\Type\NonEmptyArrayInterface;
+use Phan\Language\Type\NonEmptyListType;
 use Phan\Language\Type\NonEmptyMixedType;
 use Phan\Language\Type\NonEmptyStringType;
 use Phan\Language\Type\NullType;
@@ -55,6 +56,7 @@ use Phan\Language\Type\TrueType;
 use Phan\Language\Type\VoidType;
 use Serializable;
 
+use function is_int;
 use function substr;
 
 /**
@@ -5123,9 +5125,23 @@ class UnionType implements Serializable
                 }
             }
         }
-        if ($empty_array_shape_type && !$has_other_array_type) {
-            $result[] = ArrayType::instance($empty_array_shape_type->isNullable());
+        if ($empty_array_shape_type) {
+            $is_nullable = $empty_array_shape_type->isNullable();
+            if (!$has_other_array_type) {
+                $result[] = ArrayType::instance($is_nullable);
+            } else {
+                foreach ($result as $i => $type) {
+                    if ($type instanceof NonEmptyListType) {
+                        $type = $type->asPossiblyEmptyArrayType();
+                        $result[$i] = $type;
+                    }
+                    if ($is_nullable) {
+                        $result[$i] = $type->withIsNullable(true);
+                    }
+                }
+            }
         }
+        // @phan-suppress-next-line PhanPartialTypeMismatchReturn phan cannot infer that the assignments do not make the result associative-array.
         return $result;
     }
 
@@ -5322,7 +5338,7 @@ class UnionType implements Serializable
      */
     public function withIsPossiblyUndefined(bool $is_possibly_undefined): UnionType
     {
-        if ($is_possibly_undefined === false) {
+        if (!$is_possibly_undefined) {
             return $this;
         }
         $result = new AnnotatedUnionType($this->type_set, true, $this->real_type_set);
@@ -5456,7 +5472,7 @@ class UnionType implements Serializable
             }
             // -INT_MIN is a float.
             return LiteralFloatType::instanceForValue($result, false);
-        }, true)->withRealTypeSet(self::intOrFloatTypeSet());
+        });
     }
 
     /**
@@ -5464,30 +5480,45 @@ class UnionType implements Serializable
      */
     public function applyUnaryBitwiseNotOperator(): UnionType
     {
-        if ($this->isEmpty()) {
+        return UnionType::of(
+            self::applyUnaryBitwiseNotOperatorToList($this->type_set, false),
+            self::applyUnaryBitwiseNotOperatorToList($this->real_type_set, true)
+        );
+    }
+
+    /**
+     * @param list<Type> $type_set
+     * @return list<IntType|StringType>
+     */
+    private static function applyUnaryBitwiseNotOperatorToList(array $type_set, bool $is_real): array
+    {
+        if (!$type_set) {
             // Can be int|string
-            return UnionType::fromFullyQualifiedPHPDocAndRealString('int', 'int|string');
+            return UnionType::typeSetFromString($is_real ? 'int|string' : 'int');
         }
-        $added_fallbacks = false;
-        $type_set = UnionType::empty();
-        foreach ($this->type_set as $type) {
-            if ($type instanceof LiteralIntType) {
-                $type_set = $type_set->withType(LiteralIntType::instanceForValue(~$type->getValue(), false));
-                if ($type->isNullable()) {
-                    $type_set = $type_set->withType(LiteralIntType::instanceForValue(0, false));
+        $result = [];
+        foreach ($type_set as $type) {
+            // ~null is an error, don't check isNullable()
+            if ($type instanceof LiteralTypeInterface) {
+                $value = ~$type->getValue();
+                if (is_int($value)) {
+                    $result[] = LiteralIntType::instanceForValue($value, false);
+                } else {
+                    $result[] = LiteralStringType::instanceForValue($value, false);
                 }
-            } elseif ($type instanceof StringType) {
-                // Not going to bother being more specific (this applies bitwise not to each character for LiteralStringType)
-                $type_set = $type_set->withType(StringType::instance(false));
-            } else {
-                if ($added_fallbacks) {
-                    continue;
-                }
-                $type_set = $type_set->withType(IntType::instance(false));
-                $added_fallbacks = true;
+                continue;
             }
+            if ($type instanceof IntType || $type instanceof FloatType) {
+                $result[] = IntType::instance(false);
+            } elseif ($type instanceof StringType || $type instanceof CallableType) {
+                $result[] = StringType::instance(false);
+            } elseif ($type instanceof MixedType) {
+                $result[] = StringType::instance(false);
+                $result[] = IntType::instance(false);
+            }
+            // Not going to bother with objects for now
         }
-        return $type_set->withRealTypeSet(self::intOrStringTypeSet());
+        return $result ?: self::intOrStringTypeSet();
     }
 
     /**
@@ -5528,18 +5559,49 @@ class UnionType implements Serializable
         return UnionType::typeSetFromString('bool');
     }
 
-    /** @return list<IntType|FloatType> */
-    private static function intOrFloatTypeSet(): array
+    /**
+     * Returns the boolean cast of this type
+     */
+    public function applyBoolCast(): UnionType
     {
-        static $types;
-        return $types ?? ($types = [IntType::instance(false), FloatType::instance(false)]);
+        return UnionType::of(
+            self::applyBoolCastToList($this->type_set),
+            self::applyBoolCastToList($this->real_type_set)
+        );
+    }
+
+    /**
+     * @param Type[] $type_set
+     * @return list<Type>
+     */
+    private static function applyBoolCastToList(array $type_set): array
+    {
+        $contains_falsey = false;
+        $contains_truthy = false;
+        foreach ($type_set as $type) {
+            if ($type->isPossiblyFalsey()) {
+                $contains_falsey = true;
+            }
+            if ($type->isPossiblyTruthy()) {
+                $contains_truthy = true;
+            }
+            if ($contains_falsey && $contains_truthy) {
+                return UnionType::typeSetFromString('bool');
+            }
+        }
+        if ($contains_truthy) {
+            return UnionType::typeSetFromString('true');
+        } elseif ($contains_falsey) {
+            return UnionType::typeSetFromString('false');
+        }
+        return UnionType::typeSetFromString('bool');
     }
 
     /** @return list<IntType|StringType> */
     private static function intOrStringTypeSet(): array
     {
         static $types;
-        return $types ?? ($types = [IntType::instance(false), StringType::instance(false)]);
+        return $types ?? ($types = UnionType::typeSetFromString('int|string'));
     }
 
     /**
@@ -5554,56 +5616,64 @@ class UnionType implements Serializable
                 return LiteralIntType::instanceForValue($result, false);
             }
             return LiteralFloatType::instanceForValue($result, false);
-        }, true)->withRealTypeSet(self::intOrFloatTypeSet());
+        });
     }
 
     /**
      * @param Closure(int|float): ScalarType $operation
      */
-    private function applyNumericOperation(Closure $operation, bool $can_be_float): UnionType
+    private function applyNumericOperation(Closure $operation): UnionType
+    {
+        return UnionType::of(
+            self::applyNumericOperationToList($this->type_set, $operation),
+            self::applyNumericOperationToList($this->real_type_set, $operation)
+        );
+    }
+
+    /**
+     * @param List<Type> $type_set
+     * @param Closure(int|float): ScalarType $operation
+     * @return list<ScalarType>
+     */
+    private static function applyNumericOperationToList(array $type_set, Closure $operation): array
     {
         $added_fallbacks = false;
-        $type_set = UnionType::empty();
-        foreach ($this->type_set as $type) {
+        $result = [];
+        foreach ($type_set as $type) {
+            if ($type->isNullable()) {
+                $result[] = LiteralIntType::instanceForValue(0, false);
+            }
             if ($type instanceof LiteralIntType || $type instanceof LiteralFloatType) {
-                $type_set = $type_set->withType($operation($type->getValue()));
-                if ($type->isNullable()) {
-                    $type_set = $type_set->withType(LiteralIntType::instanceForValue(0, false));
-                }
+                $result[] = $operation($type->getValue());
             } else {
                 if ($type instanceof LiteralStringType) {
                     if (\is_numeric($type->getValue())) {
-                        $type_set = $type_set->withType($operation(+$type->getValue()));
-                        if ($type->isNullable()) {
-                            $type_set = $type_set->withType(LiteralIntType::instanceForValue(0, false));
-                        }
-                        continue;
+                        $result[] = $operation(+$type->getValue());
                     } else {
                         // TODO: Could warn about non-numeric operand instead
-                        return $type_set->withType(LiteralIntType::instanceForValue(0, false));
+                        $result[] = LiteralIntType::instanceForValue(0, false);
                     }
+                    continue;
                 }
                 if ($added_fallbacks) {
                     continue;
                 }
-                if ($can_be_float) {
-                    if (!($type instanceof IntType)) {
-                        $type_set = $type_set->withType(FloatType::instance(false));
-                        if (!($type instanceof FloatType)) {
-                            $type_set = $type_set->withType(IntType::instance(false));
-                        }
-                        $added_fallbacks = true;
-                    } else {
-                        $type_set = $type_set->withType(IntType::instance(false));
-                        // Keep added_fallbacks false in case this needs to add FloatType
+                if (!($type instanceof IntType)) {
+                    $result[] = FloatType::instance(false);
+                    if (!($type instanceof FloatType)) {
+                        $result[] = IntType::instance(false);
                     }
-                } else {
-                    $type_set = $type_set->withType(IntType::instance(false));
                     $added_fallbacks = true;
+                } else {
+                    $result[] = IntType::instance(false);
+                    // Keep added_fallbacks false in case this needs to add FloatType
                 }
             }
         }
-        return $type_set;
+        if (!$result) {
+            return UnionType::typeSetFromString('int|float');
+        }
+        return $result;
     }
 
     /**

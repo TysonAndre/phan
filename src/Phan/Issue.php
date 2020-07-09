@@ -128,6 +128,8 @@ class Issue
     public const TypeInvalidRightOperandOfNumericOp = 'PhanTypeInvalidRightOperandOfNumericOp';
     public const TypeInvalidLeftOperandOfIntegerOp = 'PhanTypeInvalidLeftOperandOfIntegerOp';
     public const TypeInvalidRightOperandOfIntegerOp = 'PhanTypeInvalidRightOperandOfIntegerOp';
+    public const TypeInvalidLeftOperandOfBitwiseOp = 'PhanTypeInvalidLeftOperandOfBitwiseOp';
+    public const TypeInvalidRightOperandOfBitwiseOp = 'PhanTypeInvalidRightOperandOfBitwiseOp';
     public const TypeInvalidUnaryOperandNumeric = 'PhanTypeInvalidUnaryOperandNumeric';
     public const TypeInvalidUnaryOperandBitwiseNot = 'PhanTypeInvalidUnaryOperandBitwiseNot';
     public const TypeInvalidUnaryOperandIncOrDec = 'PhanTypeInvalidUnaryOperandIncOrDec';
@@ -194,6 +196,8 @@ class Issue
     public const TypeSuspiciousEcho        = 'PhanTypeSuspiciousEcho';
     public const TypeSuspiciousStringExpression = 'PhanTypeSuspiciousStringExpression';
     public const TypeVoidAssignment        = 'PhanTypeVoidAssignment';
+    public const TypeVoidArgument          = 'PhanTypeVoidArgument';
+    public const TypeVoidExpression        = 'PhanTypeVoidExpression';
     public const TypePossiblyInvalidCallable = 'PhanTypePossiblyInvalidCallable';
     public const TypeInvalidCallable = 'PhanTypeInvalidCallable';
     public const TypeInvalidCallableArraySize = 'PhanTypeInvalidCallableArraySize';
@@ -261,6 +265,7 @@ class Issue
     public const ModuloByZero = 'PhanModuloByZero';
     public const PowerOfZero = 'PhanPowerOfZero';
     public const InvalidMixin = 'PhanInvalidMixin';
+    public const IncompatibleRealPropertyType = 'PhanIncompatibleRealPropertyType';
 
     // Issue::CATEGORY_ANALYSIS
     public const Unanalyzable              = 'PhanUnanalyzable';
@@ -442,6 +447,8 @@ class Issue
     public const VariableDefinitionCouldBeConstantTrue = 'PhanVariableDefinitionCouldBeConstantTrue';
     public const VariableDefinitionCouldBeConstantFalse = 'PhanVariableDefinitionCouldBeConstantFalse';
     public const VariableDefinitionCouldBeConstantNull = 'PhanVariableDefinitionCouldBeConstantNull';
+    public const ProvidingUnusedParameter              = 'PhanProvidingUnusedParameter';
+    public const ProvidingUnusedParameterOfClosure     = 'PhanProvidingUnusedParameterOfClosure';
 
     // Issue::CATEGORY_REDEFINE
     public const RedefineClass             = 'PhanRedefineClass';
@@ -1843,6 +1850,22 @@ class Issue
                 10101
             ),
             new Issue(
+                self::TypeInvalidRightOperandOfBitwiseOp,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Invalid operator: right operand of {OPERATOR} is {TYPE} (expected int|string)",
+                self::REMEDIATION_B,
+                10163
+            ),
+            new Issue(
+                self::TypeInvalidLeftOperandOfBitwiseOp,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Invalid operator: left operand of {OPERATOR} is {TYPE} (expected int|string)",
+                self::REMEDIATION_B,
+                10164
+            ),
+            new Issue(
                 self::TypeInvalidUnaryOperandNumeric,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
@@ -1897,6 +1920,22 @@ class Issue
                 "Cannot assign void return value",
                 self::REMEDIATION_B,
                 10000
+            ),
+            new Issue(
+                self::TypeVoidArgument,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_LOW,
+                "Cannot use void return value {CODE} as a function argument",
+                self::REMEDIATION_B,
+                10161
+            ),
+            new Issue(
+                self::TypeVoidExpression,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_LOW,
+                "Suspicious use of void return value {CODE} where a value is expected",
+                self::REMEDIATION_B,
+                10162
             ),
             new Issue(
                 self::TypeSuspiciousIndirectVariable,
@@ -2275,6 +2314,7 @@ class Issue
                 self::REMEDIATION_B,
                 10090
             ),
+            // TODO: Deprecate and remove this issue?
             new Issue(
                 self::TypeInvalidBitwiseBinaryOperator,
                 self::CATEGORY_TYPE,
@@ -2666,6 +2706,14 @@ class Issue
                 'Attempting to use a mixin of invalid or missing type {TYPE}',
                 self::REMEDIATION_B,
                 10152
+            ),
+            new Issue(
+                self::IncompatibleRealPropertyType,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_CRITICAL,
+                'Declaration of {PROPERTY} of real type {TYPE} is incompatible with inherited property {PROPERTY} of real type {TYPE} defined at {FILE}:{LINE}',
+                self::REMEDIATION_B,
+                10165
             ),
             // Issue::CATEGORY_VARIABLE
             new Issue(
@@ -3879,7 +3927,7 @@ class Issue
                 self::NoopTernary,
                 self::CATEGORY_NOOP,
                 self::SEVERITY_LOW,
-                "Unused result of a ternary expression where the true/false results don't seen to have side effects",
+                "Unused result of a ternary expression where the true/false results don't seem to have side effects",
                 self::REMEDIATION_B,
                 6073
             ),
@@ -3947,6 +3995,22 @@ class Issue
                 self::REMEDIATION_B,
                 6088
             ),
+            new Issue(
+                self::ProvidingUnusedParameter,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_LOW,
+                'Providing an unused optional parameter ${PARAMETER} to {FUNCTIONLIKE}',
+                self::REMEDIATION_B,
+                6093
+            ),
+            new Issue(
+                self::ProvidingUnusedParameterOfClosure,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_LOW,
+                'Providing an unused optional parameter ${PARAMETER} to {FUNCTIONLIKE}',
+                self::REMEDIATION_B,
+                6094
+            ),
 
             // Issue::CATEGORY_REDEFINE
             new Issue(
@@ -3986,7 +4050,7 @@ class Issue
                 self::IncompatibleCompositionProp,
                 self::CATEGORY_REDEFINE,
                 self::SEVERITY_NORMAL,
-                "{TRAIT} and {TRAIT} define the same property ({PROPERTY}) in the composition of {CLASS}. However, the definition differs and is considered incompatible. Class was composed in {FILE} on line {LINE}",
+                "{TRAIT} and {TRAIT} define the same property ({PROPERTY}) in the composition of {CLASS}, as the types {TYPE} and {TYPE} respectively. However, the definition differs and is considered incompatible. Class was composed in {FILE} on line {LINE}",
                 self::REMEDIATION_B,
                 8004
             ),
@@ -4307,7 +4371,7 @@ class Issue
             new Issue(
                 self::AccessOverridesFinalMethodPHPDoc,
                 self::CATEGORY_ACCESS,
-                self::SEVERITY_CRITICAL,
+                self::SEVERITY_LOW,
                 "Declaration of phpdoc method {METHOD} is an unnecessary override of final method {METHOD} defined in {FILE}:{LINE}",
                 self::REMEDIATION_B,
                 1019
@@ -5052,6 +5116,7 @@ class Issue
 
     /**
      * @throws InvalidArgumentException
+     * @suppress PhanPluginRemoveDebugCall this is deliberate
      */
     public static function fromType(string $type): Issue
     {

@@ -468,8 +468,10 @@ return [
         'igbinary'    => '.phan/internal_stubs/igbinary.phan_php',
         'mbstring'    => '.phan/internal_stubs/mbstring.phan_php',
         'pcntl'       => '.phan/internal_stubs/pcntl.phan_php',
+        'phar'        => '.phan/internal_stubs/phar.phan_php',
         'posix'       => '.phan/internal_stubs/posix.phan_php',
         'readline'    => '.phan/internal_stubs/readline.phan_php',
+        'simplexml'   => '.phan/internal_stubs/simplexml.phan_php',
         'sysvmsg'     => '.phan/internal_stubs/sysvmsg.phan_php',
         'sysvsem'     => '.phan/internal_stubs/sysvsem.phan_php',
         'sysvshm'     => '.phan/internal_stubs/sysvshm.phan_php',
@@ -565,8 +567,13 @@ return [
         'StrictComparisonPlugin',
         // Warn about `$var == SOME_INT_OR_STRING_CONST` due to unintuitive behavior such as `0 == 'a'`
         '.phan/plugins/StrictLiteralComparisonPlugin.php',
+        '.phan/plugins/ShortArrayPlugin.php',
+        '.phan/plugins/SimplifyExpressionPlugin.php',
         // 'UnknownClassElementAccessPlugin' is more useful with batch analysis than in an editor.
         // It's used in tests/run_test __FakeSelfFallbackTest
+
+        // This checks that there are no accidental echos/printfs left inside Phan's code.
+        '.phan/plugins/RemoveDebugStatementPlugin.php',
 
         ////////////////////////////////////////////////////////////////////////
         // End plugins for Phan's self-analysis

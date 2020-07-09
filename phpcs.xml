@@ -29,7 +29,6 @@
   <rule ref="SlevomatCodingStandard.TypeHints.DeclareStrictTypes" >
     <properties>
       <property name="spacesCountAroundEqualsSign" type="int" value="0" />
-      <!-- PSR-12 recommends this, waiting for finalization -->
       <property name="newlinesCountBetweenOpenTagAndDeclare" type="int" value="2" />
     </properties>
     <exclude name="SlevomatCodingStandard.TypeHints.DeclareStrictTypes.IncorrectWhitespaceBetweenOpenTagAndDeclare" />
@@ -51,6 +50,7 @@
     <!-- conflicts with PSR2.ControlStructures.ControlStructureSpacing, the automatic fixes have strange space  -->
     <exclude name="PSR12.ControlStructures.ControlStructureSpacing" />
   </rule>
+  <rule ref="Generic.Arrays.DisallowLongArraySyntax.Found" />
   <!-- Arbitrary increase of the line length limit -->
   <rule ref="Generic.Files.LineLength">
     <properties>

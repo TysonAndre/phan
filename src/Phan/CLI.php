@@ -74,20 +74,21 @@ use const STR_PAD_LEFT;
  *
  * @phan-file-suppress PhanPartialTypeMismatchArgumentInternal
  * @phan-file-suppress PhanPluginDescriptionlessCommentOnPublicMethod
+ * @phan-file-suppress PhanPluginRemoveDebugAny
  */
 class CLI
 {
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    public const PHAN_VERSION = '3.0.3-dev';
+    public const PHAN_VERSION = '3.0.6-dev';
 
     /**
      * List of short flags passed to getopt
      * still available: g,n,w
      * @internal
      */
-    public const GETOPT_SHORT_OPTIONS = 'f:m:o:c:k:aeqbr:pid:3:y:l:tuxj:zhvs:SCP:I:DB:';
+    public const GETOPT_SHORT_OPTIONS = 'f:m:o:c:k:aeqbr:pid:3:y:l:tuxXj:zhvs:SCP:I:DB:';
 
     /**
      * List of long flags passed to getopt
@@ -813,6 +814,7 @@ class CLI
                 case 'dead-code-detection':
                     Config::setValue('dead_code_detection', true);
                     break;
+                case 'X':
                 case 'dead-code-detection-prefer-false-positive':
                     Config::setValue('dead_code_detection', true);
                     Config::setValue('dead_code_detection_prefer_false_negative', false);
@@ -1735,7 +1737,7 @@ Extended help:
   This is almost entirely false positives for most coding styles.
   Implies --unused-variable-detection
 
- --dead-code-detection-prefer-false-positive
+ -X, --dead-code-detection-prefer-false-positive
   When performing dead code detection, prefer emitting false positives
   (reporting dead code that is not actually dead) over false negatives
   (failing to report dead code). This implies `--dead-code-detection`.
@@ -2493,22 +2495,22 @@ EOB
         if ($msg !== self::$current_progress_state_long_progress) {
             switch ($msg) {
                 case 'parse':
-                    $buf .= "Parsing files..." . PHP_EOL;
+                    $buf = "Parsing files..." . PHP_EOL;
                     break;
                 case 'function':
-                    $buf .= "Analyzing functions..." . PHP_EOL;
+                    $buf = "Analyzing functions..." . PHP_EOL;
                     break;
                 case 'method':
-                    $buf .= "Analyzing methods..." . PHP_EOL;
+                    $buf = "Analyzing methods..." . PHP_EOL;
                     break;
                 case 'analyze':
-                    $buf .= "Analyzing files..." . PHP_EOL;
+                    $buf = "Analyzing files..." . PHP_EOL;
                     break;
                 case 'dead code':
-                    $buf .= "Checking for dead code..." . PHP_EOL;
+                    $buf = "Checking for dead code..." . PHP_EOL;
                     break;
                 default:
-                    $buf .= "In '$msg' phase\n";
+                    $buf = "In '$msg' phase\n";
             }
             self::$current_progress_state_long_progress = $msg;
             self::$current_progress_offset_long_progress = 0;

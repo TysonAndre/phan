@@ -2,6 +2,12 @@
 
 declare(strict_types=1);
 
+/**
+ * Set up error handlers, exception handlers, autoloaders, etc. Check that all dependencies are met for running Phan or its utilities.
+ *
+ * @phan-file-suppress PhanPluginRemoveDebugAny this has a lot of warnings to stderr
+ */
+
 use Phan\CLI;
 use Phan\CodeBase;
 use Phan\Config;
@@ -185,6 +191,34 @@ set_exception_handler(static function (Throwable $throwable): void {
             fprintf(STDERR, "(Phan %s crashed due to an uncaught Throwable)\n", CLI::PHAN_VERSION);
         }
     }
+    // Flush output in case this is related to a bug in a php or its engine that may crash when generating a frame
+    fflush(STDERR);
+    fwrite(STDERR, 'More details:' . PHP_EOL);
+    if (class_exists(Config::class, false)) {
+        $max_frame_length = max(100, Config::getValue('debug_max_frame_length'));
+    } else {
+        $max_frame_length = 1000;
+    }
+    $truncated = false;
+    foreach ($throwable->getTrace() as $i => $frame) {
+        $frame_details = \Phan\Debug\Frame::frameToString($frame);
+        if (strlen($frame_details) > $max_frame_length) {
+            $truncated = true;
+            if (function_exists('mb_substr')) {
+                $frame_details = mb_substr($frame_details, 0, $max_frame_length) . '...';
+            } else {
+                $frame_details = substr($frame_details, 0, $max_frame_length) . '...';
+            }
+        }
+        fprintf(STDERR, '#%d: %s' . PHP_EOL, $i, $frame_details);
+        fflush(STDERR);
+    }
+
+    if ($truncated) {
+        fwrite(STDERR, "(Some long strings (usually JSON of AST Nodes) were truncated. To print more details for some stack frames of this uncaught exception," .
+           "increase the Phan config setting debug_max_frame_length)" . PHP_EOL);
+    }
+
     exit(EXIT_FAILURE);
 });
 
@@ -290,6 +324,10 @@ function phan_error_handler(int $errno, string $errstr, string $errfile, int $er
     if ($errno === E_DEPRECATED && preg_match('/^(Constant |Method ReflectionParameter::getClass)/', $errstr)) {
         // Suppress deprecation notices running `vendor/bin/paratest` in php 8
         // Constants such as ENCHANT can be deprecated when calling constant()
+        return true;
+    }
+    if ($errno === E_NOTICE && preg_match('/^(iconv_strlen)/', $errstr)) {
+        // Suppress deprecation notices in symfony/polyfill-mbstring
         return true;
     }
     if ($errno === E_DEPRECATED && preg_match('/ast\\\\parse_.*Version.*is deprecated/i', $errstr)) {

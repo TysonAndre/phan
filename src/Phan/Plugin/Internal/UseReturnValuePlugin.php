@@ -125,6 +125,7 @@ class UseReturnValuePlugin extends PluginV3 implements PostAnalyzeNodeCapability
             $used_percentage = $used_count / $total_count * 100;
             if ($total_count >= 5) {
                 if (self::$debug) {
+                    // @phan-suppress-next-line PhanPluginRemoveDebugCall
                     \fprintf(\STDERR, "%09.4f %% used: (%4d uses): %s (%s)\n", $used_percentage, $total_count, $fqsen, $counter->is_internal ? 'internal' : 'user-defined');
                 }
             }
@@ -137,6 +138,7 @@ class UseReturnValuePlugin extends PluginV3 implements PostAnalyzeNodeCapability
                 $percentage_string = \number_format($used_percentage, 2);
                 foreach ($counter->unused_locations as $key => $context) {
                     if (!\preg_match('/:(\d+)$/D', $key, $matches)) {
+                        // @phan-suppress-next-line PhanPluginRemoveDebugCall
                         \fprintf(\STDERR, "Failed to extract line number from %s\n", $key);
                         continue;
                     }
@@ -574,9 +576,12 @@ class UseReturnValuePlugin extends PluginV3 implements PostAnalyzeNodeCapability
     'long2ip' => true,
     'ltrim' => true,
     'max' => true,
+    'mb_chr' => true,
     'mb_convert_case' => true,
     'mb_convert_encoding' => true,
     'mb_detect_encoding' => true,
+    'mb_list_encodings' => true,
+    'mb_ord' => true,
     'mb_strlen' => true,
     'mb_strpos' => true,
     'mb_strtolower' => true,
@@ -621,7 +626,7 @@ class UseReturnValuePlugin extends PluginV3 implements PostAnalyzeNodeCapability
     'pdo::getattribute' => true,
     'pdo::prepare' => true,
     'pdo::quote' => true,
-    'pdostatement::execute' => true,
+    'pdostatement::execute' => false,  // Callers may check the return value of fetch() or configure the pdo to throw on exceptions
     'pdostatement::fetchall' => true,
     'pdostatement::fetchcolumn' => true,
     'pdostatement::fetch' => true,

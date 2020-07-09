@@ -19,6 +19,7 @@ use Phan\Exception\IssueException;
 use Phan\Exception\RecursionDepthException;
 use Phan\Issue;
 use Phan\Language\Context;
+use Phan\Language\Element\Func;
 use Phan\Language\Element\FunctionInterface;
 use Phan\Language\Element\Method;
 use Phan\Language\Element\Parameter;
@@ -356,10 +357,10 @@ final class ArgumentType
         if ($argcount < $method->getNumberOfRequiredParameters() && !self::isUnpack($arg_nodes)) {
             $alternate_found = false;
             foreach ($method->alternateGenerator($code_base) as $alternate_method) {
-                $alternate_found = $alternate_found || (
-                    $argcount >=
-                    $alternate_method->getNumberOfRequiredParameters()
-                );
+                if ($argcount >= $alternate_method->getNumberOfRequiredParameters()) {
+                    $alternate_found = true;
+                    break;
+                }
             }
 
             if (!$alternate_found) {
@@ -524,6 +525,9 @@ final class ArgumentType
                     $argument,
                     true
                 );
+                if ($argument_type->isVoidType()) {
+                    self::warnVoidTypeArgument($code_base, $context, $argument, $node);
+                }
                 continue;
             }
 
@@ -560,7 +564,7 @@ final class ArgumentType
                             $code_base,
                             $context,
                             Issue::ContextNotObject,
-                            $argument->lineno ?? $node->lineno ?? 0,
+                            $argument->lineno ?? $node->lineno,
                             "$variable_name"
                         );
                     }
@@ -575,6 +579,10 @@ final class ArgumentType
                 $argument,
                 true
             );
+            if ($argument_type->isVoidType()) {
+                // @phan-suppress-next-line PhanTypeMismatchArgumentNullable
+                self::warnVoidTypeArgument($code_base, $context, $argument, $node);
+            }
             // @phan-suppress-next-line PhanTypeMismatchArgumentNullable
             self::analyzeParameter($code_base, $context, $method, $argument_type, $argument->lineno ?? $node->lineno, $i, $argument);
             if ($parameter->isPassByReference()) {
@@ -587,6 +595,24 @@ final class ArgumentType
                 self::analyzeRemainingParametersForVariadic($code_base, $context, $method, $i + 1, $node, $argument, $argument_type);
             }
         }
+    }
+
+    /**
+     * @param Node|string|int|float $argument
+     */
+    private static function warnVoidTypeArgument(
+        CodeBase $code_base,
+        Context $context,
+        $argument,
+        Node $node
+    ): void {
+        Issue::maybeEmit(
+            $code_base,
+            $context,
+            Issue::TypeVoidArgument,
+            $argument->lineno ?? $node->lineno,
+            ASTReverter::toShortString($argument)
+        );
     }
 
     private static function analyzeRemainingParametersForVariadic(
@@ -699,6 +725,9 @@ final class ArgumentType
                 if (Config::get_strict_param_checking() && $argument_type->typeCount() > 1) {
                     self::analyzeParameterStrict($code_base, $context, $method, $argument_node, $argument_type, $alternate_parameter, $alternate_parameter_type, $lineno, $i);
                 }
+                if ($alternate_parameter->shouldWarnIfProvided()) {
+                    self::maybeWarnProvidingUnusedParameter($code_base, $context, $lineno, $method, $alternate_parameter, $i);
+                }
                 return;
             }
         }
@@ -708,6 +737,9 @@ final class ArgumentType
         }
         if (!isset($alternate_parameter_type)) {
             throw new AssertionError('Impossible - should be set if $alternate_parameter is set');
+        }
+        if ($alternate_parameter->shouldWarnIfProvided()) {
+            self::maybeWarnProvidingUnusedParameter($code_base, $context, $lineno, $method, $alternate_parameter, $i);
         }
 
         if ($alternate_parameter->isPassByReference() && $alternate_parameter->getReferenceType() === Parameter::REFERENCE_WRITE_ONLY) {
@@ -750,6 +782,42 @@ final class ArgumentType
         }
         // Check suppressions and emit the issue
         self::warnInvalidArgumentType($code_base, $context, $method, $alternate_parameter, $alternate_parameter_type, $argument_node, $argument_type, $argument_type->asExpandedTypes($code_base), $argument_type_expanded_resolved, $lineno, $i);
+    }
+
+    private static function maybeWarnProvidingUnusedParameter(
+        CodeBase $code_base,
+        Context $context,
+        int $lineno,
+        FunctionInterface $method,
+        Parameter $parameter,
+        int $i
+    ): void {
+        if ($method->getNumberOfRequiredParameters() > $i) {
+            // handle required parameter after optional
+            return;
+        }
+        $fqsen = $method->getFQSEN();
+        if ($fqsen->getAlternateId() > 0) {
+            return;
+        }
+        if ($method instanceof Method) {
+            if ($method->isOverriddenByAnother() || $code_base->hasMethodWithFQSEN($fqsen->withAlternateId(1))) {
+                return;
+            }
+        }
+        $issue_type = $method instanceof Func && $method->isClosure() ? Issue::ProvidingUnusedParameterOfClosure : Issue::ProvidingUnusedParameter;
+        if ($method->hasSuppressIssue($issue_type)) {
+            // For convenience, allow suppressing it on the method definition as well.
+            return;
+        }
+        Issue::maybeEmit(
+            $code_base,
+            $context,
+            $issue_type,
+            $lineno,
+            $parameter->getName(),
+            $method->getRepresentationForIssue()
+        );
     }
 
     /**

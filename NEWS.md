@@ -1,15 +1,99 @@
 Phan NEWS
 
-??? ?? 2020, Phan 3.0.3 (dev)
+??? ?? 2020, Phan 3.0.6 (dev)
+-----------------------
+
+New features (Analysis):
++ Don't emit `PhanTypeInvalidLeftOperandOfBitwiseOp` and other binary operation warnings for `mixed`
++ Emit `PhanIncompatibleRealPropertyType` when real property types are incompatible (#4016)
++ Change the way `PhanIncompatibleCompositionProp` is checked for. (#4024)
+  Only emit it when the property was redeclared in an inherited trait.
++ Emit `PhanProvidingUnusedParameter` when passing an argument to a function with an optional parameter named `$unused*` or `$_`. (#4026)
+  This can also be suppressed on the functionlike's declaration, and should be suppressed if this does not match the project's parameter naming.
+  This is limited to functions with no overrides.
+
+Plugins:
++ Warn and skip checks instead of crashing when running `InlineHTMLPlugin` without the `tokenizer` extension installed. (#3998)
++ Support throwing `\Phan\PluginV3\UnloadablePluginException` instead of returning a plugin object in plugin files.
+
+Jul 03 2020, Phan 3.0.5
+-----------------------
+
+New features(CLI, Configs):
++ Add `-X` as an alias of `--dead-code-detection-prefer-false-positive`.
+
+New features(Analysis):
++ Emit `PhanTypeInvalidLeftOperandOfBitwiseOp` and `PhanTypeInvalidRightOperandOfBitwiseOp` for argument types to bitwise operations other than `int|string`.
+  (affects `^`, `|`, `&`, `^=`, `|=`, `&=`)
+
+Bug fixes:
++ Fix false positives in php 8.0+ type checking against the real `mixed` type. (#3994)
++ Fix unintentionally enabling GC when the `pcntl` extension is not enabled. (#4000)
+  It should only be enabled when running in daemon mode or as a language server.
+
+Jul 01 2020, Phan 3.0.4
+-----------------------
+
+New features(Analysis):
++ Emit `PhanTypeVoidExpression` when using an expression returning `void` in places such as array keys/values.
++ More accurately infer unspecified types when closures are used with `array_map` (#3973)
++ Don't flatten array shapes and literal values passed to closures when analyzing closures. (Continue flattening for methods and global functions)
++ Link to documentation for internal stubs as a suggestion for undeclared class issues when Phan has type information related to the class in its signature files.
+  See https://github.com/phan/phan/wiki/Frequently-Asked-Questions#undeclared_element
++ Properly render the default values if available(`ReflectionParameter->isDefaultValueAvailable()`) in php 8.0+.
++ Properly set the real union types based on reflection information for functions/methods in more edge cases.
++ Properly infer that union types containing the empty array shape are possibly empty after sorting (#3980)
++ Infer a more accurate real type set from unary ops `~`, `+`, and `-` (#3991)
++ Improve ability to infer assignments within true branch of complex expressions in conditions such as `if (A && complex_expression) { } else { }` (#3992)
+
+Plugins:
++ Add `ShortArrayPlugin`, to suggest using `[]` instead of `array()` or `list()`
++ In `DuplicateExpressionPlugin`, emit `PhanPluginDuplicateExpressionAssignmentOperation` if `X = X op Y` is seen and it can be converted to `X op= Y` (#3985)
+  (excluding `??=` for now)
++ Add `SimplifyExpressionPlugin`, to suggest shortening expressions such as `$realBool ? true : false` or `$realBool === false`
++ Add `RemoveDebugStatementPlugin`, to suggest removing debugging output statements such as `echo`, `print`, `printf`, `fwrite(STDERR, ...)`, `var_export(...)`, inline html, etc.
+  This is only useful in applications or libraries that print output in only a few places, as a sanity check that debugging statements are not accidentally left in code.
+
+Bug fixes:
++ Treat `@method static foo()` as an instance method returning the union type `static` (#3981)
+  Previously, Phan treated it like a static method with type `void` based on an earlier phpdoc spec.
++ Fix the way that Phan inferred the `finally` block's exit status affected the `try` block. (#3987)
+
+Jun 21 2020, Phan 3.0.3
 -----------------------
 
 New features(Analysis):
 + Include the most generic types when conditions such as `is_string()` to union types containing `mixed` (#3947)
 + More aggressively infer that `while` and `for` loop bodies are executed at least once in functions outside of other loops (#3948)
 + Infer the union type of `!$expr` from the type of `$expr` (#3948)
++ Re-enable `simplify_ast` by default in `.phan/config.php` (#3944, #3945)
++ Avoid false positives in `--constant-variable-detection` for `++`/`--`
++ Make `if (!$nullableValue) { }` remove truthy literal scalar values such as `'value'` and `1` and `1.0` when they're nullable
++ Emit `PhanTypeVoidArgument` when passing a void return value as a function argument (#3961)
++ Correctly merge the possible union types of pass-by-reference variables (#3959)
++ Improve php 8.0-dev shim support. Fix checking for array references and closure use references in php 8.0+.
++ More aggressively check if expression results should be used for conditionals and binary operators.
+
+Plugins:
++ Add `ConstantVariablePlugin` to point out places where variables are read when they have only one possible scalar value. (#3953)
+  This may help detect logic errors such as `$x === null ? json_encode($x) : 'default'` or code that could be simplified,
+  but most issues it emits wouldn't be worth fixing due to hurting readability or being false positives.
++ Add `MergeVariableInfoCapability` for plugins to hook into ContextMergeVisitor and update data for a variable
+  when merging the outcome of different scopes. (#3956)
++ Make `UseReturnValuePlugin` check if a method is declared as pure before using the dynamic checks based on percentage of
+  calls where the return value is used, if that option is enabled.
++ In `DuplicateArrayKeyPlugin`, properly check for duplicate non-scalar cases.
+
+Language Server/Daemon mode:
++ Fix bug where the Phan daemon would crash on the next request after analyzing a file outside of the project being analyzed,
+  when pcntl was disabled or unavailable (#3954)
 
 Bug fixes:
 + Fix `PhanDebugAnnotation` output for variables after the first one in `@phan-debug-var $a, $b` (#3943)
++ Use the correct constant to check if closure use variables are references in php 8.0+
+
+Miscellaneous:
++ Update function signature stubs for the `memcache` PECL (#3841)
 
 Jun 07 2020, Phan 3.0.2
 -----------------------
@@ -254,7 +338,7 @@ New features(CLI, Configs):
 New features(Analysis):
 + Support parsing php 8.0 union types (and the static return type) in the polyfill. (#3419, #3634)
 + Emit `PhanCompatibleUnionType` and `PhanCompatibleStaticType` when the target php version is less than 8.0 and union types or static return types are seen. (#3419, #3634)
-+ Be more consistent about warning about issues in values of class constants, global constants, and property defaults.
++ Be more consistent when warning about issues in values of class constants, global constants, and property defaults.
 + Infer key and element types from `iterator_to_array()`
 + Infer that modification of or reading from static properties all use the same property declaration. (#3760)
   Previously, Phan would track the static property's type separately for each subclass.
