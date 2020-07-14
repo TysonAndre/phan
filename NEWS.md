@@ -3,6 +3,14 @@ Phan NEWS
 ??? ?? 2020, Phan 3.1.0 (dev)
 -----------------------
 
+New features (CLI, Config):
++ Add `--output-mode=verbose` to print the line of code which caused the issue to be emitted after the textual issue output.
+  This is only emitted if the line is not whitespace, could be read, and does not exceed the config setting `max_verbose_snippet_length`.
++ Add `included_extension_subset` to limit Phan to using the reflection information to a subset of available extensions. (#4015)
+  This can be used to make Phan warn about using constants/functions/classes that are not in the target environment or dependency list
+  of a given PHP project/library.
+  Note that this may cause issues if a class from an extension in this list depends on classes from another extension that is outside of this list.
+
 New features (Analysis):
 + Don't emit `PhanTypeInvalidLeftOperandOfBitwiseOp` and other binary operation warnings for `mixed`
 + Emit `PhanIncompatibleRealPropertyType` when real property types are incompatible (#4016)
@@ -29,6 +37,14 @@ New features (Analysis):
 Plugins:
 + Warn and skip checks instead of crashing when running `InlineHTMLPlugin` without the `tokenizer` extension installed. (#3998)
 + Support throwing `\Phan\PluginV3\UnloadablePluginException` instead of returning a plugin object in plugin files.
++ When a plugin registers for a method definition with `AnalyzeFunctionCallCapability`, automatically register the same closure for all classlikes using the same inherited definition of that method. (#4021)
+
+Miscellaneous
++ Support analyzing [PHP 8.0's match expression](https://wiki.php.net/rfc/match_expression_v2). (#3970)
++ Update more unit tests for php 8.0.
+
+Bug Fixes:
++ Make suppressions on trait methods/properties consistently apply to the inherited definitions from classes/traits using those traits.
 
 Jul 03 2020, Phan 3.0.5
 -----------------------
