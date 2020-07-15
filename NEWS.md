@@ -33,11 +33,13 @@ New features (Analysis):
 + Emit `PhanTypeMismatchArgumentInternalProbablyReal` instead of `PhanTypeMismatchArgumentInternal` in a few more cases.
 + Be stricter about checking if callables/closures have anything in common with other types.
 + Preserve more specific phpdoc types when the php 8.0 `mixed` type is part of the real type set.
++ Also emit `PhanPluginUseReturnValueNoopVoid` when a function/method's return type is implicitly void (#4049)
 
 Plugins:
 + Warn and skip checks instead of crashing when running `InlineHTMLPlugin` without the `tokenizer` extension installed. (#3998)
 + Support throwing `\Phan\PluginV3\UnloadablePluginException` instead of returning a plugin object in plugin files.
 + When a plugin registers for a method definition with `AnalyzeFunctionCallCapability`, automatically register the same closure for all classlikes using the same inherited definition of that method. (#4021)
++ Add `UnsafeCodePlugin` to warn about uses of `eval` or the backtick string shorthand for `shell_exec()`.
 
 Miscellaneous
 + Support analyzing [PHP 8.0's match expression](https://wiki.php.net/rfc/match_expression_v2). (#3970)

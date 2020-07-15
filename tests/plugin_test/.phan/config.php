@@ -148,7 +148,9 @@ return [
         'UnknownClassElementAccessPlugin',
         'DuplicateConstantPlugin',
         'ConstantVariablePlugin',
-        '../../.phan/plugins/ShortArrayPlugin.php',
-        '../../.phan/plugins/SimplifyExpressionPlugin.php',
+        'ShortArrayPlugin',
+        'SimplifyExpressionPlugin',
+        'UnsafeCodePlugin',
+        'DeprecateAliasPlugin',
     ],
 ];
