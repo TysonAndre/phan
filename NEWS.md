@@ -6,6 +6,9 @@ Phan NEWS
 New features (Analysis):
 + Don't compare parameter types against alternate method signatures which have too many required parameters.
   (e.g. warn about `max([])` but not `max([], [1])`)
++ Warn about loop conditions that potentially don't change due to the body of the loop.
+  This check uses heuristics and is prone to false positives.
+  New issue types: `PhanPossiblyInfiniteLoop`
 
 Aug 25 2020, Phan 3.2.0
 -----------------------
