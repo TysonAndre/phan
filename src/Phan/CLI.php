@@ -81,7 +81,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    public const PHAN_VERSION = '3.1.1-dev';
+    public const PHAN_VERSION = '3.1.2-dev';
 
     /**
      * List of short flags passed to getopt
@@ -1883,7 +1883,13 @@ EOB
             // > Clears all characters from the cursor position to the end of the line (including the character at the cursor position).
             $message = "\033[2K" . $message;
         }
-        fwrite(STDERR, $message);
+        if (\defined('STDERR')) {
+            fwrite(STDERR, $message);
+        } else {
+            // Fallback in case Phan runs interactively or in non-CLI SAPIs.
+            // This is incomplete.
+            echo $message;
+        }
     }
 
     /**
@@ -1915,7 +1921,7 @@ EOB
             $section = self::colorizeHelpSectionIfSupported($section);
         }
         if ($toStderr) {
-            fwrite(STDERR, $section);
+            CLI::printToStderr($section);
         } else {
             echo $section;
         }
@@ -1985,6 +1991,9 @@ EOB
         };
         $short_options = \array_filter(array_map($trim, \str_split(self::GETOPT_SHORT_OPTIONS)));
         if (strlen($key) === 1) {
+            if (in_array($key, $short_options, true)) {
+                return $generate_suggestion_text($key);
+            }
             $alternate = \ctype_lower($key) ? \strtoupper($key) : \strtolower($key);
             if (in_array($alternate, $short_options, true)) {
                 return $generate_suggestion_text($alternate);
@@ -2508,6 +2517,9 @@ EOB
                 case 'parse':
                     $buf = "Parsing files..." . PHP_EOL;
                     break;
+                case 'classes':
+                    $buf = "Analyzing classes..." . PHP_EOL;
+                    break;
                 case 'function':
                     $buf = "Analyzing functions..." . PHP_EOL;
                     break;
@@ -2515,7 +2527,13 @@ EOB
                     $buf = "Analyzing methods..." . PHP_EOL;
                     break;
                 case 'analyze':
-                    $buf = "Analyzing files..." . PHP_EOL;
+                    static $did_print = false;
+                    if ($did_print) {
+                        $buf = "Analyzing files a second time..." . PHP_EOL;
+                    } else {
+                        $buf = "Analyzing files..." . PHP_EOL;
+                        $did_print = true;
+                    }
                     break;
                 case 'dead code':
                     $buf = "Checking for dead code..." . PHP_EOL;

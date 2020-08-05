@@ -336,6 +336,9 @@ return [
         'PhanPluginPossiblyStaticProtectedMethod',
         // The types of ast\Node->children are all possibly unset.
         'PhanTypePossiblyInvalidDimOffset',
+        // TODO: Fix PhanParamNameIndicatingUnused* instances
+        'PhanParamNameIndicatingUnused',
+        'PhanParamNameIndicatingUnusedInClosure',
     ],
 
     // If empty, no filter against issues types will be applied.
@@ -360,6 +363,7 @@ return [
         'tool/pdep',
         'tool/phantasm',
         'tool/phoogle',
+        'tool/phan_repl_helpers.php',
         'internal/dump_fallback_ast.php',
         'internal/dump_html_styles.php',
         'internal/extract_arg_info.php',
@@ -627,7 +631,7 @@ return [
 
         // 'PHPUnitNotDeadCodePlugin',  // Marks PHPUnit test case subclasses and test cases as referenced code. This is only useful for runs when dead code detection is enabled.
 
-        // 'PHPDocInWrongCommentPlugin',  // Useful to warn about using "/*" instead of ""/**" where phpdoc annotations are used.
+        // 'PHPDocInWrongCommentPlugin',  // Useful to warn about using "/*" instead of ""/**" where phpdoc annotations are used. This is slow due to needing to tokenize files.
 
         // NOTE: This plugin only produces correct results when
         //       Phan is run on a single core (-j1).

@@ -15,6 +15,7 @@ use Phan\Exception\IssueException;
 use Phan\Issue;
 use Phan\Language\Context;
 use Phan\Language\Element\Comment\Builder;
+use Phan\Language\FQSEN\FullyQualifiedFunctionName;
 use Phan\Language\FutureUnionType;
 use Phan\Language\Type;
 use Phan\Language\Type\ArrayType;
@@ -73,6 +74,14 @@ class Parameter extends Variable
     private $default_value_constant_name = null;
 
     /**
+     * @var ?string
+     * The raw comment string from a default in an (at)method tag.
+     *
+     * This may be nonsense like '...' or 'default'.
+     */
+    private $default_value_representation = null;
+
+    /**
      * @var bool
      * True if the default value was inferred from reflection
      */
@@ -125,6 +134,15 @@ class Parameter extends Variable
     public function setDefaultValueFutureType(FutureUnionType $type): void
     {
         $this->default_value_future_type = $type;
+    }
+
+    /**
+     * @param ?string $representation
+     * The new representation of the default value.
+     */
+    public function setDefaultValueRepresentation(?string $representation): void
+    {
+        $this->default_value_representation = $representation;
     }
 
     /**
@@ -324,10 +342,13 @@ class Parameter extends Variable
 
         // If there is a default value, store it and its type
         $default_node = $node->children['default'];
-        if ($default_node !== null) {
-            if (preg_match('/^(_$|unused)/iD', $parameter_name)) {
+        if (preg_match('/^(_$|unused)/iD', $parameter_name)) {
+            if ($default_node !== null) {
                 $parameter->should_warn_if_provided = true;
             }
+            self::warnAboutParamNameIndicatingUnused($code_base, $context, $node, $parameter_name);
+        }
+        if ($default_node !== null) {
             // Set the actual value of the default
             $parameter->setDefaultValue($default_node);
             try {
@@ -384,6 +405,26 @@ class Parameter extends Variable
         }
 
         return $parameter;
+    }
+
+    private static function warnAboutParamNameIndicatingUnused(
+        CodeBase $code_base,
+        Context $context,
+        Node $node,
+        string $parameter_name
+    ): void {
+        $is_closure = false;
+        if ($context->isInFunctionLikeScope()) {
+            $func = $context->getFunctionLikeFQSEN();
+            $is_closure = $func instanceof FullyQualifiedFunctionName && $func->isClosure();
+        }
+        Issue::maybeEmit(
+            $code_base,
+            $context,
+            $is_closure ? Issue::ParamNameIndicatingUnusedInClosure : Issue::ParamNameIndicatingUnused,
+            $node->lineno,
+            $parameter_name
+        );
     }
 
     /**
@@ -610,6 +651,9 @@ class Parameter extends Variable
 
     private function generateDefaultNodeRepresentation(bool $is_internal = true): string
     {
+        if (is_string($this->default_value_representation)) {
+            return $this->default_value_representation;
+        }
         if (is_string($this->default_value_constant_name)) {
             return '\\' . $this->default_value_constant_name;
         }

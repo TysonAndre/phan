@@ -78,6 +78,7 @@ class Issue
     public const UndeclaredTypeParameter   = 'PhanUndeclaredTypeParameter';
     public const UndeclaredTypeReturnType  = 'PhanUndeclaredTypeReturnType';
     public const UndeclaredTypeProperty    = 'PhanUndeclaredTypeProperty';
+    public const UndeclaredTypeClassConstant = 'PhanUndeclaredTypeClassConstant';
     public const UndeclaredTypeThrowsType  = 'PhanUndeclaredTypeThrowsType';
     public const UndeclaredVariable        = 'PhanUndeclaredVariable';
     public const PossiblyUndeclaredVariable = 'PhanPossiblyUndeclaredVariable';
@@ -354,6 +355,8 @@ class Issue
     public const ParamSignatureRealMismatchParamType                         = 'PhanParamSignatureRealMismatchParamType';
     public const ParamSignatureRealMismatchParamTypeInternal                 = 'PhanParamSignatureRealMismatchParamTypeInternal';
     public const ParamSignaturePHPDocMismatchParamType                       = 'PhanParamSignaturePHPDocMismatchParamType';
+    public const ParamNameIndicatingUnused                                   = 'PhanParamNameIndicatingUnused';
+    public const ParamNameIndicatingUnusedInClosure                          = 'PhanParamNameIndicatingUnusedInClosure';
 
     // Issue::CATEGORY_NOOP
     public const NoopArray                     = 'PhanNoopArray';
@@ -376,6 +379,7 @@ class Issue
     public const NoopSwitchCases               = 'PhanNoopSwitchCases';
     public const NoopMatchArms                 = 'PhanNoopMatchArms';
     public const NoopMatchExpression           = 'PhanNoopMatchExpression';
+    public const NoopRepeatedSilenceOperator   = 'PhanNoopRepeatedSilenceOperator';
     public const UnreachableCatch              = 'PhanUnreachableCatch';
     public const UnreferencedClass             = 'PhanUnreferencedClass';
     public const UnreferencedFunction          = 'PhanUnreferencedFunction';
@@ -580,6 +584,7 @@ class Issue
     public const CommentDuplicateParam            = 'PhanCommentDuplicateParam';
     public const CommentDuplicateMagicMethod      = 'PhanCommentDuplicateMagicMethod';
     public const CommentDuplicateMagicProperty    = 'PhanCommentDuplicateMagicProperty';
+    public const CommentObjectInClassConstantType = 'PhanCommentObjectInClassConstantType';
     // phpcs:enable Generic.NamingConventions.UpperCaseConstantName.ClassConstantNotUpperCase
     // end of issue name constants
 
@@ -1045,8 +1050,8 @@ class Issue
             new Issue(
                 self::UndeclaredConstant,
                 self::CATEGORY_UNDEFINED,
-                self::SEVERITY_NORMAL,
-                "Reference to undeclared constant {CONST}",
+                self::SEVERITY_CRITICAL,
+                "Reference to undeclared constant {CONST}. This will cause a thrown Error in php 8.0+.",
                 self::REMEDIATION_B,
                 11011
             ),
@@ -1177,6 +1182,14 @@ class Issue
                 "Property {PROPERTY} has undeclared type {TYPE}",
                 self::REMEDIATION_B,
                 11020
+            ),
+            new Issue(
+                self::UndeclaredTypeClassConstant,
+                self::CATEGORY_UNDEFINED,
+                self::SEVERITY_LOW,
+                "Class constant {CONST} has undeclared class type {TYPE}",
+                self::REMEDIATION_B,
+                11054
             ),
             new Issue(
                 self::UndeclaredClosureScope,
@@ -1899,7 +1912,7 @@ class Issue
                 self::TypeInvalidUnaryOperandBitwiseNot,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
-                "Invalid operator: unary operand of {STRING_LITERAL} is {TYPE} (expected number or string)",
+                "Invalid operator: unary operand of {STRING_LITERAL} is {TYPE} (expected number that can fit in an int, or string)",
                 self::REMEDIATION_B,
                 10076
             ),
@@ -2868,7 +2881,7 @@ class Issue
                 self::DeprecatedClassConstant,
                 self::CATEGORY_DEPRECATED,
                 self::SEVERITY_NORMAL,
-                "Reference to deprecated property {PROPERTY} defined at {FILE}:{LINE}{DETAILS}",
+                "Reference to deprecated class constant {CONST} defined at {FILE}:{LINE}{DETAILS}",
                 self::REMEDIATION_B,
                 5007
             ),
@@ -3006,7 +3019,7 @@ class Issue
                 self::ParamSignatureMismatch,
                 self::CATEGORY_PARAMETER,
                 self::SEVERITY_NORMAL,
-                "Declaration of {METHOD} should be compatible with {METHOD} defined in {FILE}:{LINE}",
+                "Declaration of {METHOD} should be compatible with {METHOD} defined in {FILE}:{LINE}{DETAILS}",
                 self::REMEDIATION_B,
                 7010
             ),
@@ -3014,7 +3027,7 @@ class Issue
                 self::ParamSignatureMismatchInternal,
                 self::CATEGORY_PARAMETER,
                 self::SEVERITY_NORMAL,
-                "Declaration of {METHOD} should be compatible with internal {METHOD}",
+                "Declaration of {METHOD} should be compatible with internal {METHOD}{DETAILS}",
                 self::REMEDIATION_B,
                 7011
             ),
@@ -3302,6 +3315,22 @@ class Issue
                 "First argument of class_alias() must be a name of user defined class ('{CLASS}' attempted)",
                 self::REMEDIATION_B,
                 7048
+            ),
+            new Issue(
+                self::ParamNameIndicatingUnused,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_LOW,
+                'Saw a parameter named ${PARAMETER}. If this was used to indicate that a parameter is unused to Phan, consider using @unused-param after a param comment or suppressing unused parameter warnings instead. PHP 8.0 introduces support for named parameters, so changing names to suppress unused parameter warnings is no longer recommended.',
+                self::REMEDIATION_B,
+                7050
+            ),
+            new Issue(
+                self::ParamNameIndicatingUnusedInClosure,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_LOW,
+                'Saw a parameter named ${PARAMETER}. If this was used to indicate that a parameter is unused to Phan, consider using @unused-param after a param comment or suppressing unused parameter warnings instead. PHP 8.0 introduces support for named parameters, so changing names to suppress unused parameter warnings is no longer recommended.',
+                self::REMEDIATION_B,
+                7051
             ),
 
             // Issue::CATEGORY_NOOP
@@ -4064,6 +4093,15 @@ class Issue
                 'The result of this match expression is not used and the arms have no side effects (except for possibly throwing UnhandledMatchError) in {CODE}',
                 self::REMEDIATION_B,
                 6096
+            ),
+            // TODO: If this is the attributes syntax in php 8.0 stable then this should be become critical.
+            new Issue(
+                self::NoopRepeatedSilenceOperator,
+                self::CATEGORY_NOOP,
+                self::SEVERITY_LOW,
+                'Saw a repeated silence operator in {CODE}',
+                self::REMEDIATION_B,
+                6097
             ),
 
             // Issue::CATEGORY_REDEFINE
@@ -4975,6 +5013,14 @@ class Issue
                 '@phan-debug-var requested for variable ${VARIABLE} - it has union type {TYPE}',
                 self::REMEDIATION_A,
                 16020
+            ),
+            new Issue(
+                self::CommentObjectInClassConstantType,
+                self::CATEGORY_COMMENT,
+                self::SEVERITY_LOW,
+                "Impossible phpdoc declaration that a class constant {CONST} has a type {TYPE} containing objects. This type is ignored during analysis.",
+                self::REMEDIATION_B,
+                16021
             ),
         ];
         // phpcs:enable Generic.Files.LineLength

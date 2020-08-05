@@ -739,7 +739,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/3.0.3/tests/files/expected/0
 ## PhanDeprecatedClassConstant
 
 ```
-Reference to deprecated property {PROPERTY} defined at {FILE}:{LINE}{DETAILS}
+Reference to deprecated class constant {CONST} defined at {FILE}:{LINE}{DETAILS}
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/3.0.3/tests/php72_files/expected/0007_deprecated_class_constant.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/3.0.3/tests/php72_files/src/0007_deprecated_class_constant.php#L6).
@@ -1005,6 +1005,14 @@ class C {
     }
 }
 ```
+
+## PhanNoopRepeatedSilenceOperator
+
+```
+Saw a repeated silence operator in {CODE}
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/plugin_test/expected/190_repeated_silence.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/plugin_test/src/190_repeated_silence.php#L2).
 
 ## PhanNoopStringLiteral
 
@@ -1641,6 +1649,29 @@ First argument of class_alias() must be a name of user defined class ('{CLASS}' 
 
 e.g. [this issue](https://github.com/phan/phan/tree/3.0.3/tests/files/expected/0615_class_alias.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/3.0.3/tests/files/src/0615_class_alias.php#L3).
 
+## PhanParamNameIndicatingUnused
+
+Note that this it may be appropriate to suppress this under the following circumstances:
+
+1. The parameter's name in the public API is actually meant to be `$unused*` or `$_`
+2. The project documents that it does not guarantee that parameter names won't change
+   or that named arguments shouldn't be used with the functions it provides.
+3. The functionality is marked as `@internal`
+
+```
+Saw a parameter named ${PARAMETER}. If this was used to indicate that a parameter is unused to Phan, consider using @unused-param after a param comment or suppressing unused parameter warnings instead. PHP 8.0 introduces support for named parameters, so changing names to suppress unused parameter warnings is no longer recommended.
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/plugin_test/expected/181_provide_unused_param.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/plugin_test/src/181_provide_unused_param.php#L2).
+
+## PhanParamNameIndicatingUnusedInClosure
+
+```
+Saw a parameter named ${PARAMETER}. If this was used to indicate that a parameter is unused to Phan, consider using @unused-param after a param comment or suppressing unused parameter warnings instead. PHP 8.0 introduces support for named parameters, so changing names to suppress unused parameter warnings is no longer recommended.
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/files/expected/0872_noop_closure.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/files/src/0872_noop_closure.php#L4).
+
 ## PhanParamRedefined
 
 ```
@@ -1669,7 +1700,7 @@ and warns if an overriding method's signature is incompatible with the overridde
 **For a check with much lower false positives and clearer issue messages, use the `PhanParamSignatureRealMismatch...` issue types instead.**
 
 ```
-Declaration of {METHOD} should be compatible with {METHOD} defined in {FILE}:{LINE}
+Declaration of {METHOD} should be compatible with {METHOD} defined in {FILE}:{LINE}{DETAILS}
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/3.0.3/tests/files/expected/0869_param_default.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/3.0.3/tests/files/src/0869_param_default.php#L7).
@@ -1681,7 +1712,7 @@ and warns if an overriding method's signature is incompatible with the overridde
 For a check with much lower false positives and clearer issue messages, use the `PhanParamSignatureRealMismatchInternal...` issue types.
 
 ```
-Declaration of {METHOD} should be compatible with internal {METHOD}
+Declaration of {METHOD} should be compatible with internal {METHOD}{DETAILS}
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/3.0.3/tests/files/expected/0308_inheritdoc_incompatible.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/3.0.3/tests/files/src/0308_inheritdoc_incompatible.php#L7).
@@ -3162,7 +3193,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/3.0.3/tests/files/expected/0
 ## PhanTypeInvalidUnaryOperandBitwiseNot
 
 ```
-Invalid operator: unary operand of {STRING_LITERAL} is {TYPE} (expected number or string)
+Invalid operator: unary operand of {STRING_LITERAL} is {TYPE} (expected number that can fit in an int, or string)
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/3.0.3/tests/files/expected/0507_unary_op_warn.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/3.0.3/tests/files/src/0507_unary_op_warn.php#L2).
@@ -4015,7 +4046,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/3.0.3/tests/plugin_test/expe
 This issue comes up when you reference a constant that doesn't exist.
 
 ```
-Reference to undeclared constant {CONST}
+Reference to undeclared constant {CONST}. This will cause a thrown Error in php 8.0+.
 ```
 
 
@@ -4180,6 +4211,14 @@ Class uses undeclared trait {TRAIT}
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/3.0.3/tests/files/expected/0048_parent_class_exists.php.expected#L3) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/3.0.3/tests/files/src/0048_parent_class_exists.php#L10).
+
+## PhanUndeclaredTypeClassConstant
+
+```
+Class constant {CONST} has undeclared class type {TYPE}
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/plugin_test/expected/189_class_constant_badtype.php.expected#L2) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/plugin_test/src/189_class_constant_badtype.php#L4).
 
 ## PhanUndeclaredTypeParameter
 
@@ -4411,6 +4450,14 @@ Comment declares @param ${PARAMETER} multiple times
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/3.0.3/tests/files/expected/0611_comment_duplicated_param.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/3.0.3/tests/files/src/0611_comment_duplicated_param.php#L7).
+
+## PhanCommentObjectInClassConstantType
+
+```
+Impossible phpdoc declaration that a class constant {CONST} has a type {TYPE} containing objects. This type is ignored during analysis.
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/plugin_test/expected/189_class_constant_badtype.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/plugin_test/src/189_class_constant_badtype.php#L4).
 
 ## PhanCommentOverrideOnNonOverrideConstant
 
