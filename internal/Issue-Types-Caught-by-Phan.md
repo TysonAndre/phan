@@ -414,7 +414,7 @@ In PHP 5.6, return types ({TYPE}) are not supported
 ## PhanCompatibleAutoload
 
 ```
-Declaring an autoloader with function __autoload() was deprecated in PHP 7.2 and will become a fatal error in PHP 8.0. Use spl_autoload_register() instead (supported since PHP 5.1).
+Declaring an autoloader with function __autoload() was deprecated in PHP 7.2 and is a fatal error in PHP 8.0+. Use spl_autoload_register() instead (supported since PHP 5.1).
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/3.0.3/tests/plugin_test/expected/000_plugins.php.expected#L21) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/3.0.3/tests/plugin_test/src/000_plugins.php#L64).
@@ -611,7 +611,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/3.0.3/tests/php74_files/expe
 ## PhanCompatibleUnsetCast
 
 ```
-The unset cast (in {CODE}) was deprecated in PHP 7.2 and will become a fatal error in PHP 8.0.
+The unset cast (in {CODE}) was deprecated in PHP 7.2 and is a fatal error in PHP 8.0+.
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/3.0.3/tests/misc/fallback_test/expected/061_cast_crash.php.expected#L11) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/3.0.3/tests/misc/fallback_test/src/061_cast_crash.php#L45).
@@ -1641,6 +1641,54 @@ e.g. [this issue](https://github.com/phan/phan/tree/3.0.3/tests/plugin_test/expe
 
 This category of error comes up when you're messing up your method or function parameters in some way.
 
+## PhanArgumentUnpackingUsedWithNamedArgument
+
+```
+Cannot mix named arguments and argument unpacking in {CODE}
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/php80_files/expected/022_named_arg.php.expected#L14) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/php80_files/src/022_named_arg.php#L15).
+
+## PhanDefinitelyDuplicateNamedArgument
+
+```
+Cannot repeat the same name for named arguments ({CODE}) and ({CODE})
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/php80_files/expected/022_named_arg.php.expected#L16) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/php80_files/src/022_named_arg.php#L17).
+
+## PhanDuplicateNamedArgument
+
+```
+Saw a call with arguments ({CODE}) and ({CODE}) passed to the same parameter of {FUNCTIONLIKE} defined at {FILE}:{LINE}
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/php80_files/expected/022_named_arg.php.expected#L17) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/php80_files/src/022_named_arg.php#L17).
+
+## PhanDuplicateNamedArgumentInternal
+
+```
+Saw a call with arguments ({CODE}) and ({CODE}) passed to the same parameter of {FUNCTIONLIKE}
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/php80_files/expected/022_named_arg.php.expected#L21) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/php80_files/src/022_named_arg.php#L18).
+
+## PhanMissingNamedArgument
+
+```
+Missing named argument for {PARAMETER} in call to {METHOD} defined at {FILE}:{LINE}
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/php80_files/expected/024_named_arg_missing.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/php80_files/src/024_named_arg_missing.php#L7).
+
+## PhanMissingNamedArgumentInternal
+
+```
+Missing named argument for {PARAMETER} in call to {METHOD}
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/php80_files/expected/024_named_arg_missing.php.expected#L10) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/php80_files/src/024_named_arg_missing.php#L13).
+
 ## PhanParamMustBeUserDefinedClassname
 
 ```
@@ -2058,7 +2106,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/3.0.3/tests/files/expected/0
 This issue is emitted when you're passing more than the number of required and optional parameters than are defined for an internal method or function.
 
 ```
-Call with {COUNT} arg(s) to {FUNCTIONLIKE} which only takes {COUNT} arg(s)
+Call with {COUNT} arg(s) to {FUNCTIONLIKE} which only takes {COUNT} arg(s). This is an ArgumentCountError for internal functions in PHP 8.0+.
 ```
 
 This will be emitted for the code
@@ -2090,6 +2138,30 @@ Argument {INDEX} is {TYPE} but {FUNCTIONLIKE} takes {TYPE}
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/3.0.3/tests/files/expected/0364_extended_array_analyze.php.expected#L33) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/3.0.3/tests/files/src/0364_extended_array_analyze.php#L41).
+
+## PhanPositionalArgumentAfterNamedArgument
+
+```
+Saw positional argument ({CODE}) after a named argument {CODE}
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/php80_files/expected/022_named_arg.php.expected#L10) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/php80_files/src/022_named_arg.php#L12).
+
+## PhanUndeclaredNamedArgument
+
+```
+Saw a call with undeclared named argument ({CODE}) to {FUNCTIONLIKE} defined at {FILE}:{LINE}
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/php80_files/expected/023_named_arg.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/php80_files/src/023_named_arg.php#L6).
+
+## PhanUndeclaredNamedArgumentInternal
+
+```
+Saw a call with undeclared named argument ({CODE}) to {FUNCTIONLIKE}
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/php80_files/expected/024_named_arg_missing.php.expected#L9) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/php80_files/src/024_named_arg_missing.php#L12).
 
 # RedefineError
 
@@ -2252,7 +2324,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/3.0.3/tests/files/expected/0
 
 
 ```
-Static call to non-static method {METHOD} defined at {FILE}:{LINE}
+Static call to non-static method {METHOD} defined at {FILE}:{LINE}. This is an Error in PHP 8.0+.
 ```
 
 
@@ -4506,6 +4578,14 @@ Saw an @param annotation for ${PARAMETER}, but it was not found in the param lis
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/3.0.3/tests/files/expected/0373_reject_bad_type_narrowing.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/3.0.3/tests/files/src/0373_reject_bad_type_narrowing.php#L4).
+
+## PhanCommentVarInsteadOfParam
+
+```
+Saw @var annotation for ${VARIABLE} but Phan expects the @param annotation to document the parameter with that name for {FUNCTION}
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/master/tests/files/expected/0416_method_hydration_test.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/master/tests/files/src/0416_method_hydration_test.php#L13).
 
 ## PhanDebugAnnotation
 

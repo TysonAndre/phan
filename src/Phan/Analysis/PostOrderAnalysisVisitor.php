@@ -3026,6 +3026,11 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         }
     }
 
+    public function visitNullsafeMethodCall(Node $node): Context
+    {
+        return $this->visitMethodCall($node);
+    }
+
     /**
      * @param Node $node
      * A node to parse
@@ -3107,9 +3112,80 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         return $this->context;
     }
 
+    /**
+     * @param Node $node
+     * A node to parse
+     *
+     * @return Context
+     * A new or an unchanged context resulting from
+     * parsing the node
+     */
+    public function visitArgList(Node $node): Context
+    {
+        $argument_name_set = [];
+        $has_unpack = false;
+
+        foreach ($node->children as $i => $argument) {
+            if (!\is_int($i)) {
+                throw new AssertionError("Expected argument index to be an integer");
+            }
+            if ($argument instanceof Node && $argument->kind === ast\AST_NAMED_ARG) {
+                ['name' => $argument_name, 'expr' => $argument_expression] = $argument->children;
+                if ($argument_expression === null) {
+                    throw new AssertionError("Expected argument to have an expression");
+                }
+                if (isset($argument_name_set[$argument_name])) {
+                    Issue::maybeEmit(
+                        $this->code_base,
+                        $this->context,
+                        Issue::DefinitelyDuplicateNamedArgument,
+                        $argument->lineno,
+                        ASTReverter::toShortString($argument),
+                        ASTReverter::toShortString($argument_name_set[$argument_name])
+                    );
+                } else {
+                    $argument_name_set[$argument_name] = $argument;
+                }
+            } else {
+                $argument_expression = $argument;
+            }
+            if ($argument_name_set) {
+                if ($argument === $argument_expression) {
+                    Issue::maybeEmit(
+                        $this->code_base,
+                        $this->context,
+                        Issue::PositionalArgumentAfterNamedArgument,
+                        $argument->lineno ?? $node->lineno,
+                        ASTReverter::toShortString($argument),
+                        ASTReverter::toShortString(\end($argument_name_set))
+                    );
+                }
+            }
+
+
+            if (($argument->kind ?? 0) === ast\AST_UNPACK) {
+                $has_unpack = true;
+            }
+        }
+        // TODO: Make this a check that runs even without the $method object
+        if ($has_unpack && $argument_name_set) {
+            Issue::maybeEmit(
+                $this->code_base,
+                $this->context,
+                Issue::ArgumentUnpackingUsedWithNamedArgument,
+                $node->lineno,
+                ASTReverter::toShortString($node)
+            );
+        }
+        return $this->context;
+    }
+
     private function checkForPossibleNonObjectInMethod(Node $node, string $method_name): void
     {
         $type = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $node->children['expr'] ?? $node->children['class']);
+        if ($node->kind === ast\AST_NULLSAFE_METHOD_CALL && !$type->isNull() && !$type->isDefinitelyUndefined()) {
+            $type = $type->nonNullableClone();
+        }
         if ($type->containsDefiniteNonObjectType()) {
             Issue::maybeEmit(
                 $this->code_base,
@@ -3333,6 +3409,11 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     }
 
     public function visitProp(Node $node): Context
+    {
+        return $this->analyzeProp($node, false);
+    }
+
+    public function visitNullsafeProp(Node $node): Context
     {
         return $this->analyzeProp($node, false);
     }
@@ -4217,7 +4298,8 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     private function checkForInfiniteRecursion(Node $node, FunctionInterface $method): void
     {
         $argument_list_node = $node->children['args'];
-        if ($node->kind === ast\AST_METHOD_CALL) {
+        $kind = $node->kind;
+        if ($kind === ast\AST_METHOD_CALL || $kind === ast\AST_NULLSAFE_METHOD_CALL) {
             $expr = $node->children['expr'];
             if (!$expr instanceof Node || $expr->kind !== ast\AST_VAR || $expr->children['name'] !== 'this') {
                 return;

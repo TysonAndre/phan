@@ -191,6 +191,15 @@ class UseReturnValueVisitor extends PluginAwarePostAnalysisVisitor
     }
 
     /**
+     * @param Node $node a node of type AST_NULLSAFE_METHOD_CALL
+     * @override
+     */
+    public function visitNullsafeMethodCall(Node $node): void
+    {
+        $this->visitMethodCall($node);
+    }
+
+    /**
      * @param Node $node a node of type AST_METHOD_CALL
      * @override
      */
@@ -238,7 +247,7 @@ class UseReturnValueVisitor extends PluginAwarePostAnalysisVisitor
     }
 
     /**
-     * @param Node $node a node of type AST_METHOD_CALL
+     * @param Node $node a node of type AST_STATIC_CALL
      * @override
      */
     public function visitStaticCall(Node $node): void
@@ -389,7 +398,8 @@ class UseReturnValueVisitor extends PluginAwarePostAnalysisVisitor
             );
             return true;
         }
-        if ($method->getUnionType()->isNull() || !($method->hasReturn() || $method->isFromPHPDoc())) {
+        $phpdoc_return_type = $method->getPHPDocReturnType();
+        if (($phpdoc_return_type && $phpdoc_return_type->isNull()) || $method->getRealReturnType()->isNull() || !($method->hasReturn() || $method->isFromPHPDoc())) {
             return false;
         }
         $this->emitPluginIssue(

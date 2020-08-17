@@ -491,11 +491,17 @@ class Parser
     {
         if (\in_array($error['type'], [\E_DEPRECATED, \E_COMPILE_WARNING], true) &&
             \basename($error['file']) === 'PhpTokenizer.php') {
+            $line = $error['line'];
+            if (\preg_match('/line ([0-9]+)$/D', $error['message'], $matches)) {
+                $line = (int)$matches[1];
+            }
+
+
             Issue::maybeEmit(
                 $code_base,
                 $context,
                 $error['type'] === \E_COMPILE_WARNING ? Issue::SyntaxCompileWarning : Issue::CompatibleSyntaxNotice,
-                $error['line'],
+                $line,
                 $error['message']
             );
         }
@@ -589,7 +595,9 @@ class Parser
     // TODO: Refactor and make more code use this check
     private static function shouldUseNativeAST(): bool
     {
-        if (\PHP_VERSION_ID >= 70400) {
+        if (\PHP_VERSION_ID >= 80000) {
+            $min_version = '1.0.8';
+        } elseif (\PHP_VERSION_ID >= 70400) {
             $min_version = '1.0.2';
         } else {
             $min_version = '1.0.1';

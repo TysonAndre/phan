@@ -219,9 +219,19 @@ interface KindVisitor
     public function visitMethodCall(Node $node);
 
     /**
+     * Visit a node with kind `\ast\AST_NULLSAFE_METHOD_CALL`
+     */
+    public function visitNullsafeMethodCall(Node $node);
+
+    /**
      * Visit a node with kind `\ast\AST_NAME`
      */
     public function visitName(Node $node);
+
+    /**
+     * Visit a node with kind `\ast\AST_NAMED_ARG`
+     */
+    public function visitNamedArg(Node $node);
 
     /**
      * Visit a node with kind `\ast\AST_NAMESPACE`
@@ -257,6 +267,11 @@ interface KindVisitor
      * Visit a node with kind `\ast\AST_PROP`
      */
     public function visitProp(Node $node);
+
+    /**
+     * Visit a node with kind `\ast\AST_NULLSAFE_PROP`
+     */
+    public function visitNullsafeProp(Node $node);
 
     /**
      * Visit a node with kind `\ast\AST_PROP_DECL`

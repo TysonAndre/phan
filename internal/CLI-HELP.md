@@ -273,6 +273,10 @@ Extended help:
   and not variable definitions.
   This should be used with --quick, and can't be used with --processes <int>.
 
+ --always-exit-successfully-after-analysis
+  Always exit with an exit code of 0, even if unsuppressed issues were emitted.
+  This helps in checking if Phan crashed.
+
  --automatic-fix
   Automatically fix any issues Phan is capable of fixing.
   NOTE: This is a work in progress and limited to a small subset of issues

@@ -1,16 +1,39 @@
 Phan NEWS
 
-??? ?? 2020, Phan 3.1.2 (dev)
+??? ?? 2020, Phan 3.2.0 (dev)
 -----------------------
+
+New features (CLI, Config):
++ Add `--always-exit-successfully-after-analysis` flag.
+  By default, phan exits with a non-zero exit code if 1 or more unsuppressed issues were reported.
+  When this CLI flag is set, phan will instead exit with exit code 0 as long as the analysis completed.
++ Include the installed php-ast version and the php version used to run Phan in the output of `phan --version`. (#4147)
 
 New features (Analysis):
 + Emit `PhanNoopRepeatedSilenceOperator` for `@@expr` or `@(@expr)`.
   This is less efficient and only makes a difference in extremely rare edge cases.
 + Avoid false positives for bitwise operations on floats such as unsigned 64-bit numbers (#4106)
++ Incomplete support for analyzing calls with php 8.0's named arguments. (#4037)
+  New issue types: `PhanUndeclaredNamedArgument*`, `PhanDuplicateNamedArgument*`,
+  `PhanMissingNamedArgument*`,
+  `PhanDefinitelyDuplicateNamedArgument`, `PhanPositionalArgumentAfterNamedArgument`, and
+  `PhanArgumentUnpackingUsedWithNamedArgument`
++ Incomplete support for analyzing uses of PHP 8.0's nullsafe operator(`?->`) for property reads and method calls. (#4067)
++ Warn about using `@var` where `@param` should be used (#1366)
++ Treat undefined variables as definitely null/undefined in various places
+  when they are used outside of loops and the global scope. (#4148)
++ Don't warn about undeclared global constants after `defined()` conditions. (#3337)
+  Phan will infer a broad range of types for these constants that can't be narrowed.
 
 Miscellaneous:
-+ Raise the severity of `PhanUndeclaredConstant` from normal to critical.
++ Raise the severity of `PhanUndeclaredConstant` and `PhanStaticCallToNonStatic` from normal to critical.
   Undeclared constants will become a thrown `Error` at runtime in PHP 8.0+.
+
+Bug fixes:
++ Suppress `PhanParamNameIndicatingUnused` in files loaded from `autoload_internal_extension_signatures`
++ Improve compatibility of polyfill/fallback parser with php 8.0
++ Also try to check against the realpath() of the current working directory when converting absolute paths
+  to relative paths.
 
 Jul 31 2020, Phan 3.1.1
 -----------------------

@@ -357,6 +357,15 @@ class Issue
     public const ParamSignaturePHPDocMismatchParamType                       = 'PhanParamSignaturePHPDocMismatchParamType';
     public const ParamNameIndicatingUnused                                   = 'PhanParamNameIndicatingUnused';
     public const ParamNameIndicatingUnusedInClosure                          = 'PhanParamNameIndicatingUnusedInClosure';
+    public const UndeclaredNamedArgument                                     = 'PhanUndeclaredNamedArgument';
+    public const UndeclaredNamedArgumentInternal                             = 'PhanUndeclaredNamedArgumentInternal';
+    public const DuplicateNamedArgument                                      = 'PhanDuplicateNamedArgument';
+    public const DuplicateNamedArgumentInternal                              = 'PhanDuplicateNamedArgumentInternal';
+    public const DefinitelyDuplicateNamedArgument                            = 'PhanDefinitelyDuplicateNamedArgument';
+    public const PositionalArgumentAfterNamedArgument                        = 'PhanPositionalArgumentAfterNamedArgument';
+    public const ArgumentUnpackingUsedWithNamedArgument                      = 'PhanArgumentUnpackingUsedWithNamedArgument';
+    public const MissingNamedArgument                                        = 'PhanMissingNamedArgument';
+    public const MissingNamedArgumentInternal                                = 'PhanMissingNamedArgumentInternal';
 
     // Issue::CATEGORY_NOOP
     public const NoopArray                     = 'PhanNoopArray';
@@ -574,6 +583,7 @@ class Issue
     public const CommentOverrideOnNonOverrideMethod = 'PhanCommentOverrideOnNonOverrideMethod';
     public const CommentOverrideOnNonOverrideConstant = 'PhanCommentOverrideOnNonOverrideConstant';
     public const CommentParamOutOfOrder           = 'PhanCommentParamOutOfOrder';
+    public const CommentVarInsteadOfParam         = 'PhanCommentVarInsteadOfParam';
     public const ThrowTypeAbsent                  = 'PhanThrowTypeAbsent';
     public const ThrowTypeAbsentForCall           = 'PhanThrowTypeAbsentForCall';
     public const ThrowTypeMismatch                = 'PhanThrowTypeMismatch';
@@ -2772,8 +2782,8 @@ class Issue
             new Issue(
                 self::StaticCallToNonStatic,
                 self::CATEGORY_STATIC,
-                self::SEVERITY_NORMAL,
-                "Static call to non-static method {METHOD} defined at {FILE}:{LINE}",
+                self::SEVERITY_CRITICAL,
+                "Static call to non-static method {METHOD} defined at {FILE}:{LINE}. This is an Error in PHP 8.0+.",
                 self::REMEDIATION_B,
                 9000
             ),
@@ -2930,8 +2940,8 @@ class Issue
             new Issue(
                 self::ParamTooManyInternal,
                 self::CATEGORY_PARAMETER,
-                self::SEVERITY_LOW,
-                "Call with {COUNT} arg(s) to {FUNCTIONLIKE} which only takes {COUNT} arg(s)",
+                self::SEVERITY_CRITICAL,
+                "Call with {COUNT} arg(s) to {FUNCTIONLIKE} which only takes {COUNT} arg(s). This is an ArgumentCountError for internal functions in PHP 8.0+.",
                 self::REMEDIATION_B,
                 7002
             ),
@@ -3331,6 +3341,78 @@ class Issue
                 'Saw a parameter named ${PARAMETER}. If this was used to indicate that a parameter is unused to Phan, consider using @unused-param after a param comment or suppressing unused parameter warnings instead. PHP 8.0 introduces support for named parameters, so changing names to suppress unused parameter warnings is no longer recommended.',
                 self::REMEDIATION_B,
                 7051
+            ),
+            new Issue(
+                self::UndeclaredNamedArgument,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_CRITICAL,
+                'Saw a call with undeclared named argument ({CODE}) to {FUNCTIONLIKE} defined at {FILE}:{LINE}',
+                self::REMEDIATION_B,
+                7052
+            ),
+            new Issue(
+                self::UndeclaredNamedArgumentInternal,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_CRITICAL,
+                'Saw a call with undeclared named argument ({CODE}) to {FUNCTIONLIKE}',
+                self::REMEDIATION_B,
+                7053
+            ),
+            new Issue(
+                self::DuplicateNamedArgument,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_CRITICAL,
+                'Saw a call with arguments ({CODE}) and ({CODE}) passed to the same parameter of {FUNCTIONLIKE} defined at {FILE}:{LINE}',
+                self::REMEDIATION_B,
+                7054
+            ),
+            new Issue(
+                self::DuplicateNamedArgumentInternal,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_CRITICAL,
+                'Saw a call with arguments ({CODE}) and ({CODE}) passed to the same parameter of {FUNCTIONLIKE}',
+                self::REMEDIATION_B,
+                7055
+            ),
+            new Issue(
+                self::DefinitelyDuplicateNamedArgument,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_CRITICAL,
+                'Cannot repeat the same name for named arguments ({CODE}) and ({CODE})',
+                self::REMEDIATION_B,
+                7056
+            ),
+            new Issue(
+                self::PositionalArgumentAfterNamedArgument,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_CRITICAL,
+                'Saw positional argument ({CODE}) after a named argument {CODE}',
+                self::REMEDIATION_B,
+                7057
+            ),
+            new Issue(
+                self::ArgumentUnpackingUsedWithNamedArgument,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_CRITICAL,
+                'Cannot mix named arguments and argument unpacking in {CODE}',
+                self::REMEDIATION_B,
+                7058
+            ),
+            new Issue(
+                self::MissingNamedArgument,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_CRITICAL,
+                'Missing named argument for {PARAMETER} in call to {METHOD} defined at {FILE}:{LINE}',
+                self::REMEDIATION_B,
+                7059
+            ),
+            new Issue(
+                self::MissingNamedArgumentInternal,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_CRITICAL,
+                'Missing named argument for {PARAMETER} in call to {METHOD}',
+                self::REMEDIATION_B,
+                7060
             ),
 
             // Issue::CATEGORY_NOOP
@@ -4618,7 +4700,7 @@ class Issue
                 self::CompatibleAutoload,
                 self::CATEGORY_COMPATIBLE,
                 self::SEVERITY_CRITICAL,
-                "Declaring an autoloader with function __autoload() was deprecated in PHP 7.2 and will become a fatal error in PHP 8.0. Use spl_autoload_register() instead (supported since PHP 5.1).",
+                "Declaring an autoloader with function __autoload() was deprecated in PHP 7.2 and is a fatal error in PHP 8.0+. Use spl_autoload_register() instead (supported since PHP 5.1).",
                 self::REMEDIATION_B,
                 3013
             ),
@@ -4626,7 +4708,7 @@ class Issue
                 self::CompatibleUnsetCast,
                 self::CATEGORY_COMPATIBLE,
                 self::SEVERITY_NORMAL,
-                "The unset cast (in {CODE}) was deprecated in PHP 7.2 and will become a fatal error in PHP 8.0.",
+                "The unset cast (in {CODE}) was deprecated in PHP 7.2 and is a fatal error in PHP 8.0+.",
                 self::REMEDIATION_B,
                 3014
             ),
@@ -4940,6 +5022,14 @@ class Issue
                 'Expected @param annotation for ${PARAMETER} to be before the @param annotation for ${PARAMETER}',
                 self::REMEDIATION_A,
                 16008
+            ),
+            new Issue(
+                self::CommentVarInsteadOfParam,
+                self::CATEGORY_COMMENT,
+                self::SEVERITY_LOW,
+                'Saw @var annotation for ${VARIABLE} but Phan expects the @param annotation to document the parameter with that name for {FUNCTION}',
+                self::REMEDIATION_A,
+                16022
             ),
             new Issue(
                 self::ThrowTypeAbsent,

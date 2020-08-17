@@ -10,6 +10,7 @@ use ast\Node;
 use Error;
 use Exception;
 use Phan\Analysis\ConditionVisitorUtil;
+use Phan\Analysis\ConditionVisitor;
 use Phan\CodeBase;
 use Phan\Config;
 use Phan\Exception\CodeBaseException;
@@ -746,7 +747,9 @@ class ContextNode
                 );
             }
 
-            if (!$union_type->isEmpty()
+            if (
+                $union_type->isDefinitelyUndefined() ||
+                (!$union_type->isEmpty()
                 && $union_type->isNativeType()
                 && !$union_type->hasTypeMatchingCallback(static function (Type $type): bool {
                     return !$type->isNullable() && ($type instanceof MixedType || $type instanceof ObjectType);
@@ -756,7 +759,7 @@ class ContextNode
                 && !(
                     Config::get_null_casts_as_any_type()
                     && $union_type->hasType(NullType::instance(false))
-                )
+                ))
             ) {
                 throw new IssueException(
                     Issue::fromType(Issue::NonClassMethodCall)(
@@ -1756,6 +1759,11 @@ class ContextNode
                         if (\strpos($constant_name, '\\') !== false) {
                             $this->throwUndeclaredGlobalConstantIssueException($code_base, $context, $fqsen);
                         }
+                        // @phan-suppress-next-line PhanAccessClassConstantInternal
+                        $constant_exists_variable = $context->getScope()->getVariableByNameOrNull(ConditionVisitor::CONSTANT_EXISTS_PREFIX . \ltrim($fqsen->__toString(), '\\'));
+                        if ($constant_exists_variable && !$constant_exists_variable->getUnionType()->isPossiblyUndefined() && $constant_exists_variable->getFileRef()->getFile() === $context->getFile()) {
+                            return $this->createPlaceholderGlobalConstant($fqsen);
+                        }
                         $fqsen = FullyQualifiedGlobalConstantName::fromFullyQualifiedString(
                             $constant_name
                         );
@@ -1774,6 +1782,11 @@ class ContextNode
         // or a relative constant for which nothing was found in the namespace
 
         if (!$code_base->hasGlobalConstantWithFQSEN($fqsen)) {
+            // @phan-suppress-next-line PhanAccessClassConstantInternal
+            $constant_exists_variable = $context->getScope()->getVariableByNameOrNull(ConditionVisitor::CONSTANT_EXISTS_PREFIX . \ltrim($fqsen->__toString(), '\\'));
+            if ($constant_exists_variable && !$constant_exists_variable->getUnionType()->isPossiblyUndefined() && $constant_exists_variable->getFileRef()->getFile() === $context->getFile()) {
+                return $this->createPlaceholderGlobalConstant($fqsen);
+            }
             $this->throwUndeclaredGlobalConstantIssueException($code_base, $context, $fqsen);
         }
 
@@ -1798,6 +1811,19 @@ class ContextNode
         }
 
         return $constant;
+    }
+
+    private function createPlaceholderGlobalConstant(
+        FullyQualifiedGlobalConstantName $fqsen
+    ): GlobalConstant {
+        return new GlobalConstant(
+            $this->context,
+            $fqsen->getName(),
+            // This can't be an object.
+            UnionType::fromFullyQualifiedRealString('?array|?bool|?float|?int|?resource|?string'),
+            0,
+            $fqsen
+        );
     }
 
     /**
@@ -2003,14 +2029,14 @@ class ContextNode
             return;
         }
 
-        if ($this->node->kind === ast\AST_STATIC_CALL ||
-           $this->node->kind === ast\AST_METHOD_CALL) {
+        $kind = $this->node->kind;
+        if (\in_array($kind, [ast\AST_STATIC_CALL, ast\AST_METHOD_CALL, ast\AST_NULLSAFE_METHOD_CALL], true)) {
             return;
         }
 
         $llnode = $this->node;
 
-        if ($this->node->kind !== ast\AST_DIM) {
+        if ($kind !== ast\AST_DIM) {
             if (!($this->node->children['expr'] instanceof Node)) {
                 return;
             }
@@ -2062,7 +2088,7 @@ class ContextNode
         // Foo::$bar['baz'](); is a problem
         // Foo::$bar['baz'] is not
         if ($lnode->kind === ast\AST_STATIC_PROP
-            && $this->node->kind !== ast\AST_CALL
+            && $kind !== ast\AST_CALL
         ) {
             return;
         }

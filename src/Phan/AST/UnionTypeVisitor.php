@@ -2239,47 +2239,7 @@ class UnionTypeVisitor extends AnalysisVisitor
         $variable_name =
             (string)$name_node;
 
-        if (!$this->context->getScope()->hasVariableWithName($variable_name)) {
-            if (Variable::isHardcodedVariableInScopeWithName($variable_name, $this->context->isInGlobalScope())) {
-                // @phan-suppress-next-line PhanTypeMismatchReturnNullable variable existence was checked
-                return Variable::getUnionTypeOfHardcodedGlobalVariableWithName($variable_name);
-            }
-            if ($node->flags & PhanAnnotationAdder::FLAG_IGNORE_UNDEF) {
-                if (!$this->context->isInGlobalScope()) {
-                    if ($this->should_catch_issue_exception && !(($node->flags & PhanAnnotationAdder::FLAG_INITIALIZES) && $this->context->isInLoop())) {
-                        // Warn about `$var ??= expr;`, except when it's done in a loop.
-                        $this->emitIssueWithSuggestion(
-                            Variable::chooseIssueForUndeclaredVariable($this->context, $variable_name),
-                            $node->lineno,
-                            [$variable_name],
-                            IssueFixSuggester::suggestVariableTypoFix($this->code_base, $this->context, $variable_name)
-                        );
-                    }
-                    if ($variable_name === 'this') {
-                        return ObjectType::instance(false)->asRealUnionType();
-                    }
-                    return NullType::instance(false)->asRealUnionType();
-                }
-                if ($variable_name === 'this') {
-                    return ObjectType::instance(false)->asRealUnionType();
-                }
-                return NullType::instance(false)->asPHPDocUnionType();
-            }
-
-            if (!($this->context->isInGlobalScope() && Config::getValue('ignore_undeclared_variables_in_global_scope'))) {
-                throw new IssueException(
-                    Issue::fromType(Variable::chooseIssueForUndeclaredVariable($this->context, $variable_name))(
-                        $this->context->getFile(),
-                        $node->lineno,
-                        [$variable_name],
-                        IssueFixSuggester::suggestVariableTypoFix($this->code_base, $this->context, $variable_name)
-                    )
-                );
-            }
-            if ($variable_name === 'this') {
-                return ObjectType::instance(false)->asRealUnionType();
-            }
-        } else {
+        if ($this->context->getScope()->hasVariableWithName($variable_name)) {
             $variable = $this->context->getScope()->getVariableByName(
                 $variable_name
             );
@@ -2314,6 +2274,62 @@ class UnionTypeVisitor extends AnalysisVisitor
             }
 
             return $union_type;
+        }
+        if (Variable::isHardcodedVariableInScopeWithName($variable_name, $this->context->isInGlobalScope())) {
+            // @phan-suppress-next-line PhanTypeMismatchReturnNullable variable existence was checked
+            return Variable::getUnionTypeOfHardcodedGlobalVariableWithName($variable_name);
+        }
+        if ($node->flags & PhanAnnotationAdder::FLAG_IGNORE_UNDEF) {
+            if (!$this->context->isInGlobalScope()) {
+                if ($this->should_catch_issue_exception && !(($node->flags & PhanAnnotationAdder::FLAG_INITIALIZES) && $this->context->isInLoop())) {
+                    // Warn about `$var ??= expr;`, except when it's done in a loop.
+                    $this->emitIssueWithSuggestion(
+                        Variable::chooseIssueForUndeclaredVariable($this->context, $variable_name),
+                        $node->lineno,
+                        [$variable_name],
+                        IssueFixSuggester::suggestVariableTypoFix($this->code_base, $this->context, $variable_name)
+                    );
+                }
+                if ($variable_name === 'this') {
+                    return ObjectType::instance(false)->asRealUnionType();
+                }
+                return NullType::instance(false)->asRealUnionType();
+            }
+            if ($variable_name === 'this') {
+                return ObjectType::instance(false)->asRealUnionType();
+            }
+            return NullType::instance(false)->asPHPDocUnionType();
+        }
+
+        if (!($this->context->isInGlobalScope() && Config::getValue('ignore_undeclared_variables_in_global_scope'))) {
+            if (!$this->should_catch_issue_exception) {
+                throw new IssueException(
+                    Issue::fromType(Variable::chooseIssueForUndeclaredVariable($this->context, $variable_name))(
+                        $this->context->getFile(),
+                        $node->lineno,
+                        [$variable_name],
+                        IssueFixSuggester::suggestVariableTypoFix($this->code_base, $this->context, $variable_name)
+                    )
+                );
+            }
+            Issue::maybeEmitWithParameters(
+                $this->code_base,
+                $this->context,
+                Variable::chooseIssueForUndeclaredVariable($this->context, $variable_name),
+                $node->lineno,
+                [$variable_name],
+                IssueFixSuggester::suggestVariableTypoFix($this->code_base, $this->context, $variable_name)
+            );
+        }
+        if ($variable_name === 'this') {
+            return ObjectType::instance(false)->asRealUnionType();
+        }
+
+        if (!$this->context->isInGlobalScope()) {
+            if (!$this->context->isInLoop()) {
+                return NullType::instance(false)->asRealUnionType()->withIsDefinitelyUndefined();
+            }
+            return NullType::instance(false)->asRealUnionType();
         }
 
         return UnionType::empty();
@@ -2525,6 +2541,34 @@ class UnionTypeVisitor extends AnalysisVisitor
             return UnionType::of($types, [ClassStringType::instance(false)]);
         }
         return UnionType::of($types, $types);
+    }
+
+    /**
+     * Visit a node with kind `\ast\AST_NULLSAFE_PROP`
+     *
+     * @param Node $node
+     * A node of the type indicated by the method name that we'd
+     * like to figure out the type that it produces.
+     *
+     * @return UnionType
+     * The set of types that are possibly produced by the
+     * given node
+     * @override
+     */
+    public function visitNullsafeProp(Node $node): UnionType
+    {
+        $expr_type = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $node->children['expr'])->getRealUnionType();
+        $result = $this->analyzeProp($node, false);
+        if ($expr_type->isEmpty()) {
+            return $result->nullableClone();
+        }
+        if ($expr_type->isNull()) {
+            return NullType::instance(false)->asRealUnionType();
+        }
+        if ($expr_type->containsNullableOrUndefined()) {
+            return $result->nullableClone();
+        }
+        return $result;
     }
 
     /**
@@ -2762,6 +2806,33 @@ class UnionTypeVisitor extends AnalysisVisitor
     public function visitStaticCall(Node $node): UnionType
     {
         return $this->visitMethodCall($node);
+    }
+
+    /**
+     * Visit a node with kind `\ast\AST_NULLSAFE_METHOD_CALL`
+     *
+     * @param Node $node
+     * A node of the type indicated by the method name that we'd
+     * like to figure out the type that it produces.
+     *
+     * @return UnionType
+     * The set of types that are possibly produced by the
+     * given node
+     */
+    public function visitNullsafeMethodCall(Node $node): UnionType
+    {
+        $expr_type = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $node->children['expr'])->getRealUnionType();
+        $result = $this->visitMethodCall($node);
+        if ($result->isEmpty()) {
+            return $result->nullableClone();
+        }
+        if ($expr_type->isNull()) {
+            return NullType::instance(false)->asRealUnionType();
+        }
+        if ($expr_type->containsNullableOrUndefined()) {
+            return $result->nullableClone();
+        }
+        return $result;
     }
 
     /**

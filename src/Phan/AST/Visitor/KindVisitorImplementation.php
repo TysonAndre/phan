@@ -255,12 +255,27 @@ abstract class KindVisitorImplementation implements KindVisitor
         return $this->visit($node);
     }
 
+    public function visitNamedArg(Node $node)
+    {
+        return $this->visit($node);
+    }
+
     public function visitNamespace(Node $node)
     {
         return $this->visit($node);
     }
 
     public function visitNew(Node $node)
+    {
+        return $this->visit($node);
+    }
+
+    public function visitNullsafeMethodCall(Node $node)
+    {
+        return $this->visit($node);
+    }
+
+    public function visitNullsafeProp(Node $node)
     {
         return $this->visit($node);
     }

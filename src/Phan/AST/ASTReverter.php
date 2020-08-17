@@ -160,6 +160,9 @@ class ASTReverter
             ast\AST_ARG_LIST => static function (Node $node): string {
                 return '(' . implode(', ', \array_map('self::toShortString', $node->children)) . ')';
             },
+            ast\AST_NAMED_ARG => static function (Node $node): string {
+                return $node->children['name'] . ': ' . self::toShortString($node->children['expr']);
+            },
             ast\AST_PARAM_LIST => static function (Node $node): string {
                 return '(' . implode(', ', \array_map('self::toShortString', $node->children)) . ')';
             },
@@ -306,6 +309,14 @@ class ASTReverter
                     $prop_node instanceof Node ? '{' . self::toShortString($prop_node) . '}' : (string)$prop_node
                 );
             },
+            ast\AST_NULLSAFE_PROP => static function (Node $node): string {
+                $prop_node = $node->children['prop'];
+                return sprintf(
+                    '%s?->%s',
+                    self::toShortString($node->children['expr']),
+                    $prop_node instanceof Node ? '{' . self::toShortString($prop_node) . '}' : (string)$prop_node
+                );
+            },
             ast\AST_STATIC_CALL => static function (Node $node): string {
                 $method_node = $node->children['method'];
                 return sprintf(
@@ -319,6 +330,15 @@ class ASTReverter
                 $method_node = $node->children['method'];
                 return sprintf(
                     '%s->%s%s',
+                    self::toShortString($node->children['expr']),
+                    is_string($method_node) ? $method_node : self::toShortString($method_node),
+                    self::toShortString($node->children['args'])
+                );
+            },
+            ast\AST_NULLSAFE_METHOD_CALL => static function (Node $node): string {
+                $method_node = $node->children['method'];
+                return sprintf(
+                    '%s?->%s%s',
                     self::toShortString($node->children['expr']),
                     is_string($method_node) ? $method_node : self::toShortString($method_node),
                     self::toShortString($node->children['args'])

@@ -50,6 +50,8 @@ use function is_executable;
 use function is_resource;
 use function is_string;
 use function min;
+use function phpversion;
+use function printf;
 use function shell_exec;
 use function str_repeat;
 use function strcasecmp;
@@ -81,7 +83,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    public const PHAN_VERSION = '3.1.2-dev';
+    public const PHAN_VERSION = '3.2.0-dev';
 
     /**
      * List of short flags passed to getopt
@@ -161,6 +163,7 @@ class CLI
         'language-server-verbose',
         'load-baseline:',
         'analyze-twice',
+        'always-exit-successfully-after-analysis',
         'long-progress-bar',
         'markdown-issue-messages',
         'memory-limit:',
@@ -373,7 +376,11 @@ class CLI
             throw new ExitException($result, EXIT_SUCCESS);
         }
         if (\array_key_exists('v', $opts) || \array_key_exists('version', $opts)) {
-            \printf("Phan %s\n", self::PHAN_VERSION);
+            printf("Phan %s" . PHP_EOL, self::PHAN_VERSION);
+            $ast_version = (string) phpversion('ast');
+            $ast_version_repr = $ast_version !== '' ? "version $ast_version" : "is not installed";
+            printf("php-ast %s" . PHP_EOL, $ast_version_repr);
+            printf("PHP version used to run Phan: %s" . PHP_EOL, \PHP_VERSION);
             throw new ExitException('', EXIT_SUCCESS);
         }
         self::restartWithoutProblematicExtensions();
@@ -908,6 +915,9 @@ class CLI
                     break;
                 case 'analyze-twice':
                     Config::setValue('__analyze_twice', true);
+                    break;
+                case 'always-exit-successfully-after-analysis':
+                    Config::setValue('__always_exit_successfully_after_analysis', true);
                     break;
                 default:
                     // All of phan's long options are currently at least 2 characters long.
@@ -1698,6 +1708,10 @@ Extended help:
   Currently, this only dumps classes/constants/functions/properties,
   and not variable definitions.
   This should be used with --quick, and can't be used with --processes <int>.
+
+ --always-exit-successfully-after-analysis
+  Always exit with an exit code of 0, even if unsuppressed issues were emitted.
+  This helps in checking if Phan crashed.
 
  --automatic-fix
   Automatically fix any issues Phan is capable of fixing.
