@@ -53,6 +53,7 @@ use Phan\Language\Type\StringType;
 use Phan\Language\Type\VoidType;
 use Phan\Language\UnionType;
 
+use function end;
 use function implode;
 use function sprintf;
 
@@ -1444,7 +1445,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
 
     /**
      * @param Node $node
-     * A node to parse
+     * A node of kind ast\AST_CLOSURE or ast\AST_ARROW_FUNC to analyze
      *
      * @return Context
      * A new or an unchanged context resulting from
@@ -1464,6 +1465,15 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         ) {
             $this->warnTypeMissingReturn($func, $node);
         }
+        $uses = $node->children['uses'] ?? null;
+        // @phan-suppress-next-line PhanUndeclaredProperty
+        if (isset($uses->polyfill_has_trailing_comma) && Config::get_closest_minimum_target_php_version_id() < 80000) {
+            $this->emitIssue(
+                Issue::CompatibleTrailingCommaParameterList,
+                end($uses->children)->lineno ?? $uses->lineno,
+                ASTReverter::toShortString($node)
+            );
+        }
         $this->analyzeNoOp($node, Issue::NoopClosure);
         $this->checkForFunctionInterfaceIssues($node, $func);
         return $this->context;
@@ -1479,6 +1489,13 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      */
     public function visitArrowFunc(Node $node): Context
     {
+        if (Config::get_closest_minimum_target_php_version_id() < 70400) {
+            $this->emitIssue(
+                Issue::CompatibleArrowFunction,
+                $node->lineno,
+                ASTReverter::toShortString($node)
+            );
+        }
         return $this->visitClosure($node);
     }
 
@@ -2966,7 +2983,16 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 $parameters_seen[$parameter->getName()] = $i;
             }
         }
-        foreach ($node->children['params']->children as $param) {
+        $params_node = $node->children['params'];
+        // @phan-suppress-next-line PhanUndeclaredProperty
+        if (isset($params_node->polyfill_has_trailing_comma)) {
+            $this->emitIssue(
+                Issue::CompatibleTrailingCommaParameterList,
+                end($params_node->children)->lineno ?? $params_node->lineno,
+                ASTReverter::toShortString($node)
+            );
+        }
+        foreach ($params_node->children as $param) {
             $this->checkUnionTypeCompatibility($param->children['type']);
         }
         $this->checkUnionTypeCompatibility($node->children['returnType']);
@@ -2977,7 +3003,8 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         if (!$type) {
             return;
         }
-        if (Config::get_closest_target_php_version_id() >= 80000) {
+        if (Config::get_closest_minimum_target_php_version_id() >= 80000) {
+            // Don't warn about using union types if the project dropped support for php versions older than 8.0
             return;
         }
         if ($type->kind === ast\AST_TYPE_UNION) {
@@ -3028,7 +3055,19 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
 
     public function visitNullsafeMethodCall(Node $node): Context
     {
+        $this->checkNullsafeOperatorCompatibility($node);
         return $this->visitMethodCall($node);
+    }
+
+    private function checkNullsafeOperatorCompatibility(Node $node): void
+    {
+        if (Config::get_closest_minimum_target_php_version_id() < 80000) {
+            $this->emitIssue(
+                Issue::CompatibleNullsafeOperator,
+                $node->lineno,
+                ASTReverter::toShortString($node)
+            );
+        }
     }
 
     /**
@@ -3130,14 +3169,19 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 throw new AssertionError("Expected argument index to be an integer");
             }
             if ($argument instanceof Node && $argument->kind === ast\AST_NAMED_ARG) {
+                if (Config::get_closest_minimum_target_php_version_id() < 80000) {
+                    $this->emitIssue(
+                        Issue::CompatibleNamedArgument,
+                        $argument->lineno,
+                        ASTReverter::toShortString($argument)
+                    );
+                }
                 ['name' => $argument_name, 'expr' => $argument_expression] = $argument->children;
                 if ($argument_expression === null) {
                     throw new AssertionError("Expected argument to have an expression");
                 }
                 if (isset($argument_name_set[$argument_name])) {
-                    Issue::maybeEmit(
-                        $this->code_base,
-                        $this->context,
+                    $this->emitIssue(
                         Issue::DefinitelyDuplicateNamedArgument,
                         $argument->lineno,
                         ASTReverter::toShortString($argument),
@@ -3151,9 +3195,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             }
             if ($argument_name_set) {
                 if ($argument === $argument_expression) {
-                    Issue::maybeEmit(
-                        $this->code_base,
-                        $this->context,
+                    $this->emitIssue(
                         Issue::PositionalArgumentAfterNamedArgument,
                         $argument->lineno ?? $node->lineno,
                         ASTReverter::toShortString($argument),
@@ -3169,11 +3211,17 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         }
         // TODO: Make this a check that runs even without the $method object
         if ($has_unpack && $argument_name_set) {
-            Issue::maybeEmit(
-                $this->code_base,
-                $this->context,
+            $this->emitIssue(
                 Issue::ArgumentUnpackingUsedWithNamedArgument,
                 $node->lineno,
+                ASTReverter::toShortString($node)
+            );
+        }
+        // @phan-suppress-next-line PhanUndeclaredProperty
+        if (isset($node->polyfill_has_trailing_comma) && Config::get_closest_minimum_target_php_version_id() < 70300) {
+            $this->emitIssue(
+                Issue::CompatibleTrailingCommaArgumentList,
+                end($node->children)->lineno ?? $node->lineno,
                 ASTReverter::toShortString($node)
             );
         }
@@ -3309,6 +3357,13 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      */
     public function visitMatch(Node $node): Context
     {
+        if (Config::get_closest_minimum_target_php_version_id() < 80000) {
+            $this->emitIssue(
+                Issue::CompatibleMatchExpression,
+                $node->lineno,
+                ASTReverter::toShortString($node)
+            );
+        }
         if ($this->isInNoOpPosition($node)) {
             if (!ScopeImpactCheckingVisitor::hasPossibleImpact($this->code_base, $this->context, $node->children['stmts'])) {
                 $this->emitIssue(
@@ -3415,6 +3470,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
 
     public function visitNullsafeProp(Node $node): Context
     {
+        $this->checkNullsafeOperatorCompatibility($node);
         return $this->analyzeProp($node, false);
     }
 
@@ -4840,11 +4896,13 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             return $this->context;
         }
         if ($parent_node->kind !== ast\AST_STMT_LIST) {
-            $this->emitIssue(
-                Issue::CompatibleThrowExpression,
-                $parent_node->lineno,
-                ASTReverter::toShortString($parent_node)
-            );
+            if (Config::get_closest_minimum_target_php_version_id() < 80000) {
+                $this->emitIssue(
+                    Issue::CompatibleThrowExpression,
+                    $parent_node->lineno,
+                    ASTReverter::toShortString($parent_node)
+                );
+            }
         }
 
         return $this->context;

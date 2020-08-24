@@ -18,6 +18,7 @@ use Phan\Exception\CodeBaseException;
 use Phan\Exception\IssueException;
 use Phan\Exception\RecursionDepthException;
 use Phan\Issue;
+use Phan\IssueFixSuggester;
 use Phan\Language\Context;
 use Phan\Language\Element\Func;
 use Phan\Language\Element\FunctionInterface;
@@ -29,6 +30,7 @@ use Phan\Language\Type\FalseType;
 use Phan\Language\Type\NullType;
 use Phan\Language\UnionType;
 use Phan\PluginV3\StopParamAnalysisException;
+use Phan\Suggestion;
 
 use function is_string;
 
@@ -459,6 +461,9 @@ final class ArgumentType
                 // TODO: Could optimize for long lists by precomputing a map, probably not worth it
                 foreach ($method->getRealParameterList() as $j => $parameter) {
                     if ($parameter->getName() === $argument_name) {
+                        if ($parameter->isVariadic()) {
+                            self::emitSuspiciousNamedArgumentForVariadic($code_base, $context, $method, $argument);
+                        }
                         $found = true;
                         $i = $j;
                         break;
@@ -466,27 +471,7 @@ final class ArgumentType
                 }
 
                 if (!isset($parameter) || (!$found && !$parameter->isVariadic())) {
-                    if ($method->isPHPInternal()) {
-                        Issue::maybeEmit(
-                            $code_base,
-                            $context,
-                            Issue::UndeclaredNamedArgumentInternal,
-                            $argument->lineno,
-                            ASTReverter::toShortString($argument),
-                            $method->getRepresentationForIssue(true)
-                        );
-                    } else {
-                        Issue::maybeEmit(
-                            $code_base,
-                            $context,
-                            Issue::UndeclaredNamedArgument,
-                            $argument->lineno,
-                            ASTReverter::toShortString($argument),
-                            $method->getRepresentationForIssue(true),
-                            $method->getContext()->getFile(),
-                            $method->getContext()->getLineNumberStart()
-                        );
-                    }
+                    self::emitUndeclaredNamedArgument($code_base, $context, $method, $argument);
                     continue;
                 }
                 if (!\is_array($positions_used)) {
@@ -609,6 +594,9 @@ final class ArgumentType
                 // TODO: Could optimize for long lists by precomputing a map, probably not worth it
                 foreach ($method->getRealParameterList() as $j => $parameter) {
                     if ($parameter->getName() === $argument_name) {
+                        if ($parameter->isVariadic()) {
+                            self::emitSuspiciousNamedArgumentForVariadic($code_base, $context, $method, $argument);
+                        }
                         $found = true;
                         $i = $j;
                         break;
@@ -616,27 +604,7 @@ final class ArgumentType
                 }
 
                 if (!isset($parameter) || (!$found && !$parameter->isVariadic())) {
-                    if ($method->isPHPInternal()) {
-                        Issue::maybeEmit(
-                            $code_base,
-                            $context,
-                            Issue::UndeclaredNamedArgumentInternal,
-                            $argument->lineno,
-                            ASTReverter::toShortString($argument),
-                            $method->getRepresentationForIssue(true)
-                        );
-                    } else {
-                        Issue::maybeEmit(
-                            $code_base,
-                            $context,
-                            Issue::UndeclaredNamedArgument,
-                            $argument->lineno,
-                            ASTReverter::toShortString($argument),
-                            $method->getRepresentationForIssue(true),
-                            $method->getContext()->getFile(),
-                            $method->getContext()->getLineNumberStart()
-                        );
-                    }
+                    self::emitUndeclaredNamedArgument($code_base, $context, $method, $argument);
                     continue;
                 }
                 if (!\is_array($positions_used)) {
@@ -760,6 +728,67 @@ final class ArgumentType
         }
         if (\is_array($positions_used)) {
             self::checkAllNamedArgumentsPassed($code_base, $context, $node->lineno, $method, $positions_used);
+        }
+    }
+
+    private static function emitSuspiciousNamedArgumentForVariadic(
+        CodeBase $code_base,
+        Context $context,
+        FunctionInterface $method,
+        Node $argument
+    ): void {
+        $argument_name = $argument->children['name'];
+        Issue::maybeEmit(
+            $code_base,
+            $context,
+            Issue::SuspiciousNamedArgumentForVariadic,
+            $argument->lineno,
+            $argument_name,
+            $method->getRepresentationForIssue(true),
+            $argument_name
+        );
+    }
+
+    private static function emitUndeclaredNamedArgument(
+        CodeBase $code_base,
+        Context $context,
+        FunctionInterface $method,
+        Node $argument
+    ): void {
+        $parameter_suggestions = [];
+        foreach ($method->getRealParameterList() as $parameter) {
+            if (!$parameter->isVariadic()) {
+                $name = $parameter->getName();
+                $parameter_suggestions[$name] = $name;
+            }
+        }
+        $argument_name = $argument->children['name'];
+        $suggested_arguments = IssueFixSuggester::getSuggestionsForStringSet($argument_name, $parameter_suggestions);
+        $suggestion = $suggested_arguments ? Suggestion::fromString('Did you mean ' . \implode(' ', $suggested_arguments)) : null;
+
+        if ($method->isPHPInternal()) {
+            Issue::maybeEmitWithParameters(
+                $code_base,
+                $context,
+                Issue::UndeclaredNamedArgumentInternal,
+                $argument->lineno,
+                [ASTReverter::toShortString($argument), $method->getRepresentationForIssue(true)],
+                $suggestion
+            );
+        } else {
+            Issue::maybeEmitWithParameters(
+                $code_base,
+                $context,
+                Issue::UndeclaredNamedArgument,
+                $argument->lineno,
+                [
+                    ASTReverter::toShortString($argument),
+                    $method->getRepresentationForIssue(true),
+                    $method->getContext()->getFile(),
+                    $method->getContext()->getLineNumberStart(),
+                ],
+                $suggestion
+            );
         }
     }
 

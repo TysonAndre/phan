@@ -366,6 +366,7 @@ class Issue
     public const ArgumentUnpackingUsedWithNamedArgument                      = 'PhanArgumentUnpackingUsedWithNamedArgument';
     public const MissingNamedArgument                                        = 'PhanMissingNamedArgument';
     public const MissingNamedArgumentInternal                                = 'PhanMissingNamedArgumentInternal';
+    public const SuspiciousNamedArgumentForVariadic                          = 'PhanSuspiciousNamedArgumentForVariadic';
 
     // Issue::CATEGORY_NOOP
     public const NoopArray                     = 'PhanNoopArray';
@@ -559,6 +560,12 @@ class Issue
     public const CompatibleUnionType                = 'PhanCompatibleUnionType';
     public const CompatibleStaticType               = 'PhanCompatibleStaticType';
     public const CompatibleThrowExpression          = 'PhanCompatibleThrowExpression';
+    public const CompatibleArrowFunction            = 'PhanCompatibleArrowFunction';
+    public const CompatibleMatchExpression          = 'PhanCompatibleMatchExpression';
+    public const CompatibleNullsafeOperator         = 'PhanCompatibleNullsafeOperator';
+    public const CompatibleNamedArgument            = 'PhanCompatibleNamedArgument';
+    public const CompatibleTrailingCommaArgumentList = 'PhanCompatibleTrailingCommaArgumentList';
+    public const CompatibleTrailingCommaParameterList = 'PhanCompatibleTrailingCommaParameterList';
 
     // Issue::CATEGORY_GENERIC
     public const TemplateTypeConstant       = 'PhanTemplateTypeConstant';
@@ -3414,6 +3421,14 @@ class Issue
                 self::REMEDIATION_B,
                 7060
             ),
+            new Issue(
+                self::SuspiciousNamedArgumentForVariadic,
+                self::CATEGORY_PARAMETER,
+                self::SEVERITY_NORMAL,
+                'Passing named argument to a variadic parameter ${PARAMETER} of the same name in a call to {METHOD}. This will set the array offset "{PARAMETER}" of the resulting variadic parameter, not the parameter itself (suppress this if this is deliberate).',
+                self::REMEDIATION_B,
+                7061
+            ),
 
             // Issue::CATEGORY_NOOP
             new Issue(
@@ -4823,6 +4838,57 @@ class Issue
                 "Cannot use throw as an expression before php 8.0 in {CODE}",
                 self::REMEDIATION_B,
                 3028
+            ),
+            new Issue(
+                self::CompatibleMatchExpression,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_NORMAL,
+                "Cannot use match expressions before php 8.0 in {CODE}",
+                self::REMEDIATION_B,
+                3032
+            ),
+            new Issue(
+                self::CompatibleArrowFunction,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_NORMAL,
+                "Cannot use arrow functions before php 7.4 in {CODE}",
+                self::REMEDIATION_B,
+                3033
+            ),
+            new Issue(
+                self::CompatibleNullsafeOperator,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_NORMAL,
+                "Cannot use nullsafe operator before php 8.0 in {CODE}",
+                self::REMEDIATION_B,
+                3034
+            ),
+            new Issue(
+                self::CompatibleNamedArgument,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_NORMAL,
+                "Cannot use named arguments before php 8.0 in argument ({CODE})",
+                self::REMEDIATION_B,
+                3035
+            ),
+            // NOTE: The fact that the native php-ast does not track trailing commas is by design.
+            // It exposes the information that php's implementation stores internally,
+            // and that information is not available because php itself does not need it.
+            new Issue(
+                self::CompatibleTrailingCommaParameterList,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_NORMAL,
+                "Cannot use trailing commas in parameter or closure use lists before php 8.0 in declaration of {FUNCTIONLIKE}. NOTE: THIS ISSUE CAN ONLY DETECTED BY THE POLYFILL.",
+                self::REMEDIATION_B,
+                3036
+            ),
+            new Issue(
+                self::CompatibleTrailingCommaArgumentList,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_NORMAL,
+                "Cannot use trailing commas in argument lists before php 7.3 in {CODE}. NOTE: THIS ISSUE CAN ONLY DETECTED BY THE POLYFILL.",
+                self::REMEDIATION_B,
+                3037
             ),
 
             // Issue::CATEGORY_GENERIC

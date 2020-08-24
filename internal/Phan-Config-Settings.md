@@ -701,6 +701,17 @@ If this is overridden to be null, this will be inferred from `target_php_version
 
 (Default: `false`)
 
+## minimum_target_php_version
+
+The PHP version that will be used for feature/syntax compatibility warnings.
+
+Supported values: `'5.6'`, `'7.0'`, `'7.1'`, `'7.2'`, `'7.3'`, `'7.4'`, `null`.
+If this is set to `null`, Phan will first attempt to infer the value from
+the project's composer.json's `{"require": {"php": "version range"}}` if possible.
+If that could not be determined, then Phan assumes `target_php_version`.
+
+(Default: `null`)
+
 ## polyfill_parse_all_element_doc_comments
 
 Make the tolerant-php-parser polyfill generate doc comments
@@ -719,6 +730,11 @@ NOTE: Currently, this only affects `Closure::fromCallable()`
 (Default: `true`)
 
 ## target_php_version
+
+The PHP version that the codebase will be checked for compatibility against.
+For best results, the PHP binary used to run Phan should have the same PHP version.
+(Phan relies on Reflection for some types, param counts,
+and checks for undefined classes/methods/functions)
 
 Supported values: `'5.6'`, `'7.0'`, `'7.1'`, `'7.2'`, `'7.3'`, `'7.4'`, `null`.
 If this is set to `null`,
