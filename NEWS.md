@@ -1,14 +1,34 @@
 Phan NEWS
 
-??? ?? 2020, Phan 3.2.1 (dev)
+??? ?? 2020, Phan 3.2.2 (dev)
+-----------------------
+
+Sep 13 2020, Phan 3.2.1
 -----------------------
 
 New features (Analysis):
 + Don't compare parameter types against alternate method signatures which have too many required parameters.
   (e.g. warn about `max([])` but not `max([], [1])`)
++ Support `/** @unused-param $param_name */` in doc comments as an additional way to support suppressing warnings about individual parameters being unused.
 + Warn about loop conditions that potentially don't change due to the body of the loop.
   This check uses heuristics and is prone to false positives.
   New issue types: `PhanPossiblyInfiniteLoop`
++ Treat `unset($x);` as shadowing variable definitions during dead code detection.
++ Change the way `$i++`, `--$i`, etc. are analyzed during dead code detection
++ Properly enable `allow_method_param_type_widening` by default when the inferred `minimum_target_php_version` is `'7.2'` or newer. (#4168)
++ Start preparing for switching to AST version 80 in an upcoming Phan 4 release. (#4167)`
+
+Bug fixes:
++ Fix various crashes in edge cases.
++ Fix crash with adjacent named labels for gotos.
++ Fix false positive unused parameter warning with php 8.0 constructor property promotion.
+
+Plugins:
++ Warn about `#` comments in `PHPDocInWrongCommentPlugin` if they're not used for the expected `#[` syntax of php 8.0 attributes.
+
+Maintenance:
++ Update polyfill/fallback parser to properly skip attributes in php 8.0.
+  The upcoming Phan 4 release will support analyzing attributes, which requires AST version 80.
 
 Aug 25 2020, Phan 3.2.0
 -----------------------

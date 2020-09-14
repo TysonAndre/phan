@@ -236,10 +236,15 @@ final class BlockExitStatusChecker extends KindVisitorImplementation
      */
     public function visitSwitch(Node $node): int
     {
-        $cond_status = $this->check($node->children['cond']);
-        if (($cond_status & self::STATUS_PROCEED) === 0) {
-            // handle throw expressions, switch(exit()), etc.
-            return $cond_status;
+        $cond = $node->children['cond'];
+        if ($cond instanceof Node) {
+            $cond_status = $this->check($cond);
+            if (($cond_status & self::STATUS_PROCEED) === 0) {
+                // handle throw expressions, switch(exit()), etc.
+                return $cond_status;
+            }
+        } else {
+            $cond_status = self::STATUS_PROCEED;
         }
         return $this->visitSwitchList($node->children['stmts']) | ($cond_status & ~self::STATUS_PROCEED);
     }
@@ -598,6 +603,22 @@ final class BlockExitStatusChecker extends KindVisitorImplementation
      * @return int the corresponding status code
      */
     public function visitStmtList(Node $node): int
+    {
+        $status = $node->flags & self::STATUS_BITMASK;
+        if ($status) {
+            return $status;
+        }
+        $status = $this->computeStatusOfBlock($node->children);
+        $node->flags = $status;
+        return $status;
+    }
+
+    /**
+     * An expression list has the weakest return status out of all of the (non-PROCEEDing) statements.
+     * @return int the corresponding status code
+     * @override
+     */
+    public function visitExprList(Node $node): int
     {
         $status = $node->flags & self::STATUS_BITMASK;
         if ($status) {

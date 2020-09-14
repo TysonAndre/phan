@@ -243,6 +243,11 @@ final class VariableTrackerElementVisitor extends PluginAwarePostAnalysisVisitor
         }
     }
 
+    private const PARAM_MODIFIER_FLAG_SET =
+        ast\flags\PARAM_MODIFIER_PUBLIC |
+        ast\flags\PARAM_MODIFIER_PROTECTED |
+        ast\flags\PARAM_MODIFIER_PRIVATE;
+
     /**
      * @return array<int, string> maps unique definition ids to issue types
      */
@@ -267,6 +272,11 @@ final class VariableTrackerElementVisitor extends PluginAwarePostAnalysisVisitor
             $graph->recordVariableDefinition($parameter_name, $parameter, $scope, null);
             if ($parameter->flags & ast\flags\PARAM_REF) {
                 $graph->markAsReference($parameter_name);
+            }
+            if ($parameter->flags & self::PARAM_MODIFIER_FLAG_SET) {
+                // Workaround to stop warning about `__construct(public string $flags)`.
+                // Deliberately use a different arbitrary node.
+                $graph->recordVariableUsage($parameter_name, $node, $scope);
             }
         }
         foreach ($node->children['uses']->children ?? [] as $closure_use) {
@@ -408,7 +418,7 @@ final class VariableTrackerElementVisitor extends PluginAwarePostAnalysisVisitor
                 if ($issue_type === Issue::UnusedPublicMethodParameter) {
                     // Narrow down issues about parameters into more specific issues
                     $doc_comment = $method_node->children['docComment'] ?? null;
-                    if (is_string($doc_comment) && \preg_match('/@param[^$]*\$' . \preg_quote($variable_name) . '\b.*@(phan-)?unused-param\b/', $doc_comment)) {
+                    if (is_string($doc_comment) && \preg_match('/@param\b[^$\n]*\$' . \preg_quote($variable_name) . '\b.*@(phan-)?unused-param\b|@(phan-)?unused-param\b[^$\n]*\$' . \preg_quote($variable_name) . '\b/', $doc_comment)) {
                         // Don't warn about parameters marked with @phan-unused-param or @unused-param
                         continue;
                     }

@@ -245,6 +245,27 @@ final class VariableTrackerVisitor extends AnalysisVisitor
     }
 
     /**
+     * Visit a node of kind ast\AST_MATCH_ARM
+     * @override
+     */
+    public function visitMatchArm(Node $node): VariableTrackingScope
+    {
+        // Traverse the AST_EXPR_LIST or null
+        foreach ($node->children['cond']->children ?? [] as $cond_child_node) {
+            if (!($cond_child_node instanceof Node)) {
+                continue;
+            }
+
+            $this->scope = $this->{Element::VISIT_LOOKUP_TABLE[$cond_child_node->kind] ?? 'handleMissingNodeKind'}($cond_child_node);
+        }
+        $expr = $node->children['expr'];
+        if ($expr instanceof Node) {
+            $this->scope = $this->{Element::VISIT_LOOKUP_TABLE[$expr->kind] ?? 'handleMissingNodeKind'}($expr);
+        }
+        return $this->scope;
+    }
+
+    /**
      * @override
      */
     public function visitAssignRef(Node $node): VariableTrackingScope
@@ -533,7 +554,10 @@ final class VariableTrackerVisitor extends AnalysisVisitor
         // return $this->analyzeAssignmentTarget($expr, false);
     }
 
-    public function handleMissingNodeKind(Node $unused_node): VariableTrackingScope
+    /**
+     * @unused-param $node
+     */
+    public function handleMissingNodeKind(Node $node): VariableTrackingScope
     {
         // do nothing
         return $this->scope;
@@ -570,18 +594,20 @@ final class VariableTrackerVisitor extends AnalysisVisitor
 
     /**
      * Do not recurse into function declarations within a scope
+     * @unused-param $node
      * @override
      */
-    public function visitFuncDecl(Node $unused_node): VariableTrackingScope
+    public function visitFuncDecl(Node $node): VariableTrackingScope
     {
         return $this->scope;
     }
 
     /**
      * Do not recurse into class declarations within a scope
+     * @unused-param $node
      * @override
      */
-    public function visitClass(Node $unused_node): VariableTrackingScope
+    public function visitClass(Node $node): VariableTrackingScope
     {
         return $this->scope;
     }
@@ -627,11 +653,12 @@ final class VariableTrackerVisitor extends AnalysisVisitor
     }
 
     /**
-     * @override
-     * @return VariableTrackingScope
      * Common no-op
+     *
+     * @override
+     * @unused-param $node
      */
-    public function visitName(Node $unused_node): VariableTrackingScope
+    public function visitName(Node $node): VariableTrackingScope
     {
         return $this->scope;
     }
@@ -820,6 +847,7 @@ final class VariableTrackerVisitor extends AnalysisVisitor
                 $this->top_level_statement = $top_level_statement;
             }
         }
+        $inner_scope = $this->analyzeWhenValidNode($inner_scope, $node->children['cond']);
 
         // Merge inner scope into outer scope
         // @phan-suppress-next-line PhanTypeMismatchArgument
@@ -1067,7 +1095,10 @@ final class VariableTrackerVisitor extends AnalysisVisitor
             !((new BlockExitStatusChecker())($node->children['stmts']) & ~(BlockExitStatusChecker::STATUS_PROCEED | BlockExitStatusChecker::STATUS_CONTINUE)) &&
             InferPureSnippetVisitor::isSideEffectFreeSnippet($this->code_base, $this->context, $cond) &&
             !self::hasUnknownTypeLoopNodeKinds($cond)) {
-            $this->possibly_infinite_loop_nodes[] = $node;
+            if (!isset($node->children['loop']) ||
+                !((new BlockExitStatusChecker())($node->children['loop']) & ~(BlockExitStatusChecker::STATUS_PROCEED))) {
+                $this->possibly_infinite_loop_nodes[] = $node;
+            }
         }
     }
 

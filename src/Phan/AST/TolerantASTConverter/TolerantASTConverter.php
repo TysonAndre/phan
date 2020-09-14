@@ -713,11 +713,15 @@ class TolerantASTConverter
                 if ($n->questionToken !== null && $ast_return_type !== null) {
                     $ast_return_type = new ast\Node(ast\AST_NULLABLE_TYPE, 0, ['type' => $ast_return_type], $start_line);
                 }
+                $use_variable_name_list = $n->anonymousFunctionUseClause->useVariableNameList ?? null;
+                if (!$use_variable_name_list instanceof PhpParser\Node\DelimitedList\UseVariableNameList) {
+                    $use_variable_name_list = null;
+                }
                 return static::astDeclClosure(
                     $n->byRefToken !== null,
                     $n->staticModifier !== null,
                     static::phpParserParamsToAstParams($n->parameters, $start_line),
-                    static::phpParserClosureUsesToAstClosureUses($n->anonymousFunctionUseClause->useVariableNameList ?? null, $start_line),
+                    static::phpParserClosureUsesToAstClosureUses($use_variable_name_list, $start_line),
                     // @phan-suppress-next-line PhanTypeMismatchArgumentNullable, PhanPossiblyUndeclaredProperty return_null_on_empty is false.
                     static::phpParserStmtlistToAstNode($n->compoundStatementOrSemicolon->statements, self::getStartLine($n->compoundStatementOrSemicolon), false),
                     $ast_return_type,
@@ -1650,10 +1654,20 @@ class TolerantASTConverter
             'Microsoft\PhpParser\Node\Statement\GotoStatement' => static function (PhpParser\Node\Statement\GotoStatement $n, int $start_line): ast\Node {
                 return new ast\Node(ast\AST_GOTO, 0, ['label' => static::tokenToString($n->name)], $start_line);
             },
-            /** @return ast\Node[] */
-            'Microsoft\PhpParser\Node\Statement\NamedLabelStatement' => static function (PhpParser\Node\Statement\NamedLabelStatement $n, int $start_line): array {
+            /** @return ast\Node[]|ast\Node */
+            'Microsoft\PhpParser\Node\Statement\NamedLabelStatement' => static function (PhpParser\Node\Statement\NamedLabelStatement $n, int $start_line) {
                 $label = new ast\Node(ast\AST_LABEL, 0, ['name' => static::tokenToString($n->name)], $start_line);
-                $statement = static::phpParserNodeToAstNode($n->statement);
+                $raw_statement = $n->statement;
+                if (!$raw_statement) {
+                    // Hopefully, newer versions of tolerant-php-parser will treat named labels as a standlone statement
+                    return $label;
+                }
+                $statement = static::phpParserNodeToAstNode($raw_statement);
+                if (is_array($statement)) {
+                    // E.g. there are multiple labels in a row.
+                    \array_unshift($statement, $label);
+                    return $statement;
+                }
                 return [$label, $statement];
             },
         ];
@@ -1813,7 +1827,7 @@ class TolerantASTConverter
     protected static function phpParserUnionTypeToAstNode($type, ?PhpParser\Node\DelimitedList\QualifiedNameList $other_types, int $line): ?\ast\Node
     {
         $types = [];
-        if (!\is_null($type)) {
+        if (!\is_null($type) && !($type instanceof Token && $type->kind === TokenKind::BarToken)) {
             $result = static::phpParserTypeToAstNode($type, $line);
             if ($result) {
                 $types[] = $result;

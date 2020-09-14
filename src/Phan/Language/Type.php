@@ -401,7 +401,7 @@ class Type
      * @return Type
      * A single canonical instance of the given type.
      *
-     * @throws AssertionError if an unparsable string is passed in
+     * @suppress PhanThrowTypeAbsent
      */
     protected static function make(
         string $namespace,
@@ -431,19 +431,19 @@ class Type
         }
 
         if ($namespace === '') {
-            throw new AssertionError("Namespace cannot be empty");
+            throw new InvalidFQSENException("Namespace cannot be empty", $type_name);
         }
 
         if ('\\' !== $namespace[0]) {
-            throw new AssertionError("Namespace must be fully qualified");
+            throw new InvalidFQSENException("Namespace must be fully qualified", "$namespace\\$type_name");
         }
 
         if ($type_name === '') {
-            throw new AssertionError("Type name cannot be empty");
+            throw new EmptyFQSENException("Type name cannot be empty", \rtrim($namespace, "\\") . "\\");
         }
 
         if (\strpos($type_name, '|') !== false) {
-            throw new AssertionError("Type name '$type_name' may not contain a pipe");
+            throw new InvalidFQSENException("Type name '$type_name' may not contain a pipe", $type_name);
         }
 
         // Create a canonical representation of the
@@ -622,6 +622,7 @@ class Type
      * A map from a template type identifier to a
      * concrete union type
      * @phan-side-effect-free
+     * @suppress PhanThrowTypeAbsentForCall
      */
     public static function fromType(
         Type $type,
@@ -861,6 +862,8 @@ class Type
      * True if this type can be null, false if it cannot
      * be null.
      * @phan-side-effect-free
+     *
+     * @suppress PhanThrowTypeAbsentForCall
      */
     public static function fromNamespaceAndName(
         string $namespace,
@@ -1274,7 +1277,7 @@ class Type
      * @return Type
      * Parse a type from the given string
      *
-     * @suppress PhanPossiblyFalseTypeArgument, PhanPossiblyFalseTypeArgumentInternal
+     * @suppress PhanPossiblyFalseTypeArgument, PhanPossiblyFalseTypeArgumentInternal, PhanThrowTypeAbsent, PhanThrowTypeAbsentForCall
      * @phan-side-effect-free
      */
     public static function fromStringInContext(
@@ -1284,7 +1287,7 @@ class Type
         CodeBase $code_base = null
     ): Type {
         if ($string === '') {
-            throw new AssertionError("Type cannot be empty");
+            throw new EmptyFQSENException("Type cannot be empty", '');
         }
         while (\substr($string, -1) === ')') {
             if ($string[0] === '?') {
@@ -1880,6 +1883,8 @@ class Type
      * @return Type
      * A new type that is a copy of this type but with the
      * given nullability value.
+     *
+     * @suppress PhanThrowTypeAbsentForCall should not happen provided a valid type
      */
     public function withIsNullable(bool $is_nullable): Type
     {
@@ -1997,8 +2002,9 @@ class Type
     /**
      * Returns true if this has any instance of `static` or `self`.
      * This is overridden in subclasses such as `SelfType` and `IterableType`
+     * @unused-param $code_base
      */
-    public function hasStaticOrSelfTypesRecursive(CodeBase $_): bool
+    public function hasStaticOrSelfTypesRecursive(CodeBase $code_base): bool
     {
         // TODO: Check template types?
         return false;
@@ -2120,8 +2126,9 @@ class Type
      * Check if this type can possibly cast to the declared type, ignoring nullability of this type
      *
      * Precondition: This is either non-nullable or the type NullType/VoidType
+     * @unused-param $context
      */
-    public function canCastToDeclaredType(CodeBase $code_base, Context $unused_context, Type $other): bool
+    public function canCastToDeclaredType(CodeBase $code_base, Context $context, Type $other): bool
     {
         if ($other->isPossiblyObject() && $this->canPossiblyCastToClass($code_base, $other->withIsNullable(false))) {
             return true;
