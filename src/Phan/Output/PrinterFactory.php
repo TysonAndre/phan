@@ -54,6 +54,7 @@ class PrinterFactory
                 break;
             case 'phplike':
                 $printer = new PHPLikePrinter();
+                break;
             case 'html':
                 $printer = new HTMLPrinter();
                 break;
