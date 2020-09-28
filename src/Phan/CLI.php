@@ -83,7 +83,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    public const PHAN_VERSION = '3.2.2-dev';
+    public const PHAN_VERSION = '3.2.3-dev';
 
     /**
      * List of short flags passed to getopt
@@ -1523,7 +1523,7 @@ $init_help
   Add colors to the outputted issues.
   This is recommended for only --output-mode=text (the default) and 'verbose'
 
-  [--color-scheme={default,code,light,eclipse_dark,vim}]
+  [--color-scheme={default,code,eclipse_dark,vim,light,light_high_contrast}]
     This (or the environment variable PHAN_COLOR_SCHEME) can be used to set the color scheme for emitted issues.
 
  -p, --progress-bar, --no-progress-bar, --long-progress-bar

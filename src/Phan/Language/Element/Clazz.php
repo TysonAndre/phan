@@ -425,6 +425,9 @@ class Clazz extends AddressableElement
         }
 
         foreach ($class->getMethods() as $reflection_method) {
+            if ($reflection_method->getDeclaringClass()->name !== $class_name) {
+                continue;
+            }
             $method_context = $context->withScope($class_scope);
 
             $method_list =
@@ -1568,8 +1571,7 @@ class Clazz extends AddressableElement
                     $context->getFile(),
                     $context->getLineNumberStart(),
                     [
-                        (string)$constant_fqsen,
-                        (string)$this->getFQSEN()
+                        $this->getFQSEN() . '::' . $constant_fqsen
                     ],
                     IssueFixSuggester::suggestSimilarClassConstant($code_base, $context, $constant_fqsen)
                 )
