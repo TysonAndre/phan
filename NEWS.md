@@ -1,6 +1,6 @@
 Phan NEWS
 
-??? ?? 2020, Phan 3.2.3 (dev)
+Oct 12 2020, Phan 3.2.3
 -----------------------
 
 New features (CLI, Config):
@@ -21,11 +21,15 @@ New features (Analysis):
   New issue type: `PhanCommentOverrideOnNonOverrideProperty`.
   (Phan already warns for constants and methods)
 
+Plugins:
++ Emit `PhanPluginUseReturnValueGenerator` for calling a function returning a generator without using the returned Generator. (#4013)
+
 Bug fixes:
 + Properly analyze the right hand side for `$cond || throw ...;` (e.g. emit `PhanCompatibleThrowException`) (#4199)
 + Don't infer implications of `left || right` on the right hand expression when the right hand side has no side effects. (#4199)
 + Emit `PhanTypeInvalidThrowStatementNonThrowable` for thrown expressions that definitely aren't `\Throwable`
   even when `warn_about_undocumented_throw_statements` is disabled or the throw expression is in the top level scope. (#4200)
++ Increase the minimum requirements in composer.json to what Phan actually requires. (#4217)
 
 Sep 19 2020, Phan 3.2.2
 -----------------------
