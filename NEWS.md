@@ -1,5 +1,18 @@
 Phan NEWS
 
+Nov 12 2020, Phan 3.2.4
+-----------------------
+
+New features (Analysis):
++ Partially support `self<A>` and `static<B>` in phpdoc types. (#4226)
+  This support is incomplete and may run into issues with inheritance.
+
+Bug fixes:
++ Properly infer the literal string value of `__FUNCTION__` for global functions in namespaces (#4231)
++ Fix false positive `PhanPossiblyInfiniteLoop` for `do {} while (false);` that is unchangeably false (#4236)
++ Infer that array_shift and array_pop return null when the passed in array could be empty, not false. (#4239)
++ Handle `PhpToken::getAll()` getting renamed to `PhpToken::tokenize()` in PHP 8.0.0RC4. (#4189)
+
 Oct 12 2020, Phan 3.2.3
 -----------------------
 
