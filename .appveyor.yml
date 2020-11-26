@@ -14,13 +14,18 @@ platform: x86
 environment:
   matrix:
     # This major release of Phan (2.0) requires php-ast 1.0.1+
+    - PHP_EXT_VERSION: '8.0'
+      PHP_VERSION: '8.0.0'
+      VC_VERSION: 16
+      PHP_AST_VERSION: 1.0.10
+      PHAN_RUN_INTEGRATION_TEST: 1
     - PHP_EXT_VERSION: '7.4'
-      PHP_VERSION: '7.4.9'
+      PHP_VERSION: '7.4.13'
       VC_VERSION: 15
       PHP_AST_VERSION: 1.0.8
       PHAN_RUN_INTEGRATION_TEST: 1
     - PHP_EXT_VERSION: '7.3'
-      PHP_VERSION: '7.3.21'
+      PHP_VERSION: '7.3.25'
       VC_VERSION: 15
       PHP_AST_VERSION: 1.0.4
     - PHP_EXT_VERSION: '7.2'
