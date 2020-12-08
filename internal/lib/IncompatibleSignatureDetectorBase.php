@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Phan\CodeBase;
+use Phan\Exception\FQSENException;
 use Phan\Memoize;
 
 define('ORIGINAL_SIGNATURE_PATH', dirname(__DIR__, 2) . '/src/Phan/Language/Internal/FunctionSignatureMap.php');
@@ -55,6 +57,12 @@ Usage: $program_name command [...args]
 
   $program_name update-stubs path/to/stubs-dir
     Update any of Phan's missing signatures based on a checkout of a directory with stubs for extensions.
+
+  $program_name update-real-stubs path/to/php-src-or-ext-dir
+    Print information about where *.stub.php files conflict with Phan's stub files.
+
+  $program_name update-real-param-names path/to/php-src-or-ext-dir
+    Update param names of functions (without alternates) based on *.stub.php files in a directory.
 
   $program_name update-svn path/to/phpdoc_svn_dir
     Update any of Phan's missing signatures based on a checkout of the docs.php.net source repo.
@@ -204,7 +212,12 @@ EOT;
                 $new_signatures[$method_name] = $arguments;
                 continue;
             }
-            $new_signatures[$method_name] = static::updateSignature($method_name, $arguments);
+            try {
+                $new_signatures[$method_name] = static::updateSignature($method_name, $arguments);
+            } catch (FQSENException | InvalidArgumentException $e) {
+                static::info("Skipping invalid signature for $method_name: $e\n");
+                $new_signatures[$method_name] = $arguments;
+            }
         }
         $new_signature_path = ORIGINAL_SIGNATURE_PATH . '.new';
         static::info("Saving modified function signatures to $new_signature_path (updating param and return types)\n");
@@ -215,7 +228,7 @@ EOT;
      * @param array<mixed,string> $arguments_from_phan
      * @return array<mixed,string>
      */
-    private function updateSignature(string $function_like_name, array $arguments_from_phan): array
+    protected function updateSignature(string $function_like_name, array $arguments_from_phan): array
     {
         $return_type = $arguments_from_phan[0];
         $arguments_from_svn = $this->parseFunctionLikeSignature($function_like_name);
@@ -257,6 +270,7 @@ EOT;
             }
         }
         // TODO: Update param types
+        // @see IncompatibleRealStubsDetector
         return $arguments_from_phan;
     }
 
@@ -270,7 +284,7 @@ EOT;
         $this->addMissingGlobalFunctionSignatures($phan_signatures);
         $this->addMissingMethodSignatures($phan_signatures);
         $new_signature_path = ORIGINAL_SIGNATURE_PATH . '.extra_signatures';
-        static::info("Saving function signatures with extra paths to $new_signature_path (updating param and return types)\n");
+        static::info("Saving function signatures with added missing signatures to $new_signature_path (updating param and return types)\n");
         static::sortSignatureMap($phan_signatures);
         static::saveSignatureMap($new_signature_path, $phan_signatures);
     }
@@ -394,9 +408,9 @@ EOT;
     /**
      * @throws RuntimeException if the file could not be read
      */
-    public static function readSignatureHeader(): string
+    public static function readSignatureHeader(?string $path = null): string
     {
-        return self::readArrayFileHeader(ORIGINAL_SIGNATURE_PATH);
+        return self::readArrayFileHeader($path ?? ORIGINAL_SIGNATURE_PATH);
     }
 
     /**
@@ -499,6 +513,18 @@ EOT;
     }
 
     /**
+     * @param array<string,array<string,array<int|string,string>>> $deltas
+     */
+    public static function saveSignatureDeltaMap(string $new_delta_path, string $original_delta_path, array $deltas, bool $include_header = true): void
+    {
+        $contents = static::serializeSignatureDeltas($deltas);
+        if ($include_header) {
+            $contents = static::readSignatureHeader($original_delta_path) . $contents;
+        }
+        file_put_contents($new_delta_path, $contents);
+    }
+
+    /**
      * @param array<string,array<int|string,string>> $signatures
      */
     public static function serializeSignatures(array $signatures): string
@@ -506,6 +532,23 @@ EOT;
         $parts = "return [\n";
         foreach ($signatures as $function_like_name => $arguments) {
             $parts .= static::encodeSingleSignature($function_like_name, $arguments);
+        }
+        $parts .= "];\n";
+        return $parts;
+    }
+
+    /**
+     * @param array<string,array<string,array<int|string,string>>> $deltas
+     */
+    public static function serializeSignatureDeltas(array $deltas): string
+    {
+        $parts = "return [\n";
+        foreach ($deltas as $section_name => $signatures) {
+            $parts .= "'$section_name' => [\n";
+            foreach ($signatures as $function_like_name => $arguments) {
+                $parts .= static::encodeSingleSignature($function_like_name, $arguments);
+            }
+            $parts .= "],\n";
         }
         $parts .= "];\n";
         return $parts;
@@ -619,5 +662,23 @@ EOT;
         }
         $result .= "]";
         return $result;
+    }
+
+    /**
+     * Indicate that all functions parsed from stubs with no return statements are non-void
+     */
+    public static function markAllStubsAsNonVoid(CodeBase $code_base): void
+    {
+        static::info("Marking all stubs as non-void\n");
+        foreach ($code_base->getFunctionMap() as $func) {
+            if (!$func->isPHPInternal()) {
+                $func->setHasReturn(true);
+            }
+        }
+        foreach ($code_base->getMethodSet() as $func) {
+            if (!$func->isPHPInternal()) {
+                $func->setHasReturn(true);
+            }
+        }
     }
 }

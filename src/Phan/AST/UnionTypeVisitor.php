@@ -446,8 +446,18 @@ class UnionTypeVisitor extends AnalysisVisitor
                         // For NS\MyClass::methodName, return 'methodName'
                         $value = $fqsen->getName();
                     } else {
-                        // For NS\my_method, return 'NS\my_method'
-                        $value = $fqsen->isClosure() ? '{closure}' : \ltrim($fqsen->__toString(), '\\');
+                        if ($fqsen->isClosure()) {
+                            $this->emitIssue(
+                                Issue::SuspiciousMagicConstant,
+                                $node->lineno,
+                                '__FUNCTION__',
+                                "used inside of a closure instead of a function/method - the value is always '{closure}'"
+                            );
+                            $value = '{closure}';
+                        } else {
+                            // For \NS\my_function, return 'NS\my_function'.
+                            $value = \ltrim($fqsen->__toString(), '\\');
+                        }
                     }
                     return self::literalStringUnionType($value);
                 }
@@ -1123,7 +1133,7 @@ class UnionTypeVisitor extends AnalysisVisitor
             } else {
                 $result = $result->asNonEmptyListTypes();
             }
-            $result = $result->withRealTypeSet(self::arrayTypeFromRealTypeBuilder($real_value_types_builder, $has_key));
+            $result = $result->withRealTypeSet($this->arrayTypeFromRealTypeBuilder($real_value_types_builder, $node, $has_key));
             if ($is_definitely_non_empty) {
                 return $result->nonFalseyClone();
             }
@@ -1138,21 +1148,43 @@ class UnionTypeVisitor extends AnalysisVisitor
     /**
      * @return list<ArrayType>
      */
-    private static function arrayTypeFromRealTypeBuilder(?UnionTypeBuilder $builder, bool $has_key): array
+    private function arrayTypeFromRealTypeBuilder(?UnionTypeBuilder $builder, Node $node, bool $has_key): array
     {
-        if (!$builder || $builder->isEmpty()) {
-            static $array_type_set = null;
-            if ($array_type_set === null) {
-                $array_type_set = [ArrayType::instance(false)];
+        // Here, we only check for the real type being an integer.
+        // Unknown strings such as '0' will cast to integers when used as array keys,
+        // and if we knew all of the array keys were literals we would have generated an array shape instead.
+        $has_int_keys = true;
+        if ($has_key) {
+            foreach ($node->children as $child_node) {
+                $key = $child_node->children['key'] ?? null;
+                if (!isset($key)) {
+                    // unpacking an array with string keys is a runtime error so these must be ints.
+                    continue;
+                }
+                $key_type = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $key);
+                if (!$key_type->getRealUnionType()->isIntTypeOrNull()) {
+                    $has_int_keys = false;
+                    break;
+                }
             }
-            return $array_type_set;
+        }
+        if (!$builder || $builder->isEmpty()) {
+            if (!$has_key) {
+                return UnionType::typeSetFromString('list');
+            }
+            return UnionType::typeSetFromString($has_int_keys ? 'array<int,mixed>' : 'array');
         }
         $real_types = [];
         foreach ($builder->getTypeSet() as $type) {
             if ($has_key) {
-                $real_types[] = ListType::fromElementType($type, false, GenericArrayType::KEY_MIXED);
+                // TODO: Could be more precise if all keys are known to be non-numeric strings or integers
+                $real_types[] = GenericArrayType::fromElementType(
+                    $type,
+                    false,
+                    $has_int_keys ? GenericArrayType::KEY_INT : GenericArrayType::KEY_MIXED
+                );
             } else {
-                $real_types[] = GenericArrayType::fromElementType($type, false, GenericArrayType::KEY_MIXED);
+                $real_types[] = ListType::fromElementType($type, false, GenericArrayType::KEY_MIXED);
             }
         }
         return $real_types;
@@ -1675,7 +1707,7 @@ class UnionTypeVisitor extends AnalysisVisitor
         // If we have generics, we're all set
         if (!$generic_types->isEmpty()) {
             $generic_types = $generic_types->asNormalizedTypes();
-            if (!($node->flags & self::FLAG_IGNORE_NULLABLE) && $union_type->containsNullable()) {
+            if (!($node->flags & self::FLAG_IGNORE_NULLABLE) && $union_type->containsNonMixedNullable()) {
                 $this->emitIssue(
                     Issue::TypeArraySuspiciousNullable,
                     $node->lineno,
@@ -1956,9 +1988,35 @@ class UnionTypeVisitor extends AnalysisVisitor
             }
             // $union_type is exclusively array shape types, but those don't contain the field $dim_value.
             // It's undefined (which becomes null)
-            return NullType::instance(false)->asPHPDocUnionType();
+            if (self::couldRealTypesHaveKey($union_type->getRealTypeSet(), $dim_value)) {
+                return NullType::instance(false)->asPHPDocUnionType();
+            }
+            return NullType::instance(false)->asRealUnionType();
         }
         return $resulting_element_type;
+    }
+
+    /**
+     * @param list<Type> $real_type_set
+     * @param int|string|float $dim_value
+     */
+    private static function couldRealTypesHaveKey(array $real_type_set, $dim_value): bool
+    {
+        foreach ($real_type_set as $type) {
+            if ($type instanceof ArrayShapeType) {
+                if (\array_key_exists($dim_value, $type->getFieldTypes())) {
+                    return true;
+                }
+            } elseif ($type instanceof ListType) {
+                $filtered = \is_int($dim_value) ? $dim_value : \filter_var($dim_value, \FILTER_VALIDATE_INT);
+                if (\is_int($filtered) && $filtered >= 0) {
+                    return true;
+                }
+            } else {
+                return true;
+            }
+        }
+        return \count($real_type_set) === 0;
     }
 
     /**
@@ -2107,7 +2165,7 @@ class UnionTypeVisitor extends AnalysisVisitor
         try {
             if ($generic_types->isEmpty()) {
                 if (!$union_type->asExpandedTypes($this->code_base)->hasIterable() && !$union_type->hasTypeMatchingCallback(static function (Type $type): bool {
-                    return !$type->isNullable() && $type instanceof MixedType;
+                    return !$type->isNullableLabeled() && $type instanceof MixedType;
                 })) {
                     throw new IssueException(
                         Issue::fromType(Issue::TypeMismatchUnpackValue)(

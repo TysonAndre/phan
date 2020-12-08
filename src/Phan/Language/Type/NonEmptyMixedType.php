@@ -9,7 +9,7 @@ use Phan\Language\Context;
 use Phan\Language\Type;
 
 /**
- * Represents the PHPDoc `non-empty-mixed` type, which can cast to/from any type and is truthy.
+ * Represents the PHPDoc `non-empty-mixed` type, which can cast to/from any non-empty type and is truthy.
  *
  * For purposes of analysis, there's usually no difference between mixed and nullable mixed.
  * @phan-pure
@@ -89,5 +89,17 @@ final class NonEmptyMixedType extends MixedType
     public function asNonFalseyType(): Type
     {
         return $this->withIsNullable(false);
+    }
+
+    /** @override */
+    public function isNullable(): bool
+    {
+        return $this->is_nullable;
+    }
+
+    /** @override */
+    public function __toString(): string
+    {
+        return $this->is_nullable ? '?non-empty-mixed' : 'non-empty-mixed';
     }
 }

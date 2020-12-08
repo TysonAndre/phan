@@ -47,6 +47,7 @@ use Phan\Language\Type\LiteralFloatType;
 use Phan\Language\Type\LiteralStringType;
 use Phan\Language\Type\MixedType;
 use Phan\Language\Type\NonEmptyMixedType;
+use Phan\Language\Type\NonNullMixedType;
 use Phan\Language\Type\NullType;
 use Phan\Language\Type\ObjectType;
 use Phan\Language\Type\StringType;
@@ -286,7 +287,9 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             // unset($x[$i]) should convert a list<T> or non-empty-list<T> to an array<Y>
             $union_type = $union_type->withAssociativeArrays(true)->asMappedUnionType(static function (Type $type): Type {
                 if ($type instanceof NonEmptyMixedType) {
-                    return MixedType::instance($type->isNullable());
+                    // convert non-empty-mixed to non-null-mixed because `unset($x[$i])` could have removed the last element of an array,
+                    // but that would still not be null.
+                    return $type->isNullableLabeled() ? MixedType::instance(true) : NonNullMixedType::instance(false);
                 }
                 return $type;
             });
@@ -862,7 +865,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         $this->warnAboutInvalidUnionType(
             $node,
             static function (Type $type): bool {
-                if ($type->isNullable()) {
+                if ($type->isNullableLabeled()) {
                     return false;
                 }
                 if ($type instanceof IntType || $type instanceof MixedType) {
@@ -896,7 +899,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         $this->warnAboutInvalidUnionType(
             $node,
             static function (Type $type): bool {
-                if ($type->isNullable()) {
+                if ($type->isNullableLabeled()) {
                     return false;
                 }
                 if ($type instanceof IntType || $type instanceof StringType || $type instanceof MixedType) {
@@ -1655,7 +1658,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             // Suppressing TypeMismatchReturnReal also suppresses less severe return type mismatches
             return;
         }
-        if ($this->checkCanCastToReturnTypeIfWasNonNullInstead($expression_type, $method_return_type)) {
+        if (!$expression_type->isNull() && $this->checkCanCastToReturnTypeIfWasNonNullInstead($expression_type, $method_return_type)) {
             if ($this->shouldSuppressIssue(Issue::TypeMismatchReturn, $lineno)) {
                 // Suppressing TypeMismatchReturn also suppresses TypeMismatchReturnNullable
                 return;
@@ -4493,6 +4496,9 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                     ($method instanceof Func && $method->isClosure() ? $argument_type : $argument_type->withFlattenedArrayShapeOrLiteralTypeInstances())->withRealTypeSet($parameter->getNonVariadicUnionType()->getRealTypeSet())
                 );
             }
+            if ($method instanceof Method && ($parameter->getFlags() & Parameter::PARAM_MODIFIER_VISIBILITY_FLAGS)) {
+                $this->analyzeArgumentWithConstructorPropertyPromotion($method, $parameter);
+            }
         }
 
         // If we're passing by reference, get the variable
@@ -4575,6 +4581,19 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         );
         $parameter_list[$parameter_offset] = $pass_by_reference_variable;
     }
+
+    private function analyzeArgumentWithConstructorPropertyPromotion(Method $method, Parameter $parameter): void
+    {
+        if (!$method->isNewConstructor()) {
+            return;
+        }
+        $code_base = $this->code_base;
+        $class_fqsen = $method->getClassFQSEN();
+        $class = $code_base->getClassByFQSEN($class_fqsen);
+        $property = $class->getPropertyByName($code_base, $parameter->getName());
+        AssignmentVisitor::addTypesToPropertyStandalone($code_base, $this->context, $property, $parameter->getUnionType());
+    }
+
 
     /**
      * Emit warnings if the pass-by-reference call would set the property to an invalid type

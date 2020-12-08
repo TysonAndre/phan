@@ -83,7 +83,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    public const PHAN_VERSION = '3.2.4';
+    public const PHAN_VERSION = '3.2.7-dev';
 
     /**
      * List of short flags passed to getopt
@@ -2593,7 +2593,7 @@ EOB
                     // @phan-suppress-next-line PhanPluginPrintfVariableFormatString
                     $buf .= " " . \sprintf(
                         "%" . strlen((string)(int)$count) . "d / %d (%3d%%) %.0fMB" . PHP_EOL,
-                        $offset ?? 0,
+                        min(self::$current_progress_offset_long_progress, $count),
                         (int)$count,
                         100 * $p,
                         $memory

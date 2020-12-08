@@ -1,5 +1,44 @@
 Phan NEWS
 
+??? ?? 202?, Phan 3.2.7 (dev)
+-----------------------
+
+New features (Analysis):
++ Update real parameter names to match php 8.0's parameter names for php's own internal methods (including variadics and those with multiple signatures). (#4263)
+  Update real parameter names, types, and return types for some PECL extensions.
++ Raise the severity of some php 8.0 incompatibility issues to critical.
++ Fix handling of references after renaming variadic reference parameters of `fscanf`/`scanf`/`mb_convert_variables`
++ Mention if PhanUndeclaredFunction is potentially caused by the target php version being too old. (#4230)
++ Support a `non-null-mixed` type and change the way analysis involving nullability is checked for `mixed` (phpdoc and real). (#4278, #4276)
+
+Nov 27 2020, Phan 3.2.6
+-----------------------
+
+New features (Analysis):
++ Update many more real parameter names to match php 8.0's parameter names for php's own internal methods. (#4263)
++ Infer that an instance property exists for PHP 8.0 constructor property promotion. (#3938)
++ Infer types of properties from arguments passed into constructor for PHP 8.0 constructor property promotion. (#3938)
++ Emit `PhanInvalidNode` and `PhanRedefineProperty` when misusing syntax for constructor property promotion. (#3938)
++ Emit `PhanCompatibleConstructorPropertyPromotion` when the project's `minimum_target_php_version` is older than `8.0` (#3938)
++ Emit `PhanSuspiciousMagicConstant` when using `__FUNCTION__` inside of a closure. (#4222)
+
+Nov 26 2020, Phan 3.2.5
+-----------------------
+
+New features (Analysis):
++ Convert more internal function signature types from resource to the new object types with `target_php_version` of `8.0`+ (#4245, #4246)
++ Make internal function signature types and counts consistent with PHP 8.0's `.php.stub` files used to generate some reflection information.
+
+Bug fixes
++ Fix logic error inferring the real key type of lists and arrays
+  and infer that the real union type of arrays is `array<int,something>`
+  when all keys have real type int. (#4251)
++ Fix rendering of processed item count in `--long-progress-bar`.
+
+Miscellaneous:
++ Rename OCI-Collection and OCI-Lob to OCICollection and OCILob internally to prepare for php 8 support.
+  (Previously `OCI_Collection` and `OCI_Lob` were used to be valid fqsens internally)
+
 Nov 12 2020, Phan 3.2.4
 -----------------------
 
