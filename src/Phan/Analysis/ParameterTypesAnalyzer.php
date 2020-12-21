@@ -84,14 +84,16 @@ class ParameterTypesAnalyzer
         foreach ($method->getParameterList() as $i => $parameter) {
             if ($parameter->getFlags() & Parameter::PARAM_MODIFIER_VISIBILITY_FLAGS) {
                 if ($method instanceof Method && strcasecmp($method->getName(), '__construct') === 0) {
-                    Issue::maybeEmit(
-                        $code_base,
-                        $parameter->createContext($method),
-                        Issue::CompatibleConstructorPropertyPromotion,
-                        $parameter->getFileRef()->getLineNumberStart(),
-                        $parameter,
-                        $method->getRepresentationForIssue(true)
-                    );
+                    if (Config::get_closest_minimum_target_php_version_id() < 80000) {
+                        Issue::maybeEmit(
+                            $code_base,
+                            $parameter->createContext($method),
+                            Issue::CompatibleConstructorPropertyPromotion,
+                            $parameter->getFileRef()->getLineNumberStart(),
+                            $parameter,
+                            $method->getRepresentationForIssue(true)
+                        );
+                    }
                 } else {
                     // emit an InvalidNode warning for non-constructors (closures, global functions, other methods)
                     Issue::maybeEmit(
@@ -655,14 +657,13 @@ class ParameterTypesAnalyzer
                     break;
                 }
 
-                // A stricter type on an overriding method is cool
-                if ($parameter->getUnionType()->isEmpty()
-                    || $parameter->getUnionType()->isType(MixedType::instance(false))
-                ) {
+                if ($parameter->getUnionType()->isEmptyOrMixed()) {
+                    // parameter type widening is allowed
                     continue;
                 }
 
-                if ($o_parameter->getUnionType()->isEmpty() || $o_parameter->getUnionType()->isType(MixedType::instance(false))) {
+                if ($o_parameter->getUnionType()->isEmptyOrMixed()) {
+                    // XXX Not sure why this check was here but there are better checks elsewhere for real mismatches
                     continue;
                 }
 

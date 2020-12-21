@@ -83,7 +83,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    public const PHAN_VERSION = '3.2.7-dev';
+    public const PHAN_VERSION = '3.2.8-dev';
 
     /**
      * List of short flags passed to getopt
@@ -655,7 +655,7 @@ class CLI
                     break;
                 case 'z':
                 case 'signature-compatibility':
-                    Config::setValue('analyze_signature_compatibility', (bool)$value);
+                    Config::setValue('analyze_signature_compatibility', true);
                     break;
                 case 'y':
                 case 'minimum-severity':

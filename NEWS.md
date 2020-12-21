@@ -1,6 +1,17 @@
 Phan NEWS
 
-??? ?? 202?, Phan 3.2.7 (dev)
+??? ?? 202?, Phan 3.2.8 (dev)
+-----------------------
+
+Bug fixes:
++ Fix false positive PhanUnusedVariable for variable redefined in loop (#4301)
++ Fix handling of `-z`/`--signature-compatibility` - that option now enables `analyze_signature_compatibility` instead of disabling it. (#4303)
++ Fix possible `PhanCoalescingNeverUndefined` for variable defined in catch block (#4305)
++ Don't emit `PhanCompatibleConstructorPropertyPromotion` when `minimum_target_php_version` is 8.0 or newer. (#4307)
++ Infer that PHP 8.0 constructor property promotion's properties have write references. (#4308)
+  They are written to by the constructor.
+
+Dec 13 2020, Phan 3.2.7
 -----------------------
 
 New features (Analysis):
@@ -9,6 +20,13 @@ New features (Analysis):
 + Raise the severity of some php 8.0 incompatibility issues to critical.
 + Fix handling of references after renaming variadic reference parameters of `fscanf`/`scanf`/`mb_convert_variables`
 + Mention if PhanUndeclaredFunction is potentially caused by the target php version being too old. (#4230)
++ Improve real type inference for conditionals on literal types (#4288)
++ Change the way the real type set of array access is inferred for mixes of array shapes and arrays (#4296)
++ Emit `PhanSuspiciousNamedArgumentVariadicInternal` when using named arguments with variadic parameters of internal functions that are
+  not among the few reflection functions known to support named arguments. (#4284)
++ Don't suggest instance properties as alternatives to undefined variables inside of static methods.
+
+Bug fixes:
 + Support a `non-null-mixed` type and change the way analysis involving nullability is checked for `mixed` (phpdoc and real). (#4278, #4276)
 
 Nov 27 2020, Phan 3.2.6
@@ -19,7 +37,7 @@ New features (Analysis):
 + Infer that an instance property exists for PHP 8.0 constructor property promotion. (#3938)
 + Infer types of properties from arguments passed into constructor for PHP 8.0 constructor property promotion. (#3938)
 + Emit `PhanInvalidNode` and `PhanRedefineProperty` when misusing syntax for constructor property promotion. (#3938)
-+ Emit `PhanCompatibleConstructorPropertyPromotion` when the project's `minimum_target_php_version` is older than `8.0` (#3938)
++ Emit `PhanCompatibleConstructorPropertyPromotion` when constructor property promotion is used. (#3938)
 + Emit `PhanSuspiciousMagicConstant` when using `__FUNCTION__` inside of a closure. (#4222)
 
 Nov 26 2020, Phan 3.2.5

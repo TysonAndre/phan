@@ -2054,6 +2054,11 @@ class UnionTypeVisitor extends AnalysisVisitor
                     if ($type instanceof ListType && (!\is_numeric($dim_value) || $dim_value < 0)) {
                         continue;
                     }
+                    if ($is_computing_real_type_set) {
+                        // Avoid false positives for real type checking.
+                        // TODO: Improve handling for GenericArrayType, strings, etc.
+                        return null;
+                    }
                     // TODO: Could be more precise about check for ArrayAccess
                     $has_generic_array = true;
                     continue;
@@ -2093,7 +2098,8 @@ class UnionTypeVisitor extends AnalysisVisitor
             }
         }
         if (!$resulting_element_type->containsNullableOrUndefined() && $union_type->containsNullableOrUndefined()) {
-            $resulting_element_type = $resulting_element_type->nullableClone();
+            // Here, this uses Foo|null instead of ?Foo to only warn when strict types are used.
+            $resulting_element_type = $resulting_element_type->withType(NullType::instance(false));
         }
         if (!$is_computing_real_type_set) {
             $resulting_real_element_type = self::resolveArrayShapeElementTypesForOffset($union_type->getRealUnionType(), $dim_value, true);
