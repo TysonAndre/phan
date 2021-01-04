@@ -7,6 +7,7 @@ namespace Phan;
 use AssertionError;
 use InvalidArgumentException;
 use Phan\Language\Context;
+use Phan\Language\Element\Attribute;
 use Phan\Language\Element\TypedElement;
 use Phan\Language\Element\UnaddressableTypedElement;
 use Phan\Language\FQSEN;
@@ -14,6 +15,7 @@ use Phan\Language\Type;
 use Phan\Language\UnionType;
 use Phan\Library\ConversionSpec;
 use Phan\Plugin\ConfigPluginSet;
+use Stringable;
 
 /**
  * An issue emitted during analysis.
@@ -60,6 +62,7 @@ class Issue
     public const UndeclaredClassProperty   = 'PhanUndeclaredClassProperty';
     public const UndeclaredClassReference  = 'PhanUndeclaredClassReference';
     public const UndeclaredClassStaticProperty = 'PhanUndeclaredClassStaticProperty';
+    public const UndeclaredClassAttribute  = 'PhanUndeclaredClassAttribute';
     public const UndeclaredClosureScope    = 'PhanUndeclaredClosureScope';
     public const UndeclaredConstant        = 'PhanUndeclaredConstant';
     // Sadly, PhanUndeclaredClassConstant already exists and means the class is undeclared
@@ -271,6 +274,10 @@ class Issue
     public const PowerOfZero = 'PhanPowerOfZero';
     public const InvalidMixin = 'PhanInvalidMixin';
     public const IncompatibleRealPropertyType = 'PhanIncompatibleRealPropertyType';
+    public const AttributeNonClass = 'PhanAttributeNonClass';
+    public const AttributeNonAttribute = 'PhanAttributeNonAttribute';
+    public const AttributeNonRepeatable = 'PhanAttributeNonRepeatable';
+    public const AttributeWrongTarget = 'PhanAttributeWrongTarget';
 
     // Issue::CATEGORY_ANALYSIS
     public const Unanalyzable              = 'PhanUnanalyzable';
@@ -530,6 +537,8 @@ class Issue
     public const AccessOverridesFinalMethodInTrait      = 'PhanAccessOverridesFinalMethodInTrait';
     public const AccessOverridesFinalMethodInternal     = 'PhanAccessOverridesFinalMethodInternal';
     public const AccessOverridesFinalMethodPHPDoc       = 'PhanAccessOverridesFinalMethodPHPDoc';
+    // TODO: Should probably also warn about the declaration
+    public const AccessNonPublicAttribute               = 'PhanAccessNonPublicAttribute';
 
     // Issue::CATEGORY_COMPATIBLE
     public const CompatibleExpressionPHP7           = 'PhanCompatibleExpressionPHP7';
@@ -549,6 +558,7 @@ class Issue
     public const CompatibleNonCapturingCatch        = 'PhanCompatibleNonCapturingCatch';
     public const CompatibleNegativeStringOffset     = 'PhanCompatibleNegativeStringOffset';
     public const CompatibleAutoload                 = 'PhanCompatibleAutoload';
+    public const CompatibleAssertDeclaration        = 'PhanCompatibleAssertDeclaration';
     public const CompatibleUnsetCast                = 'PhanCompatibleUnsetCast';
     public const CompatibleSyntaxNotice             = 'PhanCompatibleSyntaxNotice';
     public const CompatibleDimAlternativeSyntax     = 'PhanCompatibleDimAlternativeSyntax';
@@ -568,6 +578,8 @@ class Issue
     public const CompatibleNamedArgument            = 'PhanCompatibleNamedArgument';
     public const CompatibleTrailingCommaArgumentList = 'PhanCompatibleTrailingCommaArgumentList';
     public const CompatibleTrailingCommaParameterList = 'PhanCompatibleTrailingCommaParameterList';
+    public const CompatibleAttributeGroupOnSameLine      = 'PhanCompatibleAttributeGroupOnSameLine';
+    public const CompatibleAttributeGroupOnMultipleLines = 'PhanCompatibleAttributeGroupOnMultipleLines';
     public const CompatibleConstructorPropertyPromotion = 'PhanCompatibleConstructorPropertyPromotion';
 
     // Issue::CATEGORY_GENERIC
@@ -1391,7 +1403,14 @@ class Issue
                 self::REMEDIATION_B,
                 11048
             ),
-
+            new Issue(
+                self::UndeclaredClassAttribute,
+                self::CATEGORY_UNDEFINED,
+                self::SEVERITY_LOW,
+                "Reference to undeclared class {CLASS} in an attribute",
+                self::REMEDIATION_B,
+                11055
+            ),
 
             // Issue::CATEGORY_ANALYSIS
             new Issue(
@@ -2790,6 +2809,39 @@ class Issue
                 self::REMEDIATION_B,
                 10165
             ),
+            new Issue(
+                self::AttributeNonClass,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_LOW,
+                'Saw attribute with fqsen {TYPE} which was a {CODE} instead of a class',
+                self::REMEDIATION_B,
+                10170
+            ),
+            new Issue(
+                self::AttributeNonAttribute,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_LOW,
+                'Saw attribute {TYPE} which was declared without {CODE}',
+                self::REMEDIATION_B,
+                10171
+            ),
+            new Issue(
+                self::AttributeNonRepeatable,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_LOW,
+                'Saw attribute {CLASS} which was not declared as \Attribute::IS_REPEATABLE in the class definition at {FILE}:{LINE} but had a repeat declaration on line {LINE}',
+                self::REMEDIATION_B,
+                10172
+            ),
+            new Issue(
+                self::AttributeWrongTarget,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_LOW,
+                'Saw use of attribute {CLASS} declared at {FILE}:{LINE} which supports being declared on {DETAILS} but it was declared on {CODE} which requires an attribute declared to support {DETAILS}',
+                self::REMEDIATION_B,
+                10173
+            ),
+
             // Issue::CATEGORY_VARIABLE
             new Issue(
                 self::VariableUseClause,
@@ -4170,7 +4222,7 @@ class Issue
                 self::EmptyClosure,
                 self::CATEGORY_NOOP,
                 self::SEVERITY_LOW,
-                'Empty closure',
+                'Empty closure {FUNCTION}',
                 self::REMEDIATION_B,
                 6078
             ),
@@ -4605,6 +4657,14 @@ class Issue
                 self::REMEDIATION_B,
                 1033
             ),
+            new Issue(
+                self::AccessNonPublicAttribute,
+                self::CATEGORY_ACCESS,
+                self::SEVERITY_NORMAL,
+                "Attempting to access attribute {CLASS} with non-public constructor {METHOD} defined at {FILE}:{LINE}. This will throw if ReflectionAttribute->newInstance() is called.",
+                self::REMEDIATION_B,
+                1034
+            ),
 
             // Issue::CATEGORY_COMPATIBLE
             new Issue(
@@ -4897,6 +4957,14 @@ class Issue
                 self::REMEDIATION_B,
                 3035
             ),
+            new Issue(
+                self::CompatibleAssertDeclaration,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_CRITICAL,
+                "Declaring a custom assert() function is a fatal error in PHP 8.0+ because the function has special semantics.",
+                self::REMEDIATION_B,
+                3041
+            ),
             // NOTE: The fact that the native php-ast does not track trailing commas is by design.
             // It exposes the information that php's implementation stores internally,
             // and that information is not available because php itself does not need it.
@@ -4923,6 +4991,22 @@ class Issue
                 "Cannot use constructor property promotion before php 8.0 for {PARAMETER} of {METHOD}",
                 self::REMEDIATION_B,
                 3038
+            ),
+            new Issue(
+                self::CompatibleAttributeGroupOnSameLine,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_CRITICAL,
+                "Declaring attributes on the same line as a declaration is treated like a line comment before php 8.0 for attribute group {CODE} of {CODE}",
+                self::REMEDIATION_B,
+                3039
+            ),
+            new Issue(
+                self::CompatibleAttributeGroupOnMultipleLines,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_CRITICAL,
+                "Declaring attributes across multiple lines may be treated like a mix of a line comment and php tokens before php 8.0 for attribute group {CODE} of {CODE} ending around line {LINE}. Note that php-ast does not provide the actual ending line numbers and this issue may be unreliable",
+                self::REMEDIATION_B,
+                3040
             ),
 
             // Issue::CATEGORY_GENERIC
@@ -5466,7 +5550,7 @@ class Issue
      * @param int $line
      * The line number (start) where the issue was found
      *
-     * @param string|int|float|bool|Type|UnionType|FQSEN|TypedElement|UnaddressableTypedElement ...$template_parameters
+     * @param string|int|float|bool|Type|UnionType|FQSEN|TypedElement|UnaddressableTypedElement|Attribute ...$template_parameters
      * Any template parameters required for the issue
      * message
      * @suppress PhanUnreferencedPublicMethod
@@ -5495,7 +5579,7 @@ class Issue
      * @param int $line
      * The line number (start) where the issue was found
      *
-     * @param list<string|int|float|bool|Type|UnionType|FQSEN|TypedElement|UnaddressableTypedElement> $template_parameters
+     * @param list<string|int|float|bool|Stringable> $template_parameters
      * Any template parameters required for the issue
      * message
      *
@@ -5582,7 +5666,7 @@ class Issue
      * @param int $lineno
      * The line number where the issue was found
      *
-     * @param string|int|float|bool|Type|UnionType|FQSEN|TypedElement|UnaddressableTypedElement ...$parameters
+     * @param string|int|float|bool|Stringable ...$parameters
      * Template parameters for the issue's error message.
      * If these are objects, they should define __toString()
      */
@@ -5616,7 +5700,7 @@ class Issue
      * @param int $lineno
      * The line number where the issue was found
      *
-     * @param list<string|int|float|bool|Type|UnionType|FQSEN|TypedElement|UnaddressableTypedElement> $parameters
+     * @param list<string|int|float|bool|Stringable> $parameters
      * @param ?Suggestion $suggestion (optional)
      *
      * Template parameters for the issue's error message

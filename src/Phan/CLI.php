@@ -83,7 +83,7 @@ class CLI
     /**
      * This should be updated to x.y.z-dev after every release, and x.y.z before a release.
      */
-    public const PHAN_VERSION = '3.2.8-dev';
+    public const PHAN_VERSION = '4.0.2-dev';
 
     /**
      * List of short flags passed to getopt
@@ -175,7 +175,6 @@ class CLI
         'output:',
         'output-mode:',
         'parent-constructor-required:',
-        'polyfill-parse-all-element-doc-comments',
         'plugin:',
         'print-memory-usage-summary',
         'processes:',
@@ -676,10 +675,6 @@ class CLI
                 case 'minimum-target-php-version':
                     Config::setValue('minimum_target_php_version', $value);
                     break;
-                case 'polyfill-parse-all-element-doc-comments':
-                    // TODO: Drop in Phan 3
-                    fwrite(STDERR, "--polyfill-parse-all-element-doc-comments is a no-op and will be removed in a future Phan release (no longer needed since PHP 7.0 support was dropped)\n");
-                    break;
                 case 'd':
                 case 'project-root-directory':
                     // We handle this flag before parsing options so
@@ -858,7 +853,8 @@ class CLI
                         break;
                     }
                     $ast_version = (new ReflectionExtension('ast'))->getVersion();
-                    if (\version_compare($ast_version, '1.0.0') <= 0) {
+                    // In order to parse with AST version 80, 1.0.7+ is required
+                    if (\version_compare($ast_version, Config::MINIMUM_AST_EXTENSION_VERSION) < 0) {
                         Config::setValue('use_polyfill_parser', true);
                         break;
                     }
@@ -1131,7 +1127,7 @@ class CLI
                 }
             }
             if ($valid_files === 0) {
-                // TODO convert this to an error in Phan 3.
+                // TODO convert this to an error in Phan 5.
                 $error_message = \sprintf(
                     "None of the files to analyze in %s exist - This will be an error in future Phan releases." . PHP_EOL,
                     Config::getProjectRootDirectory()
@@ -2716,7 +2712,7 @@ EOB
                 . ') in configuration. '
                 . "You may need to rebuild the latest version of the php-ast extension.\n"
                 . "See https://github.com/phan/phan#getting-started for more details.\n"
-                . "(You are using php-ast " . (new ReflectionExtension('ast'))->getVersion() . ", but " . Config::MINIMUM_AST_EXTENSION_VERSION . " or newer is required. Alternately, test with --force-polyfill-parser (which is noticeably slower))\n",
+                . "(You are using php-ast " . (new ReflectionExtension('ast'))->getVersion() . ", but " . Config::MINIMUM_AST_EXTENSION_VERSION . " or newer is required. Alternately, test with --allow-polyfill-parser or --force-polyfill-parser (which are noticeably slower))\n",
                 false,
                 true
             );
@@ -2754,13 +2750,10 @@ EOB
                 // Seen in php 7.3 with file_cache when ast is initially enabled but later disabled, due to the result of extension_loaded being assumed to be a constant by opcache.
                 fwrite(STDERR, "ERROR: extension_loaded('ast') is true, but phpversion('ast') is the empty string. You probably need to clear opcache (opcache.file_cache='" . \ini_get('opcache.file_cache') . "')" . PHP_EOL);
             }
-            // TODO: Change this to a warning for 0.1.5 - 1.0.0. (https://github.com/phan/phan/issues/2954)
-            // 0.1.5 introduced the ast\Node constructor, which is required by the polyfill
-            //
             // NOTE: We haven't loaded the autoloader yet, so these issue messages can't be colorized.
             \fprintf(
                 STDERR,
-                "ERROR: Phan 3.x requires php-ast 1.0.1+ because it depends on AST version 70. php-ast '%s' is installed." . PHP_EOL,
+                "ERROR: Phan 4.x requires php-ast 1.0.7+ because it depends on AST version 80. php-ast '%s' is installed." . PHP_EOL,
                 $ast_version
             );
             require_once __DIR__ . '/Bootstrap.php';

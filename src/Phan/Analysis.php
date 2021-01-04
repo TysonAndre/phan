@@ -9,6 +9,7 @@ use ast\Node;
 use CompileError;
 use InvalidArgumentException;
 use ParseError;
+use Phan\Analysis\AttributeAnalyzer;
 use Phan\Analysis\DuplicateFunctionAnalyzer;
 use Phan\Analysis\ParameterTypesAnalyzer;
 use Phan\Analysis\ReferenceCountsAnalyzer;
@@ -275,6 +276,11 @@ class Analysis
                 $function_or_method
             );
 
+            AttributeAnalyzer::analyzeAttributesOfFunctionInterface(
+                $code_base,
+                $function_or_method
+            );
+
             // Infer more accurate return types
             // For daemon mode/the language server, we also call this whenever we use the return type of a function/method.
             $function_or_method->analyzeReturnTypes($code_base);
@@ -474,6 +480,10 @@ class Analysis
             } catch (RecursionDepthException $_) {
                 continue;
             }
+            AttributeAnalyzer::analyzeAttributesOfClass(
+                $code_base,
+                $class
+            );
         }
         CLI::progress('classes', 1.0, null);
     }

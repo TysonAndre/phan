@@ -254,7 +254,16 @@ class Method extends ClassElement implements FunctionInterface
      */
     public function isNewConstructor(): bool
     {
+        // NOTE: This is normalized to lowercase by canonicalName
         return $this->name === '__construct';
+    }
+
+    /**
+     * Returns true if this is a placeholder for the `__construct` method that was never declared
+     */
+    public function isFakeConstructor(): bool
+    {
+        return ($this->getPhanFlags() & Flags::IS_FAKE_CONSTRUCTOR) !== 0;
     }
 
     /**
@@ -262,6 +271,7 @@ class Method extends ClassElement implements FunctionInterface
      */
     public function isMagicCall(): bool
     {
+        // NOTE: This is normalized to lowercase by canonicalName
         return $this->name === '__call';
     }
 
@@ -270,6 +280,7 @@ class Method extends ClassElement implements FunctionInterface
      */
     public function isMagicCallStatic(): bool
     {
+        // NOTE: This is normalized to lowercase by canonicalName
         return $this->name === '__callStatic';
     }
 
@@ -281,7 +292,7 @@ class Method extends ClassElement implements FunctionInterface
         Clazz $clazz,
         CodeBase $code_base
     ): Method {
-        if ($clazz->getFQSEN()->getNamespace() === '\\' && $clazz->hasMethodWithName($code_base, $clazz->getName())) {
+        if ($clazz->getFQSEN()->getNamespace() === '\\' && $clazz->hasMethodWithName($code_base, $clazz->getName(), true)) {
             $old_style_constructor = $clazz->getMethodByName($code_base, $clazz->getName());
         } else {
             $old_style_constructor = null;
@@ -309,7 +320,7 @@ class Method extends ClassElement implements FunctionInterface
             $method->setUnionType($old_style_constructor->getUnionType());
         }
 
-        $method->setPhanFlags(Flags::IS_FAKE_CONSTRUCTOR);
+        $method->setPhanFlags($method->getPhanFlags() | Flags::IS_FAKE_CONSTRUCTOR);
 
         return $method;
     }
@@ -429,8 +440,8 @@ class Method extends ClassElement implements FunctionInterface
      * @param Node $node
      * An AST node representing a method
      *
-     * @param ?Clazz $class
-     * This will be mandatory in a future Phan release
+     * @param ?Clazz $class @phan-mandatory-param
+     * This will be mandatory in a future Phan release.
      *
      * @return Method
      * A Method representing the AST node in the
@@ -484,6 +495,11 @@ class Method extends ClassElement implements FunctionInterface
             $node->children['params']
         );
         $method->setParameterList($parameter_list);
+        $method->setAttributeList(Attribute::fromNodeForAttributeList(
+            $code_base,
+            $element_context,
+            $node->children['attributes'] ?? null
+        ));
         foreach ($parameter_list as $parameter) {
             if ($parameter->getUnionType()->hasTemplateTypeRecursive()) {
                 $method->recordHasTemplateType();
@@ -737,7 +753,7 @@ class Method extends ClassElement implements FunctionInterface
             // TODO: Handle edge cases in traits.
             // A trait may be earlier in $ancestor_class_list than the parent, but the parent may define abstract classes.
             // TODO: What about trait aliasing rules?
-            if ($ancestor_class->hasMethodWithName($code_base, $this->name)) {
+            if ($ancestor_class->hasMethodWithName($code_base, $this->name, true)) {
                 $method = $ancestor_class->getMethodByName(
                     $code_base,
                     $this->name

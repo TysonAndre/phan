@@ -35,7 +35,7 @@ if (function_exists('uopz_allow_exit') && !ini_get('uopz.disable')) {
 if (PHP_VERSION_ID < 70200) {
     fprintf(
         STDERR,
-        "ERROR: Phan 3.x requires PHP 7.2+ to run, but PHP %s is installed." . PHP_EOL,
+        "ERROR: Phan 4.x requires PHP 7.2+ to run, but PHP %s is installed." . PHP_EOL,
         PHP_VERSION
     );
     fwrite(STDERR, "PHP 7.1 reached its end of life in December 2019." . PHP_EOL);
@@ -102,54 +102,6 @@ EOT
     fwrite(STDERR, "For more information, see https://github.com/phan/phan/wiki/Getting-Started#installing-dependencies" . PHP_EOL);
 }
 
-if (extension_loaded('ast')) {
-    // Warn if the php-ast version is too low.
-    $ast_version = (string)phpversion('ast');
-    if (PHP_VERSION_ID >= 80000 && version_compare($ast_version, '1.0.10') < 0) {
-        fprintf(
-            STDERR,
-            "ERROR: Phan 3.x requires php-ast 1.0.10+ to properly analyze ASTs for php 8.0+. php-ast %s and php %s is installed." . PHP_EOL,
-            $ast_version,
-            PHP_VERSION
-        );
-        phan_output_ast_installation_instructions();
-        fwrite(STDERR, "Exiting without analyzing files." . PHP_EOL);
-        exit(1);
-    } elseif (PHP_VERSION_ID >= 70400 && version_compare($ast_version, '1.0.2') < 0) {
-        fprintf(
-            STDERR,
-            "WARNING: Phan 3.x requires php-ast 1.0.2+ to properly analyze ASTs for php 7.4+ (1.0.6+ is recommended). php-ast %s and php %s is installed." . PHP_EOL,
-            $ast_version,
-            PHP_VERSION
-        );
-        phan_output_ast_installation_instructions();
-    } elseif (version_compare($ast_version, '1.0.0') <= 0) {
-        if ($ast_version === '') {
-            // Seen in php 7.3 with file_cache when ast is initially enabled but later disabled, due to the result of extension_loaded being assumed to be a constant by opcache.
-            fwrite(STDERR, "ERROR: extension_loaded('ast') is true, but phpversion('ast') is the empty string. You probably need to clear opcache (opcache.file_cache='" . ini_get('opcache.file_cache') . "')" . PHP_EOL);
-        }
-        // TODO: Change this to a warning for 0.1.5 - 1.0.0. (https://github.com/phan/phan/issues/2954)
-        // 0.1.5 introduced the ast\Node constructor, which is required by the polyfill
-        //
-        // NOTE: We haven't loaded the autoloader yet, so these issue messages can't be colorized.
-        fprintf(
-            STDERR,
-            "ERROR: Phan 3.x requires php-ast %s+ because it depends on AST version %d. php-ast '%s' is installed." . PHP_EOL,
-            Config::MINIMUM_AST_EXTENSION_VERSION,
-            Config::AST_VERSION,
-            $ast_version
-        );
-        phan_output_ast_installation_instructions();
-        fwrite(STDERR, "Exiting without analyzing files." . PHP_EOL);
-        exit(1);
-    }
-    // @phan-suppress-next-line PhanRedundantCondition, PhanImpossibleCondition, PhanSuspiciousValueComparison
-    if (PHP_VERSION_ID >= 80000 && strpos(PHP_VERSION, 'dev') === false && version_compare(PHP_VERSION, '8.0.0beta4') < 0) {
-        fwrite(STDERR, "WARNING: Phan may not work properly in PHP 8 versions before PHP 8.0.0beta4. The currently used PHP version is " . PHP_VERSION . PHP_EOL);
-    }
-    unset($ast_version);
-}
-
 // Use the composer autoloader
 $found_autoloader = false;
 foreach ([
@@ -162,6 +114,53 @@ foreach ([
         $found_autoloader = true;
         break;
     }
+}
+
+if (extension_loaded('ast')) {
+    // Warn if the php-ast version is too low.
+    $ast_version = (string)phpversion('ast');
+    $did_warn = false;
+    if (PHP_VERSION_ID >= 80000 && version_compare($ast_version, '1.0.10') < 0) {
+        $error_message = sprintf(
+            "Phan 4.x requires php-ast 1.0.10+ to properly analyze ASTs for php 8.0+. php-ast %s and php %s is installed." . PHP_EOL,
+            $ast_version,
+            PHP_VERSION
+        );
+        CLI::printErrorToStderr($error_message);
+        phan_output_ast_installation_instructions();
+        fwrite(STDERR, "Exiting without analyzing files." . PHP_EOL);
+        exit(1);
+    } elseif (PHP_VERSION_ID >= 70400 && version_compare($ast_version, '1.0.2') < 0) {
+        $did_warn = true;
+        fprintf(
+            STDERR,
+            "WARNING: Phan 4.x requires php-ast 1.0.2+ to properly analyze ASTs for php 7.4+ (1.0.10+ is recommended). php-ast %s and php %s is installed." . PHP_EOL,
+            $ast_version,
+            PHP_VERSION
+        );
+        phan_output_ast_installation_instructions();
+    } elseif (version_compare($ast_version, '1.0.0') <= 0) {
+        if ($ast_version === '') {
+            // Seen in php 7.3 with file_cache when ast is initially enabled but later disabled, due to the result of extension_loaded being assumed to be a constant by opcache.
+            CLI::printErrorToStderr("extension_loaded('ast') is true, but phpversion('ast') is the empty string. You probably need to clear opcache (opcache.file_cache='" . ini_get('opcache.file_cache') . "')" . PHP_EOL);
+        }
+        $error_message = sprintf(
+            "Phan 4.x requires php-ast %s+ because it depends on AST version %d. php-ast '%s' is installed." . PHP_EOL,
+            Config::MINIMUM_AST_EXTENSION_VERSION,
+            Config::AST_VERSION,
+            $ast_version
+        );
+        CLI::printErrorToStderr($error_message);
+        phan_output_ast_installation_instructions();
+        fwrite(STDERR, "Exiting without analyzing files." . PHP_EOL);
+        exit(1);
+    }
+    // @phan-suppress-next-line PhanRedundantCondition, PhanImpossibleCondition, PhanSuspiciousValueComparison
+    if (PHP_VERSION_ID >= 80000 && version_compare(PHP_VERSION, '8.0.0') < 0) {
+        fwrite(STDERR, "WARNING: Phan may not work properly in PHP 8 versions before PHP 8.0.0. The currently used PHP version is " . PHP_VERSION . PHP_EOL);
+    }
+    unset($did_warn);
+    unset($ast_version);
 }
 unset($file);
 if (!$found_autoloader) {
@@ -355,9 +354,10 @@ function phan_error_handler(int $errno, string $errstr, string $errfile, int $er
             $did_warn = true;
             if (!getenv('PHAN_SUPPRESS_AST_DEPRECATION')) {
                 CLI::printWarningToStderr(sprintf(
-                    "php-ast AST version %d used by Phan %s has been deprecated. Check if a newer version of Phan is available." . PHP_EOL,
+                    "php-ast AST version %d used by Phan %s has been deprecated in php-ast %s. Check if a newer version of Phan is available." . PHP_EOL,
                     Config::AST_VERSION,
-                    CLI::PHAN_VERSION
+                    CLI::PHAN_VERSION,
+                    (string)phpversion('ast')
                 ));
                 fwrite(STDERR, "(Set PHAN_SUPPRESS_AST_DEPRECATION=1 to suppress this message)" . PHP_EOL);
             }

@@ -71,6 +71,7 @@ use Phan\Language\Type\TrueType;
 use Phan\Language\Type\VoidType;
 use Phan\Library\StringUtil;
 use Phan\Library\Tuple5;
+use Stringable;
 
 use function count;
 use function explode;
@@ -91,11 +92,12 @@ use function trim;
  *
  * @phan-file-suppress PhanPartialTypeMismatchArgumentInternal
  * @phan-file-suppress PhanSuspiciousTruthyString
+ * @suppress PhanRedefinedInheritedInterface this uses a polyfill for Stringable
  * phpcs:disable Generic.NamingConventions.UpperCaseConstantName
  * @phan-pure types/union types are immutable, but technically not pure (some methods cause issues to be emitted with Issue::maybeEmit()).
  *            However, it's useful to treat them as if they were pure, to warn about not using return types.
  */
-class Type
+class Type implements Stringable
 {
     use \Phan\Memoize;
 
@@ -1517,16 +1519,21 @@ class Type
         }
 
         // If this is a type referencing the current class
-        // in scope such as 'self' or 'static', return that.
-        if (self::isSelfTypeString($type_name)
-            && $context->isInClassScope()
-        ) {
+        // in scope such as 'self' or 'static', return that whether or not this is in a class
+        // (but not NS\self which is an invalid class name)
+        if (self::isSelfTypeString($type_name) && !$namespace) {
             if (stripos($type_name, 'parent') !== false) {
                 // Will throw if $code_base is null or there is no parent type
                 return self::maybeFindParentType($is_nullable, $context, $code_base);
             }
             if ($source === self::FROM_PHPDOC && $context->getScope()->isInTraitScope()) {
                 return SelfType::instanceWithTemplateTypeList($is_nullable, $template_parameter_type_list);
+            }
+            if (!$context->isInClassScope()) {
+                if (strcasecmp($type_name, 'static') === 0) {
+                    return StaticType::instance($is_nullable);
+                }
+                return SelfType::instance($is_nullable);
             }
             // Equivalent to getClassFQSEN()->asType()->withIsNullable but slightly faster (this is frequently used)
             // @phan-suppress-next-line PhanThrowTypeAbsentForCall
@@ -2354,7 +2361,7 @@ class Type
         // Given an IteratorAggregate implementation with getIterator, determine the class of the Iterator if possible.
         if ($expanded_types->hasTypeWithFQSEN($iterator_aggregate_fqsen)) {
             $class = $code_base->getClassByFQSEN($fqsen);
-            if (!$class->hasMethodWithName($code_base, 'getIterator')) {
+            if (!$class->hasMethodWithName($code_base, 'getIterator', true)) {
                 // Should be impossible
                 return null;
             }
@@ -2380,7 +2387,7 @@ class Type
         // Given an Iterator, return the type of the key
         if ($expanded_types->hasTypeWithFQSEN($iterator_fqsen)) {
             $class = $code_base->getClassByFQSEN($fqsen);
-            if (!$class->hasMethodWithName($code_base, 'key')) {
+            if (!$class->hasMethodWithName($code_base, 'key', true)) {
                 // Should be impossible
                 return null;
             }
@@ -2431,7 +2438,7 @@ class Type
         // Given an IteratorAggregate implementation with getIterator, determine the class of the Iterator if possible.
         if ($expanded_types->hasTypeWithFQSEN($iterator_aggregate_fqsen)) {
             $class = $code_base->getClassByFQSEN($fqsen);
-            if (!$class->hasMethodWithName($code_base, 'getIterator')) {
+            if (!$class->hasMethodWithName($code_base, 'getIterator', true)) {
                 // Should be impossible
                 return null;
             }
@@ -2457,7 +2464,7 @@ class Type
         // Given an Iterator, return the type of the value (from ->current())
         if ($expanded_types->hasTypeWithFQSEN($iterator_fqsen)) {
             $class = $code_base->getClassByFQSEN($fqsen);
-            if (!$class->hasMethodWithName($code_base, 'current')) {
+            if (!$class->hasMethodWithName($code_base, 'current', true)) {
                 // Should be impossible
                 return null;
             }
@@ -3325,7 +3332,7 @@ class Type
      * A human readable representation of this type
      * (This is frequently called, so prefer efficient operations)
      */
-    public function __toString()
+    public function __toString(): string
     {
         return $this->memoize(__METHOD__, function (): string {
             $string = $this->asFQSENString();
@@ -3962,7 +3969,7 @@ class Type
             return null;
         }
         $class = $code_base->getClassByFQSEN($fqsen);
-        if (!$class->hasMethodWithName($code_base, '__invoke')) {
+        if (!$class->hasMethodWithName($code_base, '__invoke', true)) {
             Issue::maybeEmit(
                 $code_base,
                 $context,

@@ -1,6 +1,107 @@
 Phan NEWS
 
-??? ?? 202?, Phan 3.2.8 (dev)
+??? ?? 2021, Phan 4.0.2 (dev)
+-----------------------
+
+New Features:
++ Improve suggestions for `PhanUndeclaredThis` inside of static methods/closures (#4336)
+
+Bug fixes:
++ Fix false positive `PhanParamSignatureMismatch` for variadic overriding a function using `func_get_args()` (#4340)
+
+Dec 31 2020, Phan 4.0.1
+-----------------------
+
+New Features:
++ Emit `PhanCompatibleAssertDeclaration` when declaring a function called `assert`. (#4333)
+
+Bug fixes:
++ Fix false positive `PhanInvalidConstantExpression` for named arguments in attributes (#4334)
+
+Merge changes from Phan 3.2.10
+
+Dec 23 2020, Phan 4.0.0
+-----------------------
+
++ Merge changes from Phan 3.2.9.
++ Relax minimum php-ast restrictions when polyfill is used for Phan 4.
++ Fix conflicting class constant seen in polyfill when php-ast 1.0.6 was installed.
+
+The Phan v4 release line has the following changes from Phan 3:
+- Bump the minimum required AST version from 70 to 80 (Required to analyze php 8.0 attributes - the rest of the php 8.0 syntax changes are supported in both Phan 3 and Phan 4).
+  A few third party plugins may be affected by the increase of the AST version.
+- Supports analyzing whether `#[...]` attributes are used properly when run with PHP 8.0+
+
+Dec 23 2020, Phan 4.0.0-RC2
+---------------------------
+
+Merge changes from Phan 3.2.8.
+
+Dec 13 2020, Phan 4.0.0-RC1
+---------------------------
+
+Merge changes from Phan 3.2.7.
+
+Nov 27 2020, Phan 4.0.0-alpha5
+------------------------------
+
+Merge changes from Phan 3.2.6.
+
+Nov 26 2020, Phan 4.0.0-alpha4
+------------------------------
+
+Merge changes from Phan 3.2.5.
+
+Nov 12 2020, Phan 4.0.0-alpha3
+------------------------------
+
+Merge changes from Phan 3.2.4.
+
+Oct 12 2020, Phan 4.0.0-alpha2
+------------------------------
+
+Merge changes from Phan 3.2.3.
+
+Sep 19 2020, Phan 4.0.0-alpha1
+------------------------------
+
+New features (Analysis):
++ Support analyzing PHP 8.0 attributes when Phan is run with php 8.0 or newer.
+  Warn if the attribute syntax is likely to be incompatible in php 7.
+  Warn if using attributes incorrectly or with incorrect argument lists.
+
+  New issue types: `PhanCompatibleAttributeGroupOnSameLine`, `PhanCompatibleAttributeGroupOnMultipleLines`,
+  `PhanAttributeNonAttribute`, `PhanAttributeNonClass`, `PhanAttributeNonRepeatable`,
+  `PhanUndeclaredClassAttribute`, `PhanAttributeWrongTarget`, `PhanAccessNonPublicAttribute`.
+
+Backwards incompatible changes:
++ Switch from AST version 70 to AST version 80.
+  `php-ast` should be upgraded to version 1.0.10-dev or newer.
++ Drop the no-op `--polyfill-parse-all-doc-comments` flag.
+
+Miscellaneous:
++ Make various classes from Phan implement `Stringable`.
+
+Dec 31 2020, Phan 3.2.10 (dev)
+-----------------------
+
+Bug fixes:
++ Fix false positive PhanPossiblyFalseTypeReturn with strict type checking for substr when target php version is 8.0+ (#4335)
+
+Dec 26 2020, Phan 3.2.9
+-----------------------
+
+Bug fixes:
++ Fix a few parameter names for issue messages (#4316)
++ Fix bug that could cause Phan not to warn about `SomeClassWithoutConstruct::__construct`
+  in some edge cases. (#4323)
++ Properly infer `self` is referring to the current object context even when the object context is unknown in namespaces. (#4070)
+
+Deprecations:
++ Emit a deprecation notice when running this in PHP 7 and php-ast < 1.0.7. (#4189)
+  This can be suppressed by setting the environment variable `PHAN_SUPPRESS_AST_DEPRECATION=1`.
+
+Dec 23 2020, Phan 3.2.8
 -----------------------
 
 Bug fixes:
@@ -10,6 +111,7 @@ Bug fixes:
 + Don't emit `PhanCompatibleConstructorPropertyPromotion` when `minimum_target_php_version` is 8.0 or newer. (#4307)
 + Infer that PHP 8.0 constructor property promotion's properties have write references. (#4308)
   They are written to by the constructor.
++ Inherit phpdoc parameter types for the property declaration in php 8.0 constructor property promotion (#4311)
 
 Dec 13 2020, Phan 3.2.7
 -----------------------

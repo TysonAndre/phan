@@ -98,12 +98,12 @@ final class ConversionTest extends BaseTest
         $paths = $this->scanSourceDirForPHP($source_dir);
 
         self::sortByTokenCount($paths);
-        $supports70 = self::hasNativeASTSupport(70);
-        if (!$supports70) {
-            throw new RuntimeException("Version 70 is not natively supported");
+        $supports80 = self::hasNativeASTSupport(80);
+        if (!$supports80) {
+            throw new RuntimeException("Version 80 is not natively supported");
         }
         foreach ($paths as $path) {
-            $tests[] = [$path, 70];
+            $tests[] = [$path, 80];
         }
         return $tests;
     }
@@ -166,9 +166,14 @@ final class ConversionTest extends BaseTest
      */
     public static function normalizeNodeFlags(ast\Node $node): void
     {
-        if (\in_array($node->kind, self::FUNCTION_DECLARATION_KINDS, true)) {
+        $kind = $node->kind;
+        if (\in_array($kind, self::FUNCTION_DECLARATION_KINDS, true)) {
             // Alternately, could make Phan do this.
             $node->flags &= ~ast\flags\FUNC_GENERATOR;
+        }
+        if ($kind === ast\AST_ATTRIBUTE_GROUP) {
+            // @phan-suppress-next-line PhanTypeObjectUnsetDeclaredProperty this is deliberately added by the polyfill.
+            unset($node->endLineno);
         }
         unset($node->is_not_parenthesized);
         unset($node->polyfill_has_trailing_comma);

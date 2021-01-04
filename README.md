@@ -4,11 +4,13 @@ Phan looks for common issues and will verify type compatibility on various opera
 information is available or can be deduced. Phan has a good (but not comprehensive) understanding of flow control
 and can track values in a few use cases (e.g. arrays, integers, and strings).
 
-[![Build Status (fork)](https://travis-ci.org/TysonAndre/phan.svg?branch=master)](https://travis-ci.org/TysonAndre/phan)
-[![Build Status (Windows)](https://ci.appveyor.com/api/projects/status/github/phan/phan?branch=master&svg=true)](https://ci.appveyor.com/project/TysonAndre/phan/branch/master)
+[![Build Status (fork)](https://travis-ci.org/TysonAndre/phan.svg?branch=v4)](https://travis-ci.org/TysonAndre/phan)
+[![Build Status (Windows)](https://ci.appveyor.com/api/projects/status/github/phan/phan?branch=v4&svg=true)](https://ci.appveyor.com/project/TysonAndre/phan/branch/v4)
 [![Gitter](https://badges.gitter.im/phan/phan.svg)](https://gitter.im/phan/phan?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 [![Latest Stable Version](https://img.shields.io/packagist/v/phan/phan.svg)](https://packagist.org/packages/phan/phan)
-[![License](https://img.shields.io/packagist/l/phan/phan.svg)](https://github.com/phan/phan/blob/master/LICENSE)
+[![License](https://img.shields.io/packagist/l/phan/phan.svg)](https://github.com/phan/phan/blob/v4/LICENSE)
+
+This is the branch for Phan 4. The branch for the older Phan 3 release line is [here](https://github.com/phan/phan/tree/master).
 
 # About this fork
 
@@ -27,7 +29,7 @@ composer require phan/phan
 With Phan installed, you'll want to [create a `.phan/config.php` file](https://github.com/phan/phan/wiki/Getting-Started#creating-a-config-file) in
 your project to tell Phan how to analyze your source code. Once configured, you can run it via `./vendor/bin/phan`.
 
-Phan depends on PHP 7.2+ with the [php-ast](https://github.com/nikic/php-ast) extension (1.0.1+) and supports analyzing PHP version 7.0-7.4 syntax.
+Phan depends on PHP 7.2+ with the [php-ast](https://github.com/nikic/php-ast) extension (1.0.10+ is preferred) and supports analyzing PHP version 7.0-8.0 syntax.
 Installation instructions for php-ast can be found [here](https://github.com/nikic/php-ast#installation).
 (Phan can be used without php-ast by using the CLI option `--allow-polyfill-parser`, but there are slight differences in the parsing of doc comments)
 
@@ -53,7 +55,7 @@ Phan is able to perform the following kinds of analysis:
 * Check for type safety on binary operations.
 * Check for valid and type safe return values on methods, functions, and closures.
 * Check for No-Ops on arrays, closures, constants, properties, variables, unary operators, and binary operators.
-* Check for unused/dead/[unreachable](https://github.com/phan/phan/tree/master/.phan/plugins#unreachablecodepluginphp) code. (Pass in `--dead-code-detection`)
+* Check for unused/dead/[unreachable](https://github.com/phan/phan/tree/v4/.phan/plugins#unreachablecodepluginphp) code. (Pass in `--dead-code-detection`)
 * Check for unused variables and parameters. (Pass in `--unused-variable-detection`)
 * Check for redundant or impossible conditions and pointless casts. (Pass in `--redundant-condition-detection`)
 * Check for unused `use` statements.
@@ -84,11 +86,11 @@ Phan is able to perform the following kinds of analysis:
 * Can be run on many cores. (requires `pcntl`)
 * Output is emitted in text, checkstyle, json, pylint, csv, or codeclimate formats.
 * Can run [user plugins on source for checks specific to your code](https://github.com/phan/phan/wiki/Writing-Plugins-for-Phan).
-  [Phan includes various plugins you may wish to enable for your project](https://github.com/phan/phan/tree/master/.phan/plugins#2-general-use-plugins).
+  [Phan includes various plugins you may wish to enable for your project](https://github.com/phan/phan/tree/v4/.phan/plugins#2-general-use-plugins).
 
 See [Phan Issue Types](https://github.com/phan/phan/wiki/Issue-Types-Caught-by-Phan) for descriptions
 and examples of all issues that can be detected by Phan. Take a look at the
-[\Phan\Issue](https://github.com/phan/phan/blob/master/src/Phan/Issue.php) to see the
+[\Phan\Issue](https://github.com/phan/phan/blob/v4/src/Phan/Issue.php) to see the
 definition of each error type.
 
 Take a look at the [Tutorial for Analyzing a Large Sloppy Code Base](https://github.com/phan/phan/wiki/Tutorial-for-Analyzing-a-Large-Sloppy-Code-Base) to get a sense of what the process of doing ongoing analysis might look like for you.
@@ -96,23 +98,23 @@ Take a look at the [Tutorial for Analyzing a Large Sloppy Code Base](https://git
 Phan can be used from [various editors and IDEs](https://github.com/phan/phan/wiki/Editor-Support) for its error checking, "go to definition" support, etc. via the [Language Server Protocol](https://github.com/Microsoft/language-server-protocol).
 Editors and tools can also request analysis of individual files in a project using the simpler [Daemon Mode](https://github.com/phan/phan/wiki/Using-Phan-Daemon-Mode).
 
-See the [tests](https://github.com/phan/phan/blob/master/tests/files) directory for some examples of the various checks.
+See the [tests](https://github.com/phan/phan/blob/v4/tests/files) directory for some examples of the various checks.
 
 Phan is imperfect and shouldn't be used to prove that your PHP-based rocket guidance system is free of defects.
 
 ## Features provided by plugins
 
-Additional analysis features have been provided by [plugins](https://github.com/phan/phan/tree/master/.phan/plugins#plugins).
+Additional analysis features have been provided by [plugins](https://github.com/phan/phan/tree/v4/.phan/plugins#plugins).
 
-- [Checking for syntactically unreachable statements](https://github.com/phan/phan/tree/master/.phan/plugins#unreachablecodepluginphp) (E.g. `{ throw new Exception("Message"); return $value; }`)
-- [Checking `*printf()` format strings against the provided arguments](https://github.com/phan/phan/tree/master/.phan/plugins#printfcheckerplugin) (as well as checking for common errors)
-- [Checking that PCRE regexes passed to `preg_*()` are valid](https://github.com/phan/phan/tree/master/.phan/plugins#pregregexcheckerplugin)
-- [Checking for `@suppress` annotations that are no longer needed.](https://github.com/phan/phan/tree/master/.phan/plugins#unusedsuppressionpluginphp)
-- [Checking for duplicate or missing array keys.](https://github.com/phan/phan/tree/master/.phan/plugins#duplicatearraykeypluginphp)
-- [Checking coding style conventions](https://github.com/phan/phan/tree/master/.phan/plugins#3-plugins-specific-to-code-styles)
-- [Others](https://github.com/phan/phan/tree/master/.phan/plugins#plugins)
+- [Checking for syntactically unreachable statements](https://github.com/phan/phan/tree/v4/.phan/plugins#unreachablecodepluginphp) (E.g. `{ throw new Exception("Message"); return $value; }`)
+- [Checking `*printf()` format strings against the provided arguments](https://github.com/phan/phan/tree/v4/.phan/plugins#printfcheckerplugin) (as well as checking for common errors)
+- [Checking that PCRE regexes passed to `preg_*()` are valid](https://github.com/phan/phan/tree/v4/.phan/plugins#pregregexcheckerplugin)
+- [Checking for `@suppress` annotations that are no longer needed.](https://github.com/phan/phan/tree/v4/.phan/plugins#unusedsuppressionpluginphp)
+- [Checking for duplicate or missing array keys.](https://github.com/phan/phan/tree/v4/.phan/plugins#duplicatearraykeypluginphp)
+- [Checking coding style conventions](https://github.com/phan/phan/tree/v4/.phan/plugins#3-plugins-specific-to-code-styles)
+- [Others](https://github.com/phan/phan/tree/v4/.phan/plugins#plugins)
 
-Example: [Phan's plugins for self-analysis.](https://github.com/phan/phan/blob/2.4.1/.phan/config.php#L494-L537)
+Example: [Phan's plugins for self-analysis.](https://github.com/phan/phan/blob/3.2.8/.phan/config.php#L601-L674)
 
 # Usage
 
@@ -130,7 +132,8 @@ A simple `.phan/config.php` file might look something like the following.
  */
 return [
 
-    // Supported values: `'5.6'`, `'7.0'`, `'7.1'`, `'7.2'`, `'7.3'`, `'7.4'`, `null`.
+    // Supported values: `'5.6'`, `'7.0'`, `'7.1'`, `'7.2'`, `'7.3'`, `'7.4'`,
+    // `'8.0'`, `null`.
     // If this is set to `null`,
     // then Phan assumes the PHP version which is closest to the minor version
     // of the php executable used to execute Phan.
@@ -168,10 +171,11 @@ return [
     // (e.g. 'AlwaysReturnPlugin')
     //
     // Documentation about available bundled plugins can be found
-    // at https://github.com/phan/phan/tree/master/.phan/plugins
+    // at https://github.com/phan/phan/tree/v4/.phan/plugins
     //
     // Alternately, you can pass in the full path to a PHP file
-    // with the plugin's implementation (e.g. 'vendor/phan/phan/.phan/plugins/AlwaysReturnPlugin.php')
+    // with the plugin's implementation.
+    // (e.g. 'vendor/phan/phan/.phan/plugins/AlwaysReturnPlugin.php')
     'plugins' => [
         // checks if a function, closure or method unconditionally returns.
         // can also be written as 'vendor/phan/phan/.phan/plugins/AlwaysReturnPlugin.php'
@@ -293,7 +297,7 @@ contributor is required to adhere to our [Code of Conduct](./CODE_OF_CONDUCT.md)
 
 # Online Demo
 
-**This requires an up to date version of Firefox/Chrome and at least 4 GB of free RAM.** (this is a 10 MB download)
+**This requires an up to date version of Firefox/Chrome and at least 4 GB of free RAM.** (this is a 15 MB download)
 
 [Run Phan entirely in your browser](https://phan.github.io/demo/).
 
