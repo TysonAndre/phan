@@ -20,6 +20,7 @@ use RuntimeException;
 use stdClass;
 
 use function is_array;
+use function ksort;
 use function strlen;
 
 /**
@@ -301,7 +302,7 @@ EOT;
             // NOTE: Line numbers are 0-based for Position
             $assert_has_definition = function (Position $position, int $line) use ($proc_in, $proc_out, &$id): void {
                 $definition_response = $this->writeDefinitionRequestAndAwaitResponse($proc_in, $proc_out, $position);
-                $this->assertSame([
+                $this->assertSameUnorderedArray([
                     'result' => [
                         [
                             'uri' => self::getDefaultFileURI(),
@@ -352,8 +353,12 @@ EOT;
         array $expected_completions,
         bool $for_vscode,
         string $file_contents,
-        bool $pcntl_enabled
+        bool $pcntl_enabled,
+        bool $windows_newlines = false
     ): void {
+        if ($windows_newlines) {
+            $file_contents = \preg_replace("/\r?\n/", "\r\n", $file_contents);
+        }
         $this->messageId = 0;
         [$proc, $proc_in, $proc_out] = $this->createPhanLanguageServer($pcntl_enabled, true, ['vscode_compatible_completions' => $for_vscode]);
         try {
@@ -382,8 +387,7 @@ EOT;
                 'id' => 2,
                 'jsonrpc' => '2.0',
             ];
-            $this->assertSame($expected_completion_response, $completion_response, "Failed completions at $position->line:$position->character");
-            $this->assertSame($expected_completion_response, $completion_response);
+            $this->assertSameUnorderedArray($expected_completion_response, $completion_response, "Failed completions at $position->line:$position->character");
 
             $this->writeShutdownRequestAndAwaitResponse($proc_in, $proc_out);
             $this->writeExitNotification($proc_in);
@@ -395,21 +399,21 @@ EOT;
     /**
      * @param list<array> $expected_completions
      */
-    private function runTestCompletionWithAndWithoutPcntl(Position $position, array $expected_completions, bool $for_vscode, string $file_contents): void
+    private function runTestCompletionWithAndWithoutPcntl(Position $position, array $expected_completions, bool $for_vscode, string $file_contents, bool $windows_newlines = false): void
     {
         if (\function_exists('pcntl_fork')) {
-            $this->runTestCompletionWithPcntlSetting($position, $expected_completions, $for_vscode, $file_contents, true);
+            $this->runTestCompletionWithPcntlSetting($position, $expected_completions, $for_vscode, $file_contents, true, $windows_newlines);
         }
-        $this->runTestCompletionWithPcntlSetting($position, $expected_completions, $for_vscode, $file_contents, false);
+        $this->runTestCompletionWithPcntlSetting($position, $expected_completions, $for_vscode, $file_contents, false, $windows_newlines);
     }
 
     /**
      * @param list<array> $expected_completions
      * @dataProvider completionBasicProvider
      */
-    public function testCompletionBasic(Position $position, array $expected_completions, bool $for_vscode = false): void
+    public function testCompletionBasic(Position $position, array $expected_completions, bool $for_vscode = false, bool $use_windows_newlines = true): void
     {
-        $this->runTestCompletionWithAndWithoutPcntl($position, $expected_completions, $for_vscode, self::COMPLETION_BASIC_FILE_CONTENTS);
+        $this->runTestCompletionWithAndWithoutPcntl($position, $expected_completions, $for_vscode, self::COMPLETION_BASIC_FILE_CONTENTS, $use_windows_newlines);
     }
 
     // Here, we use a prefix of M9 to avoid suggesting MYSQLI_...
@@ -624,9 +628,11 @@ EOT;
             [new Position(10, 17), $static_property_completions, $for_vscode],
             [new Position(11, 19), $static_property_completions_substr, $for_vscode],
             [new Position(12, 16), $all_static_completions, $for_vscode],
+            [new Position(12, 16), $all_static_completions, $for_vscode, true],
             [new Position(20, 7), $all_constant_completions, $for_vscode],
             [new Position(41, 25), $all_static_completions, $for_vscode],
             [new Position(44, 26), $all_instance_completions, $for_vscode],
+            [new Position(44, 26), $all_instance_completions, $for_vscode, true],
         ];
     }
     /**
@@ -901,6 +907,7 @@ EOT;
         // TODO: Extract the parameter defaults from php 8.0's stub files
         // so they can be used in error messages for php 7?
         $parse_code_default = \PHP_VERSION_ID >= 80000 ? "'string code'" : 'unknown';
+        $error_default_message = \PHP_VERSION_ID >= 80000 ? "''" : 'unknown';
         $error_default_code = \PHP_VERSION_ID >= 80000 ? "0" : 'unknown';
         // Refers to elements defined in ../../misc/lsp/src/definitions.php
         $example_file_contents = <<<'EOT'
@@ -1138,7 +1145,7 @@ EOT
                 new Position(28, 45),  // AssertionError
                 <<<"EOT"
 ```php
-public function __construct(string \$message = unknown, int \$code = $error_default_code, ?\Error|?\Throwable \$previous = null): void
+public function __construct(string \$message = $error_default_message, int \$code = $error_default_code, ?\Error|?\Throwable \$previous = null): void
 ```
 
 Construct an instance of `\AssertionError`.
@@ -1264,7 +1271,7 @@ EOT
 
             $message = "Unexpected definition for {$position->line}:{$position->character} (0-based) on line \"" . $cur_line . '"' . ' at "' . \substr($cur_line, $position->character, 10) . '"';
             $this->assertEquals($expected_definition_response, $definition_response, $message);  // slightly better diff view than assertSame
-            $this->assertSame($expected_definition_response, $definition_response, $message);
+            $this->assertSameUnorderedArray($expected_definition_response, $definition_response, $message);
 
             // This operation should be idempotent.
             // If it's repeated, it should give the same response
@@ -1273,7 +1280,7 @@ EOT
 
             $definition_response = $perform_definition_request();
             $this->assertEquals($expected_definition_response, $definition_response, $message);  // slightly better diff view than assertSame
-            $this->assertSame($expected_definition_response, $definition_response, $message);
+            $this->assertSameUnorderedArray($expected_definition_response, $definition_response, $message);
 
             $this->writeShutdownRequestAndAwaitResponse($proc_in, $proc_out);
             $this->writeExitNotification($proc_in);
@@ -1347,7 +1354,7 @@ EOT
                 (string)\substr($cur_line, $position->character, 10)
             );
             $this->assertEquals($expected_definition_response, $definition_response, $message);  // slightly better diff view than assertSame
-            $this->assertSame($expected_definition_response, $definition_response, $message);
+            $this->assertSameUnorderedArray($expected_definition_response, $definition_response, $message);
 
             // This operation should be idempotent.
             // If it's repeated, it should give the same response
@@ -1356,7 +1363,7 @@ EOT
 
             $definition_response = $perform_definition_request();
             $this->assertEquals($expected_definition_response, $definition_response, $message);  // slightly better diff view than assertSame
-            $this->assertSame($expected_definition_response, $definition_response, $message);
+            $this->assertSameUnorderedArray($expected_definition_response, $definition_response, $message);
 
             $this->writeShutdownRequestAndAwaitResponse($proc_in, $proc_out);
             $this->writeExitNotification($proc_in);
@@ -1426,7 +1433,7 @@ EOT
                 (string)\substr($cur_line, $position->character, 10)
             );
             $this->assertEquals($expected_hover_response, $hover_response, $message);  // slightly better diff view than assertSame
-            $this->assertSame($expected_hover_response, $hover_response, $message);
+            $this->assertSameUnorderedArray($expected_hover_response, $hover_response, $message);
 
             // This operation should be idempotent.
             // If it's repeated, it should give the same response
@@ -1436,7 +1443,7 @@ EOT
 
             $hover_response = $perform_hover_request(true);
             $this->assertEquals($expected_hover_response, $hover_response, $message);  // slightly better diff view than assertSame
-            $this->assertSame($expected_hover_response, $hover_response, $message);
+            $this->assertSameUnorderedArray($expected_hover_response, $hover_response, $message);
 
             $this->writeShutdownRequestAndAwaitResponse($proc_in, $proc_out);
             $this->writeExitNotification($proc_in);
@@ -1779,7 +1786,21 @@ EOT;
             'id' => 1,
             'jsonrpc' => '2.0'
         ];
-        $this->assertSame($expected_response, $response);
+        $this->assertSameUnorderedArray($expected_response, $response);
+    }
+
+    /**
+     * Assert that an array has the same fields.
+     * Note that the order of json_encode on class properties changed in php 8.1 to save memory
+     *
+     * @param array<string,mixed> $expected_response
+     * @param array<string,mixed> $response
+     */
+    private function assertSameUnorderedArray(array $expected_response, array $response, string $message = ''): void
+    {
+        ksort($expected_response);
+        ksort($response);
+        $this->assertSame($expected_response, $response, $message);
     }
 
     /**
@@ -1909,7 +1930,7 @@ EOT;
             'id' => $this->messageId,
             'jsonrpc' => '2.0'
         ];
-        $this->assertSame($expected_response, $response);
+        $this->assertSameUnorderedArray($expected_response, $response);
     }
 
     /**

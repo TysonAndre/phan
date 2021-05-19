@@ -41,7 +41,9 @@ use Phan\Language\Type\LiteralStringType;
 use Phan\Language\Type\LiteralTypeInterface;
 use Phan\Language\Type\MixedType;
 use Phan\Language\Type\MultiType;
+use Phan\Language\Type\NeverType;
 use Phan\Language\Type\NonEmptyArrayInterface;
+use Phan\Language\Type\NonEmptyAssociativeArrayType;
 use Phan\Language\Type\NonEmptyListType;
 use Phan\Language\Type\NonEmptyMixedType;
 use Phan\Language\Type\NonEmptyStringType;
@@ -1987,7 +1989,7 @@ class UnionType implements Serializable, Stringable
         if ($other->isEmpty()) {
             return true;
         }
-        if ($this->isEmpty() || $this->hasMixedType()) {
+        if ($this->isEmpty() || $this->hasMixedTypeStrict()) {
             return false;
         }
         foreach ($this->type_set as $type) {
@@ -2469,6 +2471,8 @@ class UnionType implements Serializable, Stringable
      *
      * i.e. array -> iterable is allowed, but iterable -> array is not
      * i.e. MyClass -> mixed is allowed, but mixed -> MyClass is not
+     *
+     * @suppress PhanStaticClassAccessWithStaticVariable static variables are safely initialized
      */
     public function hasSubtypeOf(
         UnionType $target
@@ -2669,10 +2673,6 @@ class UnionType implements Serializable, Stringable
         if ($matches) {
             return true;
         }
-        static $null_type;
-        if ($null_type === null) {
-            $null_type  = NullType::instance(false);
-        }
 
         // Check conversion on the cross product of all
         // type combinations and see if any can cast to
@@ -2689,7 +2689,10 @@ class UnionType implements Serializable, Stringable
         }
 
         // Allow casting ?T to T|null for any type T. Check if null is part of this type first.
-        if (\in_array($null_type, $target_type_set, true)) {
+        foreach ($target_type_set as $type) {
+            if (!$type instanceof NullType) {
+                continue;
+            }
             foreach ($type_set as $source_type) {
                 // Only redo this check for the nullable types, we already failed the checks for non-nullable types.
                 if (!$source_type->withIsNullable(false)->asExpandedTypes($code_base)->hasSubtypeOf($target)) {
@@ -3287,6 +3290,7 @@ class UnionType implements Serializable, Stringable
     /**
      * A union type after asserting is_scalar($x)
      *
+     * @suppress PhanStaticClassAccessWithStaticVariable static variables are safely initialized
      */
     public function scalarTypesStrict(bool $allow_empty = false): UnionType
     {
@@ -3371,6 +3375,7 @@ class UnionType implements Serializable, Stringable
      *
      * @see nonGenericArrayTypes
      * @suppress PhanUnreferencedPublicMethod
+     * @suppress PhanStaticClassAccessWithStaticVariable static variables are safely initialized
      */
     public function countableTypesStrictCast(CodeBase $code_base): UnionType
     {
@@ -3799,6 +3804,54 @@ class UnionType implements Serializable, Stringable
     }
 
     /**
+     * This is the union type Phan infers from `assert(array_is_list($x))`
+     * Converts `iterable<key,value>` to `list<value>`
+     * Takes `` and returns `list`
+     * @suppress PhanUnreferencedPublicMethod called dynamically
+     */
+    public function listTypesStrictCast(): UnionType
+    {
+        return UnionType::of(
+            self::castToListTypesStrict($this->type_set) ?: UnionType::typeSetFromString('list'),
+            self::castToListTypesStrict($this->real_type_set) ?: UnionType::typeSetFromString('list')
+        );
+    }
+
+    /**
+     * This is the union type Phan infers from `assert(array_is_list($x))`
+     * Converts `iterable<key,value>` to `list<value>`
+     * Takes `A[]|ArrayAccess` and returns `list<A>`
+     * Takes `callable` and returns `list<object|string>` (callable arrays permit any key order)
+     * Takes `` and returns ``
+     * @suppress PhanUnreferencedPublicMethod called dynamically
+     */
+    public function listTypesStrictCastAllowEmpty(): UnionType
+    {
+        return UnionType::of(
+            self::castToListTypesStrict($this->type_set),
+            self::castToListTypesStrict($this->real_type_set)
+        );
+    }
+
+    /**
+     * @param Type[] $type_list
+     * @return list<Type>
+     */
+    private static function castToListTypesStrict(array $type_list): array
+    {
+        $result = [];
+        foreach ($type_list as $type) {
+            $type = $type->asArrayType();
+            if ($type instanceof ArrayType) {
+                foreach ($type->castToListTypes()->getTypeSet() as $sub_type) {
+                    $result[] = $sub_type;
+                }
+            }
+        }
+        return $result;
+    }
+
+    /**
      * @return bool
      * True if this is exclusively generic types
      */
@@ -3956,6 +4009,7 @@ class UnionType implements Serializable, Stringable
      * Takes `array{field:int,other:string}` and returns `int|string`
      *
      * @param CodeBase $code_base (for detecting the iterable value types of `class MyIterator extends Iterator`)
+     * @suppress PhanStaticClassAccessWithStaticVariable static variables are safely initialized
      */
     public function iterableValueUnionType(CodeBase $code_base): UnionType
     {
@@ -4015,6 +4069,7 @@ class UnionType implements Serializable, Stringable
      * Takes `array{field:int,other:string}` and returns `int|string`
      *
      * @param bool $add_real_types if true, this adds the real types that would be possible for `$x[$offset]`
+     * @suppress PhanStaticClassAccessWithStaticVariable static variables are safely initialized
      */
     public function genericArrayElementTypes(bool $add_real_types = false): UnionType
     {
@@ -4289,6 +4344,7 @@ class UnionType implements Serializable, Stringable
      * 'int|float' will produce 'int[]|float[]'.
      *
      * If $this is an empty UnionType, this method will produce 'array'
+     * @suppress PhanStaticClassAccessWithStaticVariable array elements are initialized without depending on inherited class
      */
     public function asNonEmptyGenericArrayTypes(int $key_type): UnionType
     {
@@ -4315,6 +4371,7 @@ class UnionType implements Serializable, Stringable
      * 'int|float' will produce 'associative-array<int>|associative-array<float>'.
      *
      * If $this is an empty UnionType, this method will produce 'associative-array<mixed>'
+     * @suppress PhanStaticClassAccessWithStaticVariable array elements are initialized without depending on inherited class
      */
     public function asNonEmptyAssociativeArrayTypes(int $key_type): UnionType
     {
@@ -4325,7 +4382,7 @@ class UnionType implements Serializable, Stringable
         }
         $result = $this->asMappedUnionType(
             static function (Type $type) use ($key_type): Type {
-                return AssociativeArrayType::fromElementType($type, false, $key_type);
+                return NonEmptyAssociativeArrayType::fromElementType($type, false, $key_type);
             }
         );
         if (!$result->hasRealTypeSet()) {
@@ -4341,23 +4398,24 @@ class UnionType implements Serializable, Stringable
      * 'int|float' will produce 'list<int>|list<float>'.
      *
      * If $this is an empty UnionType, this method will produce 'list<mixed>'
+     * @suppress PhanStaticClassAccessWithStaticVariable static variables are safely initialized
      */
     public function asNonEmptyListTypes(): UnionType
     {
-        static $type = null;
-        if ($type === null) {
-            $type = ListType::fromElementType(MixedType::instance(false), false);
+        static $list_of_mixed_type = null;
+        if ($list_of_mixed_type === null) {
+            $list_of_mixed_type = ListType::fromElementType(MixedType::instance(false), false);
         }
         if (\count($this->type_set) === 0) {
-            return $type->asRealUnionType();
+            return $list_of_mixed_type->asRealUnionType();
         }
         $result = $this->asMappedUnionType(
-            static function (Type $type): Type {
-                return ListType::fromElementType($type, false);
+            static function (Type $element_type): Type {
+                return ListType::fromElementType($element_type, false);
             }
         );
         if (!$result->hasRealTypeSet()) {
-            return $result->withRealType($type);
+            return $result->withRealType($list_of_mixed_type);
         }
         return $result;
     }
@@ -4536,7 +4594,6 @@ class UnionType implements Serializable, Stringable
      *
      * @see \Serializable
      * @suppress PhanAccessReadOnlyProperty this unserializes
-     * @suppress PhanParamSignatureRealMismatchHasNoParamTypeInternal, PhanUnusedSuppression parameter type widening was allowed in php 7.2, signature changed in php 8
      */
     public function unserialize($serialized): void
     {
@@ -4551,6 +4608,35 @@ class UnionType implements Serializable, Stringable
             return;
         }
         $this->type_set = UnionType::fromFullyQualifiedPHPDocString($serialized)->getTypeSet();
+    }
+
+    /**
+     * @return array{0: string, 1?: string}
+     */
+    public function __serialize(): array
+    {
+        if ($this->real_type_set) {
+            return [(string)$this, \implode('|', $this->real_type_set)];
+        }
+        return [(string)$this];
+    }
+
+    /**
+     * @param array{0: string, 1?: string} $data
+     * @suppress PhanAccessReadOnlyProperty this unserializes
+     */
+    public function __unserialize(array $data): void
+    {
+        if (isset($data[1])) {
+            $result = UnionType::fromFullyQualifiedPHPDocAndRealString(
+                $data[0],
+                $data[1]
+            );
+            $this->type_set = $result->getTypeSet();
+            $this->real_type_set = $result->getRealTypeSet();
+            return;
+        }
+        $this->type_set = UnionType::fromFullyQualifiedPHPDocString($data[0])->getTypeSet();
     }
 
     /**
@@ -4594,14 +4680,21 @@ class UnionType implements Serializable, Stringable
             if (!$php74_map) {
                 $php74_map = self::computePHP74FunctionSignatureMap($php73_map);
             }
-            if ($target_php_version >= 80000) {
-                static $php80_map = [];
-                if (!$php80_map) {
-                    $php80_map = self::computePHP80FunctionSignatureMap($php74_map);
-                }
+            if ($target_php_version < 80000) {
+                return $php74_map;
+            }
+            static $php80_map = [];
+            if (!$php80_map) {
+                $php80_map = self::computePHP80FunctionSignatureMap($php74_map);
+            }
+            if ($target_php_version < 80100) {
                 return $php80_map;
             }
-            return $php74_map;
+            static $php81_map = [];
+            if (!$php81_map) {
+                $php81_map = self::computePHP81FunctionSignatureMap($php80_map);
+            }
+            return $php81_map;
         }
         if ($target_php_version >= 70300) {
             return $php73_map;
@@ -4677,6 +4770,16 @@ class UnionType implements Serializable, Stringable
             $map[\strtolower($key)] = $value;
         }
         return $map;
+    }
+
+    /**
+     * @param array<string,associative-array<int|string,string>> $php80_map
+     * @return array<string,associative-array<int|string,string>>
+     */
+    private static function computePHP81FunctionSignatureMap(array $php80_map): array
+    {
+        $delta_raw = require(__DIR__ . '/Internal/FunctionSignatureMap_php81_delta.php');
+        return self::applyDeltaToGetNewerSignatures($php80_map, $delta_raw);
     }
 
     /**
@@ -5150,8 +5253,34 @@ class UnionType implements Serializable, Stringable
 
     /**
      * @return bool true if at least one of the types in this type set is `mixed` or `?mixed`
+     *              Returns true for `non-null-mixed` and `non-empty-mixed` as well.
+     * @deprecated this function was added before `non-null-mixed`
+     * @suppress PhanUnreferencedPublicMethod
      */
     public function hasMixedType(): bool
+    {
+        return $this->hasMixedOrNonEmptyMixedType();
+    }
+
+    /**
+     * @return bool true if at least one of the types in this type set is `mixed` or `?mixed`
+     *              Returns false for `non-null-mixed` and `non-empty-mixed` because those exclude some types.
+     */
+    public function hasMixedTypeStrict(): bool
+    {
+        foreach ($this->type_set as $type) {
+            if (\get_class($type) === MixedType::class) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @return bool true if at least one of the types in this type set is `mixed` or `?mixed`
+     *              Returns true for `non-null-mixed` and `non-empty-mixed` as well.
+     */
+    public function hasMixedOrNonEmptyMixedType(): bool
     {
         foreach ($this->type_set as $type) {
             if ($type instanceof MixedType) {
@@ -6095,6 +6224,19 @@ class UnionType implements Serializable, Stringable
             return false;
         }
         return \reset($type_set) instanceof VoidType;
+    }
+
+    /**
+     * @return bool
+     * True if this is the never type
+     */
+    public function isNeverType(): bool
+    {
+        $type_set = $this->type_set;
+        if (\count($type_set) !== 1) {
+            return false;
+        }
+        return \reset($type_set) instanceof NeverType;
     }
 
     /**

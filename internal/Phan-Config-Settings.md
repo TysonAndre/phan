@@ -668,6 +668,12 @@ This still helps with some edge cases such as assignments in compound conditions
 
 (Default: `true`)
 
+## use_tentative_return_type
+
+If enabled, Phan will use the php 8.1+ tentative return types available for PHP and extensions.
+
+(Default: `true`)
+
 ## warn_about_relative_include_statement
 
 Enable this to warn about the use of relative paths in `require_once`, `include`, etc.
@@ -705,7 +711,8 @@ If this is null, this will be inferred from `target_php_version`.
 
 The PHP version that will be used for feature/syntax compatibility warnings.
 
-Supported values: `'5.6'`, `'7.0'`, `'7.1'`, `'7.2'`, `'7.3'`, `'7.4'`, `null`.
+Supported values: `'5.6'`, `'7.0'`, `'7.1'`, `'7.2'`, `'7.3'`, `'7.4'`,
+`'8.0'`, `'8.1'`, `null`.
 If this is set to `null`, Phan will first attempt to infer the value from
 the project's composer.json's `{"require": {"php": "version range"}}` if possible.
 If that could not be determined, then Phan assumes `target_php_version`.
@@ -736,7 +743,8 @@ For best results, the PHP binary used to run Phan should have the same PHP versi
 (Phan relies on Reflection for some types, param counts,
 and checks for undefined classes/methods/functions)
 
-Supported values: `'5.6'`, `'7.0'`, `'7.1'`, `'7.2'`, `'7.3'`, `'7.4'`, `null`.
+Supported values: `'5.6'`, `'7.0'`, `'7.1'`, `'7.2'`, `'7.3'`, `'7.4'`,
+`'8.0'`, `'8.1'`, `null`.
 If this is set to `null`,
 then Phan assumes the PHP version which is closest to the minor version
 of the php executable used to execute Phan.
@@ -897,6 +905,15 @@ actually dead).
 In other words, the graph of references will have
 too many edges rather than too few edges when guesses
 have to be made about what references what.
+
+(Default: `true`)
+
+## dead_code_detection_treat_never_type_as_unreachable
+
+When this is true, treat a phpdoc or real type
+of 'never' as unreachable.
+
+Disabling this may avoid some false positives.
 
 (Default: `true`)
 

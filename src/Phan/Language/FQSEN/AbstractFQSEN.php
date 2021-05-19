@@ -118,11 +118,29 @@ abstract class AbstractFQSEN implements FQSEN, Serializable
     /**
      * @param string $serialized
      * @throws Error to prevent accidentally calling this
-     * @suppress PhanParamSignatureRealMismatchHasNoParamTypeInternal, PhanUnusedSuppression parameter type widening was allowed in php 7.2, signature changed in php 8
      */
     public function unserialize($serialized): void
     {
         // We compare and look up FQSENs by their identity
         throw new Error("unserializing an FQSEN ($serialized) is forbidden\n");
+    }
+
+    /**
+     * @throws Error to prevent accidentally calling this
+     * @return array<string,mixed> TODO: Switch to phpdoc never
+     */
+    public function __serialize(): array
+    {
+        throw new Error("serializing an FQSEN (" . (string)$this . ") is forbidden\n");
+    }
+
+    /**
+     * @unused-param $data
+     * @param array<string,mixed> $data
+     * @throws Error to prevent accidentally calling this
+     */
+    public function __unserialize(array $data): void
+    {
+        throw new Error("unserializing an FQSEN is forbidden\n");
     }
 }

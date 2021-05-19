@@ -255,12 +255,8 @@ class ASTReverter
                         $parts[] = '';
                         continue;
                     }
-                    $part = self::toShortString($elem->children['value']);
-                    $key_node = $elem->children['key'];
-                    if ($key_node !== null) {
-                        $part = self::toShortString($key_node) . '=>' . $part;
-                    }
-                    $parts[] = $part;
+                    // AST_ARRAY_ELEM or AST_UNPACK
+                    $parts[] = self::toShortString($elem);
                 }
                 $string = implode(',', $parts);
                 switch ($node->flags) {
@@ -445,6 +441,14 @@ class ASTReverter
             ast\AST_ECHO => static function (Node $node): string {
                 return 'echo ' . ASTReverter::toShortString($node->children['expr']) . ';';
             },
+            ast\AST_ARRAY_ELEM => static function (Node $node): string {
+                $value_representation = self::toShortString($node->children['value']);
+                $key_node = $node->children['key'];
+                if ($key_node !== null) {
+                    return self::toShortString($key_node) . '=>' . $value_representation;
+                }
+                return $value_representation;
+            },
             ast\AST_UNPACK => static function (Node $node): string {
                 return sprintf(
                     '...(%s)',
@@ -534,6 +538,9 @@ class ASTReverter
             ast\AST_SWITCH_CASE => static function (Node $_): string {
                 return '(switch case statement)';
             },
+            ast\AST_EXIT => static function (Node $node): string {
+                return 'exit(' . self::toShortString($node->children['expr']) . ')';
+            }
             // TODO: AST_SHELL_EXEC, AST_ENCAPS_LIST(in shell_exec or double quotes)
         ];
     }

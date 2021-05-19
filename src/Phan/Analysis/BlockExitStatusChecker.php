@@ -537,6 +537,42 @@ final class BlockExitStatusChecker extends KindVisitorImplementation
         return $status;
     }
 
+    /**
+     * Determines the exit status of a static method call.
+     *
+     * @return int the corresponding status code
+     */
+    public function visitStaticCall(Node $node): int
+    {
+        // TODO: The expression or arguments might unconditionally throw, though that is rare in practice.
+        return ($node->flags & self::STATUS_BITMASK) ?: self::STATUS_PROCEED;
+    }
+
+    /**
+     * Determines the exit status of an instance method call.
+     *
+     * @return int the corresponding status code
+     * @override
+     * @see UseReturnValueVisitor::checkIfUsingFunctionThatNeverReturns()
+     */
+    public function visitMethodCall(Node $node): int
+    {
+        // TODO: The expression or arguments might unconditionally throw, though that is rare in practice.
+        return ($node->flags & self::STATUS_BITMASK) ?: self::STATUS_PROCEED;
+    }
+
+    /**
+     * Determines the exit status of an instance method call.
+     *
+     * @return int the corresponding status code
+     * @override
+     */
+    public function visitNullsafeMethodCall(Node $node): int
+    {
+        // TODO: The expression or arguments might unconditionally throw, though that is rare in practice.
+        return ($node->flags & self::STATUS_BITMASK) ?: self::STATUS_PROCEED;
+    }
+
     private static function computeStatusOfCall(Node $node): int
     {
         $expression = $node->children['expr'];
@@ -586,6 +622,7 @@ final class BlockExitStatusChecker extends KindVisitorImplementation
         if (!\is_string($name)) {
             return self::STATUS_PROCEED;
         }
+        // The returned code for exit() is 'return', e.g. E_USER_ERROR makes trigger_error emit an error then abort execution.
         if (\in_array($name, ['E_ERROR', 'E_PARSE', 'E_CORE_ERROR', 'E_COMPILE_ERROR', 'E_USER_ERROR'], true)) {
             return self::STATUS_RETURN;
         }
@@ -737,7 +774,7 @@ final class BlockExitStatusChecker extends KindVisitorImplementation
             }
             $status = $this->check($child);
             if (($status & self::STATUS_PROCEED) === 0) {
-                // If it's guaranteed we won't stop after this statement,
+                // If it's guaranteed we won't proceed after this statement,
                 // then skip the subsequent statements.
                 return $status | ($maybe_status & ~self::STATUS_PROCEED);
             }

@@ -41,6 +41,8 @@ class Issue
     public const SyntaxMixedKeyNoKeyArrayDestructuring = 'PhanSyntaxMixedKeyNoKeyArrayDestructuring';
     public const SyntaxReturnExpectedValue      = 'PhanSyntaxReturnExpectedValue';
     public const SyntaxReturnValueInVoid        = 'PhanSyntaxReturnValueInVoid';
+    public const SyntaxReturnStatementInNever   = 'PhanSyntaxReturnStatementInNever';
+    public const SyntaxInconsistentEnum         = 'PhanSyntaxInconsistentEnum';
 
     // Issue::CATEGORY_UNDEFINED
     public const AmbiguousTraitAliasSource = 'PhanAmbiguousTraitAliasSource';
@@ -113,11 +115,13 @@ class Issue
     public const TypeArraySuspiciousNull           = 'PhanTypeArraySuspiciousNull';
     public const TypeSuspiciousIndirectVariable    = 'PhanTypeSuspiciousIndirectVariable';
     public const TypeObjectUnsetDeclaredProperty   = 'PhanTypeObjectUnsetDeclaredProperty';
+    public const TypeModifyImmutableObjectProperty            = 'PhanTypeModifyImmutableObjectProperty';
     public const TypeComparisonFromArray   = 'PhanTypeComparisonFromArray';
     public const TypeComparisonToArray     = 'PhanTypeComparisonToArray';
     public const TypeConversionFromArray   = 'PhanTypeConversionFromArray';
     public const TypeInstantiateAbstract   = 'PhanTypeInstantiateAbstract';
     public const TypeInstantiateAbstractStatic = 'PhanTypeInstantiateAbstractStatic';
+    public const TypeInstantiateEnum       = 'PhanTypeInstantiateEnum';
     public const TypeInstantiateInterface  = 'PhanTypeInstantiateInterface';
     public const TypeInstantiateTrait      = 'PhanTypeInstantiateTrait';
     public const TypeInstantiateTraitStaticOrSelf = 'PhanTypeInstantiateTraitStaticOrSelf';
@@ -278,6 +282,10 @@ class Issue
     public const AttributeNonAttribute = 'PhanAttributeNonAttribute';
     public const AttributeNonRepeatable = 'PhanAttributeNonRepeatable';
     public const AttributeWrongTarget = 'PhanAttributeWrongTarget';
+    public const TypeInvalidEnumCaseType = 'PhanTypeInvalidEnumCaseType';
+    public const InstanceMethodWithNoEnumCases = 'PhanInstanceMethodWithNoEnumCases';
+    public const EnumCannotHaveProperties = 'PhanEnumCannotHaveProperties';
+    public const EnumForbiddenMagicMethod = 'PhanEnumForbiddenMagicMethod';
 
     // Issue::CATEGORY_ANALYSIS
     public const Unanalyzable              = 'PhanUnanalyzable';
@@ -294,6 +302,7 @@ class Issue
     public const AbstractStaticMethodCall         = 'PhanAbstractStaticMethodCall';
     public const AbstractStaticMethodCallInStatic = 'PhanAbstractStaticMethodCallInStatic';
     public const AbstractStaticMethodCallInTrait  = 'PhanAbstractStaticMethodCallInTrait';
+    public const StaticClassAccessWithStaticVariable = 'PhanStaticClassAccessWithStaticVariable';
 
     // Issue::CATEGORY_CONTEXT
     public const ContextNotObject           = 'PhanContextNotObject';
@@ -421,6 +430,7 @@ class Issue
     public const UnreferencedPublicClassConstant = 'PhanUnreferencedPublicClassConstant';
     public const UnreferencedProtectedClassConstant = 'PhanUnreferencedProtectedClassConstant';
     public const UnreferencedPrivateClassConstant = 'PhanUnreferencedPrivateClassConstant';
+    public const UnreferencedEnumCase          = 'PhanUnreferencedEnumCase';
     public const UnreferencedClosure           = 'PhanUnreferencedClosure';
     public const UnreferencedUseNormal         = 'PhanUnreferencedUseNormal';
     public const UnreferencedUseFunction       = 'PhanUnreferencedUseFunction';
@@ -493,6 +503,7 @@ class Issue
     public const RedefinedInheritedInterface   = 'PhanRedefinedInheritedInterface';
     public const RedefinedExtendedClass        = 'PhanRedefinedExtendedClass';
     public const RedefinedClassReference       = 'PhanRedefinedClassReference';
+    public const ReusedEnumCaseValue           = 'PhanReusedEnumCaseValue';
 
     // Issue::CATEGORY_ACCESS
     public const AccessPropertyPrivate     = 'PhanAccessPropertyPrivate';
@@ -547,6 +558,7 @@ class Issue
     public const CompatibleShortArrayAssignPHP70    = 'PhanCompatibleShortArrayAssignPHP70';
     public const CompatibleKeyedArrayAssignPHP70    = 'PhanCompatibleKeyedArrayAssignPHP70';
     public const CompatibleVoidTypePHP70            = 'PhanCompatibleVoidTypePHP70';
+    public const CompatibleNeverType                 = 'PhanCompatibleNeverType';
     public const CompatibleIterableTypePHP70        = 'PhanCompatibleIterableTypePHP70';
     public const CompatibleObjectTypePHP71          = 'PhanCompatibleObjectTypePHP71';
     public const CompatibleMixedType                = 'PhanCompatibleMixedType';
@@ -580,7 +592,8 @@ class Issue
     public const CompatibleTrailingCommaParameterList = 'PhanCompatibleTrailingCommaParameterList';
     public const CompatibleAttributeGroupOnSameLine      = 'PhanCompatibleAttributeGroupOnSameLine';
     public const CompatibleAttributeGroupOnMultipleLines = 'PhanCompatibleAttributeGroupOnMultipleLines';
-    public const CompatibleConstructorPropertyPromotion = 'PhanCompatibleConstructorPropertyPromotion';
+    public const CompatibleConstructorPropertyPromotion  = 'PhanCompatibleConstructorPropertyPromotion';
+    public const CompatibleSerializeInterfaceDeprecated  = 'PhanCompatibleSerializeInterfaceDeprecated';
 
     // Issue::CATEGORY_GENERIC
     public const TemplateTypeConstant       = 'PhanTemplateTypeConstant';
@@ -703,7 +716,7 @@ class Issue
     // type id constants.
     public const TYPE_ID_UNKNOWN = 999;
 
-    // Keep sorted and in sync with Colorizing::default_color_for_template
+    // Keep sorted and in sync with Colorizing::DEFAULT_COLOR_FOR_TEMPLATE
     public const UNCOLORED_FORMAT_STRING_FOR_TEMPLATE = [
         'CLASS'         => '%s',
         'CLASSLIKE'     => '%s',
@@ -712,6 +725,7 @@ class Issue
         'CONST'         => '%s',
         'COUNT'         => '%d',
         'DETAILS'       => '%s',  // additional details about an error
+        'ENUM'          => '%s',
         'FILE'          => '%s',
         'FUNCTIONLIKE'  => '%s',
         'FUNCTION'      => '%s',
@@ -954,12 +968,29 @@ class Issue
                 17014
             ),
             new Issue(
+                self::SyntaxReturnStatementInNever,
+                self::CATEGORY_SYNTAX,
+                self::SEVERITY_CRITICAL,
+                'Syntax error: function {FUNCTIONLIKE} has return type {TYPE}, meaning it must not contain return statements (it should exit, throw, or run forever)',
+                self::REMEDIATION_A,
+                17017
+            ),
+            new Issue(
                 self::SyntaxReturnExpectedValue,
                 self::CATEGORY_SYNTAX,
                 self::SEVERITY_CRITICAL,
                 'Syntax error: Function {FUNCTIONLIKE} with return type {TYPE} must return a value (did you mean "{CODE}" instead of "{CODE}"?)',
                 self::REMEDIATION_A,
                 17015
+            ),
+            new Issue(
+                self::SyntaxInconsistentEnum,
+                self::CATEGORY_SYNTAX,
+                self::SEVERITY_CRITICAL,
+                // XXX can't improve on this until the minimum supported AST extension version is raised due to php-ast not providing the actual flags until AST version 85.
+                "Syntax error: Enum {ENUM} unexpectedly has cases that are inconsistent with the enum declaration\'s type or lack of type",
+                self::REMEDIATION_A,
+                17016
             ),
 
             // Issue::CATEGORY_UNDEFINED
@@ -1832,6 +1863,14 @@ class Issue
                 10111
             ),
             new Issue(
+                self::TypeInstantiateEnum,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_NORMAL,
+                "Saw instantiation of enum {ENUM}",
+                self::REMEDIATION_B,
+                10174
+            ),
+            new Issue(
                 self::TypeInstantiateInterface,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_NORMAL,
@@ -2308,9 +2347,17 @@ class Issue
                 self::TypeObjectUnsetDeclaredProperty,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_LOW,  // There are valid reasons to do this, e.g. for the typed properties V2 RFC or to change serialization
-                "Suspicious attempt to unset class {TYPE}'s property {PROPERTY} declared at {FILE}:{LINE} (This can be done, but is more commonly done for dynamic properties and Phan does not expect this)",
+                "Suspicious attempt to unset class {TYPE}'s property \${PROPERTY} declared at {FILE}:{LINE} (This can be done, but is more commonly done for dynamic properties and Phan does not expect this)",
                 self::REMEDIATION_B,
                 10081
+            ),
+            new Issue(
+                self::TypeModifyImmutableObjectProperty,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_CRITICAL,
+                "Saw attempt to modify {TYPE} {CLASS}'s property \${PROPERTY} declared at {FILE}:{LINE} (immutability of properties is enforced at runtime)",
+                self::REMEDIATION_B,
+                10181
             ),
             new Issue(
                 self::TypeNoAccessiblePropertiesForeach,
@@ -2841,6 +2888,39 @@ class Issue
                 self::REMEDIATION_B,
                 10173
             ),
+            new Issue(
+                self::TypeInvalidEnumCaseType,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_CRITICAL,
+                'Saw enum case {CONST} with a value({SCALAR}) that did not match expected type {TYPE} (a future version of Phan will depend on an AST version that can be used to parse the enum declaration type)',
+                self::REMEDIATION_B,
+                10175
+            ),
+            new Issue(
+                self::InstanceMethodWithNoEnumCases,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_LOW,
+                'Saw enum {ENUM} that declares no enum cases but contains instance method {METHOD} declared at {FILE}:{LINE}',
+                self::REMEDIATION_B,
+                10178
+            ),
+            // NOTE: This is not considered a syntax error because enums can use traits and traits can also have properties and magic methods.
+            new Issue(
+                self::EnumCannotHaveProperties,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_CRITICAL,
+                'Enum {ENUM} is not allowed to declare instance or static properties but it contains property ${PROPERTY} declared at {FILE}:{LINE}',
+                self::REMEDIATION_B,
+                10179
+            ),
+            new Issue(
+                self::EnumForbiddenMagicMethod,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_CRITICAL,
+                'Enum {ENUM} is not allowed to have the magic method {METHOD} declared at {FILE}:{LINE}',
+                self::REMEDIATION_B,
+                10180
+            ),
 
             // Issue::CATEGORY_VARIABLE
             new Issue(
@@ -2892,6 +2972,14 @@ class Issue
                 "Potentially calling an abstract static method {METHOD} on a trait in {CODE}, if the caller's method is called on the trait instead of a concrete class using the trait",
                 self::REMEDIATION_B,
                 9004
+            ),
+            new Issue(
+                self::StaticClassAccessWithStaticVariable,
+                self::CATEGORY_STATIC,
+                self::SEVERITY_LOW,
+                "Saw access to potentially inherited class element with {CODE} in a function that also uses static variables. The behavior of static variables will change to consistently use one set of static variables per method declaration in php 8.1 and the same method may end up write different values to static variables or do different things after reading static variables in different inherited classes. (This is a simple heuristic, suppress the issue if this is a false positive)",
+                self::REMEDIATION_B,
+                9005
             ),
 
             // Issue::CATEGORY_CONTEXT
@@ -3130,7 +3218,7 @@ class Issue
                 self::ParamSignatureRealMismatchReturnType,
                 self::CATEGORY_PARAMETER,
                 self::SEVERITY_CRITICAL,
-                "Declaration of {METHOD} should be compatible with {METHOD} (method returning '{TYPE}' cannot override method returning '{TYPE}') defined in {FILE}:{LINE}",
+                "Declaration of {METHOD} should be compatible with {METHOD} (method where the return type in the real signature is '{TYPE}' cannot override method where the return type in the real signature is '{TYPE}') defined in {FILE}:{LINE}",
                 self::REMEDIATION_B,
                 7013
             ),
@@ -3138,7 +3226,7 @@ class Issue
                 self::ParamSignatureRealMismatchReturnTypeInternal,
                 self::CATEGORY_PARAMETER,
                 self::SEVERITY_CRITICAL,
-                "Declaration of {METHOD} should be compatible with internal {METHOD} (method returning '{TYPE}' cannot override method returning '{TYPE}')",
+                "Declaration of {METHOD} should be compatible with internal {METHOD} (method where the return type in the real signature is '{TYPE}' cannot override method where the return type in the real signature is '{TYPE}')",
                 self::REMEDIATION_B,
                 7014
             ),
@@ -3156,7 +3244,7 @@ class Issue
                 self::ParamSignatureRealMismatchParamType,
                 self::CATEGORY_PARAMETER,
                 self::SEVERITY_NORMAL,
-                "Declaration of {METHOD} should be compatible with {METHOD} (parameter #{INDEX} of type '{TYPE}' cannot replace original parameter of type '{TYPE}') defined in {FILE}:{LINE}",
+                "Declaration of {METHOD} should be compatible with {METHOD} (parameter #{INDEX} of real signature type '{TYPE}' cannot replace original parameter of real signature type '{TYPE}') defined in {FILE}:{LINE}",
                 self::REMEDIATION_B,
                 7015
             ),
@@ -3180,7 +3268,7 @@ class Issue
                 self::ParamSignatureRealMismatchHasParamType,
                 self::CATEGORY_PARAMETER,
                 self::SEVERITY_CRITICAL,
-                "Declaration of {METHOD} should be compatible with {METHOD} (parameter #{INDEX} has type '{TYPE}' which cannot replace original parameter with no type) defined in {FILE}:{LINE}",
+                "Declaration of {METHOD} should be compatible with {METHOD} (parameter #{INDEX} has type '{TYPE}' in the real signature which cannot replace original parameter with no type in the real signature) defined in {FILE}:{LINE}",
                 self::REMEDIATION_B,
                 7017
             ),
@@ -3188,7 +3276,7 @@ class Issue
                 self::ParamSignatureRealMismatchHasParamTypeInternal,
                 self::CATEGORY_PARAMETER,
                 self::SEVERITY_NORMAL,
-                "Declaration of {METHOD} should be compatible with internal {METHOD} (parameter #{INDEX} has type '{TYPE}' which cannot replace original parameter with no type)",
+                "Declaration of {METHOD} should be compatible with internal {METHOD} (parameter #{INDEX} has type '{TYPE}' in the real signature which cannot replace original parameter with no type in the real signature)",
                 self::REMEDIATION_B,
                 7018
             ),
@@ -3204,7 +3292,7 @@ class Issue
                 self::ParamSignatureRealMismatchHasNoParamType,
                 self::CATEGORY_PARAMETER,
                 self::SEVERITY_NORMAL,  // NOTE: See allow_method_param_type_widening
-                "Declaration of {METHOD} should be compatible with {METHOD} (parameter #{INDEX} with no type cannot replace original parameter with type '{TYPE}') defined in {FILE}:{LINE}",
+                "Declaration of {METHOD} should be compatible with {METHOD} (parameter #{INDEX} with no type in the real signature cannot replace original parameter with type '{TYPE}' in the real signature) defined in {FILE}:{LINE}",
                 self::REMEDIATION_B,
                 7019
             ),
@@ -3212,7 +3300,7 @@ class Issue
                 self::ParamSignatureRealMismatchHasNoParamTypeInternal,
                 self::CATEGORY_PARAMETER,
                 self::SEVERITY_NORMAL,
-                "Declaration of {METHOD} should be compatible with internal {METHOD} (parameter #{INDEX} with no type cannot replace original parameter with type '{TYPE}')",
+                "Declaration of {METHOD} should be compatible with internal {METHOD} (parameter #{INDEX} with no type in the real signature cannot replace original parameter with type '{TYPE}' in the real signature)",
                 self::REMEDIATION_B,
                 7020
             ),
@@ -3610,11 +3698,12 @@ class Issue
                 self::REMEDIATION_B,
                 6031
             ),
+            // This is used for all classlikes
             new Issue(
                 self::UnreferencedClass,
                 self::CATEGORY_NOOP,
                 self::SEVERITY_NORMAL,
-                "Possibly zero references to class {CLASS}",
+                "Possibly zero references to {TYPE} {CLASS}",
                 self::REMEDIATION_B,
                 6005
             ),
@@ -4383,6 +4472,14 @@ class Issue
                 self::REMEDIATION_B,
                 8011
             ),
+            new Issue(
+                self::ReusedEnumCaseValue,
+                self::CATEGORY_REDEFINE,
+                self::SEVERITY_CRITICAL,
+                'Enum case {CONST} has the same value({SCALAR}) as a previous declared enum case {CONST} defined at {FILE}:{LINE}',
+                self::REMEDIATION_B,
+                8013
+            ),
 
             // Issue::CATEGORY_ACCESS
             new Issue(
@@ -4716,6 +4813,14 @@ class Issue
                 3005
             ),
             new Issue(
+                self::CompatibleNeverType,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_CRITICAL,
+                "Return type '{TYPE}' means that a function will not return normally starting in PHP 8.1. In PHP 8.0, 'never' refers to a class/interface with the name 'never'",
+                self::REMEDIATION_B,
+                3043
+            ),
+            new Issue(
                 self::CompatibleIterableTypePHP70,
                 self::CATEGORY_COMPATIBLE,
                 self::SEVERITY_CRITICAL,
@@ -5007,6 +5112,14 @@ class Issue
                 "Declaring attributes across multiple lines may be treated like a mix of a line comment and php tokens before php 8.0 for attribute group {CODE} of {CODE} ending around line {LINE}. Note that php-ast does not provide the actual ending line numbers and this issue may be unreliable",
                 self::REMEDIATION_B,
                 3040
+            ),
+            new Issue(
+                self::CompatibleSerializeInterfaceDeprecated,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_NORMAL,
+                "The Serializable interface is deprecated in php 8.1. If you need to retain the Serializable interface for cross-version compatibility, you can suppress this warning for {{CLASS}} by implementing __serialize() and __unserialize() in addition, which will take precedence over Serializable in PHP versions that support them. If you cannot avoid using Serializable and don't need to support php 8.1 or can tolerate deprecation notices, this issue should be suppressed",
+                self::REMEDIATION_B,
+                3042
             ),
 
             // Issue::CATEGORY_GENERIC

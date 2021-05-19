@@ -11,10 +11,14 @@ use Phan\Language\UnionType;
 
 /**
  * Phan's representation of the type for `callable-array`.
+ *
+ * NOTE: A CallableArrayType is not technically a list type because [1 => $methodName, 0 => $classOrObject] is also callable.
  * @phan-pure
  */
 class CallableArrayType extends ArrayType
 {
+    use NativeTypeTrait;
+
     /** @phan-override */
     public const NAME = 'callable-array';
 

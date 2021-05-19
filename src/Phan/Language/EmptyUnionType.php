@@ -1242,6 +1242,18 @@ final class EmptyUnionType extends UnionType
     }
 
     /** @override */
+    public function hasMixedTypeStrict(): bool
+    {
+        return false;
+    }
+
+    /** @override */
+    public function hasMixedOrNonEmptyMixedType(): bool
+    {
+        return false;
+    }
+
+    /** @override */
     public function withFlattenedArrayShapeTypeInstances(): UnionType
     {
         return $this;
@@ -1521,6 +1533,11 @@ final class EmptyUnionType extends UnionType
         return false;
     }
 
+    public function isNeverType(): bool
+    {
+        return false;
+    }
+
     public function withRealType(Type $type): UnionType
     {
         return $type->asRealUnionType();
@@ -1587,7 +1604,17 @@ final class EmptyUnionType extends UnionType
         return ArrayType::instance(false)->asRealUnionType();
     }
 
+    public function listTypesStrictCast(): UnionType
+    {
+        return UnionType::fromFullyQualifiedRealString('list');
+    }
+
     public function arrayTypesStrictCastAllowEmpty(): UnionType
+    {
+        return $this;
+    }
+
+    public function listTypesStrictCastAllowEmpty(): UnionType
     {
         return $this;
     }

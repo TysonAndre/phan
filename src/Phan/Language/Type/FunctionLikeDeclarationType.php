@@ -420,6 +420,7 @@ abstract class FunctionLikeDeclarationType extends Type implements FunctionInter
 
     /**
      * @override
+     * @param list<Node|int|string|float> $args
      */
     public function analyzeFunctionCall(CodeBase $code_base, Context $context, array $args, Node $node = null): void
     {
@@ -484,7 +485,10 @@ abstract class FunctionLikeDeclarationType extends Type implements FunctionInter
         return '';
     }
 
-    /** @override */
+    /**
+     * @override
+     * @param list<Node|int|string|float> $args
+     */
     public function getDependentReturnType(CodeBase $code_base, Context $context, array $args): UnionType
     {
         throw new \AssertionError('unexpected call to ' . __METHOD__);
@@ -748,6 +752,20 @@ abstract class FunctionLikeDeclarationType extends Type implements FunctionInter
     }
 
     public function hasYield(): bool
+    {
+        return false;
+    }
+
+    /**
+     * @override
+     * @unused-param $has_static_variable
+     */
+    public function setHasStaticVariable(bool $has_static_variable): void
+    {
+        throw new \AssertionError('unexpected call to ' . __METHOD__);
+    }
+
+    public function hasStaticVariable(): bool
     {
         return false;
     }

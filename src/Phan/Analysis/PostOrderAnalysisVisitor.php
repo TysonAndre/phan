@@ -31,6 +31,7 @@ use Phan\Language\Context;
 use Phan\Language\Element\Clazz;
 use Phan\Language\Element\Func;
 use Phan\Language\Element\FunctionInterface;
+use Phan\Language\Element\GlobalVariable;
 use Phan\Language\Element\Method;
 use Phan\Language\Element\Parameter;
 use Phan\Language\Element\PassByReferenceVariable;
@@ -157,6 +158,8 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         // right side of the equation and the kind of item
         // on the left.
         // (AssignmentVisitor converts possibly undefined types to nullable)
+        //
+        // TODO: For assignment by reference, also check Clazz->isImmutableAtRuntime for properties
         $context = (new AssignmentVisitor(
             $this->code_base,
             $this->context,
@@ -275,7 +278,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 return;
             }
             $resolved_union_type = $union_type->withStaticResolvedInContext($this->context);
-            if (!$resolved_union_type->asExpandedTypes($this->code_base)->hasArrayLike() && !$resolved_union_type->hasMixedType()) {
+            if (!$resolved_union_type->asExpandedTypes($this->code_base)->hasArrayLike() && !$resolved_union_type->hasMixedOrNonEmptyMixedType()) {
                 $this->emitIssue(
                     Issue::TypeArrayUnsetSuspicious,
                     $node->lineno,
@@ -355,6 +358,25 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 continue;
             }
             $class = $this->code_base->getClassByFQSEN($fqsen);
+            if ($class->isImmutableAtRuntime()) {
+                if ($class->hasPropertyWithName($this->code_base, $prop_name)) {
+                    // NOTE: We deliberately emit this issue whether or not the access is to a public or private variable,
+                    // because unsetting a private variable at runtime is also a (failed) attempt to unset a declared property.
+                    $prop_context = $class->getPropertyByName($this->code_base, $prop_name)->getFileRef();
+                } else {
+                    $prop_context = $class->getContext();
+                }
+                $this->emitIssue(
+                    Issue::TypeModifyImmutableObjectProperty,
+                    $node->lineno,
+                    $class->getClasslikeType(),
+                    (string)$type,
+                    $prop_name,
+                    $prop_context->getFile(),
+                    $prop_context->getLineNumberStart()
+                );
+                continue;
+            }
             if ($class->hasPropertyWithName($this->code_base, $prop_name)) {
                 // NOTE: We deliberately emit this issue whether or not the access is to a public or private variable,
                 // because unsetting a private variable at runtime is also a (failed) attempt to unset a declared property.
@@ -588,20 +610,21 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         $optional_global_variable_type = Variable::getUnionTypeOfHardcodedGlobalVariableWithName($variable_name);
         if ($optional_global_variable_type) {
             $variable->setUnionType($optional_global_variable_type);
+            $scope_global_variable = $variable;
         } else {
             $scope = $this->context->getScope();
-            if ($scope->hasGlobalVariableWithName($variable_name)) {
-                // TODO: Support @global, add a clone to the method context?
-                $actual_global_variable = clone($scope->getGlobalVariableByName($variable_name));
-                $actual_global_variable->setUnionType($actual_global_variable->getUnionType()->eraseRealTypeSetRecursively());
-                $this->context->addScopeVariable($actual_global_variable);
-                return $this->context;
+            if (!$scope->hasGlobalVariableWithName($variable_name)) {
+                $this->context->addGlobalScopeVariable(clone $variable);
             }
+            // TODO: Support @global?
+            $actual_global_variable = $scope->getGlobalVariableByName($variable_name);
+            $scope_global_variable = $actual_global_variable instanceof GlobalVariable ? clone($actual_global_variable) : new GlobalVariable($actual_global_variable);
+            $scope_global_variable->setUnionType($actual_global_variable->getUnionType()->eraseRealTypeSetRecursively());
         }
 
         // Note that we're not creating a new scope, just
         // adding variables to the existing scope
-        $this->context->addScopeVariable($variable);
+        $this->context->addScopeVariable($scope_global_variable);
 
         return $this->context;
     }
@@ -1532,7 +1555,8 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         $method = $context->getFunctionLikeInScope($code_base);
 
         // Mark the method as returning something (even if void)
-        if (null !== $node->children['expr']) {
+        $expr = $node->children['expr'];
+        if (null !== $expr) {
             $method->setHasReturn(true);
         }
 
@@ -1548,36 +1572,13 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         // Figure out what we intend to return
         // (For traits, lower the false positive rate by comparing against the real return type instead of the phpdoc type (#800))
         $method_return_type = $is_trait ? $method->getRealReturnType()->withAddedClassForResolvedSelf($method->getContext()) : $method->getUnionType();
-        $expr = $node->children['expr'];
 
         // Check for failing to return a value, or returning a value in a void method.
-        if ($expr !== null) {
-            if ($method_return_type->hasRealTypeSet() && $method_return_type->asRealUnionType()->isVoidType()) {
-                $this->emitIssue(
-                    Issue::SyntaxReturnValueInVoid,
-                    $expr->lineno ?? $node->lineno,
-                    'void',
-                    $method->getNameForIssue(),
-                    'return;',
-                    'return ' . ASTReverter::toShortString($expr) . ';'
-                );
-                return $context;
-            }
-        } else {
-            // `function test() : ?string { return; }` is a fatal error. (We already checked for generators)
-            if ($method_return_type->hasRealTypeSet() && !$method_return_type->asRealUnionType()->isVoidType()) {
-                $this->emitIssue(
-                    Issue::SyntaxReturnExpectedValue,
-                    $node->lineno,
-                    $method->getNameForIssue(),
-                    $method_return_type,
-                    'return null',
-                    'return'
-                );
+        if ($method_return_type->hasRealTypeSet()) {
+            if (!$this->checkIsValidReturnExpressionForType($node, $method_return_type->asRealUnionType(), $method)) {
                 return $context;
             }
         }
-
 
         // This leaves functions which aren't syntactically generators.
 
@@ -1626,6 +1627,47 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         }
 
         return $context;
+    }
+
+    private function checkIsValidReturnExpressionForType(Node $node, UnionType $real_type, FunctionInterface $method): bool
+    {
+        $expr = $node->children['expr'];
+        if ($real_type->isNeverType()) {
+            $this->emitIssue(
+                Issue::SyntaxReturnStatementInNever,
+                $expr->lineno ?? $node->lineno,
+                $method->getNameForIssue(),
+                'never'
+            );
+            return false;
+        }
+        if ($expr !== null) {
+            if ($real_type->isVoidType()) {
+                $this->emitIssue(
+                    Issue::SyntaxReturnValueInVoid,
+                    $expr->lineno ?? $node->lineno,
+                    'void',
+                    $method->getNameForIssue(),
+                    'return;',
+                    'return ' . ASTReverter::toShortString($expr) . ';'
+                );
+                return false;
+            }
+        } else {
+            // `function test() : ?string { return; }` is a fatal error. (We already checked for generators)
+            if (!$real_type->isVoidType()) {
+                $this->emitIssue(
+                    Issue::SyntaxReturnExpectedValue,
+                    $node->lineno,
+                    $method->getNameForIssue(),
+                    $real_type,
+                    'return null',
+                    'return'
+                );
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -1960,6 +2002,13 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
 
     private function checkCanCastToReturnType(UnionType $expression_type, UnionType $method_return_type): bool
     {
+        if ($method_return_type->isVoidType()) {
+            // Allow returning null (or void) expressions from phpdoc return void - the callers can't tell
+            return $expression_type->isNull();
+        }
+        if ($method_return_type->isNeverType()) {
+            return $expression_type->isNeverType();
+        }
         if ($expression_type->hasRealTypeSet() && $method_return_type->hasRealTypeSet()) {
             $real_expression_type = $expression_type->getRealUnionType();
             $real_method_return_type = $method_return_type->getRealUnionType();
@@ -2420,7 +2469,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             );
 
             foreach ($class_list as $class) {
-                if ($class->isAbstract() || $class->isInterface() || $class->isTrait()) {
+                if ($class->isEnum() || $class->isAbstract() || $class->isInterface() || $class->isTrait()) {
                     // Check the full list of classes if any of the classes
                     // are abstract or interfaces.
                     $this->checkForInvalidNewType($node, $class_list);
@@ -2532,7 +2581,9 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     {
         // Make sure we're not instantiating an abstract
         // class
-        if ($class->isAbstract()) {
+        if ($class->isEnum()) {
+            $this->emitIssue(Issue::TypeInstantiateEnum, $node->lineno, (string)$class->getFQSEN());
+        } elseif ($class->isAbstract()) {
             $this->emitIssue(
                 self::isStaticNameNode($node, false) ? Issue::TypeInstantiateAbstractStatic : Issue::TypeInstantiateAbstract,
                 $node->lineno,
@@ -3514,6 +3565,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 $node->children['expr']->lineno ?? $node->lineno,
                 $type
             );
+            return $this->context;
         } elseif (Config::get_strict_param_checking()) {
             if ($type->containsNullable() || !$type->canStrictCastToUnionType($this->code_base, ObjectType::instance(false)->asPHPDocUnionType())) {
                 $this->emitIssue(
@@ -3523,8 +3575,31 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 );
             }
         }
+        foreach ($type->getTypeSet() as $type_part) {
+            if (!$type_part->isObjectWithKnownFQSEN()) {
+                continue;
+            }
+            // Surprisingly, many types in php can be cloned, even closures
+            if ($this->isTypeEnum($type_part)) {
+                $this->emitIssue(Issue::TypeInstantiateEnum, $node->lineno, $type_part);
+            }
+        }
 
         return $this->context;
+    }
+
+    private function isTypeEnum(Type $type): bool
+    {
+        if (!$type->isObjectWithKnownFQSEN()) {
+            return false;
+        }
+
+        $fqsen = $type->asFQSEN();
+        if (!$fqsen instanceof FullyQualifiedClassName || !$this->code_base->hasClassWithFQSEN($fqsen)) {
+            return false;
+        }
+        $class = $this->code_base->getClassByFQSEN($fqsen);
+        return $class->isEnum();
     }
 
     /**

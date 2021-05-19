@@ -15,6 +15,7 @@ use Phan\Analysis\CompositionAnalyzer;
 use Phan\Analysis\DuplicateClassAnalyzer;
 use Phan\Analysis\ParentConstructorCalledAnalyzer;
 use Phan\Analysis\PropertyTypesAnalyzer;
+use Phan\AST\ASTReverter;
 use Phan\AST\UnionTypeVisitor;
 use Phan\CodeBase;
 use Phan\Config;
@@ -38,6 +39,7 @@ use Phan\Language\Type\IterableType;
 use Phan\Language\Type\LiteralStringType;
 use Phan\Language\Type\MixedType;
 use Phan\Language\Type\StaticType;
+use Phan\Language\Type\StringType;
 use Phan\Language\Type\TemplateType;
 use Phan\Language\UnionType;
 use Phan\Library\None;
@@ -50,8 +52,15 @@ use ReflectionClass;
 use ReflectionProperty;
 use RuntimeException;
 
+use function array_key_exists;
+use function array_merge;
+use function array_values;
 use function count;
+use function in_array;
+use function is_int;
+use function is_object;
 use function is_string;
+use function strtolower;
 
 /**
  * Clazz represents the information Phan knows about a class, trait, or interface,
@@ -142,6 +151,23 @@ class Clazz extends AddressableElement
      * @var list<Type>
      */
     private $mixin_types = [];
+
+    /**
+     * @var array<mixed,string> maps value to the name of the case declaring that value
+     * (for backed enums)
+     */
+    private $enum_case_map = [];
+
+    /**
+     * @var list<string> list of enum case names with values that could not be determined
+     */
+    private $enum_case_map_unknown = [];
+
+    /**
+     * @var list<string> list of enum case names
+     * (for unit enums)
+     */
+    private $enum_case_list = [];
 
     /**
      * @param Context $context
@@ -236,6 +262,12 @@ class Clazz extends AddressableElement
         }
         if ($class->isAbstract()) {
             $flags |= \ast\flags\CLASS_ABSTRACT;
+        }
+        if (\PHP_VERSION_ID >= 80100) {
+            // @phan-suppress-next-line PhanUndeclaredMethod this was added in 8.1
+            if ($class->isEnum()) {
+                $flags |= \ast\flags\CLASS_ENUM;
+            }
         }
 
         $context = new Context();
@@ -1502,6 +1534,67 @@ class Clazz extends AddressableElement
         }
     }
 
+    /**
+     * Add an enum case (this is a specialization of a class constant)
+     */
+    public function addEnumCase(CodeBase $code_base, EnumCase $enum_case): void
+    {
+        $this->addConstant($code_base, $enum_case);
+
+        // TODO need to update minimum enum version to get enum's declared type
+        $value = $enum_case->getNodeForValue();
+        $name = $enum_case->getName();
+        if ($value !== null) {
+            if ($value instanceof Node) {
+                // TODO: Phan has a limit on how long of a string it will evaluate.
+                // The default max_literal_string_type_length config settings will cause problems for case values longer than 200 bytes, which are hopefully rare
+                $value = UnionTypeVisitor::unionTypeFromNode($code_base, $this->getContext(), $value)->asSingleScalarValueOrNullOrSelf();
+            }
+            if (is_int($value) || is_string($value)) {
+                $enum_case->setEnumCaseValue($value);
+                $old_name = $this->enum_case_map[$value] ?? null;
+                if (is_string($old_name)) {
+                    $old_enum_case_fqsen = FullyQualifiedClassConstantName::make($this->getFQSEN(), $old_name);
+                    $old_enum_case = $code_base->getClassConstantByFQSEN($old_enum_case_fqsen);
+                    Issue::maybeEmit(
+                        $code_base,
+                        $enum_case->getContext(),
+                        Issue::ReusedEnumCaseValue,
+                        $enum_case->getContext()->getLineNumberStart(),
+                        $name,
+                        ASTReverter::toShortString($value),
+                        $old_name,
+                        $old_enum_case->getFileRef()->getFile(),
+                        $old_enum_case->getFileRef()->getLineNumberStart()
+                    );
+                    return;
+                }
+                $this->enum_case_map[$value] = $name;
+            } elseif (!is_object($value)) {
+                Issue::maybeEmit(
+                    $code_base,
+                    $enum_case->getContext(),
+                    Issue::TypeInvalidEnumCaseType,
+                    $enum_case->getContext()->getLineNumberStart(),
+                    $name,
+                    ASTReverter::toShortString($value),
+                    'int|string'
+                );
+                $this->enum_case_map_unknown[] = $name;
+            }
+        } else {
+            $this->enum_case_list[] = $name;
+        }
+        if (count($this->enum_case_list) > 0 && (count($this->enum_case_map) > 0 || count($this->enum_case_map_unknown) > 0)) {
+            Issue::maybeEmit(
+                $code_base,
+                $this->getContext(),
+                Issue::SyntaxInconsistentEnum,
+                $this->getContext()->getLineNumberStart(),
+                $this->getFQSEN()
+            );
+        }
+    }
 
     /**
      * Add a class constant
@@ -1607,15 +1700,8 @@ class Clazz extends AddressableElement
 
         // Visibility checks for private/protected class constants:
 
-        // Are we within a class referring to the class
-        // itself?
-        $is_local_access = (
-            $context->isInClassScope()
-            && $context->getClassInScope($code_base) === $constant->getClass($code_base)
-        );
-
-        if ($is_local_access) {
-            // Classes can always access constants declared in the same class
+        $accessing_class = $context->getClassFQSENOrNull();
+        if ($accessing_class && $constant->isAccessibleFromClass($code_base, $accessing_class)) {
             return $constant;
         }
 
@@ -1635,33 +1721,17 @@ class Clazz extends AddressableElement
         }
 
         // We now know that $constant is a protected constant
-
-        // Are we within a class or an extending sub-class
-        // referring to the class?
-        $is_remote_access = $context->isInClassScope()
-            && $context->getClassInScope($code_base)
-            ->getUnionType()->canCastToExpandedUnionType(
-                $this->getUnionType(),
-                $code_base
-            );
-
-        if (!$is_remote_access) {
-            // And the access is not from anywhere on the class hierarchy, so throw
-            throw new IssueException(
-                Issue::fromType(Issue::AccessClassConstantProtected)(
-                    $context->getFile(),
-                    $context->getLineNumberStart(),
-                    [
-                        (string)$constant_fqsen,
-                        $constant->getContext()->getFile(),
-                        $constant->getContext()->getLineNumberStart()
-                    ]
-                )
-            );
-        }
-
-        // Valid access to a protected constant.
-        return $constant;
+        throw new IssueException(
+            Issue::fromType(Issue::AccessClassConstantProtected)(
+                $context->getFile(),
+                $context->getLineNumberStart(),
+                [
+                    (string)$constant_fqsen,
+                    $constant->getContext()->getFile(),
+                    $constant->getContext()->getLineNumberStart()
+                ]
+            )
+        );
     }
 
     /**
@@ -2130,7 +2200,7 @@ class Clazz extends AddressableElement
     }
 
     /**
-     * Returns whether this class is `(at)immutable`
+     * Returns whether this class is `(at)immutable` in phpdoc
      *
      * This will warn if instance properties of instances of the class will not change after the object is constructed.
      * - Methods of (at)immutable classes may change external state (e.g. perform I/O, modify other objects)
@@ -2210,6 +2280,66 @@ class Clazz extends AddressableElement
 
     /**
      * @return bool
+     * True if this is an enum
+     */
+    public function isEnum(): bool
+    {
+        return $this->getFlagsHasState(\ast\flags\CLASS_ENUM);
+    }
+
+    private const IMMUTABLE_CLASS_SET = [
+        '\addressinfo' => true,
+        '\closure' => true,
+        '\curlhandle' => true,
+        '\curlmultihandle' => true,
+        '\curlsharehandle' => true,
+        '\deflatecontext' => true,
+        '\enchantbroker' => true,
+        '\enchantdictionary' => true,
+        '\fiber' => true,
+        '\ftp\connection' => true,
+        '\gdfont' => true,
+        '\gdimage' => true,
+        '\generator' => true,
+        '\imap\connection' => true,
+        '\inflatecontext' => true,
+        '\ldap\connection' => true,
+        '\ldap\resultentry' => true,
+        '\ldap\result' => true,
+        '\opensslasymmetrickey' => true,
+        '\opensslcertificatesigningrequest' => true,
+        '\opensslcertificate' => true,
+        '\pgsql\connection' => true,
+        '\pgsql\lob' => true,
+        '\pgsql\result' => true,
+        '\pspell\config' => true,
+        '\pspell\dictionary' => true,
+        '\shmop' => true,
+        '\socket' => true,
+        '\sysvmessagequeue' => true,
+        '\sysvsemaphore' => true,
+        '\sysvsharedmemory' => true,
+        '\weakmap' => true,
+        '\weakreference' => true,
+        '\xmlparser' => true,
+    ];
+
+    /**
+     * @return bool
+     * True if this is an object with immutable properties such as an enum or closure
+     * (for non-enums, this corresponds loosely to `ZEND_ACC_NO_DYNAMIC_PROPERTIES` in php-src or PECLs,
+     * which is typically set on classes with no accessible properties at all)
+     */
+    public function isImmutableAtRuntime(): bool
+    {
+        if ($this->isEnum()) {
+            return true;
+        }
+        return array_key_exists(strtolower($this->getFQSEN()->__toString()), self::IMMUTABLE_CLASS_SET);
+    }
+
+    /**
+     * @return bool
      * True if this is an interface
      */
     public function isInterface(): bool
@@ -2220,6 +2350,8 @@ class Clazz extends AddressableElement
     /**
      * @return bool
      * True if this is a class (i.e. neither a trait nor an interface)
+     *
+     * This also returns true for classes - enums are a specialization of a class.
      */
     public function isClass(): bool
     {
@@ -2233,6 +2365,22 @@ class Clazz extends AddressableElement
     public function isTrait(): bool
     {
         return $this->getFlagsHasState(\ast\flags\CLASS_TRAIT);
+    }
+
+    /**
+     * Returns a string representing which type of classlike type this is, for issue messages
+     */
+    public function getClasslikeType(): string
+    {
+        $flags = $this->getFlags();
+        if ($flags & ast\flags\CLASS_TRAIT) {
+            return 'trait';
+        } elseif ($flags & ast\flags\CLASS_INTERFACE) {
+            return 'interface';
+        } elseif ($flags & ast\flags\CLASS_ENUM) {
+            return 'enum';
+        }
+        return 'class';
     }
 
     /**
@@ -2990,6 +3138,9 @@ class Clazz extends AddressableElement
             $string .= 'Interface ';
         } elseif ($this->isTrait()) {
             $string .= 'Trait ';
+        } elseif ($this->isEnum()) {
+            // Remove the 'final' qualifier.
+            $string = 'Enum ';
         } else {
             $string .= 'Class ';
         }
@@ -3015,6 +3166,9 @@ class Clazz extends AddressableElement
             $string .= 'interface ';
         } elseif ($this->isTrait()) {
             $string .= 'trait ';
+        } elseif ($this->isEnum()) {
+            // Remove the 'final' qualifier
+            $string = 'enum ';
         } else {
             $string .= 'class ';
         }
@@ -3101,7 +3255,12 @@ class Clazz extends AddressableElement
     {
         $signature = $this->toStubSignature($code_base);
 
-        $stub = $signature;
+        $stub = '';
+        if (self::shouldAddDescriptionsToStubs()) {
+            $description = (string)MarkupDescription::extractDescriptionFromDocComment($this);
+            $stub .= MarkupDescription::convertStringToDocComment($description);
+        }
+        $stub .= $signature;
 
         $stub .= " {";
 
@@ -3127,10 +3286,7 @@ class Clazz extends AddressableElement
                 return false;
             }
             $reflection_method = $reflection_class->getMethod($method->getName());
-            if ($reflection_method->class !== $reflection_class->name) {
-                return false;
-            }
-            return true;
+            return $reflection_method->class === $reflection_class->name;
         });
         if (count($method_map) > 0) {
             $stub .= "\n\n    // methods\n";
@@ -3312,6 +3468,8 @@ class Clazz extends AddressableElement
         );
 
         $this->analyzeInheritedMethods($code_base);
+
+        $this->analyzeAndUpdateEnum($code_base);
 
         // Let any configured plugins analyze the class
         ConfigPluginSet::instance()->analyzeClass(
@@ -3750,5 +3908,116 @@ class Clazz extends AddressableElement
             }
             return Attribute::TARGET_ALL;
         });
+    }
+
+    private function analyzeAndUpdateEnum(CodeBase $code_base): void
+    {
+        if (!$this->isEnum()) {
+            return;
+        }
+        // Inherit properties from traits
+        $this->hydrate($code_base);
+
+        $fqsen = $this->getFQSEN();
+        foreach ($this->getPropertyMap($code_base) as $property) {
+            $context = $property->getRealDefiningFQSEN()->getFullyQualifiedClassName() === $fqsen ? $property->getContext() : $this->getContext();
+            Issue::maybeEmit(
+                $code_base,
+                $context,
+                Issue::EnumCannotHaveProperties,
+                $context->getLineNumberStart(),
+                $this->getFQSEN(),
+                $property->getName(),
+                $property->getContext()->getFile(),
+                $property->getContext()->getLineNumberStart()
+            );
+        }
+        $cases = array_merge(array_values($this->enum_case_map), $this->enum_case_map_unknown, $this->enum_case_list);
+        if (!$cases) {
+            foreach ($this->getMethodMap($code_base) as $method) {
+                $method_name_lc = strtolower($method->getName());
+                $context = $method->getRealDefiningFQSEN()->getFullyQualifiedClassName() === $fqsen ? $method->getContext() : $this->getContext();
+                if (array_key_exists($method_name_lc, FullyQualifiedMethodName::MAGIC_METHOD_NAME_SET)) {
+                    if (!in_array($method_name_lc, ['__call', '__callstatic', '__invoke'], true)) {
+                        Issue::maybeEmit(
+                            $code_base,
+                            $context,
+                            Issue::EnumForbiddenMagicMethod,
+                            $context->getLineNumberStart(),
+                            $this->getFQSEN(),
+                            $method->getName() . '()',
+                            $method->getContext()->getFile(),
+                            $method->getContext()->getLineNumberStart()
+                        );
+                    }
+                }
+                if ($method->isStatic()) {
+                    continue;
+                }
+                Issue::maybeEmit(
+                    $code_base,
+                    $context,
+                    Issue::InstanceMethodWithNoEnumCases,
+                    $context->getLineNumberStart(),
+                    $this->getFQSEN(),
+                    $method->getName() . '()',
+                    $method->getContext()->getFile(),
+                    $method->getContext()->getLineNumberStart()
+                );
+            }
+        }
+        $this->addEnumProperties($code_base);
+    }
+
+    private function getEnumType(CodeBase $code_base): ?string
+    {
+        // TODO: Remove this when Phan switches to AST version 85
+        foreach ($this->enum_case_map as $case_name) {
+            $constant_fqsen = FullyQualifiedClassConstantName::make($this->getFQSEN(), $case_name);
+            if (!$code_base->hasClassConstantWithFQSEN($constant_fqsen)) {
+                continue;
+            }
+            $case = $code_base->getClassConstantByFQSEN($constant_fqsen);
+            if (!$case instanceof EnumCase) {
+                continue;
+            }
+
+            $value = $case->getEnumCaseValue();
+            if (is_int($value)) {
+                return 'int';
+            } elseif (is_string($value)) {
+                return 'string';
+            }
+        }
+        return null;
+    }
+
+    private function addEnumProperties(CodeBase $code_base): void
+    {
+        $string_type = StringType::instance(false)->asRealUnionType();
+        $name_property = new Property(
+            $this->getContext(),
+            'name',
+            $string_type,
+            ast\flags\MODIFIER_PUBLIC,
+            FullyQualifiedPropertyName::make($this->getFQSEN(), 'name'),
+            $string_type
+        );
+        $name_property->setPhanFlags(Flags::IS_READ_ONLY | Flags::IS_ENUM_PROPERTY);
+        $this->addProperty($code_base, $name_property, None::instance());
+        $enum_type = $this->getEnumType($code_base);
+        if (is_string($enum_type)) {
+            $value_type = UnionType::fromFullyQualifiedRealString($enum_type);
+            $value_property = new Property(
+                $this->getContext(),
+                'value',
+                $value_type,
+                ast\flags\MODIFIER_PUBLIC,
+                FullyQualifiedPropertyName::make($this->getFQSEN(), 'name'),
+                $value_type
+            );
+            $value_property->setPhanFlags(Flags::IS_READ_ONLY | Flags::IS_ENUM_PROPERTY);
+            $this->addProperty($code_base, $value_property, None::instance());
+        }
     }
 }

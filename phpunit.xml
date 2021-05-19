@@ -34,6 +34,8 @@
             <file>tests/Phan/PhanTest4.php</file>
             <file>tests/Phan/PhanTest5.php</file>
             <file>tests/Phan/PhanTest6.php</file>
+            <file>tests/Phan/PhanTest7.php</file>
+            <file>tests/Phan/PhanTest8.php</file>
             <file>tests/Phan/PhanTestNew.php</file>
         </testsuite>
         <testsuite name="RasmusTest">
@@ -76,6 +78,9 @@
         </testsuite>
         <testsuite name="PHP80Test">
             <file>tests/Phan/PHP80Test.php</file>
+        </testsuite>
+        <testsuite name="PHP81Test">
+            <file>tests/Phan/PHP81Test.php</file>
         </testsuite>
         <testsuite name="All">
             <directory>tests/Phan</directory>

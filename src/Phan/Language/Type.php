@@ -51,6 +51,7 @@ use Phan\Language\Type\LiteralIntType;
 use Phan\Language\Type\LiteralStringType;
 use Phan\Language\Type\MixedType;
 use Phan\Language\Type\NativeType;
+use Phan\Language\Type\NeverType;
 use Phan\Language\Type\NonEmptyAssociativeArrayType;
 use Phan\Language\Type\NonEmptyGenericArrayType;
 use Phan\Language\Type\NonEmptyListType;
@@ -106,17 +107,17 @@ class Type implements Stringable
      * A legal type identifier (e.g. 'int' or 'DateTime')
      */
     public const simple_type_regex =
-        '(\??)(?:callable-(?:string|object|array)|associative-array|class-string|lowercase-string|non-(?:zero-int|null-mixed|empty-(?:associative-array|array|list|string|lowercase-string|mixed))|\\\\?[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*(?:\\\\[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)*)';
+        '(\??)(?:callable-(?:string|object|array)|associative-array|class-string|lowercase-string|no-return|never-returns?|non-(?:zero-int|null-mixed|empty-(?:associative-array|array|list|string|lowercase-string|mixed))|\\\\?[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*(?:\\\\[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)*)';
 
     public const simple_noncapturing_type_regex =
-        '\\\\?(?:callable-(?:string|object|array)|associative-array|class-string|lowercase-string|non-(?:zero-int|null-mixed|empty-(?:associative-array|array|list|string|lowercase-string|mixed))|[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*(?:\\\\[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)*)';
+        '\\\\?(?:callable-(?:string|object|array)|associative-array|class-string|lowercase-string|no-return|never-returns?|non-(?:zero-int|null-mixed|empty-(?:associative-array|array|list|string|lowercase-string|mixed))|[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*(?:\\\\[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)*)';
 
     /**
      * @var string
      * A legal type identifier (e.g. 'int' or 'DateTime')
      */
     public const simple_type_regex_or_this =
-        '(\??)(callable-(?:string|object|array)|associative-array|class-string|lowercase-string|non-(?:zero-int|null-mixed|empty-(?:associative-array|array|list|string|lowercase-string|mixed))|\\\\?[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*(?:\\\\[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)*|\$this)';
+        '(\??)(callable-(?:string|object|array)|associative-array|class-string|lowercase-string|no-return|never-returns?|non-(?:zero-int|null-mixed|empty-(?:associative-array|array|list|string|lowercase-string|mixed))|\\\\?[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*(?:\\\\[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)*|\$this)';
 
     public const shape_key_regex =
         '(?:[-.\/^;$%*+_a-zA-Z0-9\x7f-\xff]|\\\\(?:[nrt\\\\]|x[0-9a-fA-F]{2}))+\??';
@@ -257,6 +258,10 @@ class Type implements Stringable
         'string'          => true,
         'true'            => true,
         'void'            => true,
+        'never'           => true,
+        'no-return'       => true,
+        'never-return'    => true,
+        'never-returns'   => true,
     ];
 
     /**
@@ -784,10 +789,8 @@ class Type implements Stringable
             );
         }
 
-        $type_name =
-            self::canonicalNameFromName($type_name);
+        $type_name = self::canonicalNameFromName($type_name);
 
-        // TODO: Is this worth optimizing into a lookup table?
         switch (strtolower($type_name)) {
             case 'array':
                 return ArrayType::instance($is_nullable);
@@ -847,6 +850,11 @@ class Type implements Stringable
                 return TrueType::instance($is_nullable);
             case 'void':
                 return VoidType::instance(false);
+            case 'never':
+            case 'no-return':
+            case 'never-return':
+            case 'never-returns':
+                return NeverType::instance(false);
             case 'iterable':
                 return IterableType::instance($is_nullable);
             case 'static':
@@ -907,7 +915,7 @@ class Type implements Stringable
             }
             return $reflection_type_string;
         }
-        // Unreachable in php 7.1-7.4, but reachable and revertsed deprecation in php 8.0+?
+        // Unreachable in php 7.1-7.4, but reachable and reverted deprecation in php 8.0+?
         return (string)$reflection_type;
     }
 
@@ -2132,7 +2140,6 @@ class Type implements Stringable
         return $this->withIsNullable(false);
     }
 
-
     /**
      * @return bool
      * True if this type is an object (and not the phpdoc `object` or a template)
@@ -2379,8 +2386,18 @@ class Type implements Stringable
                     break;
                 }
             }
-            if (!$new_expanded_types) {
+            if (!$new_expanded_types || !$iterator_type) {
                 return null;
+            }
+            if ($iterator_type->getNamespace() === '\\') {
+                $inner_name = strtolower($iterator_type->getName());
+                if ($inner_name === 'traversable' || $inner_name === 'iterator') {
+                    return $iterator_type->keyTypeOfTraversable();
+                }
+                // TODO: Abstract this out for all internal classes
+                if ($inner_name === 'generator') {
+                    return $iterator_type->keyTypeOfGenerator();
+                }
             }
             $expanded_types = $new_expanded_types;
         }
@@ -2407,6 +2424,7 @@ class Type implements Stringable
      * @return ?UnionType returns the iterable value's union type if this is a subtype of iterable, null otherwise.
      *
      * This is overridden by the array subclasses
+     * @suppress PhanStaticClassAccessWithStaticVariable micro-optimization, not using static to initialize these values
      */
     public function iterableValueUnionType(CodeBase $code_base): ?UnionType
     {
@@ -2445,6 +2463,8 @@ class Type implements Stringable
             // Find the class of the iterator
             $method = $class->getMethodByName($code_base, 'getIterator');
             $new_expanded_types = null;
+            // TODO: Support getIterator returning a union type with more than one type.
+            // Be sure to keep guarding against infinite recursion, e.g. analyzing getIterator returning another IteratorAggregate or subclass.
             foreach ($method->getUnionType()->getTypeSet() as $iterator_type) {
                 if ($iterator_type->isObjectWithKnownFQSEN()) {
                     $new_fqsen = FullyQualifiedClassName::fromType($iterator_type);
@@ -2456,8 +2476,18 @@ class Type implements Stringable
                     break;
                 }
             }
-            if (!$new_expanded_types) {
+            if (!$new_expanded_types || !$iterator_type) {
                 return null;
+            }
+            if ($iterator_type->getNamespace() === '\\') {
+                $inner_name = strtolower($iterator_type->getName());
+                if ($inner_name === 'traversable' || $inner_name === 'iterator') {
+                    return $iterator_type->valueTypeOfTraversable();
+                }
+                // TODO: Abstract this out for all internal classes
+                if ($inner_name === 'generator') {
+                    return $iterator_type->valueTypeOfGenerator();
+                }
             }
             $expanded_types = $new_expanded_types;
         }
@@ -2968,6 +2998,8 @@ class Type implements Stringable
      * @return bool
      * True if this Type can be cast to the given Type
      * cleanly without config settings.
+     *
+     * Overrides handle MixedType and subclasses
      */
     public function canCastToTypeWithoutConfig(Type $type): bool
     {
@@ -2977,8 +3009,12 @@ class Type implements Stringable
         }
 
         if ($type instanceof MixedType) {
-            // This is not NullType; it has to be truthy to cast to non-empty-mixed.
-            return \get_class($type) !== NonEmptyMixedType::class || $this->isPossiblyTruthy();
+            if ($type instanceof NonEmptyMixedType) {
+                return $this->isPossiblyTruthy();
+            } elseif ($type instanceof NonNullMixedType) {
+                return !$this->isNullable();
+            }
+            return true;
         }
 
         if ($this->is_nullable) {

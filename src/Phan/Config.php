@@ -130,7 +130,8 @@ class Config
         // (Phan relies on Reflection for some types, param counts,
         // and checks for undefined classes/methods/functions)
         //
-        // Supported values: `'5.6'`, `'7.0'`, `'7.1'`, `'7.2'`, `'7.3'`, `'7.4'`, `null`.
+        // Supported values: `'5.6'`, `'7.0'`, `'7.1'`, `'7.2'`, `'7.3'`, `'7.4'`,
+        // `'8.0'`, `'8.1'`, `null`.
         // If this is set to `null`,
         // then Phan assumes the PHP version which is closest to the minor version
         // of the php executable used to execute Phan.
@@ -141,7 +142,8 @@ class Config
 
         // The PHP version that will be used for feature/syntax compatibility warnings.
         //
-        // Supported values: `'5.6'`, `'7.0'`, `'7.1'`, `'7.2'`, `'7.3'`, `'7.4'`, `null`.
+        // Supported values: `'5.6'`, `'7.0'`, `'7.1'`, `'7.2'`, `'7.3'`, `'7.4'`,
+        // `'8.0'`, `'8.1'`, `null`.
         // If this is set to `null`, Phan will first attempt to infer the value from
         // the project's composer.json's `{"require": {"php": "version range"}}` if possible.
         // If that could not be determined, then Phan assumes `target_php_version`.
@@ -418,6 +420,9 @@ class Config
         // As a result, enabling this setting with target_php_version 8.0 may result in false positives for `--redundant-condition-detection` when codebases also support php 7.x.
         'assume_real_types_for_internal_functions' => false,
 
+        // If enabled, Phan will use the php 8.1+ tentative return types available for PHP and extensions.
+        'use_tentative_return_type' => true,
+
         // If enabled, scalars (int, float, bool, string, null)
         // are treated as if they can cast to each other.
         // This does not affect checks of array keys. See `scalar_array_key_cast`.
@@ -542,6 +547,12 @@ class Config
         // too many edges rather than too few edges when guesses
         // have to be made about what references what.
         'dead_code_detection_prefer_false_negative' => true,
+
+        // When this is true, treat a phpdoc or real type
+        // of 'never' as unreachable.
+        //
+        // Disabling this may avoid some false positives.
+        'dead_code_detection_treat_never_type_as_unreachable' => true,
 
         // If true, then before analysis, try to simplify AST into a form
         // which improves Phan's type inference in edge cases.
@@ -936,6 +947,8 @@ class Config
 
         // Set this to true to make Phan store a full Context inside variables, instead of a FileRef. This could provide more useful info to plugins,
         // but will increase the memory usage by roughly 2.5%.
+        //
+        // TODO: This can be cleaned up in a new major version if nothing is using it (#4386)
         'record_variable_context_and_scope' => false,
 
         // If a literal string type exceeds this length,
@@ -1225,6 +1238,7 @@ class Config
                 break;
             case 'allow_method_param_type_widening':
                 self::$configuration['allow_method_param_type_widening_original'] = $value;
+                self::$configuration['original_allow_method_param_type_widening_original'] = $value;
                 if ($value === null) {
                     // If this setting is set to null, infer it based on the closest php version id.
                     self::$configuration[$name] = self::$closest_minimum_target_php_version_id >= 70200;
@@ -1278,7 +1292,7 @@ class Config
             $min_value_id = self::computeClosestTargetPHPVersionId(PHP_VERSION);
         }
         self::$closest_minimum_target_php_version_id = (int) \min(self::$closest_target_php_version_id, $min_value_id);
-        if (!isset(self::$configuration['allow_method_param_type_widening_original'])) {
+        if (!isset(self::$configuration['original_allow_method_param_type_widening_original'])) {
             self::$configuration['allow_method_param_type_widening'] = self::$closest_minimum_target_php_version_id >= 70200;
         }
     }
@@ -1379,23 +1393,25 @@ class Config
         return '@^(\./)*(' . \implode('|', $parts) . ')([/\\\\]|$)@';
     }
 
+    private const CLOSEST_TARGET_PHP_VERSION_ID_RANGES = [
+        '6.0' => 50600,
+        '7.1' => 70000,
+        '7.2' => 70100,
+        '7.3' => 70200,
+        '7.4' => 70300,
+        '8.0' => 70400,
+        '8.1' => 80000,
+    ];
+
     private static function computeClosestTargetPHPVersionId(string $version): int
     {
-        if (\version_compare($version, '6.0') < 0) {
-            return 50600;
-        } elseif (\version_compare($version, '7.1') < 0) {
-            return 70000;
-        } elseif (\version_compare($version, '7.2') < 0) {
-            return 70100;
-        } elseif (\version_compare($version, '7.3') < 0) {
-            return 70200;
-        } elseif (\version_compare($version, '7.4') < 0) {
-            return 70300;
-        } elseif (\version_compare($version, '8.0') < 0) {
-            return 70400;
-        } else {
-            return 80000;
+        // for 7.4.11 or 7.4.0 or 7.4 return 7.4, etc.
+        foreach (self::CLOSEST_TARGET_PHP_VERSION_ID_RANGES as $compared_version_string => $resulting_version_id) {
+            if (\version_compare($version, $compared_version_string) < 0) {
+                return $resulting_version_id;
+            }
         }
+        return 80100;
     }
 
     /**
@@ -1557,6 +1573,7 @@ class Config
             'daemonize_tcp_port' => $is_int_strict,
             'dead_code_detection' => $is_bool,
             'dead_code_detection_prefer_false_negative' => $is_bool,
+            'dead_code_detection_treat_never_type_as_unreachable' => $is_bool,
             'directory_list' => $is_string_list,
             'disable_line_based_suppression' => $is_bool,
             'disable_suggestions' => $is_bool,

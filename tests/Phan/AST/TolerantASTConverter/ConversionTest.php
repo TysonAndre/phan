@@ -198,6 +198,9 @@ final class ConversionTest extends BaseTest
         if (\PHP_VERSION_ID < 80000 && $test_folder_name === 'php80_or_newer') {
             $this->markTestIncomplete('php-ast cannot parse php8.0 syntax when running in php7.4 or older');
         }
+        if (\PHP_VERSION_ID < 80100 && $test_folder_name === 'php81_or_newer') {
+            $this->markTestIncomplete('php-ast cannot parse php8.0 syntax when running in php7.4 or older');
+        }
         if (\PHP_VERSION_ID >= 80000 && \basename($file_name) === 'use_simple.php') {
             $this->markTestIncomplete('php-ast cannot parse php8.0 syntax when running in php7.4 or older');
         }
@@ -207,7 +210,7 @@ final class ConversionTest extends BaseTest
             return;  // unreachable
         }
         try {
-            $ast = ast\parse_code($contents, $ast_version, $file_name);
+            $ast = @ast\parse_code($contents, $ast_version, $file_name);
         } catch (\ParseError $e) {
             $this->fail("Failed for $file_name:{$e->getLine()}: {$e->getMessage()}");
             return;  // unreachable

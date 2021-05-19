@@ -4,9 +4,9 @@
  * This contains the information needed to convert the function signatures for php 8.0 to php 7.4 (and vice versa)
  *
  * This has two sections.
- * The 'new' section contains function/method names from FunctionSignatureMap (And alternates, if applicable) that do not exist in php7.3 or have different signatures in php 7.4.
+ * The 'new' section contains function/method names from FunctionSignatureMap (And alternates, if applicable) that do not exist in php7.4 or have different signatures in php 8.0.
  *   If they were just updated, the function/method will be present in the 'added' signatures.
- * The 'old' signatures contains the signatures that are different in php 7.3.
+ * The 'old' signatures contains the signatures that are different in php 7.4.
  *   Functions are expected to be removed only in major releases of php.
  *
  * TODO: Add remaining functions
@@ -17,6 +17,7 @@
  */
 return [
 'new' => [
+'apache_request_headers' => ['array<string,mixed>'],
 'array_combine' => ['associative-array', 'keys'=>'string[]|int[]', 'values'=>'array'],
 'array_key_exists' => ['bool', 'key'=>'string|int', 'array'=>'array'],
 'bcdiv' => ['string', 'num1'=>'string', 'num2'=>'string', 'scale='=>'int'],
@@ -460,6 +461,7 @@ return [
 'xmlwriter_write_raw' => ['bool', 'writer'=>'XMLWriter', 'content'=>'string'],
 ],
 'old' => [
+'apache_request_headers' => ['array<string,mixed>|false'],
 'array_combine' => ['associative-array|false', 'keys'=>'string[]|int[]', 'values'=>'array'],
 'array_key_exists' => ['bool', 'key'=>'string|int', 'array'=>'array|ArrayObject'],
 'bcdiv' => ['?string', 'num1'=>'string', 'num2'=>'string', 'scale='=>'int'],

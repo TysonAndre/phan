@@ -16,12 +16,22 @@ use Phan\Language\Type;
  */
 final class NonEmptyMixedType extends MixedType
 {
+    use NativeTypeTrait;
+
     /** @phan-override */
     public const NAME = 'non-empty-mixed';
 
     public function canCastToType(Type $type): bool
     {
         return $type->isPossiblyTruthy() || ($this->is_nullable && $type->is_nullable);
+    }
+
+    /**
+     * @override
+     */
+    public function canCastToTypeWithoutConfig(Type $type): bool
+    {
+        return $this->canCastToType($type);
     }
 
     /**
@@ -93,7 +103,7 @@ final class NonEmptyMixedType extends MixedType
 
     public function asNonFalseyType(): Type
     {
-        return $this->withIsNullable(false);
+        return $this->is_nullable ? $this->withIsNullable(false) : $this;
     }
 
     /** @override */
@@ -111,5 +121,10 @@ final class NonEmptyMixedType extends MixedType
     public function weaklyOverlaps(Type $other): bool
     {
         return $other->isPossiblyTruthy();
+    }
+
+    public function withIsNullable(bool $is_nullable): Type
+    {
+        return $is_nullable === $this->is_nullable ? $this : self::instance($is_nullable);
     }
 }

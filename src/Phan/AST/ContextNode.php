@@ -421,6 +421,7 @@ class ContextNode
      *
      * TODO: Deprecate this and use more precise ways to locate the desired element
      * TODO: Distinguish between the empty string and the lack of a name
+     * @suppress PhanStaticClassAccessWithStaticVariable static variables are safely initialized
      */
     public function getVariableName(): string
     {
@@ -1248,6 +1249,8 @@ class ContextNode
      *
      * @throws NodeException
      * An exception is thrown if we can't understand the node
+     *
+     * @suppress PhanStaticClassAccessWithStaticVariable static variables are safely initialized
      */
     public function getOrCreateVariableForReferenceParameter(Parameter $parameter, ?Parameter $real_parameter): Variable
     {
@@ -1340,7 +1343,7 @@ class ContextNode
                 $property_name = (string)$property_name;
             }
             if (!\is_string($property_name)) {
-                throw $this->createExceptionForInvalidPropertyName($node, $is_static);
+                $this->throwExceptionForInvalidPropertyName($node, $is_static);
             }
         }
 
@@ -1589,19 +1592,20 @@ class ContextNode
     }
 
     /**
-     * @return NodeException|IssueException
+     * @throws NodeException|IssueException
+     * @return no-return
      */
-    private function createExceptionForInvalidPropertyName(Node $node, bool $is_static): Exception
+    private function throwExceptionForInvalidPropertyName(Node $node, bool $is_static): void
     {
         $property_type = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $node->children['prop']);
         if ($property_type->canCastToUnionType(StringType::instance(false)->asPHPDocUnionType())) {
             // If we know it can be a string, throw a NodeException instead of a specific issue
-            return new NodeException(
+            throw new NodeException(
                 $node,
                 "Cannot figure out property name"
             );
         }
-        return new IssueException(
+        throw new IssueException(
             Issue::fromType($is_static ? Issue::TypeInvalidStaticPropertyName : Issue::TypeInvalidPropertyName)(
                 $this->context->getFile(),
                 $node->lineno,
@@ -1842,6 +1846,7 @@ class ContextNode
 
     /**
      * @throws IssueException
+     * @return no-return
      */
     private function throwUndeclaredGlobalConstantIssueException(CodeBase $code_base, Context $context, FullyQualifiedGlobalConstantName $fqsen): void
     {

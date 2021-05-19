@@ -22,7 +22,8 @@ class Flags
     public const IS_OVERRIDE                  = (1 << 6);
     public const HAS_YIELD                    = (1 << 7);
 
-    public const CLASS_HAS_DYNAMIC_PROPERTIES = (1 << 8);
+    public const HAS_STATIC_VARIABLE          = (1 << 8);  // used on function-likes
+    public const CLASS_HAS_DYNAMIC_PROPERTIES = (1 << 8);  // used on classes
     public const IS_CLONE_OF_VARIADIC         = (1 << 9);
     public const CLASS_FORBID_UNDECLARED_MAGIC_PROPERTIES = (1 << 10);
     public const CLASS_FORBID_UNDECLARED_MAGIC_METHODS    = (1 << 11);
@@ -66,7 +67,11 @@ class Flags
     // Flag to be set on fake __construct methods (e.g. for classes/interfaces without having them defined explicitly)
     // Currently for strict visibility checking, because fake constructors have public visibility by default, and Phan
     // fails thinking that child classes are violating the visibility if they have a private or protected __construct
+    // only set on classes.
     public const IS_FAKE_CONSTRUCTOR = (1 << 27);
+    // only set on properties.
+    public const IS_ENUM_PROPERTY = (1 << 27);
+
     public const IS_EXTERNAL_MUTATION_FREE = (1 << 28);
     public const IS_SIDE_EFFECT_FREE = self::IS_READ_ONLY | self::IS_EXTERNAL_MUTATION_FREE;
     // @abstract tag on class constants or other elements

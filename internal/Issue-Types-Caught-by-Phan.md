@@ -562,6 +562,14 @@ Using negative string offsets is not supported before PHP 7.1 (emits an 'Uniniti
 
 e.g. [this issue](https://github.com/phan/phan/tree/4.0.0/tests/php70_files/expected/009_negative_string_offset.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/4.0.0/tests/php70_files/src/009_negative_string_offset.php#L5).
 
+## PhanCompatibleNeverType
+
+```
+Return type '{TYPE}' means that a function will not return normally starting in PHP 8.1. In PHP 8.0, 'never' refers to a class/interface with the name 'never'
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/v4/tests/plugin_test/expected/199_never_type_and_plugins.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v4/tests/plugin_test/src/199_never_type_and_plugins.php#L3).
+
 ## PhanCompatibleNonCapturingCatch
 
 ```
@@ -623,6 +631,14 @@ e.g. [this issue](https://github.com/phan/phan/tree/4.0.0/tests/files/expected/0
 ```
 In PHP 5.6, scalar types such as {TYPE} in type signatures are treated like class names
 ```
+
+## PhanCompatibleSerializeInterfaceDeprecated
+
+```
+The Serializable interface is deprecated in php 8.1. If you need to retain the Serializable interface for cross-version compatibility, you can suppress this warning for {{CLASS}} by implementing __serialize() and __unserialize() in addition, which will take precedence over Serializable in PHP versions that support them. If you cannot avoid using Serializable and don't need to support php 8.1 or can tolerate deprecation notices, this issue should be suppressed
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/v4/tests/files/expected/0133_unserialize_types.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v4/tests/files/src/0133_unserialize_types.php#L3).
 
 ## PhanCompatibleShortArrayAssignPHP70
 
@@ -1296,7 +1312,7 @@ Similar issues exist for PhanUnreferencedProperty, PhanUnreferencedConstant, Pha
 This issue is disabled by default, but can be enabled by setting `dead_code_detection` to enabled. It indicates that the given element is (possibly) unused.
 
 ```
-Possibly zero references to class {CLASS}
+Possibly zero references to {TYPE} {CLASS}
 ```
 
 This will be emitted for the following code so long as `dead_code_detection` is enabled.
@@ -1946,7 +1962,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/4.0.0/tests/files/expected/0
 ## PhanParamSignatureRealMismatchHasNoParamType
 
 ```
-Declaration of {METHOD} should be compatible with {METHOD} (parameter #{INDEX} with no type cannot replace original parameter with type '{TYPE}') defined in {FILE}:{LINE}
+Declaration of {METHOD} should be compatible with {METHOD} (parameter #{INDEX} with no type in the real signature cannot replace original parameter with type '{TYPE}' in the real signature) defined in {FILE}:{LINE}
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/4.0.0/tests/files/expected/0126_override_signature.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/4.0.0/tests/files/src/0126_override_signature.php#L12).
@@ -1954,14 +1970,15 @@ e.g. [this issue](https://github.com/phan/phan/tree/4.0.0/tests/files/expected/0
 ## PhanParamSignatureRealMismatchHasNoParamTypeInternal
 
 ```
-Declaration of {METHOD} should be compatible with internal {METHOD} (parameter #{INDEX} with no type cannot replace original parameter with type '{TYPE}')
+Declaration of {METHOD} should be compatible with internal {METHOD} (parameter #{INDEX} with no type in the real signature cannot replace original parameter with type '{TYPE}' in the real signature)
 ```
 
+e.g. [this issue](https://github.com/phan/phan/tree/v4/tests/files/expected/0133_unserialize_types.php.expected#L2) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v4/tests/files/src/0133_unserialize_types.php#L8).
 
 ## PhanParamSignatureRealMismatchHasParamType
 
 ```
-Declaration of {METHOD} should be compatible with {METHOD} (parameter #{INDEX} has type '{TYPE}' which cannot replace original parameter with no type) defined in {FILE}:{LINE}
+Declaration of {METHOD} should be compatible with {METHOD} (parameter #{INDEX} has type '{TYPE}' in the real signature which cannot replace original parameter with no type in the real signature) defined in {FILE}:{LINE}
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/4.0.0/tests/php80_files/expected/009_mixed_error.php.expected#L11) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/4.0.0/tests/php80_files/src/009_mixed_error.php#L29).
@@ -1969,7 +1986,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/4.0.0/tests/php80_files/expe
 ## PhanParamSignatureRealMismatchHasParamTypeInternal
 
 ```
-Declaration of {METHOD} should be compatible with internal {METHOD} (parameter #{INDEX} has type '{TYPE}' which cannot replace original parameter with no type)
+Declaration of {METHOD} should be compatible with internal {METHOD} (parameter #{INDEX} has type '{TYPE}' in the real signature which cannot replace original parameter with no type in the real signature)
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/4.0.0/tests/files/expected/0631_internal_signature_mismatch.php.expected#L3) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/4.0.0/tests/files/src/0631_internal_signature_mismatch.php#L9).
@@ -2019,7 +2036,7 @@ Declaration of {METHOD} should be compatible with internal {METHOD} (parameter #
 ## PhanParamSignatureRealMismatchParamType
 
 ```
-Declaration of {METHOD} should be compatible with {METHOD} (parameter #{INDEX} of type '{TYPE}' cannot replace original parameter of type '{TYPE}') defined in {FILE}:{LINE}
+Declaration of {METHOD} should be compatible with {METHOD} (parameter #{INDEX} of real signature type '{TYPE}' cannot replace original parameter of real signature type '{TYPE}') defined in {FILE}:{LINE}
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/4.0.0/tests/files/expected/0126_override_signature.php.expected#L3) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/4.0.0/tests/files/src/0126_override_signature.php#L16).
@@ -2049,7 +2066,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/4.0.0/tests/files/expected/0
 ## PhanParamSignatureRealMismatchReturnType
 
 ```
-Declaration of {METHOD} should be compatible with {METHOD} (method returning '{TYPE}' cannot override method returning '{TYPE}') defined in {FILE}:{LINE}
+Declaration of {METHOD} should be compatible with {METHOD} (method where the return type in the real signature is '{TYPE}' cannot override method where the return type in the real signature is '{TYPE}') defined in {FILE}:{LINE}
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/4.0.0/tests/files/expected/0278_should_differentiate_phpdoc_return_type.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/4.0.0/tests/files/src/0278_should_differentiate_phpdoc_return_type.php#L10).
@@ -2057,7 +2074,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/4.0.0/tests/files/expected/0
 ## PhanParamSignatureRealMismatchReturnTypeInternal
 
 ```
-Declaration of {METHOD} should be compatible with internal {METHOD} (method returning '{TYPE}' cannot override method returning '{TYPE}')
+Declaration of {METHOD} should be compatible with internal {METHOD} (method where the return type in the real signature is '{TYPE}' cannot override method where the return type in the real signature is '{TYPE}')
 ```
 
 ## PhanParamSignatureRealMismatchTooFewParameters
@@ -2409,6 +2426,14 @@ e.g. [this issue](https://github.com/phan/phan/tree/4.0.0/tests/files/expected/0
 
 e.g. [this issue](https://github.com/phan/phan/tree/4.0.0/tests/files/expected/0493_inherit_redefined.php.expected#L10) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/4.0.0/tests/files/src/0493_inherit_redefined.php#L12).
 
+## PhanReusedEnumCaseValue
+
+```
+Enum case {CONST} has the same value({SCALAR}) as a previous declared enum case {CONST} defined at {FILE}:{LINE}
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/v4/tests/php81_files/expected/004_enum.php.expected#L10) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v4/tests/php81_files/src/004_enum.php#L19).
+
 # StaticCallError
 
 ## PhanAbstractStaticMethodCall
@@ -2447,6 +2472,14 @@ Static call to non-static method {METHOD} defined at {FILE}:{LINE}. This is an E
 class C19 { function f() {} }
 C19::f();
 ```
+
+## PhanStaticClassAccessWithStaticVariable
+
+```
+Saw access to potentially inherited class element with {CODE} in a function that also uses static variables. The behavior of static variables will change to consistently use one set of static variables per method declaration in php 8.1 and the same method may end up write different values to static variables or do different things after reading static variables in different inherited classes. (This is a simple heuristic, suppress the issue if this is a false positive)
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/v4/tests/plugin_test/expected/198_static_variable_suspicious.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v4/tests/plugin_test/src/198_static_variable_suspicious.php#L6).
 
 ## PhanStaticPropIsStaticType
 
@@ -2556,6 +2589,22 @@ Saw {CODE} with a divisor of type {TYPE}
 
 e.g. [this issue](https://github.com/phan/phan/tree/4.0.0/tests/files/expected/0761_division_by_zero.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/4.0.0/tests/files/src/0761_division_by_zero.php#L5).
 
+## PhanEnumCannotHaveProperties
+
+```
+Enum {ENUM} is not allowed to declare instance or static properties but it contains property ${PROPERTY} declared at {FILE}:{LINE}
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/v4/tests/php81_files/expected/011_enum_error_cases.php.expected#L10) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v4/tests/php81_files/src/011_enum_error_cases.php#L17).
+
+## PhanEnumForbiddenMagicMethod
+
+```
+Enum {ENUM} is not allowed to have the magic method {METHOD} declared at {FILE}:{LINE}
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/v4/tests/php81_files/expected/011_enum_error_cases.php.expected#L11) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v4/tests/php81_files/src/011_enum_error_cases.php#L17).
+
 ## PhanImpossibleCondition
 
 ```
@@ -2629,6 +2678,14 @@ This checks for a functionlike directly calling itself in a way that seems to be
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/4.0.0/tests/rasmus_files/expected/0007_self_call.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/4.0.0/tests/rasmus_files/src/0007_self_call.php#L8).
+
+## PhanInstanceMethodWithNoEnumCases
+
+```
+Saw enum {ENUM} that declares no enum cases but contains instance method {METHOD} declared at {FILE}:{LINE}
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/v4/tests/php81_files/expected/011_enum_error_cases.php.expected#L14) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v4/tests/php81_files/src/011_enum_error_cases.php#L17).
 
 ## PhanInvalidMixin
 
@@ -3106,6 +3163,14 @@ Potential instantiation of abstract class {CLASS} (not an issue if this method i
 
 e.g. [this issue](https://github.com/phan/phan/tree/4.0.0/tests/files/expected/0679_static_from_type.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/4.0.0/tests/files/src/0679_static_from_type.php#L4).
 
+## PhanTypeInstantiateEnum
+
+```
+Saw instantiation of enum {ENUM}
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/v4/tests/php81_files/expected/004_enum.php.expected#L19) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v4/tests/php81_files/src/004_enum.php#L23).
+
 ## PhanTypeInstantiateInterface
 
 ```
@@ -3221,6 +3286,14 @@ Invalid offset {SCALAR} of {CODE} of array type {TYPE} in an array destructuring
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/4.0.0/tests/files/expected/0402_array_destructuring.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/4.0.0/tests/files/src/0402_array_destructuring.php#L4).
+
+## PhanTypeInvalidEnumCaseType
+
+```
+Saw enum case {CONST} with a value({SCALAR}) that did not match expected type {TYPE} (a future version of Phan will depend on an AST version that can be used to parse the enum declaration type)
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/v4/tests/php81_files/expected/004_enum.php.expected#L24) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v4/tests/php81_files/src/004_enum.php#L27).
 
 ## PhanTypeInvalidEval
 
@@ -3840,6 +3913,14 @@ Method {METHOD} is declared to return {TYPE} in its real type signature but has 
 
 e.g. [this issue](https://github.com/phan/phan/tree/4.0.0/tests/files/expected/0242_void_71.php.expected#L3) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/4.0.0/tests/files/src/0242_void_71.php#L4).
 
+## PhanTypeModifyImmutableObjectProperty
+
+```
+Saw attempt to modify {TYPE} {CLASS}'s property ${PROPERTY} declared at {FILE}:{LINE} (immutability of properties is enforced at runtime)
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/v4/tests/php81_files/expected/012_enum_properties.php.expected#L2) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v4/tests/php81_files/src/012_enum_properties.php#L15).
+
 ## PhanTypeNoAccessiblePropertiesForeach
 
 ```
@@ -3881,7 +3962,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/4.0.0/tests/php74_files/expe
 ## PhanTypeObjectUnsetDeclaredProperty
 
 ```
-Suspicious attempt to unset class {TYPE}'s property {PROPERTY} declared at {FILE}:{LINE} (This can be done, but is more commonly done for dynamic properties and Phan does not expect this)
+Suspicious attempt to unset class {TYPE}'s property ${PROPERTY} declared at {FILE}:{LINE} (This can be done, but is more commonly done for dynamic properties and Phan does not expect this)
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/4.0.0/tests/files/expected/0541_unset.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/4.0.0/tests/files/src/0541_unset.php#L7).
@@ -4985,6 +5066,14 @@ Note: If the native parser is used, the reported column is a guess. Phan will us
 
 e.g. [this issue](https://github.com/phan/phan/tree/4.0.0/tests/plugin_test/expected/136_unexpected_bracket.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/4.0.0/tests/plugin_test/src/136_unexpected_bracket.php#L2).
 
+## PhanSyntaxInconsistentEnum
+
+```
+Syntax error: Enum {ENUM} unexpectedly has cases that are inconsistent with the enum declaration\'s type or lack of type
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/v4/tests/php81_files/expected/004_enum.php.expected#L21) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v4/tests/php81_files/src/004_enum.php#L25).
+
 ## PhanSyntaxMixedKeyNoKeyArrayDestructuring
 
 ```
@@ -5000,6 +5089,14 @@ Syntax error: Function {FUNCTIONLIKE} with return type {TYPE} must return a valu
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/4.0.0/tests/files/expected/0242_void_71.php.expected#L6) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/4.0.0/tests/files/src/0242_void_71.php#L6).
+
+## PhanSyntaxReturnStatementInNever
+
+```
+Syntax error: function {FUNCTIONLIKE} has return type {TYPE}, meaning it must not contain return statements (it should exit, throw, or run forever)
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/v4/tests/php81_files/expected/006_noreturn.php.expected#L6) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v4/tests/php81_files/src/006_noreturn.php#L31).
 
 ## PhanSyntaxReturnValueInVoid
 

@@ -144,7 +144,7 @@ interface FunctionInterface extends AddressableElementInterface
      * Set to true to mark this method as having a
      * yield statement (Only through `yield`)
      * This implies that it has a return value of \Generator.
-     * (or a parent interface)
+     * (or a parent interface or type)
      */
     public function setHasYield(bool $has_yield): void;
 
@@ -153,6 +153,20 @@ interface FunctionInterface extends AddressableElementInterface
      * True if this method yields any value(i.e. it is a \Generator)
      */
     public function hasYield(): bool;
+
+    /**
+     * @param bool $has_static_variable
+     * Set to true to mark this method as having a
+     * static variable.
+     */
+    public function setHasStaticVariable(bool $has_static_variable): void;
+
+    /**
+     * @return bool
+     * True if this method has any static variables
+     */
+    public function hasStaticVariable(): bool;
+
 
     /**
      * @return list<Parameter>
@@ -339,7 +353,7 @@ interface FunctionInterface extends AddressableElementInterface
      *
      * @param CodeBase $code_base
      * @param Context $context
-     * @param list<Node|int|string> $args
+     * @param list<Node|int|string|float> $args
      * @param ?Node $node - the node causing the call. This may be dynamic, e.g. call_user_func_array. This will be required in Phan 3.
      */
     public function analyzeFunctionCall(CodeBase $code_base, Context $context, array $args, Node $node = null): void;

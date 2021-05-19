@@ -21,6 +21,7 @@ use Phan\Language\Element\Variable;
 use Phan\Language\Type;
 use Phan\Language\Type\ArrayType;
 use Phan\Language\Type\FloatType;
+use Phan\Language\Type\GenericArrayType;
 use Phan\Language\Type\IntType;
 use Phan\Language\Type\IterableType;
 use Phan\Language\Type\MixedType;
@@ -646,6 +647,11 @@ class NegatedConditionVisitor extends KindVisitorImplementation implements Condi
             ));
         };
         /** @param list<Node|mixed> $unused_args */
+        $remove_list_callback = static function (CodeBase $unused_code_base, Context $unused_context, Variable $variable, array $unused_args): void {
+            $union_type = $variable->getUnionType();
+            $variable->setUnionType($union_type->arrayTypesStrictCast()->asNonEmptyAssociativeArrayTypes(GenericArrayType::KEY_MIXED));
+        };
+        /** @param list<Node|mixed> $unused_args */
         $remove_object_callback = static function (CodeBase $unused_code_base, Context $unused_context, Variable $variable, array $unused_args): void {
             $variable->setUnionType($variable->getUnionType()->asMappedListUnionType(/** @return list<Type> */ static function (Type $type): array {
                 if ($type->isObject()) {
@@ -665,6 +671,7 @@ class NegatedConditionVisitor extends KindVisitorImplementation implements Condi
         };
 
         return [
+            'array_is_list' => $remove_list_callback,
             'count' => $zero_count_callback,
             'is_null' => $remove_null_cb,
             'is_array' => $remove_array_callback,
@@ -704,9 +711,10 @@ class NegatedConditionVisitor extends KindVisitorImplementation implements Condi
 
             $has_other_nullable_types = $has_other_nullable_types || $type->isNullable();
 
-            if (\get_class($type) === IterableType::class) {
+            if ($type instanceof IterableType) {
                 // An iterable that is not an object must be an array
-                $new_types[] = Type::traversableInstance()->withIsNullable($type->isNullable());
+                $has_null = $has_null || $type->isNullable();
+                $new_types[] = $type->asObjectType();
                 continue;
             }
             $new_types[] = $type;

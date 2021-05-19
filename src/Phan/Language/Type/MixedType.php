@@ -19,6 +19,8 @@ use function class_exists;
  */
 class MixedType extends NativeType
 {
+    use NativeTypeTrait;
+
     /** @phan-override */
     public const NAME = 'mixed';
 
@@ -39,6 +41,16 @@ class MixedType extends NativeType
      * @override
      */
     public function canCastToAnyTypeInSet(array $target_type_set): bool
+    {
+        return true;
+    }
+
+    /**
+     * Overridden in NonNullMixedType and NonEmptyMixedType
+     * @unused-param $type
+     * @override
+     */
+    public function canCastToTypeWithoutConfig(Type $type): bool
     {
         return true;
     }
@@ -214,6 +226,22 @@ class MixedType extends NativeType
     public function weaklyOverlaps(Type $other): bool
     {
         return true;
+    }
+
+    public function withIsNullable(bool $is_nullable): Type
+    {
+        if ($is_nullable) {
+            if ($this->is_nullable) {
+                return $this;
+            }
+            return static::instance(false);
+        }
+        return NonNullMixedType::instance(false);
+    }
+
+    public function asScalarType(): ?Type
+    {
+        return ScalarRawType::instance(false);
     }
 }
 class_exists(NonEmptyMixedType::class);

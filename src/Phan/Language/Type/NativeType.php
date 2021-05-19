@@ -25,34 +25,6 @@ abstract class NativeType extends Type
     /** @phan-override */
     public const KEY_PREFIX = '!';
 
-    /**
-     * @param bool $is_nullable
-     * If true, returns a nullable instance of this native type
-     *
-     * @return static
-     * Returns a nullable/non-nullable instance of this native type (possibly unchanged)
-     */
-    public static function instance(bool $is_nullable)
-    {
-        if ($is_nullable) {
-            static $nullable_instance = null;
-
-            if ($nullable_instance === null) {
-                $nullable_instance = static::make('\\', static::NAME, [], true, Type::FROM_NODE);
-            }
-
-            return $nullable_instance;
-        }
-
-        static $instance = null;
-
-        if ($instance === null) {
-            $instance = static::make('\\', static::NAME, [], false, Type::FROM_NODE);
-        }
-
-        return $instance;
-    }
-
     public function isNativeType(): bool
     {
         return true;
@@ -218,6 +190,7 @@ abstract class NativeType extends Type
                 IntType::NAME      => in_array(IntType::NAME, $permitted_cast_type_names, true),
                 // TODO: Handle other subtypes of mixed?
                 MixedType::NAME    => true,
+                NeverType::NAME => in_array(NeverType::NAME, $permitted_cast_type_names, true),
                 NullType::NAME     => in_array(NullType::NAME, $permitted_cast_type_names, true),
                 ObjectType::NAME   => in_array(ObjectType::NAME, $permitted_cast_type_names, true),
                 ResourceType::NAME => in_array(ResourceType::NAME, $permitted_cast_type_names, true),
@@ -245,6 +218,7 @@ abstract class NativeType extends Type
             IntType::NAME      => $generate_row(IntType::NAME, FloatType::NAME, ScalarRawType::NAME),
             IterableType::NAME => $generate_row(IterableType::NAME),
             MixedType::NAME    => $generate_row(MixedType::NAME),  // MixedType overrides the methods which would use this
+            NeverType::NAME => $generate_row(NeverType::NAME),  // NeverType also overrides methods which would use this
             NullType::NAME     => $generate_row(NullType::NAME),
             ObjectType::NAME   => $generate_row(ObjectType::NAME),
             ResourceType::NAME => $generate_row(ResourceType::NAME),
