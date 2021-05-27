@@ -107,6 +107,8 @@ class ParameterTypesAnalyzer
                 }
             }
             $union_type = $parameter->getUnionType();
+            // @phan-suppress-next-line PhanPluginUseReturnValueKnown
+            $union_type->checkImpossibleCombination($code_base, $parameter->createContext($method));
 
             if ($parameter->isOptional()) {
                 $is_optional_seen = true;
@@ -193,7 +195,7 @@ class ParameterTypesAnalyzer
             }
             $union_type = $parameter->getUnionType();
 
-            foreach ($union_type->getTypeSet() as $type) {
+            foreach ($union_type->getUniqueFlattenedTypeSet() as $type) {
                 if (!$type->isObjectWithKnownFQSEN()) {
                     continue;
                 }
@@ -228,6 +230,9 @@ class ParameterTypesAnalyzer
             }
             self::analyzeOverrideSignature($code_base, $method);
         }
+
+        // @phan-suppress-next-line PhanPluginUseReturnValueKnown this is invoked to emit issues
+        $method->getUnionType()->checkImpossibleCombination($code_base, $method->getContext());
     }
 
     /**
@@ -684,11 +689,6 @@ class ParameterTypesAnalyzer
                 // https://3v4l.org/XTm3P
 
                 // If we have types, make sure they line up
-                //
-                // TODO: should we be expanding the types on $overridden_parameter
-                //       via ->asExpandedTypes($code_base)?
-                //
-                //       @see https://3v4l.org/ke3kp
                 if (!self::canWeakCast($code_base, $overridden_parameter->getUnionType(), $parameter->getUnionType())) {
                     $signatures_match = false;
                     $mismatch_details = "Expected $parameter to have the same type as $overridden_parameter or a supertype";
@@ -703,8 +703,9 @@ class ParameterTypesAnalyzer
         // E.g. there is no issue if the overridden return type is empty.
         // See https://github.com/phan/phan/issues/1397
         if (!$overridden_return_union_type->isEmptyOrMixed()) {
-            if (!$method->getUnionType()->asExpandedTypes($code_base)->canCastToUnionType(
-                $overridden_return_union_type
+            if (!$method->getUnionType()->canCastToUnionType(
+                $overridden_return_union_type,
+                $code_base
             )) {
                 $signatures_match = false;
             }
@@ -790,9 +791,8 @@ class ParameterTypesAnalyzer
 
     private static function canWeakCast(CodeBase $code_base, UnionType $overridden_type, UnionType $type): bool
     {
-        $expanded_overridden_type = $overridden_type->asExpandedTypes($code_base);
-        return $expanded_overridden_type->canCastToUnionType($type) &&
-                    $expanded_overridden_type->hasAnyTypeOverlap($code_base, $type);
+        return $overridden_type->canCastToUnionType($type, $code_base) &&
+                    $overridden_type->hasAnyTypeOverlap($code_base, $type);
     }
     /**
      * Previously, Phan bases the analysis off of phpdoc.
@@ -959,7 +959,7 @@ class ParameterTypesAnalyzer
                     // For example, allow `foo(): SubClass` to override `foo(): BaseClass`
                     // in php 8.1, allow `foo(): never` to override any base type
                     $is_exception_to_rule = (Config::get_closest_minimum_target_php_version_id() >= 70400 && $overridden_parameter_union_type->isStrictSubtypeOf($code_base, $parameter_union_type)) ||
-                        ($parameter_union_type->hasIterable() && $overridden_parameter_union_type->hasIterable() &&
+                        ($overridden_parameter_union_type->hasIterable($code_base) &&
                             ($parameter_union_type->hasType(IterableType::instance(true)) ||
                              $parameter_union_type->hasType(IterableType::instance(false)) && !$overridden_parameter_union_type->containsNullable()));
 
@@ -1000,9 +1000,10 @@ class ParameterTypesAnalyzer
                 //
                 // For example, allow `foo(): SubClass` to override `foo(): BaseClass`
                 // in php 8.1, allow `foo(): never` to override any base type
+                //
+                // TODO: Narrow this to check for non-objects?
                 $is_exception_to_rule = (Config::get_closest_minimum_target_php_version_id() >= 70400 && $return_union_type->isStrictSubtypeOf($code_base, $overridden_return_union_type)) ||
-                    ($return_union_type->hasIterable() &&
-                    $overridden_return_union_type->hasIterable() &&
+                    ($return_union_type->hasIterable($code_base) &&
                     ($overridden_return_union_type->hasType(IterableType::instance(true)) ||
                      $overridden_return_union_type->hasType(IterableType::instance(false)) && !$return_union_type->containsNullable()));
                 if (!$is_exception_to_rule) {

@@ -106,8 +106,6 @@ class Property extends ClassElement
     /**
      * @return FullyQualifiedPropertyName the FQSEN with the original definition (Even if this is private/protected and inherited from a trait). Used for dead code detection.
      *                                    Inheritance tests use getDefiningFQSEN() so that access checks won't break.
-     *
-     * @suppress PhanPartialTypeMismatchReturn TODO: Allow subclasses to make property types more specific
      */
     public function getRealDefiningFQSEN(): FullyQualifiedPropertyName
     {
@@ -197,6 +195,7 @@ class Property extends ClassElement
      * @return FullyQualifiedPropertyName
      * The fully-qualified structural element name of this
      * structural element
+     * @suppress PhanTypeMismatchReturn
      */
     public function getFQSEN(): FullyQualifiedPropertyName
     {
@@ -437,6 +436,7 @@ class Property extends ClassElement
     {
         $union_type = $this->getUnionType();
         foreach ($union_type->getTypeSet() as $type) {
+            // TODO: Replace $old in intersection types as well?
             if (!$type->isObjectWithKnownFQSEN()) {
                 continue;
             }

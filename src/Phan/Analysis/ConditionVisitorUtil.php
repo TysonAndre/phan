@@ -825,7 +825,6 @@ trait ConditionVisitorUtil
             if (!$type->asPHPDocUnionType()->hasAnyWeakTypeOverlap($new_real_union_type)) {
                 continue;
             }
-            // @phan-suppress-next-line PhanAccessMethodInternal
             // TODO: Implement Type->canWeakCastToUnionType?
             if ($type->isPossiblyFalsey() && !$new_real_union_type->containsFalsey()) {
                 if ($type->isAlwaysFalsey()) {
@@ -853,7 +852,6 @@ trait ConditionVisitorUtil
             $combined_real_types[] = $type;
         }
         if ($combined_real_types) {
-            // @phan-suppress-next-line PhanPartialTypeMismatchArgument TODO: Remove when intersection types are supported.
             return $new_union_type->withRealTypeSet($combined_real_types);
         }
         return $new_union_type;
@@ -1199,7 +1197,7 @@ trait ConditionVisitorUtil
             }
             $kind = $var->kind;
             if ($kind === ast\AST_VAR) {
-                // @phan-suppress-next-line PhanPossiblyUndeclaredProperty
+                // @phan-suppress-next-line PhanPossiblyUndeclaredPropertyOfClass
                 $this->context = (new BlockAnalysisVisitor($this->code_base, $this->context))->__invoke($tmp);
                 return $condition->analyzeVar($this, $var, $expr_node);
             }
@@ -1232,7 +1230,7 @@ trait ConditionVisitorUtil
         }
         if (!is_string($expr_value)) {
             $expr_type = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $expr_node);
-            if (!$expr_type->canCastToUnionType(UnionType::fromFullyQualifiedPHPDocString('string|false'))) {
+            if (!$expr_type->canCastToUnionType(UnionType::fromFullyQualifiedPHPDocString('string|false'), $this->code_base)) {
                 Issue::maybeEmit(
                     $this->code_base,
                     $this->context,
@@ -1338,7 +1336,7 @@ trait ConditionVisitorUtil
             if ($int_or_string_type === null) {
                 $int_or_string_type = UnionType::fromFullyQualifiedPHPDocString('?int|?string');
             }
-            if (!$name_node_type->canCastToUnionType($int_or_string_type)) {
+            if (!$name_node_type->canCastToUnionType($int_or_string_type, $this->code_base)) {
                 Issue::maybeEmit($this->code_base, $context, Issue::TypeSuspiciousIndirectVariable, $var_name_node->lineno ?? 0, (string)$name_node_type);
             }
 
@@ -1442,7 +1440,7 @@ trait ConditionVisitorUtil
             return $affected_type;
         }
         return $affected_type->makeFromFilter(static function (Type $type) use ($code_base, $excluded_type): bool {
-            return $type instanceof MixedType || !$type->asExpandedTypes($code_base)->canCastToUnionType($excluded_type);
+            return $type instanceof MixedType || !$type->asPHPDocUnionType()->canCastToUnionType($excluded_type, $code_base);
         });
     }
 

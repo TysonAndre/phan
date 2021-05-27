@@ -318,6 +318,9 @@ class Func extends AddressableElement implements FunctionInterface
         return $func;
     }
 
+    /**
+     * @suppress PhanTypeMismatchReturn FunctionInterface->Method
+     */
     public function getFQSEN(): FullyQualifiedFunctionName
     {
         return $this->fqsen;
@@ -327,7 +330,6 @@ class Func extends AddressableElement implements FunctionInterface
      * @return \Generator
      * @phan-return \Generator<Func>
      * The set of all alternates to this function
-     * @suppress PhanParamSignatureMismatch
      */
     public function alternateGenerator(CodeBase $code_base): \Generator
     {

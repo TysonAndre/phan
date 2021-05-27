@@ -228,7 +228,7 @@ final class LiteralStringType extends StringType implements LiteralTypeInterface
      * True if this Type can be cast to the given Type
      * cleanly
      */
-    protected function canCastToNonNullableType(Type $type): bool
+    protected function canCastToNonNullableType(Type $type, CodeBase $code_base): bool
     {
         if ($type instanceof ScalarType) {
             switch ($type::NAME) {
@@ -269,7 +269,7 @@ final class LiteralStringType extends StringType implements LiteralTypeInterface
             }
         }
 
-        return parent::canCastToNonNullableType($type);
+        return parent::canCastToNonNullableType($type, $code_base);
     }
 
     /**
@@ -316,7 +316,7 @@ final class LiteralStringType extends StringType implements LiteralTypeInterface
      * cleanly without config overrides
      * @override
      */
-    protected function canCastToNonNullableTypeWithoutConfig(Type $type): bool
+    protected function canCastToNonNullableTypeWithoutConfig(Type $type, CodeBase $code_base): bool
     {
         if ($type instanceof ScalarType) {
             switch ($type::NAME) {
@@ -332,14 +332,14 @@ final class LiteralStringType extends StringType implements LiteralTypeInterface
             }
         }
 
-        return parent::canCastToNonNullableType($type);
+        return parent::canCastToNonNullableType($type, $code_base);
     }
 
     /**
      * @return bool
      * True if this Type is a subtype of the given type.
      */
-    protected function isSubtypeOfNonNullableType(Type $type): bool
+    protected function isSubtypeOfNonNullableType(Type $type, CodeBase $code_base): bool
     {
         if ($type instanceof ScalarType) {
             if ($type instanceof StringType) {
@@ -353,7 +353,7 @@ final class LiteralStringType extends StringType implements LiteralTypeInterface
             return false;
         }
 
-        return parent::canCastToNonNullableType($type);
+        return parent::canCastToNonNullableType($type, $code_base);
     }
 
     /**
@@ -402,8 +402,9 @@ final class LiteralStringType extends StringType implements LiteralTypeInterface
      * Returns the function interface that would be used if this type's string were a callable, or null.
      * @param CodeBase $code_base the code base in which the function interface is found
      * @param Context $context the context where the function interface is referenced (for emitting issues)
+     * @unused-param $warn
      */
-    public function asFunctionInterfaceOrNull(CodeBase $code_base, Context $context): ?FunctionInterface
+    public function asFunctionInterfaceOrNull(CodeBase $code_base, Context $context, bool $warn = true): ?FunctionInterface
     {
         // parse 'function_name' or 'class_name::method_name'
         // NOTE: In other subclasses of Type, calling this might recurse.

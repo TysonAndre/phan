@@ -1,6 +1,27 @@
 Phan NEWS
 
-??? ?? 2021, Phan 4.0.6 (dev)
+??? ?? 2021, Phan 5.0.0 (dev)
+-----------------------
+
++ Support parsing intersection types in phpdoc and checking if intersection types satisfy type comparisons
++ Support inferring intersection types from conditions such as `instanceof`
++ Warn about impossible type combinations in phpdoc intersection types.
+  New issue types: `PhanImpossibleIntersectionType`
++ Improve type checking precision
++ Split out warnings about possibly invalid types for property access (non-object) and possibly invalid classes for property access
+  New issue types: `PhanPossiblyUndeclaredPropertyOfClass`
++ Also check for partially invalid expressions for instance properties during assignment (`PhanPossiblyUndeclaredProperty*`)
+
+Breaking Changes
++ Many internal methods now require a mandatory `CodeBase` instance. This will affect third party plugins.
+
+May 19 2021, Phan 4.0.7 (dev)
+-----------------------
+
+Language Server/Daemon mode:
++ Fix an uncaught exception sometimes seen checking for issue suppressions when pcntl is unavailable.
+
+May 19 2021, Phan 4.0.6
 -----------------------
 
 New Features (Analysis):

@@ -37,6 +37,7 @@ use Phan\Language\Scope\BranchScope;
 use Phan\Language\Scope\GlobalScope;
 use Phan\Language\Scope\PropertyScope;
 use Phan\Language\Type;
+use Phan\Language\Type\IterableType;
 use Phan\Language\Type\ArrayType;
 use Phan\Language\UnionType;
 use Phan\Library\StringUtil;
@@ -1101,7 +1102,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         if ($union_type->isEmpty()) {
             return;
         }
-        if (!$union_type->hasPossiblyObjectTypes() && !$union_type->hasIterable()) {
+        if (!$union_type->hasPossiblyObjectTypes() && !$union_type->hasIterable($this->code_base)) {
             $this->emitIssue(
                 Issue::TypeMismatchForeach,
                 $node->children['expr']->lineno ?? $node->lineno,
@@ -1111,11 +1112,12 @@ class BlockAnalysisVisitor extends AnalysisVisitor
         }
         $has_object = false;
         foreach ($union_type->getTypeSet() as $type) {
-            if (!$type->isObjectWithKnownFQSEN()) {
+            if (!$type->hasObjectWithKnownFQSEN()) {
                 continue;
             }
             try {
-                if ($type->asExpandedTypes($this->code_base)->hasTraversable()) {
+                // e.g. don't warn about ArrayObject&CustomInterface because the expanded type set includes Traversable
+                if ($type->isTraversable($this->code_base)) {
                     continue;
                 }
             } catch (RecursionDepthException $_) {
@@ -1175,7 +1177,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor
             if ($type->isPossiblyObject()) {
                 return false;
             }
-            if (!$type->isIterable()) {
+            if (!$type instanceof IterableType) {
                 continue;
             }
             if ($type->isPossiblyTruthy()) {
@@ -1794,7 +1796,6 @@ class BlockAnalysisVisitor extends AnalysisVisitor
      * The updated context after visiting the node
      *
      * Based on visitSwitchList
-     * @suppress PhanAccessMethodInternal
      */
     public function visitMatchArmList(Node $node): Context
     {
@@ -2550,7 +2551,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor
 
             $catch_line = $catch_node->lineno;
 
-            foreach ($union_type->getTypeSet() as $type) {
+            foreach ($union_type->getUniqueFlattenedTypeSet() as $type) {
                 foreach ($type->asExpandedTypes($code_base)->getTypeSet() as $ancestor_type) {
                     // Check if any of the ancestors were already caught by a previous catch statement
                     $line = $caught_union_types[\spl_object_id($ancestor_type)] ?? null;
@@ -2815,7 +2816,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor
     {
         $left_node = $node->children['left'];
         $right_node = $node->children['right'];
-        // @phan-suppress-next-line PhanPartialTypeMismatchArgumentInternal, PhanPossiblyUndeclaredProperty
+        // @phan-suppress-next-line PhanPartialTypeMismatchArgumentInternal
         if ($right_node instanceof Node && $right_node->kind === ast\AST_CONST && \strcasecmp($right_node->children['name']->children['name'] ?? '', 'null') === 0) {
             if ($left_node instanceof Node && self::isAlwaysDefined($context, $left_node)) {
                 $this->emitIssue(

@@ -277,8 +277,8 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             if ($union_type->isEmpty()) {
                 return;
             }
-            $resolved_union_type = $union_type->withStaticResolvedInContext($this->context);
-            if (!$resolved_union_type->asExpandedTypes($this->code_base)->hasArrayLike() && !$resolved_union_type->hasMixedOrNonEmptyMixedType()) {
+            $resolved_union_type = $union_type->withStaticResolvedInContext($context);
+            if (!$resolved_union_type->hasArrayLike($this->code_base) && !$resolved_union_type->hasMixedOrNonEmptyMixedType()) {
                 $this->emitIssue(
                     Issue::TypeArrayUnsetSuspicious,
                     $node->lineno,
@@ -287,7 +287,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 );
             }
             $dim_node = $node->children['dim'];
-            $dim_value = $dim_node instanceof Node ? (new ContextNode($this->code_base, $this->context, $dim_node))->getEquivalentPHPScalarValue() : $dim_node;
+            $dim_value = $dim_node instanceof Node ? (new ContextNode($this->code_base, $context, $dim_node))->getEquivalentPHPScalarValue() : $dim_node;
             // unset($x[$i]) should convert a list<T> or non-empty-list<T> to an array<Y>
             $union_type = $union_type->withAssociativeArrays(true)->asMappedUnionType(static function (Type $type): Type {
                 if ($type instanceof NonEmptyMixedType) {
@@ -352,7 +352,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
 
         $union_type = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $expr_node)->withStaticResolvedInContext($this->context);
         $type_fqsens = $union_type->objectTypesWithKnownFQSENs();
-        foreach ($type_fqsens->getTypeSet() as $type) {
+        foreach ($type_fqsens->getUniqueFlattenedTypeSet() as $type) {
             $fqsen = FullyQualifiedClassName::fromType($type);
             if (!$this->code_base->hasClassWithFQSEN($fqsen)) {
                 continue;
@@ -521,7 +521,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             }
             // Check for __toString(), stringable variables/expressions in encapsulated strings work whether or not strict_types is set
             try {
-                foreach ($type->withStaticResolvedInContext($context)->asExpandedTypes($code_base)->asClassList($code_base, $context) as $clazz) {
+                foreach ($type->withStaticResolvedInContext($context)->asClassList($code_base, $context) as $clazz) {
                     if ($clazz->hasMethodWithName($code_base, "__toString", true)) {
                         return;
                     }
@@ -718,7 +718,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             }
             if (!$context->isStrictTypes()) {
                 try {
-                    foreach ($type->withStaticResolvedInContext($context)->asExpandedTypes($code_base)->asClassList($code_base, $context) as $clazz) {
+                    foreach ($type->withStaticResolvedInContext($context)->asClassList($code_base, $context) as $clazz) {
                         if ($clazz->hasMethodWithName($code_base, "__toString", true)) {
                             return $context;
                         }
@@ -835,7 +835,6 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         $flags = $node->flags;
         if ($this->isInNoOpPosition($node)) {
             if (\in_array($flags, [flags\BINARY_BOOL_AND, flags\BINARY_BOOL_OR, flags\BINARY_COALESCE], true)) {
-                // @phan-suppress-next-line PhanAccessMethodInternal
                 if (!ScopeImpactCheckingVisitor::hasPossibleImpact($this->code_base, $this->context, $node->children['right'])) {
                     $this->emitIssue(
                         Issue::NoopBinaryOperator,
@@ -1214,7 +1213,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     {
         $var = $node->children['var'];
         $old_type = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $var);
-        if (!$old_type->canCastToUnionType(UnionType::fromFullyQualifiedPHPDocString('int|string|float'))) {
+        if (!$old_type->canCastToUnionType(UnionType::fromFullyQualifiedPHPDocString('int|string|float'), $this->code_base)) {
             $this->emitIssue(
                 Issue::TypeInvalidUnaryOperandIncOrDec,
                 $node->lineno,
@@ -1854,7 +1853,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         }
         $expected_value_type = $template_type_list[\min(1, $type_list_count - 1)];
         try {
-            if (!$yield_value_type->withStaticResolvedInContext($context)->asExpandedTypes($code_base)->canCastToUnionType($expected_value_type->withStaticResolvedInContext($context))) {
+            if (!$yield_value_type->withStaticResolvedInContext($context)->canCastToUnionType($expected_value_type->withStaticResolvedInContext($context), $code_base)) {
                 $this->emitIssue(
                     Issue::TypeMismatchGeneratorYieldValue,
                     $node->lineno,
@@ -1877,7 +1876,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             }
             // TODO: finalize syntax to indicate the absence of a key or value (e.g. use void instead?)
             $expected_key_type = $template_type_list[0];
-            if (!$yield_key_type->withStaticResolvedInContext($context)->asExpandedTypes($code_base)->canCastToUnionType($expected_key_type->withStaticResolvedInContext($context))) {
+            if (!$yield_key_type->withStaticResolvedInContext($context)->canCastToUnionType($expected_key_type->withStaticResolvedInContext($context), $code_base)) {
                 $this->emitIssue(
                     Issue::TypeMismatchGeneratorYieldKey,
                     $node->lineno,
@@ -1912,16 +1911,17 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         $method = $context->getFunctionLikeInScope($this->code_base);
         $code_base = $this->code_base;
 
-        $yield_from_type = UnionTypeVisitor::unionTypeFromNode($code_base, $context, $node->children['expr']);
+        $expr = $node->children['expr'];
+        $yield_from_type = UnionTypeVisitor::unionTypeFromNode($code_base, $context, $expr);
         if ($yield_from_type->isEmpty()) {
             return $context;
         }
-        $yield_from_expanded_type = $yield_from_type->withStaticResolvedInContext($this->context)->asExpandedTypes($code_base);
-        if (!$yield_from_expanded_type->hasIterable() && !$yield_from_expanded_type->hasTraversable()) {
+        $yield_from_resolved_type = $yield_from_type->withStaticResolvedInContext($context);
+        if (!$yield_from_resolved_type->hasIterable($code_base)) {
             $this->emitIssue(
                 Issue::TypeInvalidYieldFrom,
                 $node->lineno,
-                ASTReverter::toShortString($node),
+                ASTReverter::toShortString($expr),
                 (string)$yield_from_type
             );
             return $context;
@@ -1929,9 +1929,9 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
 
         if (BlockAnalysisVisitor::isEmptyIterable($yield_from_type)) {
             RedundantCondition::emitInstance(
-                $node->children['expr'],
+                $expr,
                 $this->code_base,
-                (clone($this->context))->withLineNumberStart($node->children['expr']->lineno ?? $node->lineno),
+                (clone($this->context))->withLineNumberStart($expr->lineno ?? $node->lineno),
                 Issue::EmptyYieldFrom,
                 [(string)$yield_from_type],
                 Closure::fromCallable([BlockAnalysisVisitor::class, 'isEmptyIterable'])
@@ -1969,11 +1969,11 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
 
         $yield_value_type = $actual_template_type_list[\min(1, $actual_type_list_count - 1)];
         $expected_value_type = $template_type_list[\min(1, $type_list_count - 1)];
-        if (!$yield_value_type->withStaticResolvedInContext($context)->asExpandedTypes($code_base)->canCastToUnionType($expected_value_type)) {
+        if (!$yield_value_type->withStaticResolvedInContext($context)->canCastToUnionType($expected_value_type, $code_base)) {
             $this->emitIssue(
                 Issue::TypeMismatchGeneratorYieldValue,
                 $node->lineno,
-                sprintf('(values of %s)', ASTReverter::toShortString($node)),
+                sprintf('(values of %s)', ASTReverter::toShortString($node->children['expr'])),
                 (string)$yield_value_type,
                 $method->getNameForIssue(),
                 (string)$expected_value_type,
@@ -1985,11 +1985,11 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             // TODO: finalize syntax to indicate the absence of a key or value (e.g. use void instead?)
             $yield_key_type = $actual_template_type_list[0];
             $expected_key_type = $template_type_list[0];
-            if (!$yield_key_type->withStaticResolvedInContext($context)->asExpandedTypes($code_base)->canCastToUnionType($expected_key_type)) {
+            if (!$yield_key_type->withStaticResolvedInContext($context)->canCastToUnionType($expected_key_type, $code_base)) {
                 $this->emitIssue(
                     Issue::TypeMismatchGeneratorYieldKey,
                     $node->lineno,
-                    sprintf('(keys of %s)', ASTReverter::toShortString($node)),
+                    sprintf('(keys of %s)', ASTReverter::toShortString($node->children['expr'])),
                     (string)$yield_key_type,
                     $method->getNameForIssue(),
                     (string)$expected_key_type,
@@ -2016,17 +2016,9 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 return false;
             }
         }
-        if ($method_return_type->hasTemplateParameterTypes()) {
-            // Perform a check that does a better job understanding rules of templates.
-            // (E.g. should be able to cast None to Option<MyClass>, but not Some<int> to Option<MyClass>
-            return $expression_type->asExpandedTypesPreservingTemplate($this->code_base)->canCastToUnionTypeHandlingTemplates($method_return_type, $this->code_base) ||
-                $expression_type->canCastToUnionTypeHandlingTemplates($method_return_type->asExpandedTypesPreservingTemplate($this->code_base), $this->code_base);
-        }
-        // We allow base classes to cast to subclasses, and subclasses to cast to base classes,
-        // but don't allow subclasses to cast to subclasses on a separate branch of the inheritance tree
         try {
-            return $expression_type->asExpandedTypes($this->code_base)->canCastToUnionType($method_return_type) ||
-                $expression_type->canCastToUnionType($method_return_type->asExpandedTypes($this->code_base));
+            // Stop allowing base classes to cast to subclasses
+            return $expression_type->canCastToUnionType($method_return_type, $this->code_base);
         } catch (RecursionDepthException $_) {
             return false;
         }
@@ -2066,23 +2058,17 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
 
         // For the strict
         foreach ($type_set as $type) {
-            // Expand it to include all parent types up the chain
-            try {
-                $individual_type_expanded = $type->asExpandedTypes($code_base);
-            } catch (RecursionDepthException $_) {
-                continue;
-            }
-
             // See if the argument can be cast to the
             // parameter
-            if (!$individual_type_expanded->canCastToUnionType(
-                $method_return_type
+            if (!$type->asPHPDocUnionType()->canCastToUnionType(
+                $method_return_type,
+                $code_base
             )) {
                 if ($method->isPHPInternal()) {
                     // If we are not in strict mode and we accept a string parameter
                     // and the argument we are passing has a __toString method then it is ok
-                    if (!$context->isStrictTypes() && $method_return_type->hasNonNullStringType()) {
-                        if ($individual_type_expanded->hasClassWithToStringMethod($code_base, $context)) {
+                    if (!$context->isStrictTypes() && $method_return_type->hasStringType()) {
+                        if ($type->asPHPDocUnionType()->hasClassWithToStringMethod($code_base, $context)) {
                             continue;
                         }
                     }
@@ -2090,7 +2076,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 $mismatch_type_set = $mismatch_type_set->withType($type);
                 if ($mismatch_expanded_types === null) {
                     // Warn about the first type
-                    $mismatch_expanded_types = $individual_type_expanded;
+                    $mismatch_expanded_types = $type;
                 }
             }
         }
@@ -2668,7 +2654,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             }
             if (!\is_string($method_name)) {
                 $method_name_type = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $node->children['method']);
-                if (!$method_name_type->canCastToUnionType(StringType::instance(false)->asPHPDocUnionType())) {
+                if (!$method_name_type->canCastToUnionType(StringType::instance(false)->asPHPDocUnionType(), $this->code_base)) {
                     Issue::maybeEmit(
                         $this->code_base,
                         $this->context,
@@ -2819,7 +2805,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
 
             if (!$possible_ancestor_type->isEmpty()) {
                 // but forbid 'self::__construct', 'static::__construct'
-                $type = $this->context->getClassFQSEN()->asRealUnionType();
+                $type = $this->context->getClassFQSEN()->asType();
                 if ($possible_ancestor_type->hasStaticType()) {
                     $this->emitIssue(
                         Issue::AccessOwnConstructor,
@@ -2827,8 +2813,8 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                         $static_class
                     );
                     $found_ancestor_constructor = true;
-                } elseif ($type->asExpandedTypes($this->code_base)->canCastToUnionType($possible_ancestor_type)) {
-                    if ($type->canCastToUnionType($possible_ancestor_type)) {
+                } elseif ($type->asPHPDocUnionType()->canCastToUnionType($possible_ancestor_type, $this->code_base)) {
+                    if ($possible_ancestor_type->hasType($type)) {
                         $this->emitIssue(
                             Issue::AccessOwnConstructor,
                             $node->lineno,
@@ -3151,7 +3137,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             }
             if (!\is_string($method_name)) {
                 $method_name_type = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $node->children['method']);
-                if (!$method_name_type->canCastToUnionType(StringType::instance(false)->asPHPDocUnionType())) {
+                if (!$method_name_type->canCastToUnionType(StringType::instance(false)->asPHPDocUnionType(), $this->code_base)) {
                     Issue::maybeEmit(
                         $this->code_base,
                         $this->context,
@@ -3385,8 +3371,6 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * @return Context
      * A new or an unchanged context resulting from
      * parsing the node
-     *
-     * @suppress PhanAccessMethodInternal
      */
     public function visitConditional(Node $node): Context
     {
@@ -3415,8 +3399,6 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      * @return Context
      * A new or an unchanged context resulting from
      * analyzing the node
-     *
-     * @suppress PhanAccessMethodInternal
      */
     public function visitMatch(Node $node): Context
     {
@@ -3575,7 +3557,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 );
             }
         }
-        foreach ($type->getTypeSet() as $type_part) {
+        foreach ($type->getUniqueFlattenedTypeSet() as $type_part) {
             if (!$type_part->isObjectWithKnownFQSEN()) {
                 continue;
             }
@@ -4124,7 +4106,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                         // then guess that the variable is the type of the reference
                         // when analyzing the following statements.
                         $set_variable_type($reference_parameter_type);
-                    } elseif (!$variable_type->canCastToUnionType($reference_parameter_type)) {
+                    } elseif (!$variable_type->canCastToUnionType($reference_parameter_type, $code_base)) {
                         // Phan already warned about incompatible types.
                         // But analyze the following statements as if it could have been the type expected,
                         // to reduce false positives.

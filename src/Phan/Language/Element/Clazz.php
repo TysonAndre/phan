@@ -480,7 +480,7 @@ class Clazz extends AddressableElement
     }
 
     /**
-     * @suppress PhanUndeclaredMethod
+     * @suppress PhanUndeclaredMethod properties only have types and reflection types in php 7.4+
      */
     private static function getRealTypeForReflectionProperty(ReflectionProperty $property): UnionType
     {
@@ -1861,7 +1861,7 @@ class Clazz extends AddressableElement
         if ($method->hasYield()) {
             // There's no phpdoc standard for template types of Generators at the moment.
             $new_type = UnionType::fromFullyQualifiedRealString('\\Generator');
-            if (!$new_type->canCastToUnionType($method->getUnionType())) {
+            if (!$new_type->canCastToUnionType($method->getUnionType(), $code_base)) {
                 $method->setUnionType($new_type);
             }
         }
@@ -2394,6 +2394,7 @@ class Clazz extends AddressableElement
 
     /**
      * @return FullyQualifiedClassName
+     * @suppress PhanTypeMismatchReturn (FQSEN on declaration)
      */
     public function getFQSEN()
     {
@@ -3707,14 +3708,14 @@ class Clazz extends AddressableElement
     }
 
     /**
-     * @return list<Closure(list<mixed>, Context):UnionType>
+     * @return list<Closure(list<Node|string|int|float|UnionType>, Context):UnionType>
      */
     public function getGenericConstructorBuilder(CodeBase $code_base): array
     {
         return $this->memoize(
             'template_type_resolvers',
             /**
-             * @return list<Closure(list<mixed>):UnionType>
+             * @return list<Closure(list<Node|string|int|float|UnionType>, Context):UnionType>
              */
             function () use ($code_base): array {
                 // Get the constructor so that we can figure out what
@@ -3741,7 +3742,7 @@ class Clazz extends AddressableElement
                             );
                         }
                         /** @param list<\ast\Node|mixed> $unused_arg_list */
-                        $template_type_resolver = static function (array $unused_arg_list): UnionType {
+                        $template_type_resolver = static function (array $unused_arg_list, Context $unused_context): UnionType {
                             return MixedType::instance(false)->asPHPDocUnionType();
                         };
                     }

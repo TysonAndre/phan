@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Phan\Analysis;
 
+use AssertionError;
 use ast;
 use ast\flags;
 use ast\Node;
@@ -509,7 +510,7 @@ class NegatedConditionVisitor extends KindVisitorImplementation implements Condi
             return null;
         }
         $right_hand_type = $right_hand_union_type->getTypeSet()[0];
-        if (!$right_hand_type->isObjectWithKnownFQSEN()) {
+        if (!$right_hand_type->hasObjectWithKnownFQSEN()) {
             return null;
         }
         return $union_type->withoutSubclassesOf($this->code_base, $right_hand_type);
@@ -599,9 +600,9 @@ class NegatedConditionVisitor extends KindVisitorImplementation implements Condi
             return $type->isInBoolFamily();
         });
         /** @param list<Node|mixed> $unused_args */
-        $remove_callable_callback = static function (CodeBase $unused_code_base, Context $unused_context, Variable $variable, array $unused_args): void {
-            $variable->setUnionType($variable->getUnionType()->asMappedListUnionType(/** @return list<Type> */ static function (Type $type): array {
-                if ($type->isCallable()) {
+        $remove_callable_callback = static function (CodeBase $code_base, Context $unused_context, Variable $variable, array $unused_args): void {
+            $variable->setUnionType($variable->getUnionType()->asMappedListUnionType(/** @return list<Type> */ static function (Type $type) use ($code_base): array {
+                if ($type->isCallable($code_base)) {
                     if ($type->isNullable()) {
                         static $null_type_set;
                         return $null_type_set ?? ($null_type_set = UnionType::typeSetFromString('null'));
@@ -702,7 +703,7 @@ class NegatedConditionVisitor extends KindVisitorImplementation implements Condi
         $new_types = [];
         $has_null = false;
         $has_other_nullable_types = false;
-        // Add types which are not callable
+        // Add types which are not arrays
         foreach ($type_set as $type) {
             if ($type instanceof ArrayType) {
                 $has_null = $has_null || $type->isNullable();
@@ -714,7 +715,12 @@ class NegatedConditionVisitor extends KindVisitorImplementation implements Condi
             if ($type instanceof IterableType) {
                 // An iterable that is not an object must be an array
                 $has_null = $has_null || $type->isNullable();
-                $new_types[] = $type->asObjectType();
+                $new_type = $type->asObjectType();
+                // should always be set
+                if (!$new_type) {
+                    throw new AssertionError("Expected non-array iterable to be able to cast to object");
+                }
+                $new_types[] = $new_type;
                 continue;
             }
             $new_types[] = $type;
@@ -817,7 +823,7 @@ class NegatedConditionVisitor extends KindVisitorImplementation implements Condi
             return $union_type;
         }
 
-        $dim_union_type = UnionTypeVisitor::resolveArrayShapeElementTypesForOffset($union_type, $dim_value);
+        $dim_union_type = UnionTypeVisitor::resolveArrayShapeElementTypesForOffset($union_type, $dim_value, false, $this->code_base);
         if (!$dim_union_type) {
             // There are other types, this dimension does not exist yet.
             // Whether or not the union type already has array shape types, don't change the type
@@ -910,7 +916,7 @@ class NegatedConditionVisitor extends KindVisitorImplementation implements Condi
                 }
                 if (!$context->getScope()->hasVariableWithName($var_name)) {
                     $new_type = Variable::getUnionTypeOfHardcodedVariableInScopeWithName($var_name, $context->isInGlobalScope());
-                    if (!$new_type || !$new_type->hasArrayLike()) {
+                    if (!$new_type || !$new_type->hasArrayLike($this->code_base)) {
                         $new_type = ArrayType::instance(false)->asPHPDocUnionType();
                     }
                     $new_type = $new_type->nonFalseyClone();
@@ -954,7 +960,7 @@ class NegatedConditionVisitor extends KindVisitorImplementation implements Condi
         }
 
         $union_type = $variable->getUnionType();
-        $dim_union_type = UnionTypeVisitor::resolveArrayShapeElementTypesForOffset($union_type, $dim_value);
+        $dim_union_type = UnionTypeVisitor::resolveArrayShapeElementTypesForOffset($union_type, $dim_value, false, $this->code_base);
         if (!$dim_union_type) {
             // There are other types, this dimension does not exist yet
             if (!$union_type->hasTopLevelArrayShapeTypeInstances()) {

@@ -421,7 +421,6 @@ class ContextNode
      *
      * TODO: Deprecate this and use more precise ways to locate the desired element
      * TODO: Distinguish between the empty string and the lack of a name
-     * @suppress PhanStaticClassAccessWithStaticVariable static variables are safely initialized
      */
     public function getVariableName(): string
     {
@@ -465,7 +464,7 @@ class ContextNode
             if ($int_or_string_type === null) {
                 $int_or_string_type = UnionType::fromFullyQualifiedPHPDocString('int|string|null');
             }
-            if (!$name_node_type->canCastToUnionType($int_or_string_type)) {
+            if (!$name_node_type->canCastToUnionType($int_or_string_type, $this->code_base)) {
                 $this->emitIssue(Issue::TypeSuspiciousIndirectVariable, $name_node->lineno ?? 0, (string)$name_node_type);
             }
 
@@ -582,6 +581,7 @@ class ContextNode
         }
 
         // TODO: Should this check that count($class_list) > 0 instead? Or just always check?
+        // TODO: Improve for intersection types
         if (\count($class_list) === 0) {
             if (!$union_type->hasTypeMatchingCallback(function (Type $type) use ($expected_type_categories): bool {
                 if ($this->node instanceof Node) {
@@ -813,7 +813,7 @@ class ContextNode
             $method = $call_method;
         }
         if ($method) {
-            if ($class_without_method && Config::get_strict_method_checking()) {
+            if ($class_without_method && Config::get_strict_method_checking() && !$this->isDefinitelyPossiblyUndeclaredMethod($node, $method_name, $is_direct)) {
                 $this->emitIssue(
                     Issue::PossiblyUndeclaredMethod,
                     $node->lineno,
@@ -854,6 +854,42 @@ class ContextNode
                 IssueFixSuggester::suggestSimilarMethod($this->code_base, $this->context, $first_class, $method_name, $is_static)
             )
         );
+    }
+
+    /**
+     * @throws IssueException
+     */
+    private function isDefinitelyPossiblyUndeclaredMethod(Node $node, string $method_name, bool $is_direct): bool {
+        try {
+            $union_type = UnionTypeVisitor::unionTypeFromClassNode(
+                $this->code_base,
+                $this->context,
+                $node->children['expr']
+                    ?? $node->children['class']
+            );
+        } catch (FQSENException $e) {
+            throw new IssueException(
+                Issue::fromType($e instanceof EmptyFQSENException ? Issue::EmptyFQSENInClasslike : Issue::InvalidFQSENInClasslike)(
+                    $this->context->getFile(),
+                    $node->lineno,
+                    [$e->getFQSEN()]
+                )
+            );
+        }
+        // Typically, this should only return false for intersection types that include a mix of types that have and don't have the method.
+        foreach ($union_type->getTypeSet() as $type) {
+            if (!$type->hasObjectWithKnownFQSEN()) {
+                continue;
+            }
+            foreach ($type->asPHPDocUnionType()->asClassList($this->code_base, $this->context) as $class) {
+                if ($class->hasMethodWithName($this->code_base, $method_name, $is_direct)) {
+                    continue 2;
+                }
+            }
+            // Part of the union type includes a type or intersection type that does not have that method.
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -928,7 +964,7 @@ class ContextNode
             }
         }
         if (!$has_type) {
-            if (!$union_type->hasPossiblyCallableType()) {
+            if (!$union_type->hasPossiblyCallableType($code_base)) {
                 Issue::maybeEmit(
                     $code_base,
                     $context,
@@ -939,7 +975,7 @@ class ContextNode
                 return;
             }
         }
-        if (Config::get_strict_method_checking() && $union_type->containsDefiniteNonCallableType()) {
+        if (Config::get_strict_method_checking() && $union_type->containsDefiniteNonCallableType($code_base)) {
             Issue::maybeEmit(
                 $code_base,
                 $context,
@@ -1249,8 +1285,6 @@ class ContextNode
      *
      * @throws NodeException
      * An exception is thrown if we can't understand the node
-     *
-     * @suppress PhanStaticClassAccessWithStaticVariable static variables are safely initialized
      */
     public function getOrCreateVariableForReferenceParameter(Parameter $parameter, ?Parameter $real_parameter): Variable
     {
@@ -1460,48 +1494,13 @@ class ContextNode
         }
         if (!$is_static && Config::get_strict_object_checking() &&
                 !($node->flags & PhanAnnotationAdder::FLAG_IGNORE_UNDEF)) {
-            $union_type = UnionTypeVisitor::unionTypeFromNode(
-                $this->code_base,
-                $this->context,
-                $node->children['expr']
-            );
-            $invalid = UnionType::empty();
-            foreach ($union_type->getTypeSet() as $type) {
-                if (!$type->isPossiblyObject()) {
-                    $invalid = $invalid->withType($type);
-                } elseif ($type->isNullableLabeled()) {
-                    $invalid = $invalid->withType(NullType::instance(false));
-                }
-            }
-            if (!$invalid->isEmpty()) {
-                if ($node->flags & PhanAnnotationAdder::FLAG_IGNORE_NULLABLE) {
-                    $invalid = $invalid->nonNullableClone();
-                }
-                if (!$invalid->isEmpty()) {
-                    foreach ($invalid->getTypeset() as $type) {
-                        if (!$type->isNullableLabeled()) {
-                            continue;
-                        }
-                        $this->emitIssue(
-                            Issue::PossiblyUndeclaredProperty,
-                            $node->lineno,
-                            $property_name,
-                            $union_type,
-                            $invalid
-                        );
-                        if ($property) {
-                            return $property;
-                        }
-                        break;
-                    }
-                }
-            }
+            self::checkPossiblyUndeclaredInstanceProperty($this->code_base, $this->context, $node, $property_name);
         }
         if ($property) {
             if ($class_without_property && Config::get_strict_object_checking() &&
                     !($node->flags & PhanAnnotationAdder::FLAG_IGNORE_UNDEF)) {
                 $this->emitIssue(
-                    Issue::PossiblyUndeclaredProperty,
+                    Issue::PossiblyUndeclaredPropertyOfClass,
                     $node->lineno,
                     $property_name,
                     UnionTypeVisitor::unionTypeFromNode(
@@ -1592,13 +1591,52 @@ class ContextNode
     }
 
     /**
+     * Warn if the expression of an AST_PROP is possibly invalid for an instance property
+     * (both for reading and for writing)
+     */
+    public static function checkPossiblyUndeclaredInstanceProperty(CodeBase $code_base, Context $context, Node $node, string $property_name): void
+    {
+        $union_type = UnionTypeVisitor::unionTypeFromNode(
+            $code_base,
+            $context,
+            $node->children['expr']
+        );
+        $invalid = UnionType::empty();
+        foreach ($union_type->getTypeSet() as $type) {
+            if (!$type->isPossiblyObject()) {
+                $invalid = $invalid->withType($type);
+            } elseif ($type->isNullableLabeled()) {
+                $invalid = $invalid->withType(NullType::instance(false));
+            }
+        }
+        if (!$invalid->isEmpty()) {
+            if ($node->flags & PhanAnnotationAdder::FLAG_IGNORE_NULLABLE) {
+                $invalid = $invalid->nonNullableClone();
+            }
+            if (!$invalid->isEmpty()) {
+                // XXX: Previously, this would only warn about null/nullable, not about scalars and arrays.
+                // Probably to reduce false positives.
+                Issue::maybeEmit(
+                    $code_base,
+                    $context,
+                    Issue::PossiblyUndeclaredProperty,
+                    $node->lineno,
+                    $property_name,
+                    $union_type,
+                    $invalid
+                );
+            }
+        }
+    }
+
+    /**
      * @throws NodeException|IssueException
      * @return no-return
      */
     private function throwExceptionForInvalidPropertyName(Node $node, bool $is_static): void
     {
         $property_type = UnionTypeVisitor::unionTypeFromNode($this->code_base, $this->context, $node->children['prop']);
-        if ($property_type->canCastToUnionType(StringType::instance(false)->asPHPDocUnionType())) {
+        if ($property_type->canCastToUnionType(StringType::instance(false)->asPHPDocUnionType(), $this->code_base)) {
             // If we know it can be a string, throw a NodeException instead of a specific issue
             throw new NodeException(
                 $node,
@@ -2059,25 +2097,24 @@ class ContextNode
         $llnode = $this->node;
 
         if ($kind !== ast\AST_DIM) {
-            if (!($this->node->children['expr'] instanceof Node)) {
+            $expr = $this->node->children['expr'];
+            if (!($expr instanceof Node)) {
                 return;
             }
 
-            if ($this->node->children['expr']->kind !== ast\AST_DIM) {
+            if ($expr->kind !== ast\AST_DIM) {
                 (new ContextNode(
                     $this->code_base,
                     $this->context,
-                    $this->node->children['expr']
+                    $expr
                 ))->analyzeBackwardCompatibility();
                 return;
             }
 
-            $temp = $this->node->children['expr']->children['expr'];
-            $llnode = $this->node->children['expr'];
-            $lnode = $temp;
+            $temp = $expr->children['expr'];
+            $llnode = $expr;
         } else {
             $temp = $this->node->children['expr'];
-            $lnode = $temp;
         }
 
         // Strings can have DIMs, it turns out.
@@ -2091,6 +2128,7 @@ class ContextNode
             return;
         }
 
+        $lnode = $temp;
         while ($temp instanceof Node
             && ($temp->kind === ast\AST_PROP
             || $temp->kind === ast\AST_STATIC_PROP)

@@ -15,8 +15,9 @@ use Phan\Language\Context;
 use Phan\Language\ElementContext;
 use Phan\Language\FileRef;
 use Phan\Language\FQSEN\FullyQualifiedMethodName;
+use Phan\Language\Scope\ClassScope;
 use Phan\Language\Scope\FunctionLikeScope;
-use Phan\Language\Type\GenericArrayType;
+use Phan\Language\Scope\GlobalScope;
 use Phan\Language\UnionType;
 use Phan\Memoize;
 
@@ -672,22 +673,14 @@ class Method extends ClassElement implements FunctionInterface
             $union_type = parent::getUnionType();
         }
 
-        // If the type is 'static', add this context's class
-        // to the return type
-        if ($union_type->hasStaticType()) {
-            $union_type = $union_type->withType(
-                $this->getFQSEN()->getFullyQualifiedClassName()->asType()
-            );
-        }
-
-        // If the type is a generic array of 'static', add
-        // a generic array of this context's class to the return type
-        if ($union_type->genericArrayElementTypes()->hasStaticType()) {
-            // TODO: Base this on the static array type...
-            $key_type_enum = GenericArrayType::keyTypeFromUnionTypeKeys($union_type);
-            $union_type = $union_type->withType(
-                $this->getFQSEN()->getFullyQualifiedClassName()->asType()->asGenericArrayType($key_type_enum)
-            );
+        // If the type contains 'static', add this method's class
+        // to the return type.
+        //
+        //
+        $scope = new ClassScope(new GlobalScope(), $this->getFQSEN()->getFullyQualifiedClassName(), 0);
+        $new_union_type = $union_type->withStaticResolvedInContext((clone $this->getContext())->withScope($scope));
+        if ($new_union_type !== $union_type) {
+            $union_type = $union_type->withUnionType($new_union_type);
         }
 
         return $union_type;
@@ -698,6 +691,7 @@ class Method extends ClassElement implements FunctionInterface
         return parent::getUnionType();
     }
 
+    /** @suppress PhanTypeMismatchReturn */
     public function getFQSEN(): FullyQualifiedMethodName
     {
         return $this->fqsen;
@@ -707,7 +701,6 @@ class Method extends ClassElement implements FunctionInterface
      * @return \Generator
      * @phan-return \Generator<Method>
      * The set of all alternates to this method
-     * @suppress PhanParamSignatureMismatch
      */
     public function alternateGenerator(CodeBase $code_base): \Generator
     {
@@ -976,6 +969,7 @@ class Method extends ClassElement implements FunctionInterface
         }
         $expected_type = $defining_fqsen->asType();
 
+        // TODO: Handle intersection types?
         foreach ($object_union_type->getTypeSet() as $type) {
             if (!$type->hasTemplateParameterTypes()) {
                 continue;

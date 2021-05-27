@@ -979,7 +979,7 @@ class Config
         //
         // Plugins which are bundled with Phan can be added here by providing their name (e.g. `'AlwaysReturnPlugin'`)
         //
-        // Documentation about available bundled plugins can be found [here](https://github.com/phan/phan/tree/v4/.phan/plugins).
+        // Documentation about available bundled plugins can be found [here](https://github.com/phan/phan/tree/v5/.phan/plugins).
         //
         // Alternately, you can pass in the full path to a PHP file with the plugin's implementation (e.g. `'vendor/phan/phan/.phan/plugins/AlwaysReturnPlugin.php'`)
         'plugins' => [
@@ -1281,10 +1281,8 @@ class Config
         self::$closest_target_php_version_id = self::computeClosestTargetPHPVersionId($value);
 
         $min_value = self::$configuration['minimum_target_php_version'];
-        // @phan-suppress-next-line PhanPartialTypeMismatchArgument
         $min_value_id = StringUtil::isNonZeroLengthString($min_value) ? self::computeClosestTargetPHPVersionId($min_value) : null;
 
-        // @phan-suppress-next-line PhanSuspiciousTruthyString, PhanSuspiciousTruthyCondition
         if (!$min_value_id) {
             $min_value_id = self::determineMinimumPHPVersionFromComposer() ?? $min_value_id;
         }
@@ -1326,7 +1324,6 @@ class Config
         if (!\file_exists($path_to_composer_json)) {
             return $contents = [];
         }
-        // @phan-suppress-next-line PhanPossiblyFalseTypeArgumentInternal
         $composer_json_contents = @\file_get_contents($path_to_composer_json);
         if (!is_string($composer_json_contents)) {
             return $contents = [];

@@ -21,7 +21,10 @@ class IterableType extends NativeType
     /** @phan-override */
     public const NAME = 'iterable';
 
-    public function isIterable(): bool
+    /**
+     * @unused-param $code_base
+     */
+    public function isIterable(CodeBase $code_base): bool
     {
         return true;
     }
@@ -36,6 +39,14 @@ class IterableType extends NativeType
         return $other instanceof IterableType ||
             $other instanceof CallableDeclarationType ||
             $other->isPossiblyObject();
+    }
+
+    /**
+     * @unused-param $code_base
+     */
+    public function isSubtypeOf(Type $type, CodeBase $code_base): bool
+    {
+        return \get_class($type) === IterableType::class || $type instanceof MixedType;
     }
 
     /**
@@ -67,7 +78,7 @@ class IterableType extends NativeType
         return Type::traversableInstance();
     }
 
-    public function asArrayType(): ?Type
+    public function asArrayType(): Type
     {
         return ArrayType::instance(false);
     }

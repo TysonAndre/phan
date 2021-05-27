@@ -331,7 +331,7 @@ class AssignOperatorAnalysisVisitor extends FlagVisitorImplementation
             // If both left and right are arrays, then this is array
             // concatenation.
             if ($left->isGenericArray() && $right->isGenericArray()) {
-                BinaryOperatorFlagVisitor::checkInvalidArrayShapeCombination($this->code_base, $this->context, $node, $left, $right);
+                BinaryOperatorFlagVisitor::checkInvalidArrayShapeCombination($code_base, $context, $node, $left, $right);
                 if ($left->isEqualTo($right)) {
                     return $left;
                 }
@@ -371,12 +371,12 @@ class AssignOperatorAnalysisVisitor extends FlagVisitorImplementation
             }
 
             $left_is_array = (
-                !$left->genericArrayElementTypes()->isEmpty()
+                !$left->genericArrayElementTypes(false, $code_base)->isEmpty()
                 && $left->nonArrayTypes()->isEmpty()
             ) || $left->isType($array_type);
 
             $right_is_array = (
-                !$right->genericArrayElementTypes()->isEmpty()
+                !$right->genericArrayElementTypes(false, $code_base)->isEmpty()
                 && $right->nonArrayTypes()->isEmpty()
             ) || $right->isType($array_type);
 
@@ -388,7 +388,8 @@ class AssignOperatorAnalysisVisitor extends FlagVisitorImplementation
 
                 if ($left_is_array
                     && !$right->canCastToUnionType(
-                        ArrayType::instance(false)->asPHPDocUnionType()
+                        ArrayType::instance(false)->asPHPDocUnionType(),
+                        $code_base
                     )
                 ) {
                     $this->emitIssue(
@@ -396,7 +397,7 @@ class AssignOperatorAnalysisVisitor extends FlagVisitorImplementation
                         $node->lineno ?? 0
                     );
                     return UnionType::empty();
-                } elseif ($right_is_array && !$left->canCastToUnionType($array_type->asPHPDocUnionType())) {
+                } elseif ($right_is_array && !$left->canCastToUnionType($array_type->asPHPDocUnionType(), $code_base)) {
                     $this->emitIssue(
                         Issue::TypeInvalidLeftOperand,
                         $node->lineno ?? 0

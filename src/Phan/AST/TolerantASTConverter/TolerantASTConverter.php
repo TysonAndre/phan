@@ -617,6 +617,7 @@ class TolerantASTConverter
      * @return array<string,Closure(object,int):(\ast\Node|int|string|float|null)>
      *
      * NOTE: Make sure that the only caller of this is TolerantASTConverterTrait
+     * @suppress PhanTypeMismatchReturn todo: why?
      */
     protected static function initHandleMap(): array
     {
@@ -745,8 +746,8 @@ class TolerantASTConverter
                     static::phpParserAttributeGroupsToAstAttributeList($n->attributes),
                     static::phpParserParamsToAstParams($n->parameters, $start_line),
                     static::phpParserClosureUsesToAstClosureUses($use_variable_name_list, $start_line),
-                    // @phan-suppress-next-line PhanTypeMismatchArgumentNullable, PhanPossiblyUndeclaredProperty return_null_on_empty is false.
-                    static::phpParserStmtlistToAstNode($n->compoundStatementOrSemicolon->statements, self::getStartLine($n->compoundStatementOrSemicolon), false),
+                    // @phan-suppress-next-line PhanTypeMismatchArgumentNullable $return_null_on_empty is false
+                    static::phpParserStmtlistToAstNode($n->compoundStatementOrSemicolon->statements ?? [], self::getStartLine($n->compoundStatementOrSemicolon), false),
                     $ast_return_type,
                     $start_line,
                     static::getEndLine($n),
@@ -2418,7 +2419,6 @@ class TolerantASTConverter
             if (!$arm instanceof PhpParser\Node\MatchArm) {
                 continue;
             }
-            // @phan-suppress-next-line PhanTypeMismatchArgument
             try {
                 $ast_arms[] = static::phpParserMatchArmToAstMatchArm($arm);
             } catch (InvalidNodeException $_) {

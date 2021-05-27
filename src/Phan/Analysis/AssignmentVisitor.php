@@ -355,8 +355,8 @@ class AssignmentVisitor extends AnalysisVisitor
         /** @suppress PhanAccessMethodInternal */
         $get_fallback_element_type = function () use (&$fallback_element_type): UnionType {
             return $fallback_element_type ?? ($fallback_element_type = (
-                $this->right_type->genericArrayElementTypes()
-                                 ->withRealTypeSet(UnionType::computeRealElementTypesForDestructuringAccess($this->right_type->getRealTypeSet()))));
+                $this->right_type->genericArrayElementTypes(false, $this->code_base)
+                                 ->withRealTypeSet(UnionType::computeRealElementTypesForDestructuringAccess($this->right_type->getRealTypeSet(), $this->code_base))));
         };
 
         $expect_string_keys_lineno = false;
@@ -419,7 +419,7 @@ class AssignmentVisitor extends AnalysisVisitor
             }
 
             if (\is_scalar($key_value)) {
-                $element_type = UnionTypeVisitor::resolveArrayShapeElementTypesForOffset($this->right_type, $key_value);
+                $element_type = UnionTypeVisitor::resolveArrayShapeElementTypesForOffset($this->right_type, $key_value, false, $this->code_base);
                 if ($element_type === null) {
                     $element_type = $get_fallback_element_type();
                 } elseif ($element_type === false) {
@@ -433,8 +433,8 @@ class AssignmentVisitor extends AnalysisVisitor
                     $element_type = $get_fallback_element_type();
                 } else {
                     if ($element_type->hasRealTypeSet()) {
-                        $element_type = self::withComputedRealUnionType($element_type, $this->right_type, static function (UnionType $new_right_type) use ($key_value): UnionType {
-                            return UnionTypeVisitor::resolveArrayShapeElementTypesForOffset($new_right_type, $key_value) ?: UnionType::empty();
+                        $element_type = self::withComputedRealUnionType($element_type, $this->right_type, function (UnionType $new_right_type) use ($key_value): UnionType {
+                            return UnionTypeVisitor::resolveArrayShapeElementTypesForOffset($new_right_type, $key_value, false, $this->code_base) ?: UnionType::empty();
                         });
                     }
                 }
@@ -624,7 +624,7 @@ class AssignmentVisitor extends AnalysisVisitor
                 }
                 return;
             }
-            if (!$new_type->asExpandedTypes($code_base)->canCastToUnionType($element->getPHPDocUnionType())) {
+            if (!$new_type->canCastToUnionType($element->getPHPDocUnionType(), $code_base)) {
                 $reference_context = $reference_element->getContextOfCreatedReference();
                 if ($reference_context) {
                     Issue::maybeEmit(
@@ -667,8 +667,8 @@ class AssignmentVisitor extends AnalysisVisitor
                 );
             }
             $element_type =
-                $array_access_types->genericArrayElementTypes()
-                                   ->withRealTypeSet(UnionType::computeRealElementTypesForDestructuringAccess($right_type->getRealTypeSet()));
+                $array_access_types->genericArrayElementTypes(false, $this->code_base)
+                                   ->withRealTypeSet(UnionType::computeRealElementTypesForDestructuringAccess($right_type->getRealTypeSet(), $this->code_base));
             // @phan-suppress-previous-line PhanAccessMethodInternal
         }
 
@@ -979,6 +979,13 @@ class AssignmentVisitor extends AnalysisVisitor
             $this->handleThisPropertyAssignmentInLocalScopeByName($node, $property_name);
         }
 
+        if (Config::get_strict_object_checking()) {
+            ContextNode::checkPossiblyUndeclaredInstanceProperty($this->code_base, $this->context, $node, $property_name);
+        }
+
+        $property = null;
+        $class_with_property = null;
+        $class_without_property = null;
         foreach ($class_list as $clazz) {
             if ($clazz->isImmutableAtRuntime()) {
                 $this->emitTypeModifyImmutableObjectPropertyIssue($clazz, $property_name, $node);
@@ -988,6 +995,7 @@ class AssignmentVisitor extends AnalysisVisitor
             // a setter
             if (!$clazz->hasPropertyWithName($this->code_base, $property_name)) {
                 if (!$clazz->hasMethodWithName($this->code_base, '__set', true)) {
+                    $class_without_property = $clazz;
                     continue;
                 }
             }
@@ -1001,6 +1009,7 @@ class AssignmentVisitor extends AnalysisVisitor
                     $node,
                     true
                 );
+                $class_with_property = $clazz;
             } catch (IssueException $exception) {
                 Issue::maybeEmitInstance(
                     $this->code_base,
@@ -1009,8 +1018,24 @@ class AssignmentVisitor extends AnalysisVisitor
                 );
                 return $this->context;
             }
+        }
+
+        if ($property && $class_with_property) {
+            if ($class_without_property && Config::get_strict_object_checking()) {
+                $this->emitIssue(
+                    Issue::PossiblyUndeclaredPropertyOfClass,
+                    $node->lineno,
+                    $property_name,
+                    UnionTypeVisitor::unionTypeFromNode(
+                        $this->code_base,
+                        $this->context,
+                        $node->children['expr'] ?? $node->children['class']
+                    ),
+                    $class_without_property->getFQSEN()
+                );
+            }
             try {
-                return $this->analyzePropAssignment($clazz, $property, $node);
+                return $this->analyzePropAssignment($class_with_property, $property, $node);
             } catch (RecursionDepthException $_) {
                 return $this->context;
             }
@@ -1066,6 +1091,7 @@ class AssignmentVisitor extends AnalysisVisitor
      */
     private function analyzePropAssignment(Clazz $clazz, Property $property, Node $node): Context
     {
+        $code_base = $this->code_base;
         if ($property->isReadOnly()) {
             $this->analyzeAssignmentToReadOnlyProperty($property, $node);
         }
@@ -1080,13 +1106,13 @@ class AssignmentVisitor extends AnalysisVisitor
         if ($this->dim_depth > 0) {
             if ($resolved_right_type->canCastToExpandedUnionType(
                 $property_union_type,
-                $this->code_base
+                $code_base
             )) {
                 $this->addTypesToProperty($property, $node);
                 if (Config::get_strict_property_checking() && $resolved_right_type->typeCount() > 1) {
                     $this->analyzePropertyAssignmentStrict($property, $resolved_right_type, $node);
                 }
-            } elseif ($property_union_type->asExpandedTypes($this->code_base)->hasArrayAccess()) {
+            } elseif ($property_union_type->hasArrayAccess($code_base)) {
                 // Add any type if this is a subclass with array access.
                 $this->addTypesToProperty($property, $node);
             } else {
@@ -1101,7 +1127,7 @@ class AssignmentVisitor extends AnalysisVisitor
                 // TODO: More precise than canCastToExpandedUnionType
                 if (!$new_types->canCastToExpandedUnionType(
                     $property_union_type,
-                    $this->code_base
+                    $code_base
                 )) {
                     // echo "Emitting warning for $new_types\n";
                     // TODO: Don't emit if array shape type is compatible with the original value of $property_union_type
@@ -1128,15 +1154,15 @@ class AssignmentVisitor extends AnalysisVisitor
             return $this->context;
         } else {
             // This is a regular assignment, not an assignment to an offset
-            if (!$resolved_right_type->canCastToExpandedUnionType(
-                $property_union_type,
-                $this->code_base
+            if (!$resolved_right_type->canCastToUnionType(
+                $property_union_type->asExpandedTypes($code_base),
+                $code_base
             )
                 && !($resolved_right_type->hasTypeInBoolFamily() && $property_union_type->hasTypeInBoolFamily())
-                && !$clazz->hasDynamicProperties($this->code_base)
+                && !$clazz->hasDynamicProperties($code_base)
                 && !$property->isDynamicProperty()
             ) {
-                if ($resolved_right_type->nonNullableClone()->canCastToExpandedUnionType($property_union_type, $this->code_base) &&
+                if ($resolved_right_type->nonNullableClone()->canCastToUnionType($property_union_type->asExpandedTypes($code_base), $code_base) &&
                         !$resolved_right_type->isType(NullType::instance(false))) {
                     if ($this->shouldSuppressIssue(Issue::TypeMismatchProperty, $node->lineno)) {
                         return $this->context;
@@ -1151,7 +1177,7 @@ class AssignmentVisitor extends AnalysisVisitor
                         'null'
                     );
                 } else {
-                    // echo "Emitting warning for {$resolved_right_type->asExpandedTypes($this->code_base)} to {$property_union_type->asExpandedTypes($this->code_base)}\n";
+                    // echo "Emitting warning for {$resolved_right_type->asExpandedTypes($code_base)} to {$property_union_type->asExpandedTypes($code_base)}\n";
                     $this->emitTypeMismatchPropertyIssue($node, $property, $resolved_right_type, $this->right_type->withUnionType($resolved_right_type), $property_union_type);
                 }
                 return $this->context;
@@ -1243,7 +1269,7 @@ class AssignmentVisitor extends AnalysisVisitor
         if ($real_property_type->isEmpty()) {
             return false;
         }
-        return !$real_actual_type->asExpandedTypes($code_base)->isStrictSubtypeOf($code_base, $real_property_type);
+        return !$real_actual_type->isStrictSubtypeOf($code_base, $real_property_type);
     }
 
     /**
@@ -1286,7 +1312,7 @@ class AssignmentVisitor extends AnalysisVisitor
             $method = $this->context->getFunctionLikeInScope($this->code_base);
             if ($method instanceof Method && strcasecmp($method->getName(), '__construct') === 0) {
                 $class_type = $class_fqsen->asType();
-                if ($class_type->asExpandedTypes($this->code_base)->hasType($property->getClassFQSEN()->asType())) {
+                if ($property->getClassFQSEN()->asType()->isSubtypeOf($class_type, $this->code_base)) {
                     // This is a constructor setting its own properties or a base class's properties.
                     // TODO: Could support private methods
                     return;
@@ -1310,9 +1336,6 @@ class AssignmentVisitor extends AnalysisVisitor
         }
 
         $property_union_type = $property->getUnionType();
-        if ($property_union_type->hasTemplateTypeRecursive()) {
-            $property_union_type = $property_union_type->asExpandedTypes($this->code_base);
-        }
 
         $mismatch_type_set = UnionType::empty();
         $mismatch_expanded_types = null;
@@ -1323,9 +1346,10 @@ class AssignmentVisitor extends AnalysisVisitor
             $individual_type_expanded = $type->asExpandedTypes($this->code_base);
 
             // See if the argument can be cast to the
-            // parameter
+            // property
             if (!$individual_type_expanded->canCastToUnionType(
-                $property_union_type
+                $property_union_type,
+                $this->code_base
             )) {
                 $mismatch_type_set = $mismatch_type_set->withType($type);
                 if ($mismatch_expanded_types === null) {
@@ -1419,7 +1443,7 @@ class AssignmentVisitor extends AnalysisVisitor
             // Only allow compatible types to be added to declared properties.
             // Allow anything to be added to dynamic properties.
             // TODO: Be more permissive about declared properties without phpdoc types.
-            if (!$new_type->asExpandedTypes($code_base)->canCastToUnionType($original_property_types) && !$property->isDynamicProperty()) {
+            if (!$new_type->asPHPDocUnionType()->canCastToUnionType($original_property_types, $code_base) && !$property->isDynamicProperty()) {
                 continue;
             }
 
@@ -1437,8 +1461,6 @@ class AssignmentVisitor extends AnalysisVisitor
         //       If that is implemented, verify that generic arrays will properly cast to regular arrays (public $x = [];)
         $property->setUnionType($updated_property_types->withRealTypeSet($property->getRealUnionType()->getTypeSet()));
     }
-
-
 
     /**
      * @param Property $property - The property which should have types added to it
@@ -1486,7 +1508,7 @@ class AssignmentVisitor extends AnalysisVisitor
             // Only allow compatible types to be added to declared properties.
             // Allow anything to be added to dynamic properties.
             // TODO: Be more permissive about declared properties without phpdoc types.
-            if (!$new_type->asExpandedTypes($this->code_base)->canCastToUnionType($original_property_types) && !$property->isDynamicProperty()) {
+            if (!$new_type->asPHPDocUnionType()->canCastToUnionType($original_property_types, $this->code_base) && !$property->isDynamicProperty()) {
                 continue;
             }
 
@@ -1873,9 +1895,9 @@ class AssignmentVisitor extends AnalysisVisitor
         // unless it has 1 or more array types and all are list<T>
         $right_type = self::normalizeListTypesInDimAssignment($assign_type, $right_type);
 
-        if ($assign_type->isEmpty() || ($assign_type->hasGenericArray() && !$assign_type->asExpandedTypes($this->code_base)->hasArrayAccess())) {
+        if ($assign_type->isEmpty() || ($assign_type->hasGenericArray() && !$assign_type->hasArrayAccess($this->code_base))) {
             // For empty union types or 'array', expect the provided dimension to be able to cast to int|string
-            if ($dim_type && !$dim_type->isEmpty() && !$dim_type->canCastToUnionType($int_or_string_type)) {
+            if ($dim_type && !$dim_type->isEmpty() && !$dim_type->canCastToUnionType($int_or_string_type, $this->code_base)) {
                 $this->emitIssue(
                     Issue::TypeMismatchDimAssignment,
                     $node->lineno,
@@ -1886,15 +1908,15 @@ class AssignmentVisitor extends AnalysisVisitor
             }
             return $right_type;
         }
-        $assign_type_expanded = $assign_type->withStaticResolvedInContext($this->context)->asExpandedTypes($this->code_base);
+        $assign_type_resolved = $assign_type->withStaticResolvedInContext($this->context);
         //echo "$assign_type_expanded : " . json_encode($assign_type_expanded->hasArrayLike()) . "\n";
 
         // TODO: Better heuristic to deal with false positives on ArrayAccess subclasses
-        if ($assign_type_expanded->hasArrayAccess() && !$assign_type_expanded->hasGenericArray()) {
+        if ($assign_type_resolved->hasArrayAccess($this->code_base) && !$assign_type_resolved->hasGenericArray()) {
             return UnionType::empty();
         }
 
-        if (!$assign_type_expanded->hasArrayLike()) {
+        if (!$assign_type_resolved->hasArrayLike($this->code_base)) {
             if ($assign_type->hasNonNullStringType()) {
                 // Are we assigning to a variable/property of type 'string' (with no ArrayAccess or array types)?
                 if (\is_null($dim_type)) {
@@ -1913,7 +1935,7 @@ class AssignmentVisitor extends AnalysisVisitor
                         'int'
                     );
                 } else {
-                    if ($right_type->canCastToUnionType($string_array_type)) {
+                    if ($right_type->canCastToUnionType($string_array_type, $this->code_base)) {
                         // e.g. $a = 'aaa'; $a[0] = 'x';
                         // (Currently special casing this, not handling deeper dimensions)
                         return StringType::instance(false)->asPHPDocUnionType();
