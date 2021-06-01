@@ -2581,6 +2581,9 @@ class UnionTypeVisitor extends AnalysisVisitor
                 $node
             ))->getClassConst();
             $union_type = $constant->getUnionType();
+            if ($constant->isFinal()) {
+                return $union_type;
+            }
             $class_node = $node->children['class'];
             if (!$class_node instanceof Node || $class_node->kind !== ast\AST_NAME) {
                 // ignore nonsense like (0)::class, and dynamic accesses such as $var::CLASS
@@ -4164,6 +4167,7 @@ class UnionTypeVisitor extends AnalysisVisitor
         return null;
     }
 
+    // Precondition: minimum_target_php_version_id < 70100
     private function analyzeNegativeStringOffsetCompatibility(Node $node, UnionType $dim_type): void
     {
         $dim_value = $dim_type->asSingleScalarValueOrNull();

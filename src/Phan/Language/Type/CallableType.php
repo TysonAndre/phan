@@ -89,4 +89,10 @@ final class CallableType extends NativeType implements CallableInterface
             || $other instanceof IterableType
             || parent::canCastToDeclaredType($code_base, $context, $other);
     }
+
+    /** @unused-param $code_base */
+    public function isSubtypeOfNonNullableType(Type $type, CodeBase $code_base): bool
+    {
+        return $type instanceof CallableType || $type instanceof MixedType;
+    }
 }

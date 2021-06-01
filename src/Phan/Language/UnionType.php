@@ -31,8 +31,8 @@ use Phan\Language\Type\FalseType;
 use Phan\Language\Type\FloatType;
 use Phan\Language\Type\GenericArrayInterface;
 use Phan\Language\Type\GenericArrayType;
-use Phan\Language\Type\IntType;
 use Phan\Language\Type\IntersectionType;
+use Phan\Language\Type\IntType;
 use Phan\Language\Type\IterableType;
 use Phan\Language\Type\ListType;
 use Phan\Language\Type\LiteralFloatType;
@@ -576,7 +576,8 @@ class UnionType implements Serializable, Stringable
      * @param list<TypePart> $parts
      * @return list<string>
      */
-    private static function convertTypePartsToParseableStrings(array $parts): array {
+    private static function convertTypePartsToParseableStrings(array $parts): array
+    {
         $union = [];
         $intersection = [];
         foreach ($parts as $part) {
@@ -585,12 +586,12 @@ class UnionType implements Serializable, Stringable
                 continue;
             }
             if ($intersection) {
-                $union[] = count($intersection) >= 2 ? 'and<' . implode(',', $intersection) . '>' : $intersection[0];
+                $union[] = count($intersection) >= 2 ? 'phan-intersection-type<' . implode(',', $intersection) . '>' : $intersection[0];
             }
             $intersection = [$part->type];
         }
         if ($intersection) {
-            $union[] = count($intersection) >= 2 ? 'and<' . implode(',', $intersection) . '>' : $intersection[0];
+            $union[] = count($intersection) >= 2 ? 'phan-intersection-type<' . implode(',', $intersection) . '>' : $intersection[0];
         }
         return $union;
     }
@@ -2081,7 +2082,7 @@ class UnionType implements Serializable, Stringable
      */
     public function hasIterable(CodeBase $code_base): bool
     {
-        return $this->hasTypeMatchingCallback(static function (Type $type) use($code_base): bool {
+        return $this->hasTypeMatchingCallback(static function (Type $type) use ($code_base): bool {
             return $type->isIterable($code_base);
         });
     }
@@ -2295,7 +2296,8 @@ class UnionType implements Serializable, Stringable
      * (intended to ignore any permissive config settings, such as null_casts_as_any_type)
      * i.e. int->float is allowed  while float->int is not.
      */
-    public function canCastToUnionTypeWithoutConfig(UnionType $target, CodeBase $code_base): bool {
+    public function canCastToUnionTypeWithoutConfig(UnionType $target, CodeBase $code_base): bool
+    {
         // Fast-track most common cases first
         $type_set = $this->type_set;
         // If either type is unknown, we can't call it
@@ -2426,7 +2428,8 @@ class UnionType implements Serializable, Stringable
      *
      * @suppress PhanStaticClassAccessWithStaticVariable static variables are safely initialized
      */
-    public function hasSubtypeOf(UnionType $target, CodeBase $code_base): bool {
+    public function hasSubtypeOf(UnionType $target, CodeBase $code_base): bool
+    {
         // Fast-track most common cases first
         $type_set = $this->type_set;
         // If either type is unknown, we can't call it
@@ -2503,11 +2506,11 @@ class UnionType implements Serializable, Stringable
      *
      * NOTE: callers should check that
      */
-    protected function canAnyTypeWeakOverlapUnionType(UnionType $target): bool
+    protected function canAnyTypeWeakOverlapUnionType(UnionType $target, CodeBase $code_base): bool
     {
         foreach ($this->type_set as $type) {
             foreach ($target->type_set as $other_type) {
-                if ($type->weaklyOverlaps($other_type)) {
+                if ($type->weaklyOverlaps($other_type, $code_base)) {
                     return true;
                 }
             }
@@ -2663,7 +2666,7 @@ class UnionType implements Serializable, Stringable
             if ($this->isNull()) {
                 return false;
             }
-        } else if ($other->isNull()) {
+        } elseif ($other->isNull()) {
             return false;
         }
         $this_nonnull = $this->withIsNullable(false);
@@ -2678,9 +2681,9 @@ class UnionType implements Serializable, Stringable
      *
      * @suppress PhanUnreferencedPublicMethod
      */
-    public function hasAnyWeakTypeOverlap(UnionType $other): bool
+    public function hasAnyWeakTypeOverlap(UnionType $other, CodeBase $code_base): bool
     {
-        return $this->canAnyTypeWeakOverlapUnionType($other) || $other->canAnyTypeWeakOverlapUnionType($this);
+        return $this->canAnyTypeWeakOverlapUnionType($other, $code_base) || $other->canAnyTypeWeakOverlapUnionType($this, $code_base);
     }
 
     /**
@@ -2805,7 +2808,7 @@ class UnionType implements Serializable, Stringable
      */
     public function hasArrayAccess(CodeBase $code_base): bool
     {
-        return $this->hasTypeMatchingCallback(static function (Type $type) use($code_base): bool {
+        return $this->hasTypeMatchingCallback(static function (Type $type) use ($code_base): bool {
             return $type->isArrayAccess($code_base);
         });
     }
@@ -3630,7 +3633,7 @@ class UnionType implements Serializable, Stringable
      */
     public function hasCallableType(CodeBase $code_base): bool
     {
-        return $this->hasTypeMatchingCallback(static function (Type $type) use($code_base): bool {
+        return $this->hasTypeMatchingCallback(static function (Type $type) use ($code_base): bool {
             return $type->isCallable($code_base);
         });
     }
@@ -3650,7 +3653,7 @@ class UnionType implements Serializable, Stringable
      */
     public function isExclusivelyCallable(CodeBase $code_base): bool
     {
-        return $this->allTypesMatchCallback(static function (Type $type) use($code_base): bool {
+        return $this->allTypesMatchCallback(static function (Type $type) use ($code_base): bool {
             return $type->isCallable($code_base);
         });
     }
@@ -6351,7 +6354,7 @@ class UnionType implements Serializable, Stringable
     {
         $result = false;
         foreach ($this->type_set as $type) {
-            if ($type instanceof IntersectionType && $type->checkImpossibleCombination($code_base, $context)) {
+            if ($type->checkImpossibleCombination($code_base, $context)) {
                 $result = true;
             }
         }

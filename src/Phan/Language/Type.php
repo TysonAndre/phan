@@ -43,8 +43,8 @@ use Phan\Language\Type\GenericArrayTemplateKeyType;
 use Phan\Language\Type\GenericArrayType;
 use Phan\Language\Type\GenericIterableType;
 use Phan\Language\Type\GenericMultiArrayType;
-use Phan\Language\Type\IntType;
 use Phan\Language\Type\IntersectionType;
+use Phan\Language\Type\IntType;
 use Phan\Language\Type\IterableType;
 use Phan\Language\Type\ListType;
 use Phan\Language\Type\LiteralFloatType;
@@ -111,17 +111,17 @@ class Type implements Stringable
      * A legal type identifier (e.g. 'int' or 'DateTime')
      */
     public const simple_type_regex =
-        '(\??)(?:callable-(?:string|object|array)|associative-array|class-string|lowercase-string|no-return|never-returns?|non-(?:zero-int|null-mixed|empty-(?:associative-array|array|list|string|lowercase-string|mixed))|\\\\?[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*(?:\\\\[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)*)';
+        '(\??)(?:callable-(?:string|object|array)|associative-array|class-string|lowercase-string|phan-intersection-type|no-return|never-returns?|non-(?:zero-int|null-mixed|empty-(?:associative-array|array|list|string|lowercase-string|mixed))|\\\\?[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*(?:\\\\[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)*)';
 
     public const simple_noncapturing_type_regex =
-        '\\\\?(?:callable-(?:string|object|array)|associative-array|class-string|lowercase-string|no-return|never-returns?|non-(?:zero-int|null-mixed|empty-(?:associative-array|array|list|string|lowercase-string|mixed))|[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*(?:\\\\[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)*)';
+        '\\\\?(?:callable-(?:string|object|array)|associative-array|class-string|lowercase-string|phan-intersection-type|no-return|never-returns?|non-(?:zero-int|null-mixed|empty-(?:associative-array|array|list|string|lowercase-string|mixed))|[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*(?:\\\\[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)*)';
 
     /**
      * @var string
      * A legal type identifier (e.g. 'int' or 'DateTime')
      */
     public const simple_type_regex_or_this =
-        '(\??)(callable-(?:string|object|array)|associative-array|class-string|lowercase-string|no-return|never-returns?|non-(?:zero-int|null-mixed|empty-(?:associative-array|array|list|string|lowercase-string|mixed))|\\\\?[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*(?:\\\\[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)*|\$this)';
+        '(\??)(callable-(?:string|object|array)|associative-array|class-string|lowercase-string|phan-intersection-type|no-return|never-returns?|non-(?:zero-int|null-mixed|empty-(?:associative-array|array|list|string|lowercase-string|mixed))|\\\\?[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*(?:\\\\[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)*|\$this)';
 
     public const shape_key_regex =
         '(?:[-.\/^;$%*+_a-zA-Z0-9\x7f-\xff]|\\\\(?:[nrt\\\\]|x[0-9a-fA-F]{2}))+\??';
@@ -231,7 +231,6 @@ class Type implements Stringable
      * @var array<string,bool> - For checking if a string is an internal type. This is used for case-insensitive lookup.
      */
     public const _internal_type_set = [
-        'and'             => true,
         'associative-array' => true,
         'array'           => true,
         'bool'            => true,
@@ -257,6 +256,7 @@ class Type implements Stringable
         'non-zero-int'    => true,
         'null'            => true,
         'object'          => true,
+        'phan-intersection-type' => true,
         'resource'        => true,
         'scalar'          => true,
         'static'          => true,
@@ -759,6 +759,10 @@ class Type implements Stringable
      *
      * @param int $source Type::FROM_*
      *
+     * @param ?CodeBase $code_base
+     *
+     * @param ?Context $context
+     *
      * @param list<UnionType> $template_parameter_type_list used for static, etc. @phan-mandatory-param
      *
      * @return Type
@@ -771,9 +775,10 @@ class Type implements Stringable
         string $type_name,
         bool $is_nullable,
         int $source,
+        ?CodeBase $code_base,
+        ?Context $context,
         array $template_parameter_type_list = []
     ): Type {
-
         // If this is a generic type (like int[]), return
         // a generic of internal types.
         //
@@ -786,12 +791,35 @@ class Type implements Stringable
                     \substr($type_name, 0, $pos),
                     false,
                     $source,
+                    $code_base,
+                    $context,
                     $template_parameter_type_list
                 ),
                 $is_nullable,
                 GenericArrayType::KEY_MIXED
             );
         }
+        if (count($template_parameter_type_list) > 0) {
+            switch (\strtolower($type_name)) {
+                case 'array':
+                case 'non-empty-array':
+                    return self::parseGenericArrayTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable, $type_name === 'non-empty-array', false);
+                case 'associative-array':
+                case 'non-empty-associative-array':
+                    return self::parseGenericArrayTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable, $type_name === 'non-empty-array', true);
+                case 'list':
+                case 'non-empty-list':
+                    return self::parseListTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable, $type_name === 'non-empty-list');
+                case 'iterable':
+                    return self::parseGenericIterableTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable);
+                case 'class-string':
+                    return self::parseClassStringTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable);
+                case 'phan-intersection-type':
+                    // phan-intersection-type<A, B, C> is an alias for A&B&C for parsing simplicity
+                    return self::parseIntersectionTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable, $code_base, $context);
+            }
+        }
+
 
         $type_name = self::canonicalNameFromName($type_name);
 
@@ -822,6 +850,7 @@ class Type implements Stringable
                 return IntType::instance($is_nullable);
             case 'list':
                 return ListType::fromElementType(MixedType::instance(false), $is_nullable);
+            case 'phan-intersection-type': // There are no template arguments.
             case 'mixed':
                 return MixedType::instance($is_nullable);
             case 'non-empty-mixed':
@@ -868,7 +897,7 @@ class Type implements Stringable
 
         if (\substr($type_name, 0, 1) === '?') {
             // @phan-suppress-next-line PhanPossiblyFalseTypeArgument
-            return self::fromInternalTypeName(\substr($type_name, 1), true, $source, $template_parameter_type_list);
+            return self::fromInternalTypeName(\substr($type_name, 1), true, $source, $code_base, $context, $template_parameter_type_list);
         }
         throw new AssertionError("No internal type with name $type_name");
     }
@@ -1005,29 +1034,12 @@ class Type implements Stringable
         $template_parameter_type_list = self::createTemplateParameterTypeList($template_parameter_type_name_list);
 
         if (!$namespace) {
-            if (count($template_parameter_type_name_list) > 0) {
-                $type_name = \strtolower($type_name);
-                switch ($type_name) {
-                    case 'array':
-                    case 'non-empty-array':
-                        return self::parseGenericArrayTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable, $type_name === 'non-empty-array', false);
-                    case 'associative-array':
-                    case 'non-empty-associative-array':
-                        return self::parseGenericArrayTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable, $type_name === 'non-empty-array', true);
-                    case 'list':
-                    case 'non-empty-list':
-                        return self::parseListTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable, $type_name === 'non-empty-list');
-                    case 'iterable':
-                        return self::parseGenericIterableTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable);
-                    case 'and':
-                        // and<A, B, C> is an alias for A&B&C for parsing simplicity
-                        return self::parseIntersectionTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable, null, null);
-                }
-            }
             return self::fromInternalTypeName(
-                $fully_qualified_string,
+                $type_name,
                 $is_nullable,
                 Type::FROM_NODE,
+                null,
+                null,
                 $template_parameter_type_list
             );
         }
@@ -1497,31 +1509,7 @@ class Type implements Stringable
         }
 
         if (self::isInternalTypeString($type_name, $source)) {
-            if (count($template_parameter_type_list) > 0) {
-                switch (\strtolower($type_name)) {
-                    case 'array':
-                        return self::parseGenericArrayTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable, false, false);
-                    case 'associative-array':
-                        return self::parseGenericArrayTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable, false, true);
-                    case 'non-empty-array':
-                        return self::parseGenericArrayTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable, true, false);
-                    case 'non-empty-associative-array':
-                        return self::parseGenericArrayTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable, true, true);
-                    case 'iterable':
-                        return self::parseGenericIterableTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable);
-                    case 'class-string':
-                        return self::parseClassStringTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable);
-                    case 'list':
-                        return self::parseListTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable, false);
-                    case 'non-empty-list':
-                        return self::parseListTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable, true);
-                    case 'and':
-                        // and<A, B, C> is an alias for A&B&C for parsing simplicity
-                        return self::parseIntersectionTypeFromTemplateParameterList($template_parameter_type_list, $is_nullable, $code_base, $context);
-                }
-                // TODO: Warn about unrecognized types.
-            }
-            return self::fromInternalTypeName($type_name, $is_nullable, $source, $template_parameter_type_list);
+            return self::fromInternalTypeName($type_name, $is_nullable, $source, $code_base, $context, $template_parameter_type_list);
         }
 
         // Things like `self[]` or `$this[]`
@@ -2223,6 +2211,9 @@ class Type implements Stringable
         if (!$this->isPossiblyObject()) {
             return false;
         }
+        if ($other instanceof IterableType && !$this->isPossiblyIterable($code_base)) {
+            return false;
+        }
         // Check if either side is something we don't know about, e.g. `object`, `iterable`, etc.
         if (!$this->isObjectWithKnownFQSEN()) {
             return true;
@@ -2263,7 +2254,7 @@ class Type implements Stringable
 
     /**
      * @return bool
-     * True if this type is iterable. Does not check ancestor types.
+     * True if this type is iterable. Checks ancestor types.
      * Called by UnionType->hasTraversable()
      */
     public function isIterable(CodeBase $code_base): bool
@@ -2274,6 +2265,30 @@ class Type implements Stringable
             }
         }
         return false;  // Overridden in subclass IterableType (with subclass ArrayType)
+    }
+
+    /**
+     * @return bool
+     * True if this type is possibly iterable. Checks ancestor types and checks for final types.
+     * Called by UnionType->hasTraversable()
+     */
+    public function isPossiblyIterable(CodeBase $code_base): bool
+    {
+        if ($this->isIterable($code_base)) {
+            return true;
+        }
+        if (!$this->isPossiblyObject()) {
+            return false;
+        }
+        if (!$this->isObjectWithKnownFQSEN()) {
+            return true;
+        }
+        $fqsen = FullyQualifiedClassName::fromType($this);
+        if (!$code_base->hasClassWithFQSEN($fqsen)) {
+            return true;
+        }
+        $class = $code_base->getClassByFQSEN($fqsen);
+        return !$class->isFinal();
     }
 
     /**
@@ -2317,7 +2332,7 @@ class Type implements Stringable
     public function isArrayAccess(CodeBase $code_base): bool
     {
         foreach ($this->asExpandedTypes($code_base)->getTypeSet() as $part) {
-            if (strcasecmp($part->name,'ArrayAccess') === 0 && $part->namespace === '\\') {
+            if (strcasecmp($part->name, 'ArrayAccess') === 0 && $part->namespace === '\\') {
                 return true;
             }
         }
@@ -3049,22 +3064,38 @@ class Type implements Stringable
         if ($type instanceof IntersectionType) {
             // TODO: Pretty much everything needs to have a CodeBase for intersection types to be checked properly
             // (e.g. to confirm that ArrayObject can cast to Countable&ArrayAccess)
-            return self::matchesAllOtherTypeParts(function (Type $part) use($code_base): bool {
+            return self::matchesAllOtherTypeParts(function (Type $part) use ($code_base): bool {
                 return $this->canCastToNonNullableType($part, $code_base);
             }, $type);
         }
         // can't cast native types (includes iterable or array) to object. ObjectType overrides this function.
-        if ($type instanceof ObjectType
-            && !$this->isNativeType()
-        ) {
+        if ($type instanceof ObjectType) {
+            if (!$this->isPossiblyObject()) {
+                return false;
+            }
+            if ($type instanceof CallableObjectType) {
+                return $this->isCallable($code_base);
+            }
+
             return true;
         }
         if (in_array($type, $this->asExpandedTypes($code_base)->getTypeSet(), true)) {
             return true;
         }
 
+        if ($type instanceof FunctionLikeDeclarationType && static::class === Type::class) {
+            $function = $this->asFunctionInterfaceOrNull($code_base, new Context(), false);
+            if (!$function) {
+                return false;
+            }
+            return $function->asFunctionLikeDeclarationType()->canCastToType($type, $code_base);
+        }
+
         if (!($type instanceof NativeType)) {
             return false;
+        }
+        if ($type instanceof CallableType) {
+            return $this->isCallable($code_base);
         }
 
         if ($type instanceof MixedType) {
@@ -3144,12 +3175,37 @@ class Type implements Stringable
      */
     protected function canCastToNonNullableTypeWithoutConfig(Type $type, CodeBase $code_base): bool
     {
+        if ($type instanceof IntersectionType) {
+            // TODO: Pretty much everything needs to have a CodeBase for intersection types to be checked properly
+            // (e.g. to confirm that ArrayObject can cast to Countable&ArrayAccess)
+            return self::matchesAllOtherTypeParts(function (Type $part) use ($code_base): bool {
+                return $this->canCastToNonNullableTypeWithoutConfig($part, $code_base);
+            }, $type);
+        }
+
         // TODO: Expand $this when checking against $type
         // can't cast native types (includes iterable or array) to object. ObjectType overrides this function.
-        if ($type instanceof ObjectType
-            && !$this->isNativeType()
-        ) {
+        if ($type instanceof ObjectType) {
+            if (!$this->isPossiblyObject()) {
+                return false;
+            }
+            if ($type instanceof CallableObjectType) {
+                return $this->isCallable($code_base);
+            }
+
             return true;
+        }
+
+        if (in_array($type, $this->asExpandedTypes($code_base)->getTypeSet(), true)) {
+            return true;
+        }
+
+        if ($type instanceof FunctionLikeDeclarationType && static::class === Type::class) {
+            $function = $this->asFunctionInterfaceOrNull($code_base, new Context(), false);
+            if (!$function) {
+                return false;
+            }
+            return $function->asFunctionLikeDeclarationType()->canCastToTypeWithoutConfig($type, $code_base);
         }
 
         if (!($type instanceof NativeType)) {
@@ -3159,6 +3215,9 @@ class Type implements Stringable
         if ($type instanceof MixedType) {
             // This is not NullType; it has to be truthy to cast to non-empty-mixed.
             return \get_class($type) !== NonEmptyMixedType::class || $this->isPossiblyTruthy();
+        }
+        if ($type instanceof CallableType) {
+            return $this->isCallable($code_base);
         }
 
         // Check for allowable type conversions from object types to native types
@@ -4165,10 +4224,11 @@ class Type implements Stringable
      * Overridden in subclasses
      * @internal
      */
-    public function weaklyOverlaps(Type $other): bool
+    public function weaklyOverlaps(Type $other, CodeBase $code_base): bool
     {
         // TODO: Finish implementing, check if types are compatible when both are non-null, check for object vs non-object
-        return $this->isPossiblyFalsey() && $other->isPossiblyFalsey();
+        return ($this->isPossiblyFalsey() && $other->isPossiblyFalsey()) ||
+            $this->canCastToDeclaredType($code_base, new Context(), $other);
     }
 
     /**
@@ -4195,6 +4255,22 @@ class Type implements Stringable
         foreach ($this->template_parameter_type_list as $template_union_type) {
             yield from $template_union_type->getTypesRecursively();
         }
+    }
+
+    /**
+     * Emit an issue and return true if this type contains an impossible intersection type
+     */
+    public function checkImpossibleCombination(CodeBase $code_base, Context $context): bool
+    {
+        $result = false;
+        foreach ($this->getTypesRecursively() as $part) {
+            if ($part instanceof IntersectionType) {
+                if ($part->checkImpossibleCombination($code_base, $context)) {
+                    $result = true;
+                }
+            }
+        }
+        return $result;
     }
 
     /**

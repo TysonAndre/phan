@@ -28,6 +28,7 @@ use Phan\Language\Type\LiteralFloatType;
 use Phan\Language\Type\LiteralIntType;
 use Phan\Language\Type\LiteralStringType;
 use Phan\Language\Type\MixedType;
+use Phan\Language\Type\NeverType;
 use Phan\Language\Type\NonEmptyMixedType;
 use Phan\Language\Type\NonNullMixedType;
 use Phan\Language\Type\ObjectType;
@@ -583,12 +584,13 @@ final class TypeTest extends CodeBaseAwareTest
         $this->assertSame($expected, $from_type->canCastToDeclaredType($this->code_base, new Context(), $to_type), "unexpected canCastToDeclaredType result for $from_type_string to $to_type_string");
     }
 
-    /** @return list<list> */
+    /** @return list<array{0:bool, 1: string, 2: string, 3?: bool}> */
     public function isSubtypeOfProvider(): array
     {
         return [
             [false, 'ArrayObject', 'stdClass'],
-            [true, 'ArrayObject', 'mixed'],
+            [false, 'stdClass', 'iterable'],
+            [true, 'ArrayObject', 'iterable'],
             [true, 'non-null-mixed', 'mixed'],
             [true, 'non-empty-mixed', 'non-null-mixed'],
             [false, 'false', 'true'],
@@ -598,6 +600,7 @@ final class TypeTest extends CodeBaseAwareTest
             [true, "Closure(int):int", 'Closure'],
             [false, "Closure(int):int", 'Closure(string):int'],
             [true, 'never', 'Closure(int):int'],
+            [true, 'never', 'null'],
             [true, 'ArrayObject<int>', 'ArrayObject'],
             [false, 'ArrayObject<int>', 'ArrayObject<string>'],
             [false, 'Traversable<int,int>', 'Traversable<string,int>'],
@@ -607,26 +610,164 @@ final class TypeTest extends CodeBaseAwareTest
             [true, 'array{}', 'iterable'],
             [true, 'iterable<string>', 'iterable<mixed>'],
             [true, 'array{foo:ArrayObject}', 'array{foo:Traversable}'],
+            [true, 'array{foo:ArrayObject}', 'non-empty-array'],
+            [false, 'array{foo:ArrayObject}', 'non-empty-list'],
+            [false, 'array{foo:ArrayObject}', 'list'],
+            [true, 'array{}', 'list'],
+            [true, 'array{0:string}', 'list'],
+            [true, 'array{0:string}', 'list<string>'],
+            [true, 'array{0:string, 1?:string}', 'list<string>'],
+            [false, 'array{1:string}', 'list<string>'],
+            [false, 'array{0?:string,1:string}', 'list<string>'],
+            [true, 'array{}', 'associative-array'],
+            [false, 'list', 'associative-array'],
+            [false, 'array{foo:ArrayObject}', 'array<int, ArrayObject>'],
+            [true, 'array{foo:ArrayObject}', 'array<string, ArrayObject>'],
+            [true, 'array{foo:ArrayObject}', 'non-empty-array<ArrayObject>'],
+            [true, 'array{foo:ArrayObject}', 'non-empty-array<Traversable>'],
+            [true, 'array{foo:ArrayObject}', 'non-empty-associative-array<ArrayObject>'],
+            [false, 'array{foo:ArrayObject}', 'non-empty-associative-array<int, ArrayObject>'],
+            [false, 'array{foo:ArrayObject}', 'associative-array<int, ArrayObject>'],
+            [false, 'array{foo:ArrayObject}', 'array<int, ArrayObject>'],
+            [true, 'array{foo:ArrayObject}', 'ArrayObject[]'],
+            [true, 'array{foo:ArrayObject}', 'array<Traversable>'],
             [true, 'array{foo:ArrayObject}', 'array{}'],
             [false, 'array{foo:ArrayObject}', 'array{foo:SplObjectStorage}'],
+            [true, 'callable-object', 'callable'],
+            [true, 'callable-object', 'object'],
+            [true, 'callable-object', 'mixed'],
+            [true, 'Closure(int):string', 'callable-object'],
+            [false, 'Closure(int):string', 'callable-string'],
+            [false, 'Closure(int):string', 'callable-array'],
+            [true, 'Closure', 'callable-object'],
+            [false, 'Closure', 'callable-array'],
+            [false, 'Closure', 'callable-string'],
+            [true, 'Closure', 'callable'],
+            [true, 'stdClass', 'object'],
+            [true, 'Closure', 'object'],
+            [false, 'Closure', 'iterable'],
+            [false, 'stdClass', 'callable-object'],
+            [true, 'callable-string', 'string'],
+            [true, 'callable-string', 'callable'],
+            [false, 'callable-string', 'callable-object'],
+            [false, 'callable-string', 'callable-array'],
+            [false, 'callable-array', 'callable-string'],
+            [false, 'callable-array', 'string[]', true],
+            [false, 'string[]', 'callable-array', true],
+            [true, 'callable-array', 'callable'],
+            [true, 'callable-array', 'array'],
+            [false, 'callable', 'string'],
+            [false, 'string', 'callable', true],
+            [true, "'literal'", 'string'],
+            [true, "'literal'", 'non-empty-string'],
+            [true, "''", 'string'],
+            [true, "'is_string'", 'callable-string'],
+            [true, "'foo0\\\\some_fn'", 'callable-string'],
+            [false, "'foo0\\\\\\\\some_fn'", 'callable-string'],
+            [false, "'1a'", 'callable-string'],
+            [true, "'A0::b0'", 'callable-string'],
+            [false, "'A0:::b0'", 'callable-string'],
+            [false, "'not callable'", 'callable-string'],
+            [false, "''", 'non-empty-string'],
+            [true, '1', 'int'],
+            [true, '1', 'non-zero-int'],
+            [true, 'non-zero-int', 'int'],
+            [true, 'non-zero-int', 'scalar'],
+            [false, '0', 'non-zero-int'],
+            [true, '1', 'non-zero-int'],
+            [true, '1.0', 'float'],
+            [false, '1.0', 'int'],
+            [true, 'non-empty-array', 'array'],
+            [true, 'non-empty-array<string>', 'array<string>'],
+            [true, 'non-empty-list<string>', 'non-empty-array<string>'],
+            [true, 'non-empty-list<string>', 'list<string>'],
+            [true, 'non-empty-array<ArrayObject>', 'array<object>'],
+            [false, 'non-empty-array<ArrayObject>', 'array<string>'],
         ];
     }
 
     /**
      * @dataProvider isSubtypeOfProvider
+     * @suppress PhanAccessMethodInternal
      */
-    public function testIsSubtypeOf(bool $expected, string $from_type_string, string $to_type_string): void
+    public function testIsSubtypeOf(bool $expected, string $from_type_string, string $to_type_string, bool $only_check_subtype = false): void
+    {
+        $code_base = $this->code_base;
+        $from_type = self::makePHPDocType($from_type_string);
+        $to_type = self::makePHPDocType($to_type_string);
+        $this->assertSame($expected, $from_type->isSubtypeOf($to_type, $code_base), "unexpected result for $from_type_string isSubtypeOf $to_type_string");
+        if (!$only_check_subtype) {
+            $this->assertSame($expected, $from_type->canCastToType($to_type, $code_base), "unexpected result for $from_type_string canCastToType $to_type_string");
+            $this->assertSame($expected, $from_type->canCastToTypeWithoutConfig($to_type, $code_base), "unexpected result for $from_type_string canCastToTypeWithoutConfig $to_type_string");
+        }
+        if ($expected) {
+            $this->assertFalse($to_type->isSubtypeOf($from_type, $code_base), "unexpected result for $to_type_string isSubtypeOf $from_type_string");
+
+            $this->assertTrue($to_type instanceof NeverType || $from_type->canCastToDeclaredType($code_base, new Context(), $to_type), "unexpected result for $from_type_string canCastToDeclaredType $to_type_string");
+            $this->assertTrue($from_type instanceof NeverType || $to_type->canCastToDeclaredType($code_base, new Context(), $from_type), "unexpected result for $to_type_string canCastToDeclaredType $from_type_string");
+            $this->assertTrue($to_type instanceof NeverType || $from_type->weaklyOverlaps($to_type, $code_base), "unexpected result for $from_type_string weaklyOverlaps $to_type_string");
+            $this->assertTrue($from_type instanceof NeverType || $to_type->weaklyOverlaps($from_type, $code_base), "unexpected result for $to_type_string weaklyOverlaps $from_type_string");
+        }
+    }
+
+    /** @return list<array{0: string, 1: string}> */
+    public function nonWeakOverlappingTypeProvider(): array
+    {
+        return [
+            ['ArrayObject', 'stdClass'],
+            ['non-null-mixed', 'null'],
+            ['non-empty-mixed', 'void'],
+            ['false', 'non-empty-array'],
+            ['null', 'true'],
+            ["'a'", "'b'"],
+            ["''", '1'],
+            ['callable', 'null'],
+            ['resource', 'null'],
+            ['object', 'array'],
+            ['Closure', 'iterable'],
+            ['Closure(int):int', 'iterable'],
+            ['Closure', 'iterable<int>'],
+            ['Closure(int):int', 'iterable<int,string>'],
+            ['Closure(int):int', 'stdClass'],
+        ];
+    }
+
+    /**
+     * @dataProvider nonWeakOverlappingTypeProvider
+     * @suppress PhanAccessMethodInternal
+     */
+    public function testNonWeakOverlappingType(string $from_type_string, string $to_type_string): void
     {
         $from_type = self::makePHPDocType($from_type_string);
         $to_type = self::makePHPDocType($to_type_string);
-        $this->assertTrue($from_type->isSubtypeOf($from_type, $this->code_base), "unexpected result for $from_type_string isSubtypeOf itself");
-        $this->assertSame($expected, $from_type->isSubtypeOf($to_type, $this->code_base), "unexpected result for $from_type_string isSubtypeOf $to_type_string");
-        $this->assertSame($expected, $from_type->canCastToType($to_type, $this->code_base), "unexpected result for $from_type_string canCastToType $to_type_string");
-        $this->assertSame($expected, $from_type->canCastToTypeWithoutConfig($to_type, $this->code_base), "unexpected result for $from_type_string canCastToTypeWithoutConfig $to_type_string");
-        if ($expected) {
-            $this->assertFalse($to_type->isSubtypeOf($from_type, $this->code_base), "unexpected result for $to_type_string isSubtypeOf $from_type_string");
-        }
+        $this->assertFalse($from_type->canCastToType($to_type, $this->code_base), "canCastToType should be false");
+        $this->assertFalse($from_type->canCastToDeclaredType($this->code_base, new Context(), $to_type), "canCastToDeclaredType should be false");
+        $this->assertFalse($from_type->weaklyOverlaps($to_type, $this->code_base), "$from_type_string weaklyOverlaps $to_type_string should be false");
+        $this->assertFalse($to_type->weaklyOverlaps($from_type, $this->code_base), "$to_type_string weaklyOverlaps $from_type_string should be false");
     }
+
+    /** @return list<array{0: string}> */
+    public function isSubtypeOfSelfProvider(): array
+    {
+        $values = [];
+        foreach ($this->isSubtypeOfProvider() as [1 => $from_type_string, 2 => $to_type_string]) {
+            $values[$from_type_string] = [$from_type_string];
+            $values[$to_type_string] = [$to_type_string];
+        }
+        return \array_values($values);
+    }
+
+    /**
+     * @dataProvider isSubtypeOfSelfProvider
+     */
+    public function testIsSubtypeOfSelf(string $from_type_string): void
+    {
+        $from_type = self::makePHPDocType($from_type_string);
+        $this->assertTrue($from_type->isSubtypeOf(MixedType::instance(false), $this->code_base), "unexpected result for $from_type_string isSubtypeOf mixed");
+        $this->assertTrue($from_type->isSubtypeOf($from_type, $this->code_base), "unexpected result for $from_type_string isSubtypeOf itself");
+        $this->assertTrue($from_type->isSubtypeOf($from_type->withIsNullable(true), $this->code_base), "unexpected result for $from_type_string isSubtypeOf nullable version of itself");
+    }
+
     /**
      * @dataProvider arrayShapeProvider
      */

@@ -16,10 +16,10 @@ use Phan\Language\Type;
 use Phan\Language\UnionType;
 use Phan\Language\UnionTypeBuilder;
 
-use function implode;
-use function in_array;
 use function count;
 use function get_debug_type;
+use function implode;
+use function in_array;
 use function reset;
 
 /**
@@ -64,7 +64,8 @@ final class IntersectionType extends Type
      * @return IntersectionType
      * @override
      */
-    public function withIsNullable(bool $is_nullable): Type {
+    public function withIsNullable(bool $is_nullable): Type
+    {
         if ($this->is_nullable === $is_nullable) {
             return $this;
         }
@@ -130,7 +131,7 @@ final class IntersectionType extends Type
      * @param non-empty-list<Type|UnionType> $types
      * @return non-empty-list<Type>
      */
-    public static function flattenTypes(array $types): array
+    private static function flattenTypes(array $types): array
     {
         $new_types = [];
         foreach ($types as $type) {
@@ -140,6 +141,9 @@ final class IntersectionType extends Type
                     throw new AssertionError("Expected union type_parts to contain a single type");
                 }
                 $type = reset($type_set);
+                if (!$type instanceof Type) {
+                    throw new AssertionError("Impossible non-type in " . __METHOD__);
+                }
             }
             foreach ($type instanceof IntersectionType ? $type->type_parts : [$type] as $part) {
                 // TODO: if ($type instanceof IntersectionType)
@@ -151,8 +155,28 @@ final class IntersectionType extends Type
         if (!$new_types) {
             throw new AssertionError("Did not expect empty list of types for intersection type");
         }
+        foreach ($new_types as $i => $type) {
+            // Convert callable&object to callable-object, etc.
+            if ($type instanceof CallableType) {
+                foreach ($new_types as $j => $other) {
+                    if ($i === $j) {
+                        continue;
+                    }
+                    if ($other->isObject()) {
+                        $new_types[$i] = CallableObjectType::instance($type->isNullable());
+                        continue 2;
+                    } elseif ($other instanceof StringType) {
+                        $new_types[$i] = CallableStringType::instance($type->isNullable());
+                        continue 2;
+                    } elseif ($other instanceof ArrayType) {
+                        $new_types[$i] = CallableArrayType::instance($type->isNullable());
+                        continue 2;
+                    }
+                }
+            }
+        }
         // @phan-suppress-next-line PhanPartialTypeMismatchReturn
-        return $new_types;
+        return \array_values($new_types);
     }
 
     /**
@@ -175,7 +199,7 @@ final class IntersectionType extends Type
                 if ($j === $i) {
                     continue;
                 }
-                if ($context && !$type->asPHPDocUnionType()->canCastToDeclaredType($code_base, (clone $context)->withStrictTypes(1), $other->asPHPDocUnionType())) {
+                if (!$type->asPHPDocUnionType()->canCastToDeclaredType($code_base, (clone $context)->withStrictTypes(1), $other->asPHPDocUnionType())) {
                     Issue::maybeEmit(
                         $code_base,
                         $context,
@@ -187,6 +211,11 @@ final class IntersectionType extends Type
                     );
                     return true;
                 }
+            }
+        }
+        foreach ($this->type_parts as $part) {
+            if ($part->checkImpossibleCombination($code_base, $context)) {
+                return true;
             }
         }
         return false;
@@ -294,7 +323,7 @@ final class IntersectionType extends Type
     public function canCastToNonNullableTypeHandlingTemplates(Type $type, CodeBase $code_base): bool
     {
         // TODO: Handle intersection -> intersection cast
-        return $this->anyTypePartsMatchOtherTypePartsCallback(static function (Type $part, Type $other_part) use($code_base): bool {
+        return $this->anyTypePartsMatchOtherTypePartsCallback(static function (Type $part, Type $other_part) use ($code_base): bool {
             return $part->canCastToNonNullableTypeHandlingTemplates($other_part, $code_base);
         }, $type);
     }
@@ -440,6 +469,9 @@ final class IntersectionType extends Type
         })->asPHPDocUnionType();
     }
 
+    /**
+     * @suppress PhanUnusedReturnBranchWithoutSideEffects we pretend Issue::maybeEmit doesn't have side effects but it does
+     */
     public function asFunctionInterfaceOrNull(CodeBase $code_base, Context $context, bool $warn = true): ?FunctionInterface
     {
         foreach ($this->type_parts as $part) {
@@ -449,6 +481,12 @@ final class IntersectionType extends Type
             }
         }
         if ($warn && $this->hasObjectWithKnownFQSEN()) {
+            foreach ($this->type_parts as $part) {
+                if ($part->isCallable($code_base)) {
+                    // don't warn about Countable&callable-object
+                    return null;
+                }
+            }
             Issue::maybeEmit(
                 $code_base,
                 $context,
@@ -606,6 +644,16 @@ final class IntersectionType extends Type
         return false;
     }
 
+    private function allTypePartsMatchMethodWithArgs(string $method_name, ...$args): bool
+    {
+        foreach ($this->type_parts as $part) {
+            if (!$part->{$method_name}(...$args)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public function isSelfType(): bool
     {
         return $this->anyTypePartsMatchMethod(__FUNCTION__);
@@ -747,9 +795,9 @@ final class IntersectionType extends Type
         });
     }
 
-    public function weaklyOverlaps(Type $other): bool
+    public function weaklyOverlaps(Type $other, CodeBase $code_base): bool
     {
-        return $this->anyTypePartsMatchMethodWithArgs(__FUNCTION__, $other);
+        return $this->anyTypePartsMatchMethodWithArgs(__FUNCTION__, $other, $code_base);
     }
 
     // TODO not implemented for intersection type to intersection type cast
@@ -761,6 +809,11 @@ final class IntersectionType extends Type
     public function isDefiniteNonCallableType(CodeBase $code_base): bool
     {
         return $this->anyTypePartsMatchMethodWithArgs(__FUNCTION__, $code_base);
+    }
+
+    public function isPossiblyIterable(CodeBase $code_base): bool
+    {
+        return $this->allTypePartsMatchMethodWithArgs(__FUNCTION__, $code_base);
     }
 
     public function withErasedUnionTypes(): Type

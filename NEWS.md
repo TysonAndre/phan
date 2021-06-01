@@ -1,25 +1,56 @@
 Phan NEWS
 
-??? ?? 2021, Phan 5.0.0 (dev)
------------------------
+??? ?? 2021, Phan 5.0.0a2 (dev)
+-------------------------
 
+New Features (Analysis):
+- Improve accuracy of checks for weak type overlap for redundant condition warnings on `<=`
+- Emit `PhanAccessOverridesFinalConstant` when overriding a final class constant. (#4436)
+- Emit `PhanCompatibleFinalClassConstant` if class constants have the final modifier in codebases supporting a minimum target php version older than 8.1 (#4436)
+- Analyze class constants declared in interfaces as if they were final in php versions prior to 8.1. (#4436)
+
+
+May 30 2021, Phan 5.0.0a1
+-------------------------
+
+Phan 5 introduces support for intersection types, and improves the accuracy of type casting checks and type inference to catch more issues.
+
+This is the unstable branch for alpha releases of Phan 5. Planned/remaining work is described in https://github.com/phan/phan/issues/4413
+
+If you are migrating from Phan 4, it may be useful to set up or update a Phan [baseline file](https://github.com/phan/phan/wiki/Phan-Config-Settings#baseline_path) to catch issues such as nullable type mismatches.
+https://github.com/phan/phan/wiki/Tutorial-for-Analyzing-a-Large-Sloppy-Code-Base has other advice on setting up suppressions.
+For example, Phan is now more consistently warning about nullable arguments (i.e. both `\X|null` and `?\X`) in a few cases where it may have not warned about passing `\X|null` to a function that expects a non-null type.
+
+If you are using plugins that are not part of Phan itself, they may have issues in Phan 5 due
+to additional required methods being added to many of Phan's methods.
+
+New Features (Analysis):
 + Support parsing intersection types in phpdoc and checking if intersection types satisfy type comparisons
 + Support inferring intersection types from conditions such as `instanceof`
 + Warn about impossible type combinations in phpdoc intersection types.
   New issue types: `PhanImpossibleIntersectionType`
-+ Improve type checking precision
++ Improve type checking precision for whether a type can cast to another type.
++ Improve precision of checking if a type is a subtype of another type.
 + Split out warnings about possibly invalid types for property access (non-object) and possibly invalid classes for property access
   New issue types: `PhanPossiblyUndeclaredPropertyOfClass`
 + Also check for partially invalid expressions for instance properties during assignment (`PhanPossiblyUndeclaredProperty*`)
++ Treat `@template-covariant T` as an alias of `@template T` - Previously, that tag was not parsed and `T` would be treated like a (probably undeclared) classlike name. (#4432)
 
-Breaking Changes
+Bug fixes:
++ Fix wrong expression in issue message for PhanPossiblyNullTypeMismatchProperty (#4427)
+
+Breaking Changes:
 + Many internal methods now require a mandatory `CodeBase` instance. This will affect third party plugins.
++ Remove `--language-server-min-diagnostic-delay-ms`.
 
 May 19 2021, Phan 4.0.7 (dev)
 -----------------------
 
 Language Server/Daemon mode:
 + Fix an uncaught exception sometimes seen checking for issue suppressions when pcntl is unavailable.
+
+Bug fixes:
++ Don't emit `PhanCompatibleNonCapturingCatch` when `minimum_target_php_version` is `'8.0'` or newer. (#4433)
 
 May 19 2021, Phan 4.0.6
 -----------------------

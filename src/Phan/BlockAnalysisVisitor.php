@@ -37,8 +37,8 @@ use Phan\Language\Scope\BranchScope;
 use Phan\Language\Scope\GlobalScope;
 use Phan\Language\Scope\PropertyScope;
 use Phan\Language\Type;
-use Phan\Language\Type\IterableType;
 use Phan\Language\Type\ArrayType;
+use Phan\Language\Type\IterableType;
 use Phan\Language\UnionType;
 use Phan\Library\StringUtil;
 use Phan\Parse\ParseVisitor;
@@ -1192,37 +1192,44 @@ class BlockAnalysisVisitor extends AnalysisVisitor
 
     private function warnAboutNonTraversableType(Node $node, Type $type): void
     {
-        $fqsen = FullyQualifiedClassName::fromType($type);
-        if (!$this->code_base->hasClassWithFQSEN($fqsen)) {
-            return;
-        }
-        if (\in_array($fqsen->__toString(), ['\stdClass', '\Countable'], true)) {
-            // stdClass is the only non-Traversable that I'm aware of that's commonly traversed over.
-            // Countable as the only known interface is a common false positive. (`if (count(x)) {foreach...}`)
-            return;
-        }
-        $class = $this->code_base->getClassByFQSEN($fqsen);
-        $status = $class->checkCanIterateFromContext(
-            $this->code_base,
-            $this->context
-        );
-        switch ($status) {
-            case Clazz::CAN_ITERATE_STATUS_NO_ACCESSIBLE_PROPERTIES:
-                $issue = Issue::TypeNoAccessiblePropertiesForeach;
-                break;
-            case Clazz::CAN_ITERATE_STATUS_NO_PROPERTIES:
-                $issue = Issue::TypeNoPropertiesForeach;
-                break;
-            default:
-                $issue = Issue::TypeSuspiciousNonTraversableForeach;
-                break;
-        }
+        // @phan-suppress-next-line PhanPluginUseReturnValueKnown
+        $type->anyTypePartsMatchCallback(function (Type $part) use ($node, $type): bool {
+            if (!$part->isObjectWithKnownFQSEN()) {
+                return false;
+            }
+            $fqsen = FullyQualifiedClassName::fromType($part);
+            if (!$this->code_base->hasClassWithFQSEN($fqsen)) {
+                return true;
+            }
+            if (\in_array($fqsen->__toString(), ['\stdClass', '\Countable'], true)) {
+                // stdClass is the only non-Traversable that I'm aware of that's commonly traversed over.
+                // Countable as the only known interface is a common false positive. (`if (count(x)) {foreach...}`)
+                return true;
+            }
+            $class = $this->code_base->getClassByFQSEN($fqsen);
+            $status = $class->checkCanIterateFromContext(
+                $this->code_base,
+                $this->context
+            );
+            switch ($status) {
+                case Clazz::CAN_ITERATE_STATUS_NO_ACCESSIBLE_PROPERTIES:
+                    $issue = Issue::TypeNoAccessiblePropertiesForeach;
+                    break;
+                case Clazz::CAN_ITERATE_STATUS_NO_PROPERTIES:
+                    $issue = Issue::TypeNoPropertiesForeach;
+                    break;
+                default:
+                    $issue = Issue::TypeSuspiciousNonTraversableForeach;
+                    break;
+            }
 
-        $this->emitIssue(
-            $issue,
-            $node->children['expr']->lineno ?? $node->lineno,
-            $type
-        );
+            $this->emitIssue(
+                $issue,
+                $node->children['expr']->lineno ?? $node->lineno,
+                $type
+            );
+            return true;
+        });
     }
 
     private function analyzeForeachIteration(Context $context, UnionType $expression_union_type, Node $node): Context
@@ -1274,6 +1281,7 @@ class BlockAnalysisVisitor extends AnalysisVisitor
 
     /**
      * Analyze an expression such as `[$a] = $values` or `list('key' => $v) = $values` for backwards compatibility issues
+     * Precondition: minimum_target_php_version_id >-= 70100
      */
     public static function analyzeArrayAssignBackwardsCompatibility(CodeBase $code_base, Context $context, Node $node): void
     {
