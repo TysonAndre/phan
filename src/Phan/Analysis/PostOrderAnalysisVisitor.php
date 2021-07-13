@@ -2412,6 +2412,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
     {
         $args_first_child = $node->children['args']->children[0] ?? null;
         if (!($args_first_child instanceof Node)) {
+            // Ignore both first-class callable conversion(AST_CALLABLE_CONVERT) and assert with no args silently.
             return $this->context;
         }
 
@@ -3080,6 +3081,17 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         if (!$type) {
             return;
         }
+        if ($type->kind === ast\AST_TYPE_INTERSECTION) {
+            if (Config::get_closest_minimum_target_php_version_id() < 80100) {
+                // TODO: Warn about false|false, false|null, etc in php 8.0.
+                $this->emitIssue(
+                    Issue::CompatibleIntersectionType,
+                    $type->lineno,
+                    ASTReverter::toShortString($type)
+                );
+            }
+            return;
+        }
         if (Config::get_closest_minimum_target_php_version_id() >= 80000) {
             // Don't warn about using union types if the project dropped support for php versions older than 8.0
             return;
@@ -3227,6 +3239,8 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
 
         return $this->context;
     }
+
+    // No need to analyze AST_CALLABLE_CONVERT
 
     /**
      * @param Node $node
@@ -3890,9 +3904,13 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
 
         $method->addReference($context);
 
+        $args_node = $node->children['args'];
+        if ($args_node->kind === ast\AST_CALLABLE_CONVERT) {
+            return;
+        }
         // Create variables for any pass-by-reference
         // parameters
-        $argument_list = $node->children['args']->children;
+        $argument_list = $args_node->children;
         foreach ($argument_list as $i => $argument) {
             if (!$argument instanceof Node) {
                 continue;
@@ -4590,7 +4608,7 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                     ($method instanceof Func && $method->isClosure() ? $argument_type : $argument_type->withFlattenedArrayShapeOrLiteralTypeInstances())->withRealTypeSet($parameter->getNonVariadicUnionType()->getRealTypeSet())
                 );
             }
-            if ($method instanceof Method && ($parameter->getFlags() & Parameter::PARAM_MODIFIER_VISIBILITY_FLAGS)) {
+            if ($method instanceof Method && ($parameter->getFlags() & Parameter::PARAM_MODIFIER_FLAGS)) {
                 $this->analyzeArgumentWithConstructorPropertyPromotion($method, $parameter);
             }
         }

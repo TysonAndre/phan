@@ -521,6 +521,12 @@ In php 7.4, passing glue string after the array is deprecated for {FUNCTION}. Sh
 
 e.g. [this issue](https://github.com/phan/phan/tree/v5/tests/files/expected/0511_implode.php.expected#L3) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v5/tests/files/src/0511_implode.php#L7).
 
+## PhanCompatibleIntersectionType
+
+```
+Cannot use intersection types ({TYPE}) before php 8.0
+```
+
 ## PhanCompatibleIterableTypePHP70
 
 ```
@@ -640,6 +646,12 @@ PHP4 constructors will be removed in php 8, and should not be used. __construct(
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/v5/tests/files/expected/0198_list_property.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v5/tests/files/src/0198_list_property.php#L7).
+
+## PhanCompatibleReadonlyProperty
+
+```
+Cannot use readonly modifier on property {PROPERTY} before php 8.1
+```
 
 ## PhanCompatibleScalarTypePHP56
 
@@ -5058,7 +5070,7 @@ e.g. [this issue](https://github.com/phan/phan/tree/v5/tests/files/expected/0723
 ## PhanInvalidConstantExpression
 
 ```
-Constant expression contains invalid operations
+Constant expression contains invalid operations ({CODE})
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/v5/tests/misc/fallback_test/expected/015_class_const_declaration9.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v5/tests/misc/fallback_test/src/015_class_const_declaration9.php#L3).

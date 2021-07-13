@@ -117,6 +117,12 @@ class ASTReverter
             /**
              * @suppress PhanPartialTypeMismatchArgument
              */
+            ast\AST_TYPE_INTERSECTION => static function (Node $node): string {
+                return implode('&', array_map('self::toShortTypeString', $node->children));
+            },
+            /**
+             * @suppress PhanPartialTypeMismatchArgument
+             */
             ast\AST_TYPE_UNION => static function (Node $node): string {
                 return implode('|', array_map('self::toShortTypeString', $node->children));
             },
@@ -140,6 +146,9 @@ class ASTReverter
             },
             ast\AST_ARG_LIST => static function (Node $node): string {
                 return '(' . implode(', ', array_map('self::toShortString', $node->children)) . ')';
+            },
+            ast\AST_CALLABLE_CONVERT => /** @unused-param $node */ static function (Node $node): string {
+                return '(...)';
             },
             ast\AST_ATTRIBUTE_LIST => static function (Node $node): string {
                 return implode(' ', array_map('self::toShortString', $node->children));

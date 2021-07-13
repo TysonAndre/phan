@@ -588,6 +588,8 @@ class Issue
     public const CompatiblePHP8PHP4Constructor      = 'PhanCompatiblePHP8PHP4Constructor';
     public const CompatibleScalarTypePHP56          = 'PhanCompatibleScalarTypePHP56';
     public const CompatibleAnyReturnTypePHP56       = 'PhanCompatibleAnyReturnTypePHP56';
+    public const CompatibleReadonlyProperty         = 'PhanCompatibleReadonlyProperty';
+    public const CompatibleIntersectionType         = 'PhanCompatibleIntersectionType';
     public const CompatibleUnionType                = 'PhanCompatibleUnionType';
     public const CompatibleStaticType               = 'PhanCompatibleStaticType';
     public const CompatibleThrowExpression          = 'PhanCompatibleThrowExpression';
@@ -866,7 +868,7 @@ class Issue
                 self::InvalidConstantExpression,
                 self::CATEGORY_SYNTAX,
                 self::SEVERITY_CRITICAL,
-                "Constant expression contains invalid operations",
+                "Constant expression contains invalid operations ({CODE})",
                 self::REMEDIATION_A,
                 17001
             ),
@@ -5071,9 +5073,17 @@ class Issue
                 3025
             ),
             new Issue(
+                self::CompatibleIntersectionType,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_CRITICAL,
+                "Cannot use intersection types ({TYPE}) before php 8.0",
+                self::REMEDIATION_B,
+                3045
+            ),
+            new Issue(
                 self::CompatibleUnionType,
                 self::CATEGORY_COMPATIBLE,
-                self::SEVERITY_NORMAL,
+                self::SEVERITY_CRITICAL,
                 "Cannot use union types ({TYPE}) before php 8.0",
                 self::REMEDIATION_B,
                 3026
@@ -5089,7 +5099,7 @@ class Issue
             new Issue(
                 self::CompatibleThrowExpression,
                 self::CATEGORY_COMPATIBLE,
-                self::SEVERITY_NORMAL,
+                self::SEVERITY_CRITICAL,
                 "Cannot use throw as an expression before php 8.0 in {CODE}",
                 self::REMEDIATION_B,
                 3028
@@ -5097,7 +5107,7 @@ class Issue
             new Issue(
                 self::CompatibleMatchExpression,
                 self::CATEGORY_COMPATIBLE,
-                self::SEVERITY_NORMAL,
+                self::SEVERITY_CRITICAL,
                 "Cannot use match expressions before php 8.0 in {CODE}",
                 self::REMEDIATION_B,
                 3032
@@ -5105,7 +5115,7 @@ class Issue
             new Issue(
                 self::CompatibleArrowFunction,
                 self::CATEGORY_COMPATIBLE,
-                self::SEVERITY_NORMAL,
+                self::SEVERITY_CRITICAL,
                 "Cannot use arrow functions before php 7.4 in {CODE}",
                 self::REMEDIATION_B,
                 3033
@@ -5113,7 +5123,7 @@ class Issue
             new Issue(
                 self::CompatibleNullsafeOperator,
                 self::CATEGORY_COMPATIBLE,
-                self::SEVERITY_NORMAL,
+                self::SEVERITY_CRITICAL,
                 "Cannot use nullsafe operator before php 8.0 in {CODE}",
                 self::REMEDIATION_B,
                 3034
@@ -5121,7 +5131,7 @@ class Issue
             new Issue(
                 self::CompatibleNamedArgument,
                 self::CATEGORY_COMPATIBLE,
-                self::SEVERITY_NORMAL,
+                self::SEVERITY_CRITICAL,
                 "Cannot use named arguments before php 8.0 in argument ({CODE})",
                 self::REMEDIATION_B,
                 3035
@@ -5192,6 +5202,14 @@ class Issue
                 "Final class constants were not supported prior to php 8.1",
                 self::REMEDIATION_B,
                 3044
+            ),
+            new Issue(
+                self::CompatibleReadonlyProperty,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_CRITICAL,
+                "Cannot use readonly modifier on property {PROPERTY} before php 8.1",
+                self::REMEDIATION_B,
+                3046
             ),
 
             // Issue::CATEGORY_GENERIC

@@ -51,7 +51,8 @@ class Parameter extends Variable
     public const REFERENCE_IGNORED = 4;
 
     public const PARAM_MODIFIER_VISIBILITY_FLAGS = ast\flags\PARAM_MODIFIER_PUBLIC | ast\flags\PARAM_MODIFIER_PRIVATE | ast\flags\PARAM_MODIFIER_PROTECTED;
-
+    /** NOTE: Currently, any of these flags imply that constructor property promotion is being used */
+    public const PARAM_MODIFIER_FLAGS = self::PARAM_MODIFIER_VISIBILITY_FLAGS | ast\flags\MODIFIER_READONLY;
 
     // __construct(Context $context, string $name, UnionType $type, int $flags) inherited from Variable
 
@@ -388,19 +389,20 @@ class Parameter extends Variable
             $parameter->setDefaultValue($default_node);
             try {
                 // @phan-suppress-next-line PhanAccessMethodInternal
-                ParseVisitor::checkIsAllowedInConstExpr($default_node);
+                ParseVisitor::checkIsAllowedInConstExpr($default_node, ParseVisitor::CONSTANT_EXPRESSION_IN_PARAMETER);
 
                 // We can't figure out default values during the
                 // parsing phase, unfortunately
                 $has_error = false;
-            } catch (InvalidArgumentException $_) {
+            } catch (InvalidArgumentException $e) {
                 // If the parameter default is an invalid constant expression,
                 // then don't use that value elsewhere.
                 Issue::maybeEmit(
                     $code_base,
                     $context,
                     Issue::InvalidConstantExpression,
-                    $default_node->lineno ?? $node->lineno
+                    $default_node->lineno ?? $node->lineno,
+                    $e->getMessage()
                 );
                 $has_error = true;
             }
@@ -635,6 +637,9 @@ class Parameter extends Variable
         if ($flags & self::PARAM_MODIFIER_VISIBILITY_FLAGS) {
             $string .= $flags & ast\flags\PARAM_MODIFIER_PUBLIC ? 'public ' :
                         ($flags & ast\flags\PARAM_MODIFIER_PROTECTED ? 'protected ' : 'private ');
+        }
+        if ($flags & ast\flags\MODIFIER_READONLY) {
+            $string .= 'readonly ';
         }
 
         $union_type = $this->getNonVariadicUnionType();

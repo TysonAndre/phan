@@ -46,10 +46,12 @@ use Phan\Language\Type\AssociativeArrayType;
 use Phan\Language\Type\BoolType;
 use Phan\Language\Type\CallableType;
 use Phan\Language\Type\ClassStringType;
+use Phan\Language\Type\ClosureDeclarationType;
 use Phan\Language\Type\ClosureType;
 use Phan\Language\Type\FalseType;
 use Phan\Language\Type\FloatType;
 use Phan\Language\Type\GenericArrayType;
+use Phan\Language\Type\IntersectionType;
 use Phan\Language\Type\IntType;
 use Phan\Language\Type\IterableType;
 use Phan\Language\Type\ListType;
@@ -686,6 +688,55 @@ class UnionTypeVisitor extends AnalysisVisitor
     }
 
     /**
+     * Visit a node with kind `\ast\AST_TYPE_INTERSECTION`
+     *
+     * @param Node $node
+     * A node of the type indicated by the method name that we'd
+     * like to figure out the type that it produces.
+     *
+     * @return UnionType
+     * The set of types that are possibly produced by the
+     * given node
+     *
+     * @throws AssertionError if the type flags were unknown
+     */
+    public function visitTypeIntersection(Node $node): UnionType
+    {
+        // TODO: Validate that there aren't any duplicates
+        if (\count($node->children) === 1) {
+            // Might be possible due to the polyfill in the future.
+            // @phan-suppress-next-line PhanTypeMismatchArgumentNullable
+            return $this->__invoke($node->children[0]);
+        }
+        $types = [];
+        foreach ($node->children as $c) {
+            if (!$c instanceof Node) {
+                throw new AssertionError("Saw non-node in union type");
+            }
+            $kind = $c->kind;
+            if ($kind === ast\AST_TYPE) {
+                $types[] = $this->visitType($c);
+            } elseif ($kind === ast\AST_NAME) {
+                if ($this->context->getScope()->isInTraitScope()) {
+                    $name = \strtolower($c->children['name']);
+                    if ($name === 'self') {
+                        $types[] = SelfType::instance(false)->asRealUnionType();
+                        continue;
+                    } elseif ($name === 'static') {
+                        $types[] = StaticType::instance(false)->asRealUnionType();
+                        continue;
+                    }
+                }
+                $types[] = $this->visitName($c);
+            } else {
+                throw new AssertionError("Expected union type to be composed of types and names");
+            }
+        }
+        $result = [IntersectionType::createFromTypes($types, $this->code_base, $this->context)];
+        return UnionType::of($result, $result);
+    }
+
+    /**
      * Visit a node with kind `\ast\AST_TYPE_UNION`
      *
      * @param Node $node
@@ -823,8 +874,10 @@ class UnionTypeVisitor extends AnalysisVisitor
             $result = $this->visitName($node);
         } elseif ($kind === ast\AST_TYPE_UNION) {
             $result = $this->visitTypeUnion($node);
+        } elseif ($kind === ast\AST_TYPE_INTERSECTION) {
+            $result = $this->visitTypeIntersection($node);
         } else {
-            throw new AssertionError("Expected a type, union type, or a name in the signature: node: " . Debug::nodeToString($node));
+            throw new AssertionError("Expected a type, union type, intersection type, or a name in the signature: node: " . Debug::nodeToString($node));
         }
         if ($is_nullable) {
             return $result->nullableClone();
@@ -1547,6 +1600,15 @@ class UnionTypeVisitor extends AnalysisVisitor
             );
             return $object_type->asRealUnionType();
         }
+        $args_node = $node->children['args'];
+        if ($args_node->kind !== ast\AST_ARG_LIST) {
+            $this->emitIssue(
+                Issue::InvalidNode,
+                $node->lineno,
+                "Cannot create Closure for new expression"
+            );
+            return $object_type->asRealUnionType();
+        }
         $union_type = $this->visitClassNameNode($class_node);
         if ($union_type->isEmpty()) {
             return $object_type->asRealUnionType();
@@ -1557,7 +1619,7 @@ class UnionTypeVisitor extends AnalysisVisitor
 
         // For any types that are templates, map them to concrete
         // types based on the parameters passed in.
-        $type_set = \array_map(function (Type $type) use ($node): Type {
+        $type_set = \array_map(function (Type $type) use ($args_node): Type {
 
             // Get a fully qualified name for the type
             // TODO: Add a test of `new $closure()` warning.
@@ -1590,7 +1652,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                     $arg_node,
                     $this->should_catch_issue_exception
                 );
-            }, $node->children['args']->children);
+            }, $args_node->children);
 
             // Get closures to extract template types based on the types of the constructor
             // so that we can figure out what template types we're going to be mapping
@@ -2924,11 +2986,7 @@ class UnionTypeVisitor extends AnalysisVisitor
         foreach ($function_list_generator as $function) {
             $function->analyzeReturnTypes($this->code_base);  // For daemon/server mode, call this to consistently ensure accurate return types.
 
-            if ($function->hasDependentReturnType()) {
-                $function_types = $function->getDependentReturnType($this->code_base, $this->context, $node->children['args']->children);
-            } else {
-                $function_types = $function->getUnionType();
-            }
+            $function_types = $this->getDependentReturnTypeOfCall($function, $node);
             if ($possible_types) {
                 '@phan-var UnionType $possible_types';
                 $possible_types = $possible_types->withUnionType($function_types);
@@ -2938,6 +2996,23 @@ class UnionTypeVisitor extends AnalysisVisitor
         }
 
         return $possible_types ?? UnionType::empty();
+    }
+
+    /**
+     * @return UnionType - the union type of the result of the call, or of the closure generated by first-class callable conversion
+     */
+    private function getDependentReturnTypeOfCall(FunctionInterface $function, Node $node): UnionType
+    {
+        if ($node->children['args']->kind === ast\AST_CALLABLE_CONVERT) {
+            if ($function instanceof ClosureDeclarationType) {
+                return $function->asRealUnionType();
+            } else {
+                return ClosureType::instanceWithClosureFQSEN($function->getFQSEN(), $function)->asRealUnionType();
+            }
+        } elseif ($function->hasDependentReturnType()) {
+            return $function->getDependentReturnType($this->code_base, $this->context, $node->children['args']->children);
+        }
+        return $function->getUnionType();
     }
 
     /**
@@ -3066,11 +3141,7 @@ class UnionTypeVisitor extends AnalysisVisitor
                         }
                     }
 
-                    if ($method->hasDependentReturnType()) {
-                        $union_type = $method->getDependentReturnType($this->code_base, $this->context, $node->children['args']->children);
-                    } else {
-                        $union_type = $method->getUnionType();
-                    }
+                    $union_type = $this->getDependentReturnTypeOfCall($method, $node);
 
                     // Map template types to concrete types
                     // TODO: When the template types are part of the method doc comment, don't look it up in the class union type
