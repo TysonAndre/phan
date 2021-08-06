@@ -1,6 +1,40 @@
 Phan NEWS
 
-??? ?? 2021, Phan 5.0.0a3 (dev)
+??? ?? 2021, Phan 5.0.1 (dev)
+-----------------------
+
+Documentation:
+- Update documentation of `--target-php-version` and `--minimum-target-php-version`
+
+Aug 01 2021, Phan 5.0.0
+-----------------------
+
+New Features (Analysis):
+- Warn about implicitly nullable parameter intersection types (`function(A&B $paramName = null)`) being a compile error.
+  New issue type: `PhanTypeMismatchDefaultIntersection`
+- Emit `PhanTypeMismatchArgumentSuperType` instead of `PhanTypeMismatchArgument` when passing in an object supertype (e.g. ancestor class) of an object instead of a subtype.
+  Emit `PhanTypeMismatchReturnSuperType` instead of `PhanTypeMismatchReturn` when returning an object supertype (e.g. ancestor class) of an object instead of a subtype.
+
+  Phan 5 starts warning about ancestor classes being incompatible argument or return types in cases where it previously allowed it. (#4413)
+
+Jul 24 2021, Phan 5.0.0a4
+-------------------------
+
+New Features (Analysis):
+- Use the enum class declaration type (int, string, or absent) from AST version 85 to check if enum cases are valid. (#4313)
+  New issue types: `PhanSyntaxEnumCaseExpectedValue`, `PhanSyntaxEnumCaseUnexpectedValue`, `PhanTypeUnexpectedEnumCaseType`
+
+Backwards incompatible changes:
+- Bump the minimum required AST version from 80 to 85 (Required to analyze php 8.1 enum classes - 'type' was added in AST version 85).
+- In php 8.1, require php-ast 1.0.14 to natively parse AST version 85.
+
+Maintenance:
+- Upgrade tolerant-php-parser from 0.1.0 to 0.1.1 to prepare to support new php syntax in the polyfill/fallback parser. (#4449)
+
+Bug fixes:
+- Fix extraction of reflection attribute target type bitmask from internal attributes such as PHP 8.1's `ReturnTypeWillChange`
+
+Jul 15 2021, Phan 5.0.0a3
 -------------------------
 
 New Features (Analysis):
@@ -11,6 +45,8 @@ New Features (Analysis):
 + Support allowing `new` expressions in php 8.1 readonly property modifier (#4460)
 + Emit `PhanTypeInvalidArrayKey` and `PhanTypeInvalidArrayKeyValue` for invalid array key literal types or values.
 + Fix false positive `PhanTypeMissingReturn`/`PhanPluginAlwaysReturnMethod` for method with phpdoc return type of `@return never`
++ Warn about direct access to static methods or properties on traits (instead of classes using those methods/properties) being deprecated in php 8.1 (#4396)
++ Add `Stringable` to allowed types for sprintf variadic arguments. This currently requires explicitly implementing Stringable. (#4466)
 
 Bug fixes:
 - Fix a crash when analyzing array literals with invalid key literal values in php 8.1.
@@ -30,7 +66,7 @@ New Features (CLI)
 - Use `var_representation`/polyfill for generating representations of values in issue messages.
 
 Maintenance:
-- Upgrade tolerant-php-parser from ^0.0.23 to ^0.1.0 to prepare to support new php syntax in the polyfill/fallback parser. (#4449)
+- Upgrade tolerant-php-parser from 0.0.23 to 0.1.0 to prepare to support new php syntax in the polyfill/fallback parser. (#4449)
 
 Bug fixes:
 - Properly warn about referencing $this from a `static fn` declared in an instance method. (#4336)

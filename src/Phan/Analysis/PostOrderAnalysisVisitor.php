@@ -1750,13 +1750,16 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 }
             }
         }
-        if ($this->context->hasSuppressIssue($this->code_base, Issue::TypeMismatchArgumentProbablyReal)) {
+        // Some suppressions are based on line number (e.g. (at)phan-suppress-next-line)
+        $context = (clone $this->context)->withLineNumberStart($lineno);
+
+        if ($context->hasSuppressIssue($this->code_base, Issue::TypeMismatchReturnProbablyReal)) {
             // Suppressing ProbablyReal also suppresses the less severe version.
             return;
         }
         if ($issue_type === Issue::TypeMismatchReturn) {
             if ($expression_type->hasRealTypeSet() &&
-                !$expression_type->getRealUnionType()->canCastToDeclaredType($this->code_base, $this->context, $method_return_type)) {
+                !$expression_type->getRealUnionType()->canCastToDeclaredType($this->code_base, $context, $method_return_type)) {
                 // The argument's real type is completely incompatible with the documented phpdoc type.
                 //
                 // Either the phpdoc type is wrong or the argument is likely wrong.
@@ -1773,6 +1776,21 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
                 return;
             }
         }
+        if ($context->hasSuppressIssue($this->code_base, $issue_type)) {
+            // Suppressing TypeMismatchReturn also suppresses the less severe version.
+            return;
+        }
+        if ($issue_type === Issue::TypeMismatchReturn && self::doesExpressionHaveSuperClassOfTargetType($this->code_base, $expression_type, $method_return_type)) {
+            $this->emitIssue(
+                Issue::TypeMismatchReturnSuperType,
+                $lineno,
+                self::returnExpressionToShortString($inner_node),
+                (string)$expression_type,
+                $method->getNameForIssue(),
+                (string)$method_return_type
+            );
+            return;
+        }
         $this->emitIssue(
             $issue_type,
             $lineno,
@@ -1781,6 +1799,37 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
             $method->getNameForIssue(),
             (string)$method_return_type
         );
+    }
+
+    /**
+     * Returns true if the expression has an object class type that is a supertype of the target type.
+     * (to emit a less severe issue for possible false positives)
+     *
+     * Normally, an exact type or subtype is required.
+     * @internal
+     */
+    public static function doesExpressionHaveSuperClassOfTargetType(
+        CodeBase $code_base,
+        UnionType $expression_type,
+        UnionType $target_type
+    ): bool {
+        $target_object_types = $target_type->objectTypesWithKnownFQSENs();
+        if ($target_object_types->isEmpty()) {
+            return false;
+        }
+        $expression_object_types = $expression_type->objectTypesWithKnownFQSENs();
+        if ($expression_object_types->isEmpty()) {
+            return false;
+        }
+        foreach ($expression_object_types->getTypeSet() as $type) {
+            foreach ($target_object_types->getTypeSet() as $other) {
+                if ($other->canCastToTypeWithoutConfig($type, $code_base)) {
+                    continue 2;
+                }
+            }
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -2468,7 +2517,8 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
 
             $this->analyzeMethodVisibility(
                 $method,
-                $node
+                $node,
+                false
             );
 
             $this->analyzeCallToFunctionLike(
@@ -2573,8 +2623,16 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
         return !$method->isStatic();
     }
 
-    private static function isStaticNameNode(Node $node, bool $allow_self): bool
+    /**
+     * Checks if this is referring to the `static` class name (also allows `self` if $allow_self is true)
+     *
+     * @param Node|int|string|float|null $node
+     */
+    public static function isStaticNameNode($node, bool $allow_self): bool
     {
+        if (!$node instanceof Node) {
+            return false;
+        }
         if ($node->kind !== ast\AST_NAME) {
             return false;
         }
@@ -2738,7 +2796,8 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
 
             $this->analyzeMethodVisibility(
                 $method,
-                $node
+                $node,
+                true
             );
 
             // Make sure the parameters look good
@@ -3228,7 +3287,8 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
 
         $this->analyzeMethodVisibility(
             $method,
-            $node
+            $node,
+            false
         );
 
         // Check the call for parameter and argument types
@@ -3847,11 +3907,27 @@ class PostOrderAnalysisVisitor extends AnalysisVisitor
      *
      * @param Method $method
      * @param Node $node
+     * @param bool $is_static_call
      */
     private function analyzeMethodVisibility(
         Method $method,
-        Node $node
+        Node $node,
+        bool $is_static_call
     ): void {
+        if ($is_static_call && $method->isStatic()) {
+            $class_node = $node->children['class'] ?? null;
+            if (!self::isStaticNameNode($class_node, true)) {
+                $class_fqsen = $method->getFQSEN()->getFullyQualifiedClassName();
+                if ($this->code_base->hasClassWithFQSEN($class_fqsen) && $this->code_base->getClassByFQSEN($class_fqsen)->isTrait()) {
+                    $this->emitIssue(
+                        Issue::CompatibleAccessMethodOnTraitDefinition,
+                        $node->lineno,
+                        (string)$method->getFQSEN(),
+                        ASTReverter::toShortString($node)
+                    );
+                }
+            }
+        }
         if ($method->isPublic()) {
             return;
         }

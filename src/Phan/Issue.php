@@ -42,7 +42,8 @@ class Issue
     public const SyntaxReturnExpectedValue      = 'PhanSyntaxReturnExpectedValue';
     public const SyntaxReturnValueInVoid        = 'PhanSyntaxReturnValueInVoid';
     public const SyntaxReturnStatementInNever   = 'PhanSyntaxReturnStatementInNever';
-    public const SyntaxInconsistentEnum         = 'PhanSyntaxInconsistentEnum';
+    public const SyntaxEnumCaseExpectedValue    = 'PhanSyntaxEnumCaseExpectedValue';
+    public const SyntaxEnumCaseUnexpectedValue  = 'PhanSyntaxEnumCaseUnexpectedValue';
     public const PrivateFinalMethod             = 'PhanPrivateFinalMethod';
     public const PrivateFinalConstant           = 'PhanPrivateFinalConstant';
 
@@ -164,6 +165,7 @@ class Issue
     public const TypeMismatchArgumentInternalProbablyReal = 'PhanTypeMismatchArgumentInternalProbablyReal';
     public const TypeMismatchArgumentInternalReal       = 'PhanTypeMismatchArgumentInternalReal';
     public const TypeMismatchArgumentNullableInternal   = 'PhanTypeMismatchArgumentNullableInternal';
+    public const TypeMismatchArgumentSuperType          = 'PhanTypeMismatchArgumentSuperType';
     public const PartialTypeMismatchArgument            = 'PhanPartialTypeMismatchArgument';
     public const PartialTypeMismatchArgumentInternal    = 'PhanPartialTypeMismatchArgumentInternal';
     public const PossiblyNullTypeArgument  = 'PhanPossiblyNullTypeArgument';
@@ -172,6 +174,7 @@ class Issue
     public const PossiblyFalseTypeArgumentInternal = 'PhanPossiblyFalseTypeArgumentInternal';
 
     public const TypeMismatchDefault       = 'PhanTypeMismatchDefault';
+    public const TypeMismatchDefaultIntersection = 'PhanTypeMismatchDefaultIntersection';
     public const TypeMismatchDimAssignment = 'PhanTypeMismatchDimAssignment';
     public const TypeMismatchDimEmpty      = 'PhanTypeMismatchDimEmpty';
     public const TypeMismatchDimFetch      = 'PhanTypeMismatchDimFetch';
@@ -194,6 +197,7 @@ class Issue
     public const TypeMismatchReturnNullable = 'PhanTypeMismatchReturnNullable';
     public const TypeMismatchReturnProbablyReal = 'PhanTypeMismatchReturnProbablyReal';
     public const TypeMismatchReturnReal     = 'PhanTypeMismatchReturnReal';
+    public const TypeMismatchReturnSuperType = 'PhanTypeMismatchReturnSuperType';
     public const PartialTypeMismatchReturn = 'PhanPartialTypeMismatchReturn';
     public const PossiblyNullTypeReturn  = 'PhanPossiblyNullTypeReturn';
     public const PossiblyFalseTypeReturn  = 'PhanPossiblyFalseTypeReturn';
@@ -285,7 +289,7 @@ class Issue
     public const AttributeNonAttribute = 'PhanAttributeNonAttribute';
     public const AttributeNonRepeatable = 'PhanAttributeNonRepeatable';
     public const AttributeWrongTarget = 'PhanAttributeWrongTarget';
-    public const TypeInvalidEnumCaseType = 'PhanTypeInvalidEnumCaseType';
+    public const TypeUnexpectedEnumCaseType = 'PhanTypeUnexpectedEnumCaseType';
     public const InstanceMethodWithNoEnumCases = 'PhanInstanceMethodWithNoEnumCases';
     public const EnumCannotHaveProperties = 'PhanEnumCannotHaveProperties';
     public const EnumForbiddenMagicMethod = 'PhanEnumForbiddenMagicMethod';
@@ -604,6 +608,8 @@ class Issue
     public const CompatibleConstructorPropertyPromotion  = 'PhanCompatibleConstructorPropertyPromotion';
     public const CompatibleSerializeInterfaceDeprecated  = 'PhanCompatibleSerializeInterfaceDeprecated';
     public const CompatibleFinalClassConstant  = 'PhanCompatibleFinalClassConstant';
+    public const CompatibleAccessMethodOnTraitDefinition = 'PhanCompatibleAccessMethodOnTraitDefinition';
+    public const CompatibleAccessPropertyOnTraitDefinition  = 'PhanCompatibleAccessPropertyOnTraitDefinition';
 
     // Issue::CATEGORY_GENERIC
     public const TemplateTypeConstant       = 'PhanTemplateTypeConstant';
@@ -994,13 +1000,22 @@ class Issue
                 17015
             ),
             new Issue(
-                self::SyntaxInconsistentEnum,
+                self::SyntaxEnumCaseExpectedValue,
                 self::CATEGORY_SYNTAX,
                 self::SEVERITY_CRITICAL,
                 // XXX can't improve on this until the minimum supported AST extension version is raised due to php-ast not providing the actual flags until AST version 85.
-                "Syntax error: Enum {ENUM} unexpectedly has cases that are inconsistent with the enum declaration\'s type or lack of type",
+                "Syntax error: Expected enum case {CONST} to have a value of type {TYPE} but it has no value",
                 self::REMEDIATION_A,
                 17016
+            ),
+            new Issue(
+                self::SyntaxEnumCaseUnexpectedValue,
+                self::CATEGORY_SYNTAX,
+                self::SEVERITY_CRITICAL,
+                // XXX can't improve on this until the minimum supported AST extension version is raised due to php-ast not providing the actual flags until AST version 85.
+                "Syntax error: Expected enum case {CONST} not to have a value",
+                self::REMEDIATION_A,
+                17020
             ),
             new Issue(
                 self::PrivateFinalConstant,
@@ -1553,6 +1568,14 @@ class Issue
                 10002
             ),
             new Issue(
+                self::TypeMismatchDefaultIntersection,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_CRITICAL,
+                "Default value for {TYPE} \${PARAMETER} can't be {TYPE} because the parameter contains intersection types",
+                self::REMEDIATION_B,
+                10185
+            ),
+            new Issue(
                 self::TypeMismatchVariadicComment,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_LOW,
@@ -1599,6 +1622,14 @@ class Issue
                 'Argument {INDEX} (${PARAMETER}) is {CODE} of type {TYPE} but {FUNCTIONLIKE} takes {TYPE} defined at {FILE}:{LINE} (expected type to be non-nullable)',
                 self::REMEDIATION_B,
                 10105
+            ),
+            new Issue(
+                self::TypeMismatchArgumentSuperType,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_LOW,
+                'Argument {INDEX} (${PARAMETER}) is {CODE} of type {TYPE} but {FUNCTIONLIKE} takes {TYPE} defined at {FILE}:{LINE} (expected type to be the same or a subtype, but saw a supertype instead)',
+                self::REMEDIATION_B,
+                10186
             ),
             new Issue(
                 self::TypeMismatchArgumentInternal,
@@ -1759,6 +1790,14 @@ class Issue
                 "Returning {CODE} of type {TYPE} but {FUNCTIONLIKE} is declared to return {TYPE} ({TYPE} is incompatible)",
                 self::REMEDIATION_B,
                 10060
+            ),
+            new Issue(
+                self::TypeMismatchReturnSuperType,
+                self::CATEGORY_TYPE,
+                self::SEVERITY_LOW,
+                "Returning {CODE} of type {TYPE} but {FUNCTIONLIKE} is declared to return {TYPE} (saw a supertype instead of a subtype)",
+                self::REMEDIATION_B,
+                10176
             ),
             new Issue(
                 self::PossiblyNullTypeReturn,
@@ -2923,10 +2962,10 @@ class Issue
                 10173
             ),
             new Issue(
-                self::TypeInvalidEnumCaseType,
+                self::TypeUnexpectedEnumCaseType,
                 self::CATEGORY_TYPE,
                 self::SEVERITY_CRITICAL,
-                'Saw enum case {CONST} with a value({SCALAR}) that did not match expected type {TYPE} (a future version of Phan will depend on an AST version that can be used to parse the enum declaration type)',
+                'Saw enum case {CONST} with a value of type {TYPE} that did not match expected type {TYPE}',
                 self::REMEDIATION_B,
                 10175
             ),
@@ -5210,6 +5249,22 @@ class Issue
                 "Cannot use readonly modifier on property {PROPERTY} before php 8.1",
                 self::REMEDIATION_B,
                 3046
+            ),
+            new Issue(
+                self::CompatibleAccessMethodOnTraitDefinition,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_NORMAL,
+                "Calling static method {METHOD} on a trait is deprecated in php 8.1, it should only be called on a class using the trait (in {CODE})",
+                self::REMEDIATION_B,
+                3047
+            ),
+            new Issue(
+                self::CompatibleAccessPropertyOnTraitDefinition,
+                self::CATEGORY_COMPATIBLE,
+                self::SEVERITY_NORMAL,
+                "Accessing static property {PROPERTY} on a trait is deprecated in php 8.1, it should only be accessed on a class using the trait",
+                self::REMEDIATION_B,
+                3048
             ),
 
             // Issue::CATEGORY_GENERIC

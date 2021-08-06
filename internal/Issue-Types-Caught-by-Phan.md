@@ -421,6 +421,22 @@ Unable to determine the method(s) which {METHOD} overrides, but Phan inferred th
 
 This category of issue is emitted when there are compatibility issues. They will be thrown if there is an expression that may be treated differently in PHP7 than it was in previous major versions of the PHP runtime. Take a look at the [PHP7 Migration Manual](http://php.net/manual/en/migration70.incompatible.php) to understand changes in behavior.
 
+## PhanCompatibleAccessMethodOnTraitDefinition
+
+```
+Calling static method {METHOD} on a trait is deprecated in php 8.1, it should only be called on a class using the trait (in {CODE})
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/v5/tests/files/expected/0624_instantiate_abstract.php.expected#L16) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v5/tests/files/src/0624_instantiate_abstract.php#L50).
+
+## PhanCompatibleAccessPropertyOnTraitDefinition
+
+```
+Accessing static property {PROPERTY} on a trait is deprecated in php 8.1, it should only be accessed on a class using the trait
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/v5/tests/files/expected/0955_trait_direct_deprecated.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v5/tests/files/src/0955_trait_direct_deprecated.php#L9).
+
 ## PhanCompatibleAnyReturnTypePHP56
 
 ```
@@ -3335,14 +3351,6 @@ Invalid offset {SCALAR} of {CODE} of array type {TYPE} in an array destructuring
 
 e.g. [this issue](https://github.com/phan/phan/tree/v5/tests/files/expected/0402_array_destructuring.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v5/tests/files/src/0402_array_destructuring.php#L4).
 
-## PhanTypeInvalidEnumCaseType
-
-```
-Saw enum case {CONST} with a value({SCALAR}) that did not match expected type {TYPE} (a future version of Phan will depend on an AST version that can be used to parse the enum declaration type)
-```
-
-e.g. [this issue](https://github.com/phan/phan/tree/v5/tests/php81_files/expected/004_enum.php.expected#L25) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v5/tests/php81_files/src/004_enum.php#L27).
-
 ## PhanTypeInvalidEval
 
 ```
@@ -3690,6 +3698,14 @@ Argument {INDEX} (${PARAMETER}) is {CODE} of type {TYPE}{DETAILS} but {FUNCTIONL
 
 e.g. [this issue](https://github.com/phan/phan/tree/v5/tests/rasmus_files/expected/0035_class_const.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v5/tests/rasmus_files/src/0035_class_const.php#L6).
 
+## PhanTypeMismatchArgumentSuperType
+
+```
+Argument {INDEX} (${PARAMETER}) is {CODE} of type {TYPE} but {FUNCTIONLIKE} takes {TYPE} defined at {FILE}:{LINE} (expected type to be the same or a subtype, but saw a supertype instead)
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/v5/tests/files/expected/0956_return_super_type.php.expected#L2) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v5/tests/files/src/0956_return_super_type.php#L20).
+
 ## PhanTypeMismatchArrayDestructuringKey
 
 ```
@@ -3745,6 +3761,14 @@ Default value for {TYPE} ${PARAMETER} can't be {TYPE}
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/v5/tests/rasmus_files/expected/0030_def_arg_type.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v5/tests/rasmus_files/src/0030_def_arg_type.php#L4).
+
+## PhanTypeMismatchDefaultIntersection
+
+```
+Default value for {TYPE} ${PARAMETER} can't be {TYPE} because the parameter contains intersection types
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/v5/tests/php81_files/expected/020_implicitly_nullable_forbidden_in_intersection.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v5/tests/php81_files/src/020_implicitly_nullable_forbidden_in_intersection.php#L3).
 
 ## PhanTypeMismatchDimAssignment
 
@@ -3917,6 +3941,14 @@ class G { function f() : int { return 'string'; } }
 ```
 
 
+## PhanTypeMismatchReturnSuperType
+
+```
+Returning {CODE} of type {TYPE} but {FUNCTIONLIKE} is declared to return {TYPE} (saw a supertype instead of a subtype)
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/v5/tests/files/expected/0956_return_super_type.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v5/tests/files/src/0956_return_super_type.php#L13).
+
 ## PhanTypeMismatchUnpackKey
 
 ```
@@ -4078,6 +4110,14 @@ Suspicious type {TYPE} of a variable or expression {CODE} used to build a string
 ```
 
 e.g. [this issue](https://github.com/phan/phan/tree/v5/tests/files/expected/0187_undeclared_var_in_string.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v5/tests/files/src/0187_undeclared_var_in_string.php#L3).
+
+## PhanTypeUnexpectedEnumCaseType
+
+```
+Saw enum case {CONST} with a value of type {TYPE} that did not match expected type {TYPE}
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/v5/tests/php81_files/expected/019_enum_wrong_case_type.php.expected#L3) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v5/tests/php81_files/src/019_enum_wrong_case_type.php#L13).
 
 ## PhanTypeVoidArgument
 
@@ -5131,6 +5171,22 @@ Cannot use an empty list in the left hand side of an array destructuring operati
 
 e.g. [this issue](https://github.com/phan/phan/tree/v5/tests/files/expected/0799_array_destructuring_failures.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v5/tests/files/src/0799_array_destructuring_failures.php#L3).
 
+## PhanSyntaxEnumCaseExpectedValue
+
+```
+Syntax error: Expected enum case {CONST} to have a value of type {TYPE} but it has no value
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/v5/tests/php81_files/expected/019_enum_wrong_case_type.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v5/tests/php81_files/src/019_enum_wrong_case_type.php#L5).
+
+## PhanSyntaxEnumCaseUnexpectedValue
+
+```
+Syntax error: Expected enum case {CONST} not to have a value
+```
+
+e.g. [this issue](https://github.com/phan/phan/tree/v5/tests/php81_files/expected/019_enum_wrong_case_type.php.expected#L2) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v5/tests/php81_files/src/019_enum_wrong_case_type.php#L9).
+
 ## PhanSyntaxError
 
 This emits warnings for unparsable PHP files (detected by `php-ast`).
@@ -5139,14 +5195,6 @@ Note: This is not the same thing as running `php -l` on a file - PhanSyntaxError
 Note: If the native parser is used, the reported column is a guess. Phan will use the column of the error reported by the **polyfill** if the errors are on the same line.
 
 e.g. [this issue](https://github.com/phan/phan/tree/v5/tests/plugin_test/expected/136_unexpected_bracket.php.expected#L1) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v5/tests/plugin_test/src/136_unexpected_bracket.php#L2).
-
-## PhanSyntaxInconsistentEnum
-
-```
-Syntax error: Enum {ENUM} unexpectedly has cases that are inconsistent with the enum declaration\'s type or lack of type
-```
-
-e.g. [this issue](https://github.com/phan/phan/tree/v5/tests/php81_files/expected/004_enum.php.expected#L22) is emitted when analyzing [this PHP file](https://github.com/phan/phan/tree/v5/tests/php81_files/src/004_enum.php#L25).
 
 ## PhanSyntaxMixedKeyNoKeyArrayDestructuring
 
