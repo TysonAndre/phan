@@ -7,6 +7,7 @@ namespace Phan\Tests\AST\TolerantASTConverter;
 use ast;
 use Phan\AST\TolerantASTConverter\NodeDumper;
 use Phan\AST\TolerantASTConverter\TolerantASTConverter;
+use Phan\Config;
 use Phan\Debug;
 use Phan\Tests\BaseTest;
 
@@ -431,6 +432,11 @@ EOT;
                     $ast->flags = 0;
                 }
                 break;
+            case ast\AST_CLASS:
+                if (Config::AST_VERSION < 85) {
+                    unset($ast->children['type']);
+                }
+                break;
         }
         foreach ($ast->children as $c) {
             if ($c instanceof ast\Node) {
@@ -441,11 +447,11 @@ EOT;
 
     private function runTestFallbackFromParser(string $incomplete_contents, string $valid_contents, bool $should_add_placeholders = false): void
     {
-        $supports80 = ConversionTest::hasNativeASTSupport(85);
+        $supports80 = ConversionTest::hasNativeASTSupport(Config::AST_VERSION);
         if (!$supports80) {
             $this->fail('No supported AST versions to test');
         }
-        $this->runTestFallbackFromParserForASTVersion($incomplete_contents, $valid_contents, 85, $should_add_placeholders);
+        $this->runTestFallbackFromParserForASTVersion($incomplete_contents, $valid_contents, Config::AST_VERSION, $should_add_placeholders);
     }
 
     private function runTestFallbackFromParserForASTVersion(string $incomplete_contents, string $valid_contents, int $ast_version, bool $should_add_placeholders): void

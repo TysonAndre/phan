@@ -1,7 +1,36 @@
 Phan NEWS
 
-??? ?? 2021, Phan 5.0.1 (dev)
+??? ?? 2021, Phan 5.2.1 (dev)
 -----------------------
+
+Bug fixes:
+- Fix type inference logic that was looking for array specializations rather than array or any array subtype (#4512)
+- Fix false positive `PhanUnreferencedClosure`/`PhanUnreferencedFunction` seen when a closure/function name was passed to a function such as `uasort` that already had a plugin analyzing calls of the closure. (#4090, #4519)
+
+Aug 26 2021, Phan 5.2.0
+-----------------------
+
+Plugins
+- Add `AddNeverReturnTypePlugin`` which will suggest adding a phpdoc return type of `@return never`. (#4468)
+
+Bug fixes:
+- When using the polyfill parser, properly parse nullable class property declarations as nullable. (#4492)
+- Don't emit PhanIncompatibleRealPropertyType for private base property. (#4426)
+- Fix false positive where a method overriding an existing method could be treated as having overrides. (#4502)
+- Consistently support `numeric-string` in all phpdoc
+- Fix false positive `PhanTypeMismatchPropertyDefaultReal` warning for literal integer and `float` typed property. (#4507)
+- Fix false positive warnings such as `PhanImpossibleTypeComparison` about string subtypes not casting to other string subtypes (#4514)
+
+Maintenance:
+- Change internal representation of FunctionSignatureMap delta files.
+- Add a new exit status bit flag to `BlockExitStatusChecker` to indicate that a function will exit or infinitely loop (`STATUS_NORETURN`) (#4468)
+- Internally represent the base function map using php 8.0 signatures instead of php 7.3 - applying deltas backwards has the same result (#4478)
+
+Aug 07 2021, Phan 5.1.0
+-----------------------
+
+New Features (Analysis):
+- Support running Phan 5 with AST version 80 instead of 85 but warn about php-ast being outdated.
 
 Documentation:
 - Update documentation of `--target-php-version` and `--minimum-target-php-version`

@@ -9,6 +9,7 @@ use ast;
 use Phan\AST\TolerantASTConverter\NodeDumper;
 use Phan\AST\TolerantASTConverter\Shim;
 use Phan\AST\TolerantASTConverter\TolerantASTConverter;
+use Phan\Config;
 use Phan\Debug;
 use Phan\Tests\BaseTest;
 use RecursiveDirectoryIterator;
@@ -18,7 +19,6 @@ use RuntimeException;
 use function count;
 use function get_class;
 use function in_array;
-use function is_array;
 use function is_int;
 use function is_string;
 
@@ -98,12 +98,12 @@ final class ConversionTest extends BaseTest
         $paths = $this->scanSourceDirForPHP($source_dir);
 
         self::sortByTokenCount($paths);
-        $supports80 = self::hasNativeASTSupport(85);
+        $supports80 = self::hasNativeASTSupport(Config::AST_VERSION);
         if (!$supports80) {
-            throw new RuntimeException("Version 85 is not natively supported");
+            throw new RuntimeException(\sprintf("Version %d is not natively supported", Config::AST_VERSION));
         }
         foreach ($paths as $path) {
-            $tests[] = [$path, 85];
+            $tests[] = [$path, Config::AST_VERSION];
         }
         return $tests;
     }
@@ -118,6 +118,12 @@ final class ConversionTest extends BaseTest
             if ($kind === ast\AST_FUNC_DECL || $kind === ast\AST_METHOD) {
                 // https://github.com/nikic/php-ast/issues/64
                 $node->flags &= ~(0x800000);
+            }
+            if ($kind === ast\AST_CLASS && !\array_key_exists('type', $node->children)) {
+                $declId = $node->children['__declId'];
+                $node->children['type'] = null;
+                unset($node->children['__declId']);
+                $node->children['__declId'] = $declId;
             }
             foreach ($node->children as $c) {
                 self::normalizeOriginalAST($c);
@@ -136,6 +142,7 @@ final class ConversionTest extends BaseTest
      * Set all of the line numbers to constants,
      * so that minor differences in line numbers won't cause tests to fail.
      */
+    /*
     public static function normalizeLineNumbers(ast\Node $node): ast\Node
     {
         $node = clone($node);
@@ -149,7 +156,11 @@ final class ConversionTest extends BaseTest
         $node->lineno = 1;
         return $node;
     }
+     */
 
+    /**
+     * A list of ast\Node kinds that declare functions
+     */
     private const FUNCTION_DECLARATION_KINDS = [
         ast\AST_FUNC_DECL,
         ast\AST_METHOD,
@@ -227,10 +238,12 @@ final class ConversionTest extends BaseTest
         }
         $this->assertInstanceOf('\ast\Node', $fallback_ast, 'The fallback must also return a tree of php-ast nodes');
 
+        /*
         if ($test_folder_name === 'phan_test_files' || $test_folder_name === 'php-src_tests') {
             $fallback_ast = self::normalizeLineNumbers($fallback_ast);
             $ast          = self::normalizeLineNumbers($ast);
         }
+         */
         self::normalizeNodeFlags($ast);
         self::normalizeNodeFlags($fallback_ast);
         // TODO: Remove $ast->parent recursively
