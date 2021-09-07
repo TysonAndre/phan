@@ -3,14 +3,27 @@ Phan NEWS
 ??? ?? 2021, Phan 5.2.1 (dev)
 -----------------------
 
+New Features:
+- Improve analysis of conditions detecting the empty/non-empty array. (#4523)
+  E.g. support `if ($x === []) {...} else {...}`, `if (count($x) > 0) {...} else {...}`, etc.
+- Raise severity of `PhanTypeNonVarPassByRef` to critical. It throws an Error in php 8.0+. (#3830)
+- Infer from conditions such as `in_array($var, $array, true)` that $array is a non-empty array and that $var is of a type found in the elements of $array. (#2511)
+
+Plugins:
+- Emit a proper warning when `InvokePHPNativeSyntaxCheckPlugin` is passed a path to a php binary that is missing or invalid (or if the syntax check crashed). (#4116)
+  Previously, Phan would crash with an error such as `fwrite(): write of 8196 bytes failed with errno=32 Broken pipe`
+
 Bug fixes:
 - Fix type inference logic that was looking for array specializations rather than array or any array subtype (#4512)
 - Fix false positive `PhanUnreferencedClosure`/`PhanUnreferencedFunction` seen when a closure/function name was passed to a function such as `uasort` that already had a plugin analyzing calls of the closure. (#4090, #4519)
 
+Maintenance:
+- Fix old return type signature for `get_headers` (#3273)
+
 Aug 26 2021, Phan 5.2.0
 -----------------------
 
-Plugins
+Plugins:
 - Add `AddNeverReturnTypePlugin`` which will suggest adding a phpdoc return type of `@return never`. (#4468)
 
 Bug fixes:
