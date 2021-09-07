@@ -1,6 +1,36 @@
 Phan NEWS
 
-??? ?? 202?, Phan 3.2.8 (dev)
+Dec 31 2020, Phan 3.2.10
+------------------------
+
+Phan 4 is out (requires php-ast 1.0.7+ to run),
+and that release line will contain all of Phan's new features, bug fixes, and crash fixes.
+
+Maintenance:
+
++ Recommend using Phan 4 when analyzing code as a line printed to `STDERR`. (#4189)
++ Mention that Phan 4 has been released in `--help`, `--version`, and crash reports. (#4189)
+  The environment variable `PHAN_SUPPRESS_PHP_UPGRADE_NOTICE=1` can be set to disable this notice.
++ Warn if attempting to execute Phan 3.x with PHP 8.1-dev or newer (A future release of Phan 4+ will fully support 8.1)
+  PHP 8.1 may contain changes to syntax that are unsupported by Phan 3 or the native/polyfill parsers.
+
+Bug fixes
++ Fix false positive PhanPossiblyFalseTypeReturn with strict type checking for substr when target php version is 8.0+ (#4335)
+
+Dec 26 2020, Phan 3.2.9
+-----------------------
+
+Bug fixes:
++ Fix a few parameter names for issue messages (#4316)
++ Fix bug that could cause Phan not to warn about `SomeClassWithoutConstruct::__construct`
+  in some edge cases. (#4323)
++ Properly infer `self` is referring to the current object context even when the object context is unknown in namespaces. (#4070)
+
+Deprecations:
++ Emit a deprecation notice when running this in PHP 7 and php-ast < 1.0.7. (#4189)
+  This can be suppressed by setting the environment variable `PHAN_SUPPRESS_AST_DEPRECATION=1`.
+
+Dec 23 2020, Phan 3.2.8
 -----------------------
 
 Bug fixes:
@@ -10,6 +40,7 @@ Bug fixes:
 + Don't emit `PhanCompatibleConstructorPropertyPromotion` when `minimum_target_php_version` is 8.0 or newer. (#4307)
 + Infer that PHP 8.0 constructor property promotion's properties have write references. (#4308)
   They are written to by the constructor.
++ Inherit phpdoc parameter types for the property declaration in php 8.0 constructor property promotion (#4311)
 
 Dec 13 2020, Phan 3.2.7
 -----------------------

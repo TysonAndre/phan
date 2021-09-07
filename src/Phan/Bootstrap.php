@@ -42,6 +42,23 @@ if (PHP_VERSION_ID < 70200) {
     fwrite(STDERR, "Exiting without analyzing code." . PHP_EOL);
     // The version of vendor libraries this depends on will also require php 7.1
     exit(1);
+} elseif (PHP_VERSION_ID >= 80100) {
+    if (!getenv('PHAN_SUPPRESS_PHP_UPGRADE_NOTICE')) {
+        fprintf(
+            STDERR,
+            "Phan %s does not support PHP 8.1+ (PHP %s is installed)" . PHP_EOL,
+            CLI::PHAN_VERSION,
+            PHP_VERSION
+        );
+        fwrite(
+            STDERR,
+            "Phan 4 or newer may support the latest features of PHP 8.1+." . PHP_EOL
+        );
+        fwrite(
+            STDERR,
+            "Executing anyway (Phan may crash). This notice can be disabled with PHAN_SUPPRESS_PHP_UPGRADE_NOTICE=1." . PHP_EOL
+        );
+    }
 }
 
 const LATEST_KNOWN_PHP_AST_VERSION = '1.0.10';
@@ -105,6 +122,7 @@ EOT
 if (extension_loaded('ast')) {
     // Warn if the php-ast version is too low.
     $ast_version = (string)phpversion('ast');
+    $did_warn = false;
     if (PHP_VERSION_ID >= 80000 && version_compare($ast_version, '1.0.10') < 0) {
         fprintf(
             STDERR,
@@ -116,9 +134,10 @@ if (extension_loaded('ast')) {
         fwrite(STDERR, "Exiting without analyzing files." . PHP_EOL);
         exit(1);
     } elseif (PHP_VERSION_ID >= 70400 && version_compare($ast_version, '1.0.2') < 0) {
+        $did_warn = true;
         fprintf(
             STDERR,
-            "WARNING: Phan 3.x requires php-ast 1.0.2+ to properly analyze ASTs for php 7.4+ (1.0.6+ is recommended). php-ast %s and php %s is installed." . PHP_EOL,
+            "WARNING: Phan 3.x requires php-ast 1.0.2+ to properly analyze ASTs for php 7.4+ (1.0.10+ is recommended). php-ast %s and php %s is installed." . PHP_EOL,
             $ast_version,
             PHP_VERSION
         );
@@ -143,10 +162,18 @@ if (extension_loaded('ast')) {
         fwrite(STDERR, "Exiting without analyzing files." . PHP_EOL);
         exit(1);
     }
-    // @phan-suppress-next-line PhanRedundantCondition, PhanImpossibleCondition, PhanSuspiciousValueComparison
-    if (PHP_VERSION_ID >= 80000 && strpos(PHP_VERSION, 'dev') === false && version_compare(PHP_VERSION, '8.0.0beta4') < 0) {
-        fwrite(STDERR, "WARNING: Phan may not work properly in PHP 8 versions before PHP 8.0.0beta4. The currently used PHP version is " . PHP_VERSION . PHP_EOL);
+    if (!$did_warn && version_compare($ast_version, '1.0.7') < 0) {
+        if (!getenv('PHAN_SUPPRESS_AST_DEPRECATION')) {
+            fprintf(STDERR, "Phan 4.0 will require php-ast 1.0.7+ to parse code using the native parser (1.0.10+ is recommended), but php-ast %s is installed." . PHP_EOL, $ast_version);
+            phan_output_ast_installation_instructions();
+            fwrite(STDERR, "(Set PHAN_SUPPRESS_AST_DEPRECATION=1 to suppress this message)" . PHP_EOL);
+        }
     }
+    // @phan-suppress-next-line PhanRedundantCondition, PhanImpossibleCondition, PhanSuspiciousValueComparison
+    if (PHP_VERSION_ID >= 80000 && version_compare(PHP_VERSION, '8.0.0') < 0) {
+        fwrite(STDERR, "WARNING: Phan may not work properly in PHP 8 versions before PHP 8.0.0. The currently used PHP version is " . PHP_VERSION . PHP_EOL);
+    }
+    unset($did_warn);
     unset($ast_version);
 }
 
@@ -355,9 +382,10 @@ function phan_error_handler(int $errno, string $errstr, string $errfile, int $er
             $did_warn = true;
             if (!getenv('PHAN_SUPPRESS_AST_DEPRECATION')) {
                 CLI::printWarningToStderr(sprintf(
-                    "php-ast AST version %d used by Phan %s has been deprecated. Check if a newer version of Phan is available." . PHP_EOL,
+                    "php-ast AST version %d used by Phan %s has been deprecated in php-ast %s. Check if a newer version of Phan is available." . PHP_EOL,
                     Config::AST_VERSION,
-                    CLI::PHAN_VERSION
+                    CLI::PHAN_VERSION,
+                    (string)phpversion('ast')
                 ));
                 fwrite(STDERR, "(Set PHAN_SUPPRESS_AST_DEPRECATION=1 to suppress this message)" . PHP_EOL);
             }
